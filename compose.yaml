@@ -1,0 +1,50 @@
+services:
+  nginx:
+    container_name: nginx
+    build: ./nginx
+    networks:
+      - capybara
+    restart: always
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - 8080:80
+
+  frontend:
+    container_name: frontend
+    build: ./frontend
+    networks:
+      - capybara
+    restart: always
+    develop:
+      watch:
+        - path: ./frontend/package.json
+          action: rebuild
+        - path: ./frontend/next.config.ts
+          action: rebuild
+        - path: ./frontend/package-lock.json
+          action: rebuild
+        - path: .
+          target: /app
+          action: sync
+
+  backend:
+    container_name: backend
+    build: ./backend
+    networks:
+      - capybara
+    restart: always
+    develop:
+      watch:
+        - path: ./backend/package.json
+          action: rebuild
+        - path: ./backend/package-lock.json
+          action: rebuild
+        - path: .
+          target: /app
+          action: sync
+
+networks:
+  capybara:
+    driver: bridge
