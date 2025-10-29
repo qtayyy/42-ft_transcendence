@@ -8,4 +8,5 @@ COPY package*.json ./
 # USER app
 RUN npm install
 COPY . .
-CMD npm run dev
+ENV DATABASE_URL="file:/data/dev.db"
+CMD npx prisma migrate dev --name init && npm run seed && npm run dev
