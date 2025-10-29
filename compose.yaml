@@ -35,6 +35,8 @@ services:
     networks:
       - capybara
     restart: always
+    volumes:
+      - ./data:/data
     develop:
       watch:
         - path: ./backend/package.json
