@@ -5,6 +5,7 @@ if [ ! -f ../data/dev.db ]; then
   npx prisma migrate dev --name init
   npm run seed
 else
+  npx prisma generate 
   echo "Database already exists. Skipping migrations and seeding."
 fi
 

@@ -37,6 +37,8 @@ services:
     restart: always
     volumes:
       - ./data:/data
+    ports:
+      - 3001:3001
     develop:
       watch:
         - path: ./backend/package.json
