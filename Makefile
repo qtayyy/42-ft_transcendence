@@ -6,6 +6,9 @@ build:
 start:
 	@docker compose -f ./compose.yaml up -d
 
+dev: build
+	@docker compose -f ./compose.yaml watch
+
 stop:
 	@docker compose -f ./compose.yaml stop
 
