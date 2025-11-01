@@ -14,6 +14,21 @@ export default async function (fastify, opts) {
     if (!user) return reply.code(400).send({ error: "Incorrect email or password"});
     const match = await bcrypt.compare(password, user.password);
     if (match === false) return reply.code(400).send({ error: "Incorrect email or password"});
-    return reply.send({ message: "Login successful" });
-  })
+    
+    const token = fastify.jwt.sign({
+      userId: user.id,
+      email: user.email,
+    }, {
+      expiresIn: '1h'
+    });
+
+    return reply.code(200).send({
+      message: 'Login successful version2',
+      token,
+      user: {
+        userId: user.id,
+        email: user.email,
+      }
+    });
+  });
 }
