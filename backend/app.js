@@ -10,7 +10,14 @@ export const options = {}
 
 export default async function (fastify, opts) {
   // Place here your custom code!
+  fastify.setErrorHandler((error, request, reply) => {
+    console.error(error);
 
+    reply.status(500).send({
+      message: 'Something went wrong!',
+      error: error.message || 'Unknown error',
+    });
+  });
   // Do not touch the following lines
 
   // This loads all plugins defined in plugins
