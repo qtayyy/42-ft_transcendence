@@ -13,7 +13,7 @@ export default fp(async (fastify) => {
 
   fastify.decorate("authenticate", async function(request, reply) {
     try {
-      await request.jwtVerify()
+      await request.jwtVerify({ cookie: { cookieName: 'token' } })
     } catch (err) {
       reply.send(err)
     }
