@@ -17,7 +17,7 @@ export default async function (fastify, opts) {
   fastify.get(
     "/:userId/2fa/enable",
     {
-      preHandler: [fastify.authenticate]
+      onRequest: [fastify.authenticate]
     },
     async (request, reply) => {
     try {
