@@ -13,6 +13,8 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    "noImplicitAny": true,
+    "strictBindCallApply": true,
     "plugins": [
       {
         "name": "next"
