@@ -1,6 +1,6 @@
 import otplib from "otplib";
 import qrcode from "qrcode";
-import { PrismaClient } from "../../../generated/prisma/index.js";
+import { PrismaClient } from "../../../../generated/prisma/index.js";
 import * as crypto from "crypto";
 
 const prisma = new PrismaClient();
