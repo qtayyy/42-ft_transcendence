@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button"
+import { AuthDialog } from "./ui/auth";
 
 export default function App()
 {
@@ -14,7 +14,7 @@ export default function App()
           fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2
           text-gray-100 text-6xl font-bold items-center">
             FT_TRANSCENDENCE
-            <Button className="w-40 h-12 text-lg">Start Playing</Button>
+            <AuthDialog text="Sign In" />
         </div>
     </div>
     
