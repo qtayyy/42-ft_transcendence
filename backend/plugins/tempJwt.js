@@ -9,7 +9,11 @@ export default fp(async (fastify) => {
 
   fastify.register(jwt, {
     secret: process.env.TEMP_JWT_SECRET,
-    namespace: 'temp'
+    namespace: 'temp',
+    cookie: {
+      cookieName: 'token',
+      signed: false
+    }
   })
 
   // fastify.decorate("authenticate", async function(request, reply) {
