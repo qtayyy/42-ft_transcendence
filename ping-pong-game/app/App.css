@@ -1,0 +1,254 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: 'Arial', sans-serif;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.app {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.game-container {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 30px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-width: 1100px;
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.title {
+  color: white;
+  font-size: 2.5rem;
+  font-weight: bold;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.scoreboard {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 15px 25px;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.score-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.player-label {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.score-value {
+  color: white;
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.score-divider {
+  color: white;
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.player1 .score-value {
+  color: #00f5ff;
+  text-shadow: 0 0 20px #00f5ff;
+}
+
+.player2 .score-value {
+  color: #ff00ff;
+  text-shadow: 0 0 20px #ff00ff;
+}
+
+.canvas-wrapper {
+  position: relative;
+  border-radius: 15px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.game-canvas {
+  display: block;
+  background: rgba(0, 0, 0, 0.3);
+  width: 100%;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+.overlay-content {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 40px;
+  text-align: center;
+  color: white;
+  max-width: 500px;
+  width: 90%;
+}
+
+.overlay-content h2 {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.controls-info {
+  display: flex;
+  justify-content: space-around;
+  gap: 30px;
+  margin: 30px 0;
+  flex-wrap: wrap;
+}
+
+.control-group {
+  text-align: center;
+}
+
+.control-group h3 {
+  color: #00f5ff;
+  margin-bottom: 15px;
+  font-size: 1.2rem;
+}
+
+.control-group p {
+  margin: 8px 0;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+kbd {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+.pause-hint {
+  margin: 20px 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-style: italic;
+}
+
+.start-button {
+  background: linear-gradient(135deg, #00f5ff, #ff00ff);
+  border: none;
+  padding: 15px 40px;
+  border-radius: 50px;
+  color: white;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 245, 255, 0.4);
+  margin-top: 20px;
+}
+
+.start-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(0, 245, 255, 0.6);
+}
+
+.winner-screen h2 {
+  background: linear-gradient(135deg, #00f5ff, #ff00ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 3rem;
+}
+
+.final-score {
+  font-size: 1.5rem;
+  margin: 20px 0;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.info-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 15px 30px;
+  border-radius: 50px;
+  color: white;
+  font-size: 1rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .game-container {
+    padding: 15px;
+  }
+  
+  .header {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .title {
+    font-size: 2rem;
+  }
+  
+  .overlay-content {
+    padding: 20px;
+  }
+  
+  .overlay-content h2 {
+    font-size: 2rem;
+  }
+  
+  .controls-info {
+    flex-direction: column;
+    gap: 20px;
+  }
+}

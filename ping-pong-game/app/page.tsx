@@ -1,3 +1,5 @@
+'use client'; // Important: Mark as client component
+
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import './App.css';
 
@@ -22,7 +24,7 @@ interface Keys {
   [key: string]: boolean;
 }
 
-const App: React.FC = () => {
+const PingPongGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState({ player1: 0, player2: 0 });
   const [gameStarted, setGameStarted] = useState(false);
@@ -30,7 +32,7 @@ const App: React.FC = () => {
   const [winner, setWinner] = useState<string | null>(null);
   
   const keysRef = useRef<Keys>({});
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | null>(null);
   
   const CANVAS_WIDTH = 1000;
   const CANVAS_HEIGHT = 600;
@@ -357,4 +359,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+export default PingPongGame;
