@@ -35,12 +35,13 @@ export default async function (fastify, opts) {
         );
         return reply
           .setCookie("token", token, {
-            path: '/api/auth/2fa/verify', // double check
+            path: '/', // Should be fine
             secure: true,
             httpOnly: true,
             sameSite: true,
+            maxAge: 300
           })
-          .code(401) // Or 200?
+          .code(202)
           .send({
             message: "2FA enabled, please complete the authentication process",
             twofaUrl: "/api/auth/2fa/verify",
@@ -59,6 +60,7 @@ export default async function (fastify, opts) {
             secure: true,
             httpOnly: true,
             sameSite: true,
+            maxAge: 3600
           })
           .code(200)
           .send({
