@@ -29,6 +29,16 @@ services:
           target: /app
           action: sync
 
+  ping-pong-game:
+    build: 
+      context: ./ping-pong-game
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    
   backend:
     container_name: backend
     build: ./backend
