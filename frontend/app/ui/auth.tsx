@@ -19,8 +19,10 @@ import {
 } from "@/components/ui/shadcn-io/tabs";
 import { AlertCircleIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useRouter } from "next/navigation";
 
 export function AuthDialog({ text }: { text: string }) {
+  const router = useRouter();
   const [tab, setTab] = useState(text === "Sign In" ? "signIn" : "signUp");
   const [errorMessage, setErrorMessage] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
@@ -51,6 +53,10 @@ export function AuthDialog({ text }: { text: string }) {
         tab === "signIn" ? "/api/auth/login" : "/api/auth/register";
       const response = await axios.post(endpoint, data);
       console.log("Response:", response.data);
+      if (response.status === 200)
+        router.push("/dashboard");
+      else if (response.status === 202)
+          router.push("/2fa/verify");
     } catch (error: any) {
       const backendError = error.response?.data?.error;
       setErrorMessage(backendError || "Something went wrong. Please try again later.");
