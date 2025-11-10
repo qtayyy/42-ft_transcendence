@@ -8,9 +8,10 @@ export default async function (fastify, opts) {
     try {
       const { code } = request.body;
       const token = request.cookies.token;
-
-      if (!token || !code)
-        return reply.code(401).send({ error: "Missing JWT or 2FA code" });
+      if (!token)
+        return reply.code(401).send({ error: "Token expired. Please re-login." });
+      if (!code)
+        return reply.code(401).send({ error: "Missing 2FA code." });
 
       // Verify temporary JWT to ensure users have passed the initial login stage.
       // The decoded token is then used to get the user ID.
@@ -23,19 +24,20 @@ export default async function (fastify, opts) {
       // Finally, we check if the OTP given is correct
       const isValid = otplib.authenticator.check(code, user.twoFASecret);
       // WIP: Add method using backup code
-      if (!isValid) return reply.status(401).send("Invalid 2FA token");
-
+      if (!isValid) return reply.status(401).send({ error: "Invalid 2FA code" }); 
       const fullToken = fastify.jwt.sign(
           { userId: user.id },
           { expiresIn: "1h" }
         );
 
         return reply
+          .clearCookie("token", { path: "/" })
           .setCookie("token", fullToken, {
             path: '/',
             secure: true,
             httpOnly: true,
             sameSite: true,
+            maxAge: 3600
           })
           .code(200)
           .send({
