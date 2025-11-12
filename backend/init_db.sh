@@ -3,7 +3,7 @@
 if [ ! -f ../data/dev.db ]; then
   echo "Database not found. Running migrations and seeding..."
   npx prisma migrate dev --name init
-  npm run seed
+  # npm run seed
 else
   npx prisma generate 
   echo "Database already exists. Skipping migrations and seeding."
