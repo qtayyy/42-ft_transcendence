@@ -10,6 +10,10 @@ services:
       - backend
     ports:
       - 8443:443
+    develop:
+      watch:
+        - path: ./nginx/nginx.conf
+          action: rebuild
 
   frontend:
     container_name: frontend
@@ -37,6 +41,7 @@ services:
     restart: always
     volumes:
       - ./data:/data
+      - ./uploads:/app/uploads
     ports:
       - 3001:3001
     develop:
