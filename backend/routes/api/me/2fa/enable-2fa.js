@@ -54,7 +54,7 @@ export default async function (fastify, opts) {
           });
           return { twoFASecret, imageUrl, backupCodes };
         });
-        return reply.send(result);
+        return reply.code(200).send(result);
       } catch (error) {
         console.error("Error occurred during 2FA:", error);
         return reply.code(500).send({ error: "Internal server error" });
