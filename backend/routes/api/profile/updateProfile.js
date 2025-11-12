@@ -6,7 +6,7 @@ import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
-function safeFilename(original) {
+function safeFilename(userId, original) {
   const ext = path.extname(original).replace(/[^a-zA-Z0-9.]/g, '');
   const name = crypto.randomBytes(12).toString('hex');
   return `${userId}-${Date.now()}-${name}${ext}`;
@@ -34,7 +34,7 @@ export default async function (fastify, opts) {
             const uploadDir = path.join(process.cwd(), "uploads");
             fs.mkdirSync(uploadDir, { recursive: true });
 
-            const filename = safeFilename(part.filename);
+            const filename = safeFilename(userId, part.filename);
             const filepath = path.join(uploadDir, filename);
             await pipeline(part.file, fs.createWriteStream(filepath));
             avatarUrl = `/uploads/${filename}`;
