@@ -2,8 +2,15 @@ import { PrismaClient } from "../../../generated/prisma/index.js";
 import fs from "fs";
 import path from "path";
 import { pipeline } from "stream/promises";
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
+
+function safeFilename(original) {
+  const ext = path.extname(original).replace(/[^a-zA-Z0-9.]/g, '');
+  const name = crypto.randomBytes(12).toString('hex');
+  return `${userId}-${Date.now()}-${name}${ext}`;
+}
 
 export default async function (fastify, opts) {
   fastify.put(
@@ -21,17 +28,18 @@ export default async function (fastify, opts) {
         // 1. https://www.npmjs.com/package/@fastify/multipart
         // 2. https://betterstack.com/community/guides/scaling-nodejs/fastify-file-uploads/
         const parts = request.parts();
+        const ALLOWED_FIELDS = new Set(['username','fullname','dob','region']);
         for await (const part of parts) {
           if (part.type === "file") {
             const uploadDir = path.join(process.cwd(), "uploads");
             fs.mkdirSync(uploadDir, { recursive: true });
 
-            const filename = `${userId}-${Date.now()}-${part.filename}`;
+            const filename = safeFilename(part.filename);
             const filepath = path.join(uploadDir, filename);
             await pipeline(part.file, fs.createWriteStream(filepath));
             avatarUrl = `/uploads/${filename}`;
-          } else if (part.type === "field") {
-            updates[part.fieldname] = part.value;
+          } else if (part.type === "field" && ALLOWED_FIELDS.has(part.fieldname)) {
+              updates[part.fieldname] = part.value;
           }
         }
 
