@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@radix-ui/react-label";
 import axios from "axios";
 import React, { useEffect, useState } from "react";
+import { AlertCircleIcon } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState({
@@ -19,10 +21,12 @@ export default function ProfilePage() {
   const [preview, setPreview] = useState("");
   // Stores chosen avatar file to be sent to backend
   const [selectedAvatar, setSelectedAvatar] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     async function getProfile() {
       try {
+        setError("");
         const { data } = await axios.get("/api/profile");
         setProfile({
           username: data.username || "",
@@ -31,8 +35,11 @@ export default function ProfilePage() {
           region: data.region || "",
         });
         setPreview(data.avatar || "");
-      } catch (error) {
-        console.error("Failed to load profile:", error);
+      } catch (error: any) {
+        const backendError = error.response.data.error;
+        setError(
+          backendError || "Something went wrong. Please try again later."
+        );
       }
     }
     getProfile();
@@ -54,32 +61,41 @@ export default function ProfilePage() {
   }
 
   async function handleSave() {
-  try {
-    // https://developer.mozilla.org/en-US/docs/Web/API/FormData
-    const formData = new FormData();
+    try {
+      // https://developer.mozilla.org/en-US/docs/Web/API/FormData
+      const formData = new FormData();
 
-    // Append avatar if selected
-    if (selectedAvatar) formData.append("avatar", selectedAvatar);
+      // Append avatar if selected
+      if (selectedAvatar) formData.append("avatar", selectedAvatar);
 
-    // Append all profile fields
-    Object.keys(profile).forEach((key) => {
-      formData.append(key, profile[key]);
-    });
+      // Append all profile fields
+      Object.keys(profile).forEach((key) => {
+        formData.append(key, profile[key]);
+      });
 
-    await axios.put("/api/profile", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+      setError("");
 
-    setSelectedAvatar(null);
-    alert("Profile saved");
-  } catch (error) {
-    console.error("Failed to save profile:", error);
+      await axios.put("/api/profile", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setSelectedAvatar(null);
+      alert("Profile saved");
+    } catch (error: any) {
+      const backendError = error.response.data.error;
+      setError(backendError || "Something went wrong. Please try again later.");
+    }
   }
-}
-
 
   return (
     <div className="h-screen bg-accent m-2 p-6">
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircleIcon className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
       <div className="flex justify-between">
         <p className="text-2xl font-semibold p-5">Profile</p>
         <Button className="m-5" variant="default" onClick={handleSave}>

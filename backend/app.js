@@ -13,6 +13,13 @@ export default async function (fastify, opts) {
   fastify.setErrorHandler((error, request, reply) => {
     console.error(error);
 
+    if (
+      error.name === "UnauthorizedError" ||
+      error.code === "FST_JWT_NO_AUTHORIZATION_IN_HEADER"
+    ) {
+      return reply.code(401).send({ error: "Unauthorized request." });
+    }
+
     reply.status(500).send({
       message: "Something went wrong!",
       error: error.message || "Unknown error",
