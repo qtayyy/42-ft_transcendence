@@ -14,5 +14,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher:  ["/dashboard/:path*" , "/2fa/:path*", "/profile/:path*"]
+  matcher:  ["/dashboard" , "/2fa/:path*", "/profile", "/settings",]
 };
