@@ -1,6 +1,5 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -97,7 +96,7 @@ export default function ProfilePage() {
         </Alert>
       )}
       <div className="flex justify-between">
-        <p className="text-2xl font-semibold p-5">Profile</p>
+        <p className="text-2xl font-semibold p-5">PROFILE</p>
         <Button className="m-5" variant="default" onClick={handleSave}>
           Save
         </Button>
