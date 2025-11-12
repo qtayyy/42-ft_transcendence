@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 export default async function (fastify, opts) {
   fastify.post("/register", async (request, reply) => {
     try {
-      const { email, password } = request.body;
+      const { email, password, fullName } = request.body;
 
       if (!email || !password)
         return reply.code(400).send({ error: "Missing fields" });
@@ -17,9 +17,22 @@ export default async function (fastify, opts) {
 
       const passwordHash = await bcrypt.hash(password, 10);
       const user = await prisma.user.create({
-        data: { email, password: passwordHash },
+        data: {
+          email,
+          password: passwordHash,
+
+          profile: {
+            create: {
+              avatar: "",
+              username: email,
+              fullname: fullName,
+              dob: null,
+              region: null,
+            },
+          },
+        },
       });
-      return reply.send({ message: "User created:", user });
+      return reply.code(200).send({ message: "User created:", user });
     } catch (error) {
       console.error("Error occurred during registration:", error);
       return reply.code(500).send({ error: "Internal server error" });
