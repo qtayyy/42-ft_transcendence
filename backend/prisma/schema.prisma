@@ -25,7 +25,7 @@ model User {
 
 model Profile {
   id        Int @id @default(autoincrement())
-  avatar    Bytes
+  avatar    String?
   username  String @unique
   fullname  String?
   dob       DateTime?
@@ -36,9 +36,9 @@ model Profile {
 
 model Friends {
   id        Int @id @default(autoincrement())
-  username  String @unique
+  username  String
   user      User @relation(fields: [userId], references: [id])
-  userId    Int @unique
+  userId    Int
 }
 
 model Tournaments {
@@ -47,7 +47,7 @@ model Tournaments {
   players     String
   winner      String
   user        User @relation(fields: [userId], references: [id])
-  userId      Int @unique
+  userId      Int
   matches     Matches[]
 }
 
@@ -58,5 +58,5 @@ model Matches {
   score1        Int
   score2        Int
   tournament    Tournaments @relation(fields: [tournamentId], references: [id])
-  tournamentId  Int @unique
+  tournamentId  Int
 }
