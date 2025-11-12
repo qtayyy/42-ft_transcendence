@@ -12,10 +12,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { useEffect, useState } from "react";
 
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
+  const [avatar, setAvatar] = useState("");
+  const [username, setUsername] = useState("");
 
   const handleLogOut = () => {
     try {
@@ -25,6 +28,24 @@ export default function Header() {
       console.error("Logout failed:", error);
     }
   };
+
+  // I removed the dependency array but there should also be a better way
+  // to handle when the profile pic changes.
+  useEffect(() => {
+    async function getAvatar() {
+      try {
+        // Paths are hardcoded - can find a better way to handle this.
+        if (pathname !== "/" && pathname !== "/2fa/verify") {
+          const { data } = await axios.get("/api/profile");
+          setAvatar(data.avatar);
+          setUsername(data.username);
+        }
+      } catch (error) {
+        console.error("Failed to fetch avatar", error);
+      }
+    }
+    getAvatar();
+  });
 
   return (
     <div className="sticky top-0 flex justify-between p-3 items-center dark:bg-background z-50">
@@ -37,7 +58,9 @@ export default function Header() {
         // className="hidden md:block"
         alt="Pong game logo">
         </Image> */}
-        <p className="text-gray-100">Logo placeholder</p>
+        <p onClick={() => router.push("/dashboard")} className="text-gray-100">
+          Logo placeholder
+        </p>
       </div>
       <div className="flex space-x-5">
         {pathname === "/2fa/verify" ? null : pathname === "/" ? (
@@ -49,14 +72,22 @@ export default function Header() {
           <DropdownMenu>
             <DropdownMenuTrigger>
               <Avatar>
-                <AvatarImage src="https://github.com/shadcn.png" />
-                <AvatarFallback>CN</AvatarFallback>
+                <AvatarImage src={avatar} />
+                <AvatarFallback>
+                  {username ? username[0].toUpperCase() : "?"}
+                </AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Match History</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/profile")}>
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/match")}>
+                Match History
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/settings")}>
+                Settings
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleLogOut}>
                 Log Out
               </DropdownMenuItem>
