@@ -13,6 +13,7 @@ import {
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { useEffect, useState } from "react";
+import Logo from "@/components/logo/logo.png";
 
 export default function Header() {
   const pathname = usePathname();
@@ -50,7 +51,7 @@ export default function Header() {
   return (
     <div className="sticky top-0 flex justify-between p-3 items-center dark:bg-background z-50">
       <div>
-        {/* <Image
+         {/* <Image
         src="/pong-icon.png"
         width={0}
         height={0}
@@ -58,9 +59,20 @@ export default function Header() {
         // className="hidden md:block"
         alt="Pong game logo">
         </Image> */}
-        <p onClick={() => router.push("/dashboard")} className="text-gray-100">
-          Logo placeholder
-        </p>
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard")}
+          className="p-0 border-0 bg-transparent cursor-pointer"
+          aria-label="Go to dashboard"
+        >
+          <Image
+            src={Logo}
+            alt="FT Transcendence logo"
+            width={90}
+            height={90}
+            priority
+          />
+        </button>
       </div>
       <div className="flex space-x-5">
         {pathname === "/2fa/verify" ? null : pathname === "/" ? (
