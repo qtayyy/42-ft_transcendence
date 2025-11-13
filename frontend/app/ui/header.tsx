@@ -20,6 +20,7 @@ export default function Header() {
   const router = useRouter();
   const [avatar, setAvatar] = useState("");
   const [username, setUsername] = useState("");
+  const [mounted, setMounted] = useState(false);
 
   const handleLogOut = () => {
     try {
@@ -30,23 +31,43 @@ export default function Header() {
     }
   };
 
-  // I removed the dependency array but there should also be a better way
+   // I removed the dependency array but there should also be a better way
   // to handle when the profile pic changes.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   useEffect(() => {
     async function getAvatar() {
       try {
         // Paths are hardcoded - can find a better way to handle this.
         if (pathname !== "/" && pathname !== "/2fa/verify") {
           const { data } = await axios.get("/api/profile");
-          setAvatar(data.avatar);
-          setUsername(data.username);
+          // setAvatar(data.avatar);
+          // setUsername(data.username);
+          setAvatar(data.avatar || "");
+          setUsername(data.username || "");
         }
-      } catch (error) {
-        console.error("Failed to fetch avatar", error);
+        // catch (error) {
+        //   console.error("Failed to fetch avatar", error);
+      } catch (error: any) {
+        
+        // Only log if it's not a network/server error
+        if (error.response?.status !== 502 && error.response?.status !== 503) {
+          console.error("Failed to fetch avatar", error);
+        }
+        // Reset to defaults on error
+        setAvatar("");
+        setUsername("");
       }
     }
+    /*
     getAvatar();
   });
+    */
+    if (mounted) {
+      getAvatar();
+    }
+  }, [pathname, mounted]);
 
   return (
     <div className="sticky top-0 flex justify-between p-3 items-center dark:bg-background z-50">
@@ -64,6 +85,7 @@ export default function Header() {
           onClick={() => router.push("/dashboard")}
           className="p-0 border-0 bg-transparent cursor-pointer"
           aria-label="Go to dashboard"
+          suppressHydrationWarning
         >
           <Image
             src={Logo}
@@ -86,7 +108,8 @@ export default function Header() {
               <Avatar>
                 <AvatarImage src={avatar} />
                 <AvatarFallback>
-                  {username ? username[0].toUpperCase() : "?"}
+                  {/* {username ? username[0].toUpperCase() : "?"} */}
+                  {mounted && username ? username[0].toUpperCase() : "?"}
                 </AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
