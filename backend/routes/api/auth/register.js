@@ -32,7 +32,23 @@ export default async function (fastify, opts) {
           },
         },
       });
-      return reply.code(200).send({ message: "User created:", user });
+
+      const token = fastify.jwt.sign({ userId: user.id }, { expiresIn: "1h" });
+      return reply
+        .setCookie("token", token, {
+          path: "/",
+          secure: true,
+          httpOnly: true,
+          sameSite: true,
+          maxAge: 3600,
+        })
+        .code(200)
+        .send({
+          message: "User registered",
+          user: {
+            userId: user.id,
+          },
+        });
     } catch (error) {
       console.error("Error occurred during registration:", error);
       return reply.code(500).send({ error: "Internal server error" });
