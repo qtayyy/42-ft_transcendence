@@ -45,6 +45,10 @@ export default async function (fastify, opts) {
 
         updates.dob = updates.dob ? new Date(updates.dob) : null;
 
+        const profile = await prisma.profile.findUnique( {where: { username: updates["username"] } });
+        if (profile && userId !== profile.userId) {
+            return reply.code(400).send({ error: `Username: '${updates["username"]}' already exists.`});
+        }
         await prisma.profile.update({
           where: { userId },
           data: { ...updates, ...(avatarUrl && { avatar: avatarUrl }) },
