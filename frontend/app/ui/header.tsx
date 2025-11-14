@@ -106,7 +106,7 @@ export default function Header() {
           <DropdownMenu>
             <DropdownMenuTrigger>
               <Avatar>
-                <AvatarImage src={avatar} />
+                {avatar ? <AvatarImage src={avatar} /> : null}
                 <AvatarFallback>
                   {/* {username ? username[0].toUpperCase() : "?"} */}
                   {mounted && username ? username[0].toUpperCase() : "?"}
