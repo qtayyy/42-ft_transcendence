@@ -18,6 +18,8 @@ model User {
   twoFA       Boolean @default(false)
   twoFASecret  String?
   twoFABackup String?
+  resetOTP    String?
+  resetOTPExpiry DateTime?
   profile   Profile?
   friends   Friends[]
   tournaments Tournaments[]
