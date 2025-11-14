@@ -9,11 +9,24 @@ import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import Image from "next/image";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
   const [error, setError] = useState("");
   const [twoFA, setTwoFA] = useState(false);
   const [qrImage, setQrImage] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     async function get2FA() {
@@ -74,6 +87,23 @@ export default function SettingsPage() {
       setError(backendError || "Something went wrong. Please try again later.");
     } finally {
       form.reset();
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    setError("");
+
+    try {
+      await axios.delete("/api/profile");
+      alert("Account deleted successfully. You will be redirected to the home page.");
+      // Clear any cookies/localStorage if needed
+      router.push("/");
+    } catch (error: any) {
+      const backendError = error.response?.data?.error;
+      setError(backendError || "Something went wrong. Please try again later.");
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
     }
   };
 
@@ -140,6 +170,55 @@ export default function SettingsPage() {
             />
           </div>
         ) : null}
+        
+        {/* Delete Profile Section */}
+        <div className="border-t pt-8 mt-8">
+          <p className="text-xl font-semibold text-destructive mb-4">Delete Profile</p>
+          <p className="text-muted-foreground mb-4">
+            Once you delete your account, there is no going back. This action is irreversible.
+          </p>
+          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="destructive" className="w-auto">
+                Delete Account
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Are you sure you want to delete your account?</DialogTitle>
+                <DialogDescription>
+                  This action will permanently delete your account and all associated data including:
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>Your profile information</li>
+                    <li>Your email address</li>
+                    <li>All your friends</li>
+                    <li>All your tournament history</li>
+                    <li>All your match records</li>
+                  </ul>
+                  <strong className="block mt-3 text-destructive">
+                    This action is irreversible and cannot be undone.
+                  </strong>
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteDialogOpen(false)}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Yes, Delete My Account"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
     </div>
   );
