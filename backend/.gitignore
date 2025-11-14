@@ -58,3 +58,5 @@ profile-*
 *flamegraph*
 
 /generated/prisma
+
+.env
