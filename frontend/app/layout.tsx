@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "./ui/header";
 import Footer from "./ui/footer";
+import { Suspense } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
@@ -36,9 +37,15 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Header />
-          {children}
-          <Footer />
+          <Suspense>
+            <Header />
+          </Suspense>
+          <main className="min-h-screen w-screen">
+            {children}
+          </main>
+          <Suspense>
+            <Footer />
+          </Suspense>
         </ThemeProvider>
       </body>
     </html>
