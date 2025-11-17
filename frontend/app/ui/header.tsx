@@ -105,7 +105,7 @@ export default function Header() {
         ) : (
           <DropdownMenu>
             <DropdownMenuTrigger>
-              <Avatar>
+              <Avatar className="w-15 h-15">
                 {avatar ? <AvatarImage src={avatar} /> : null}
                 <AvatarFallback>
                   {/* {username ? username[0].toUpperCase() : "?"} */}
