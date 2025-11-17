@@ -362,7 +362,7 @@ export function AuthDialog({ text }: { text: string }) {
                     setConfirmPassword("");
                   }}
                 >
-                 // Back to Sign In
+                 Back to Sign In
                 </Button>
               </TabsContent>
             ) : tab === "signIn" ? (
