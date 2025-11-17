@@ -55,6 +55,8 @@ services:
         - path: ./backend
           target: /app
           action: sync
+          ignore:
+            - uploads/
 
 networks:
   capybara:
