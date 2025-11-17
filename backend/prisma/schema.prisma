@@ -28,8 +28,8 @@ model User {
 model Profile {
   id        Int @id @default(autoincrement())
   avatar    String?
-  username  String @unique
-  fullname  String?
+  email     String @unique
+  username  String?
   dob       DateTime?
   region    String?
   user      User @relation(fields: [userId], references: [id])
