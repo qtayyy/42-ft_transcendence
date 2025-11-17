@@ -39,6 +39,8 @@ services:
     networks:
       - capybara
     restart: always
+    env_file:
+      - ./backend/.env
     volumes:
       - ./data:/data
       - ./uploads:/app/uploads

@@ -26,6 +26,8 @@ export default function SettingsPage() {
   const [qrImage, setQrImage] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -91,19 +93,26 @@ export default function SettingsPage() {
   };
 
   const handleDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      setDeleteError("Please enter your password to confirm deletion.");
+      return;
+    }
+
     setIsDeleting(true);
-    setError("");
+    setDeleteError("");
 
     try {
-      await axios.delete("/api/profile");
+      await axios.delete("/api/profile", {
+        data: { password: deletePassword }
+      });
       alert("Account deleted successfully. You will be redirected to the home page.");
-      // Clear any cookies/localStorage if needed
+      setDeleteDialogOpen(false);
+      setDeletePassword("");
       router.push("/");
     } catch (error: any) {
       const backendError = error.response?.data?.error;
-      setError(backendError || "Something went wrong. Please try again later.");
+      setDeleteError(backendError || "Failed to delete account. Please check your password.");
       setIsDeleting(false);
-      setDeleteDialogOpen(false);
     }
   };
 
@@ -177,7 +186,13 @@ export default function SettingsPage() {
           <p className="text-muted-foreground mb-4">
             Once you delete your account, there is no going back. This action is irreversible.
           </p>
-          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
+            setDeleteDialogOpen(open);
+            if (!open) {
+              setDeletePassword("");
+              setDeleteError("");
+            }
+          }}>
             <DialogTrigger asChild>
               <Button variant="destructive" className="w-auto">
                 Delete Account
@@ -188,22 +203,42 @@ export default function SettingsPage() {
                 <DialogTitle>Are you sure you want to delete your account?</DialogTitle>
                 <DialogDescription>
                   This action will permanently delete your account and all associated data including:
-                  <ul className="list-disc list-inside mt-2 space-y-1">
-                    <li>Your profile information</li>
-                    <li>Your email address</li>
-                    <li>All your friends</li>
-                    <li>All your tournament history</li>
-                    <li>All your match records</li>
-                  </ul>
-                  <strong className="block mt-3 text-destructive">
-                    This action is irreversible and cannot be undone.
-                  </strong>
                 </DialogDescription>
               </DialogHeader>
+              <div className="space-y-4">
+                <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                  <li>Your profile information</li>
+                  <li>Your email address</li>
+                  <li>All your friends</li>
+                  <li>All your tournament history</li>
+                  <li>All your match records</li>
+                </ul>
+                <p className="text-sm font-semibold text-destructive">
+                  This action is irreversible and cannot be undone.
+                </p>
+                <div className="space-y-2 pt-2">
+                  <Label htmlFor="deletePassword">Enter your password to confirm</Label>
+                  <Input
+                    id="deletePassword"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    disabled={isDeleting}
+                  />
+                  {deleteError && (
+                    <p className="text-sm text-destructive">{deleteError}</p>
+                  )}
+                </div>
+              </div>
               <DialogFooter>
                 <Button
                   variant="outline"
-                  onClick={() => setDeleteDialogOpen(false)}
+                  onClick={() => {
+                    setDeleteDialogOpen(false);
+                    setDeletePassword("");
+                    setDeleteError("");
+                  }}
                   disabled={isDeleting}
                 >
                   Cancel
@@ -211,7 +246,7 @@ export default function SettingsPage() {
                 <Button
                   variant="destructive"
                   onClick={handleDeleteAccount}
-                  disabled={isDeleting}
+                  disabled={isDeleting || !deletePassword.trim()}
                 >
                   {isDeleting ? "Deleting..." : "Yes, Delete My Account"}
                 </Button>
