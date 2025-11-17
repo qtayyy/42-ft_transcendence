@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { useEffect, useState } from "react";
@@ -69,8 +70,17 @@ export default function Header() {
     }
   }, [pathname, mounted]);
 
+  const isLanding = pathname === "/";
+
   return (
-    <div className="sticky top-0 flex justify-between p-3 items-center dark:bg-background z-50">
+    <div
+      className={cn(
+        "z-50 flex w-full items-center justify-between p-3",
+        isLanding
+          ? "fixed inset-x-0 top-0 bg-background/60 backdrop-blur"
+          : "sticky top-0 bg-background"
+      )}
+    >
       <div>
          {/* <Image
         src="/pong-icon.png"
