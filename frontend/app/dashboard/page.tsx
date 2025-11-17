@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
 
   // hardcoded data - replace with API calls later
   const onlineFriends = [
@@ -38,7 +40,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background p-4">
       {/* New Game Button - Centered at top */}
       <div className="flex justify-center mb-6">
-        <Button size="lg" className="px-8 py-6 text-lg">
+        <Button size="lg" className="px-8 py-6 text-lg" onClick={() => router.push("/game/create")}>
           New Game
         </Button>
       </div>
