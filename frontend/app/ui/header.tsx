@@ -109,7 +109,7 @@ export default function Header() {
       <div className="flex space-x-5">
         {pathname === "/2fa/verify" ? null : pathname === "/" ? (
           <>
-            <AuthDialog text="Sign In" />
+            {/* <AuthDialog text="Sign In" /> */}
             <AuthDialog text="Get Started" />
           </>
         ) : (
