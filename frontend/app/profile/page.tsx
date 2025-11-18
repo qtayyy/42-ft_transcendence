@@ -95,6 +95,13 @@ export default function ProfilePage() {
 
   async function handleSave() {
     try {
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (profile.email && !emailRegex.test(profile.email)) {
+        setError("Please enter a valid email address (e.g., example@domain.com)");
+        return;
+      }
+
       const formData = new FormData();
 
       // If avatar was marked for deletion
