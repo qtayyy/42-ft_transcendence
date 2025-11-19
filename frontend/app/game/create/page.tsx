@@ -35,14 +35,7 @@ const onlineFriends = [
 export default function CreateGamePage() {
   // Use this to track selectedFrieds:
   // const [selectedFriends, setSelectedFriends] = useState([]);
-  const [step, setStep] = useState(1);
-  const [displayName, setDisplayName] = useState("");
   const router = useRouter();
-
-  const handleNext = () => {
-    // Need to check if there's at least one friend
-    setStep(2);
-  };
 
   // Use this to send friend request
   function handleInvite(friendValue: string) {
@@ -50,25 +43,25 @@ export default function CreateGamePage() {
 }
 
   const handleStart = async () => {
-    // Hardcoded data
+    // Hardcoded data (handle two players for now)
     const data = [
-      {username: "p1", displayName: "p1"},
-      {username: "p2", displayName: "p2"},
+      {userId: 1 },
+      {userId: 2 },
     ];
   
     const response = await axios.post("/api/game/create", data);
-    const matchId = response.data.matchId;
-    router.push(`/game/${matchId}`);
+    const tournamentId = response.data.tournamentId;
+    router.push(`/game/${tournamentId}`);
   }
 
   return (
     <div className="h-screen bg-accent">
       <p className="flex text-2xl font-semibold justify-center p-5">NEW GAME</p>
       <div className="flex justify-center">
-        {step === 1 && (
           <Card className="flex w-1/3">
             <CardContent>
               <FriendsDropdown friends={onlineFriends} onInvite={handleInvite} />
+
               {/* Hardcoded friends */}
                 <div className="flex mt-6 gap-3">
                   <Input disabled value="Friend 1" />
@@ -84,35 +77,11 @@ export default function CreateGamePage() {
                 </div>
             </CardContent>
             <CardFooter className="grid justify-end">
-              <Button className="w-40 mt-10" onClick={handleNext}>
-                Next
+              <Button className="w-40 mt-10" onClick={handleStart}>
+                Start!
               </Button>
             </CardFooter>
           </Card>
-        )}
-
-        {step === 2 && (
-          <Card className="flex w-1/3">
-            <CardTitle className="p-5 m-auto">
-              Enter Your Display Name
-            </CardTitle>
-            <CardContent>
-              <Input
-                className="p-2 border rounded w-full"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
-            </CardContent>
-            <CardFooter className="grid justify-end">
-              <Button
-                className="w-40 mt-10"
-                onClick={handleStart}
-              >
-                Start Game
-              </Button>
-            </CardFooter>
-          </Card>
-        )}
       </div>
     </div>
   );
