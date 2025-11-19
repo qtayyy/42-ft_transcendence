@@ -24,8 +24,8 @@ export default async function (fastify, opts) {
           profile: {
             create: {
               avatar: "",
-              username: email,
-              fullname: fullName,
+              email: email,
+              username: fullName || "",
               dob: null,
               region: null,
             },
