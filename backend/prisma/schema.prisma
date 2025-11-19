@@ -12,7 +12,53 @@ datasource db {
 }
 
 model User {
-  id    Int    @id @default(autoincrement())
-  email String @unique
-  name  String?
+  id          Int    @id @default(autoincrement())
+  email       String @unique
+  password    String
+  twoFA       Boolean @default(false)
+  twoFASecret  String?
+  twoFABackup String?
+  resetOTP    String?
+  resetOTPExpiry DateTime?
+  profile   Profile?
+  friends   Friends[]
+  tournaments Tournaments[]
+}
+
+model Profile {
+  id        Int @id @default(autoincrement())
+  avatar    String?
+  username  String @unique
+  fullname  String?
+  dob       DateTime?
+  region    String?
+  user      User @relation(fields: [userId], references: [id])
+  userId    Int @unique
+}
+
+model Friends {
+  id        Int @id @default(autoincrement())
+  username  String
+  user      User @relation(fields: [userId], references: [id])
+  userId    Int
+}
+
+model Tournaments {
+  id          Int @id @default(autoincrement())
+  date        DateTime   @default(now())
+  players     String
+  winner      String
+  user        User @relation(fields: [userId], references: [id])
+  userId      Int
+  matches     Matches[]
+}
+
+model Matches {
+  id            Int @id @default(autoincrement())
+  player1       String
+  player2       String
+  score1        Int
+  score2        Int
+  tournament    Tournaments @relation(fields: [tournamentId], references: [id])
+  tournamentId  Int
 }
