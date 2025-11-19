@@ -72,6 +72,7 @@ export default function ResetPasswordPage() {
         token,
         newPassword,
       });
+      
 
       setSuccessMessage("Password reset successful! Redirecting to login...");
       setTimeout(() => {
