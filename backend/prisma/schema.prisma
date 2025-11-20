@@ -12,53 +12,81 @@ datasource db {
 }
 
 model User {
-  id          Int    @id @default(autoincrement())
-  email       String @unique
-  password    String
-  twoFA       Boolean @default(false)
-  twoFASecret  String?
-  twoFABackup String?
-  resetOTP    String?
+  id             Int       @id @default(autoincrement())
+  email          String    @unique
+  password       String
+  twoFA          Boolean   @default(false)
+  twoFASecret    String?
+  twoFABackup    String?
+  resetOTP       String?
   resetOTPExpiry DateTime?
-  profile   Profile?
-  friends   Friends[]
-  tournaments Tournaments[]
+  profile        Profile?
+
+  tournaments    Tournament[]
+  tournamentsWon Tournament[] @relation("TournamentWinner")
+
+  matchesAsPlayer1 Match[] @relation("MatchPlayer1")
+  matchesAsPlayer2 Match[] @relation("MatchPlayer2")
+
+  // user sent these requests
+  requester Friendship[] @relation("RequesterRelations")
+  // user received these requests
+  addressee Friendship[] @relation("AddresseeRelations")
 }
 
 model Profile {
-  id        Int @id @default(autoincrement())
-  avatar    String?
-  email     String @unique
-  username  String?
-  dob       DateTime?
-  region    String?
-  user      User @relation(fields: [userId], references: [id])
-  userId    Int @unique
+  id       Int       @id @default(autoincrement())
+  avatar   String?
+  username String    @unique
+  fullname String?
+  dob      DateTime?
+  region   String?
+  user     User      @relation(fields: [userId], references: [id])
+  userId   Int       @unique
 }
 
-model Friends {
-  id        Int @id @default(autoincrement())
-  username  String
-  user      User @relation(fields: [userId], references: [id])
-  userId    Int
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
 }
 
-model Tournaments {
-  id          Int @id @default(autoincrement())
-  date        DateTime   @default(now())
-  players     String
-  winner      String
-  user        User @relation(fields: [userId], references: [id])
-  userId      Int
-  matches     Matches[]
+model Friendship {
+  id Int @id @default(autoincrement())
+
+  requester   User @relation("RequesterRelations", fields: [requesterId], references: [id])
+  requesterId Int
+
+  addressee   User @relation("AddresseeRelations", fields: [addresseeId], references: [id])
+  addresseeId Int
+
+  status    FriendshipStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+
+  @@unique([requesterId, addresseeId])
 }
 
-model Matches {
-  id            Int @id @default(autoincrement())
-  player1       String
-  player2       String
-  score1        Int
-  score2        Int
-  tournament    Tournaments @relation(fields: [tournamentId], references: [id])
-  tournamentId  Int
+model Tournament {
+  id       Int      @id @default(autoincrement())
+  date     DateTime @default(now())
+  winnerId Int?
+  winner   User?    @relation("TournamentWinner", fields: [winnerId], references: [id])
+  players  User[]
+  matches  Match[]
+}
+
+model Match {
+  id Int @id @default(autoincrement())
+
+  player1Id Int
+  player1   User @relation("MatchPlayer1", fields: [player1Id], references: [id])
+
+  player2Id Int
+  player2   User @relation("MatchPlayer2", fields: [player2Id], references: [id])
+
+  score1 Int
+  score2 Int
+
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId Int
 }
