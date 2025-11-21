@@ -4,7 +4,7 @@ import { PrismaClient } from "../../../generated/prisma/index.js";
 const prisma = new PrismaClient();
 
 export default async function (fastify, opts) {
-  fastify.post("/register", async (request, reply) => {
+  fastify.post("/signup", async (request, reply) => {
     try {
       const { email, password, fullName } = request.body;
 
@@ -24,8 +24,7 @@ export default async function (fastify, opts) {
           profile: {
             create: {
               avatar: "",
-              email: email,
-              username: fullName || "",
+              username: email || "",
               dob: null,
               region: null,
             },

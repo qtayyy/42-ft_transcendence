@@ -18,7 +18,10 @@ export default async function (fastify, opts) {
       const decoded = await fastify.jwt.temp.verify(token);
       const userId = decoded.userId;
 
-      const user = await prisma.user.findUnique({ where: { id: userId } });
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { profile: true },
+      });
       if (!user) return reply.code(401).send({ error: "Invalid user" });
 
       // Finally, we check if the OTP given is correct
@@ -43,7 +46,7 @@ export default async function (fastify, opts) {
           .send({
             message: "Login successful",
             user: {
-              userId: user.id,
+              user: user,
             },
           });
     } catch (error) {

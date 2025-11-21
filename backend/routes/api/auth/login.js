@@ -11,7 +11,10 @@ export default async function (fastify, opts) {
       if (!email || !password)
         return reply.code(400).send({ error: "Missing fields" });
 
-      const user = await prisma.user.findUnique({ where: { email } });
+      const user = await prisma.user.findUnique({
+        where: { email },
+        include: { profile: true },
+      });
 
       if (!user)
         return reply.code(400).send({ error: "Incorrect email or password" });
@@ -20,7 +23,7 @@ export default async function (fastify, opts) {
         return reply.code(400).send({ error: "Incorrect email or password" });
 
       // If user enabled 2FA, we send them a temporary JWT that will only be
-      // checked by the /api/auth/2fa/verify route. This is needed to check 
+      // checked by the /api/auth/2fa/verify route. This is needed to check
       // users that access the 'verify 2fa' route has at least passed the
       // initial login phase. In other words, the 'verify 2fa' route is
       // protected by the temporary JWT. Note that this temporary JWT CANNOT
@@ -35,11 +38,11 @@ export default async function (fastify, opts) {
         );
         return reply
           .setCookie("token", token, {
-            path: '/', // Should be fine
+            path: "/", // Should be fine
             secure: true,
             httpOnly: true,
             sameSite: true,
-            maxAge: 300
+            maxAge: 300,
           })
           .code(202)
           .send({
@@ -56,18 +59,16 @@ export default async function (fastify, opts) {
 
         return reply
           .setCookie("token", token, {
-            path: '/',
+            path: "/",
             secure: true,
             httpOnly: true,
             sameSite: true,
-            maxAge: 3600
+            maxAge: 3600,
           })
           .code(200)
           .send({
             message: "Login successful",
-            user: {
-              userId: user.id,
-            },
+            user: user,
           });
       }
     } catch (error) {
