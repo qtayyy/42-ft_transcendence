@@ -8,11 +8,11 @@ const prisma = new PrismaClient();
 const createTransporter = () => {
   return nodemailer.createTransport({
     host: "smtp.gmail.com",
-    port: 587,
-    secure: false, // Use TLS
+    port: 465,
+    secure: true, // Use TLS
     auth: {
       user: process.env.EMAIL_USER?.trim(),
-      pass: process.env.EMAIL_PASSWORD?.trim(),
+      pass: process.env.EMAIL_PASSWORD,
     },
   });
 };
@@ -45,7 +45,7 @@ export default async function (fastify, opts) {
 
       // Generate 6-digit OTP
       const otp = generateOTP();
-      const otpExpiry = new Date(Date.now() + 600000); // 10 minutes from now
+      const otpExpiry = new Date(Date.now() + 60000); // 1 minute from now
 
       // Save OTP to database
       await prisma.user.update({
@@ -87,6 +87,7 @@ export default async function (fastify, opts) {
         console.log(`✅ OTP EMAIL SENT to: ${email} | OTP: ${otp}`);
       } catch (emailError) {
         console.error("❌ Failed to send email:", emailError.message);
+        return reply.code(500).send({ error: "Internal server error" });
       }
 
       return reply.code(200).send({ 
