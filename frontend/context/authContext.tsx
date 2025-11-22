@@ -5,6 +5,7 @@ import {
   useCallback,
   useMemo,
   useContext,
+  useEffect,
 } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
@@ -13,9 +14,12 @@ import axios from "axios";
 
 type UserProfile = {
   id: string;
-  name: string;
   email: string;
   avatar?: string;
+  username: string;
+  fullname?: string;
+  dob?: string;
+  region?: string;
 };
 
 // type Friend = {
@@ -31,6 +35,7 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<void | undefined>;
   verify2fa: (otp: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -38,6 +43,41 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const router = useRouter();
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const response = await axios.get("/api/profile");
+      const profileData = response.data;
+      setUser(profileData);
+    } catch (error: any) {
+      // Only clear user if it's an authentication error (401/403)
+      // Otherwise, preserve existing user data to avoid UI disappearing
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        setUser(null);
+      }
+      // For other errors, keep the existing user data
+      // This prevents the header from disappearing on temporary network issues
+    }
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchUser = async () => {
+      try {
+        const response = await axios.get("/api/profile");
+        if (isMounted) setUser(response.data);
+      } catch {
+        if (isMounted) setUser(null);
+      }
+    };
+
+    fetchUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -47,7 +87,7 @@ export const AuthProvider = ({ children }) => {
           password,
         });
         if (response.status === 200) {
-          setUser(response.data.user);
+          setUser(response.data.profile);
           router.push("/dashboard");
         } else if (response.status === 202) router.push("/2fa/verify");
       } catch (error) {
@@ -62,7 +102,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const response = await axios.post("/api/auth/2fa/verify", { code });
         if (response.status === 200) {
-          setUser(response.data.user);
+          setUser(response.data.profile);
           router.push("/dashboard");
         }
       } catch (error) {
@@ -84,8 +124,9 @@ export const AuthProvider = ({ children }) => {
       login,
       logout,
       verify2fa,
+      refreshUser,
     }),
-    [user, login, logout, verify2fa]
+    [user, login, logout, verify2fa, refreshUser]
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

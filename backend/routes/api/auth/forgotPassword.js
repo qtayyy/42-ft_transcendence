@@ -34,10 +34,10 @@ export default async function (fastify, opts) {
         return reply.code(400).send({ error: "Email is required" });
       }
 
-      const user = await prisma.user.findUnique({ where: { email } });
+      const profile = await prisma.profile.findUnique({ where: { email } });
       
       // Check if user exists
-      if (!user) {
+      if (!profile) {
         return reply.code(404).send({ 
           error: "Email not found. Please check your email address." 
         });
@@ -49,7 +49,7 @@ export default async function (fastify, opts) {
 
       // Save OTP to database
       await prisma.user.update({
-        where: { email },
+        where: { id: profile.userId },
         data: {
           resetOTP: otp,
           resetOTPExpiry: otpExpiry,
@@ -108,9 +108,13 @@ export default async function (fastify, opts) {
         return reply.code(400).send({ error: "Email and OTP are required" });
       }
 
-      const user = await prisma.user.findUnique({ where: { email } });
+      const profile = await prisma.profile.findUnique({ where: { email } });
+      if (!profile) {
+        return reply.code(400).send({ error: "Invalid OTP request" });
+      }
 
-      if (!user || !user.resetOTP || !user.resetOTPExpiry) {
+      const user = await prisma.user.findUnique({ where: { id: profile.userId }});
+      if (!user.resetOTP || !user.resetOTPExpiry) {
         return reply.code(400).send({ error: "Invalid OTP request" });
       }
 
@@ -147,9 +151,13 @@ export default async function (fastify, opts) {
         return reply.code(400).send({ error: "Password must be at least 6 characters long" });
       }
 
-      const user = await prisma.user.findUnique({ where: { email } });
+      const profile = await prisma.profile.findUnique({ where: { email } });
+      if (!profile) {
+        return reply.code(400).send({ error: "Invalid reset request" });
+      }
 
-      if (!user || !user.resetOTP || !user.resetOTPExpiry) {
+      const user = await prisma.user.findUnique({ where: { id: profile.userId }});
+      if (!user.resetOTP || !user.resetOTPExpiry) {
         return reply.code(400).send({ error: "Invalid reset request" });
       }
 
@@ -169,7 +177,7 @@ export default async function (fastify, opts) {
 
       // Update password and clear OTP
       await prisma.user.update({
-        where: { email },
+        where: { id: user.id },
         data: {
           password: passwordHash,
           resetOTP: null,
