@@ -11,15 +11,17 @@ export default async function (fastify, opts) {
       if (!email || !password)
         return reply.code(400).send({ error: "Missing fields" });
 
-      const user = await prisma.user.findUnique({
+      const profile = await prisma.profile.findUnique({
         where: { email },
-        include: { profile: true },
       });
-
-      if (!user)
+      if (!profile)
         return reply.code(400).send({ error: "Incorrect email or password" });
+
+      const user = await prisma.user.findUnique({
+        where: { id: profile.userId },
+      });
       const match = await bcrypt.compare(password, user.password);
-      if (match === false)
+      if (!match)
         return reply.code(400).send({ error: "Incorrect email or password" });
 
       // If user enabled 2FA, we send them a temporary JWT that will only be
@@ -33,7 +35,7 @@ export default async function (fastify, opts) {
       // Read more on: https://github.com/fastify/fastify-jwt
       if (user.twoFA) {
         const token = fastify.jwt.temp.sign(
-          { userId: user.id },
+          { userId: profile.userId },
           { expiresIn: "5m" }
         );
         return reply
@@ -47,13 +49,12 @@ export default async function (fastify, opts) {
           .code(202)
           .send({
             message: "2FA enabled, please complete the authentication process",
-            twofaUrl: "/api/auth/2fa/verify",
           });
       } else {
         // Else, we straight away assign the full JWT that is used to protect
         // all other sensitive routes.
         const token = fastify.jwt.sign(
-          { userId: user.id },
+          { userId: profile.userId },
           { expiresIn: "1h" }
         );
 
@@ -68,7 +69,7 @@ export default async function (fastify, opts) {
           .code(200)
           .send({
             message: "Login successful",
-            user: user,
+            profile: profile,
           });
       }
     } catch (error) {

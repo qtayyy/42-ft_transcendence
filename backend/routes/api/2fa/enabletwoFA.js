@@ -25,7 +25,7 @@ export default async function (fastify, opts) {
         // From JWT payload
         const userId = request.user.userId;
 
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const user = await prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
         if (!user) return reply.code(400).send({ error: "Invalid user" });
         if (user.twoFA)
           return reply.code(400).send({ error: "2FA already enabled" });
@@ -35,7 +35,7 @@ export default async function (fastify, opts) {
 
         const imageUrl = await qrcode.toDataURL(
           otplib.authenticator.keyuri(
-            user.email, // changed to email instead of user id cuz apparently Google Auth only works with email
+            user.profile.email, // changed to email instead of user id cuz apparently Google Auth only works with email
             "ft_transcendence",
             twoFASecret
           )
@@ -52,7 +52,7 @@ export default async function (fastify, opts) {
               twoFABackup: backupCodes.toString(),
             },
           });
-          return { twoFASecret, imageUrl, backupCodes };
+          return { imageUrl, backupCodes };
         });
         return reply.code(200).send(result);
       } catch (error) {

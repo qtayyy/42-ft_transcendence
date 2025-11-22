@@ -8,8 +8,10 @@ import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { AlertCircleIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function ProfilePage() {
+  const { refreshUser } = useAuth();
   const [profile, setProfile] = useState({
     email: "",
     username: "",
@@ -27,22 +29,23 @@ export default function ProfilePage() {
     region: "",
   });
   const [originalAvatar, setOriginalAvatar] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     async function getProfile() {
       try {
         setError("");
-        const { data } = await axios.get("/api/profile");
+        // const { data } = await axios.get("/api/profile");
         const profileData = {
-          email: data.email || "",
-          username: data.username || "",
-          dob: data.dob ? new Date(data.dob).toISOString().split("T")[0] : "",
-          region: data.region || "",
+          email: user?.email || "",
+          username: user?.username || "",
+          dob: user?.dob ? new Date(user?.dob).toISOString().split("T")[0] : "",
+          region: user?.region || "",
         };
         setProfile(profileData);
         setOriginalProfile(profileData);
-        setPreview(data.avatar || null);
-        setOriginalAvatar(data.avatar || null);
+        setPreview(user?.avatar || null);
+        setOriginalAvatar(user?.avatar || null);
       } catch (error: any) {
         const backendError = error.response?.data?.error;
         setError(
@@ -51,7 +54,7 @@ export default function ProfilePage() {
       }
     }
     getProfile();
-  }, []);
+  }, [user]);
 
   async function handleAvatarChange(e) {
     if (!isEditMode) return;
@@ -127,19 +130,23 @@ export default function ProfilePage() {
       setSelectedAvatar(null);
       setIsEditMode(false);
       
-      // Refresh profile data
+      // Refresh profile data from server
       try {
-        const { data } = await axios.get("/api/profile");
+        // Fetch the updated profile directly from the server
+        const { data: updatedProfile } = await axios.get("/api/profile");
         const profileData = {
-          email: data.email || "",
-          username: data.username || "",
-          dob: data.dob ? new Date(data.dob).toISOString().split("T")[0] : "",
-          region: data.region || "",
+          email: updatedProfile?.email || "",
+          username: updatedProfile?.username || "",
+          dob: updatedProfile?.dob ? new Date(updatedProfile?.dob).toISOString().split("T")[0] : "",
+          region: updatedProfile?.region || "",
         };
         setProfile(profileData);
         setOriginalProfile(profileData);
-        setPreview(data.avatar || null);
-        setOriginalAvatar(data.avatar || null);
+        setPreview(updatedProfile?.avatar || null);
+        setOriginalAvatar(updatedProfile?.avatar || null);
+        
+        // Update auth context with new user data
+        await refreshUser();
       } catch (refreshError) {
         console.error("Error refreshing profile:", refreshError);
         // Profile was saved, just couldn't refresh - reload the page
@@ -189,8 +196,8 @@ export default function ProfilePage() {
               alt="Profile"
               onError={() => setPreview(null)}
             />
-            <AvatarFallback className="text-2xl">
-              {profile.email ? profile.email[0].toUpperCase() : "?"}
+            <AvatarFallback className="text-4xl">
+              {profile.username ? profile.username[0].toUpperCase() : "?"}
             </AvatarFallback>
           </Avatar>
           {isEditMode && (
