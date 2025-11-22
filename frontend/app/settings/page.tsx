@@ -19,9 +19,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function SettingsPage() {
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [twoFA, setTwoFA] = useState(false);
   const [qrImage, setQrImage] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -31,13 +33,20 @@ export default function SettingsPage() {
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [passwordChangeStep, setPasswordChangeStep] = useState<"input" | "otp" | "success">("input");
+  const [passwordChangeStep, setPasswordChangeStep] = useState<
+    "input" | "otp" | "success"
+  >("input");
   const [otp, setOtp] = useState("");
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [countdown, setCountdown] = useState(0);
+  const [twoFAStep, setTwoFAStep] = useState<"disable" | "enable" | "verify">(
+    "disable"
+  );
+  const [twoFADialogOpen, setTwoFADialogOpen] = useState(false);
   const router = useRouter();
+  const { user } = useAuth();
 
   // Countdown timer effect
   useEffect(() => {
@@ -53,12 +62,11 @@ export default function SettingsPage() {
         setError("");
         const response = await axios.get("/api/2fa");
         const twoFAStatus = response.data;
-        console.log(`twoFAStatus is ${twoFAStatus}`);
         setTwoFA(twoFAStatus);
-        
+
         // Get user email for password reset OTP
-        const profileResponse = await axios.get("/api/profile");
-        setUserEmail(profileResponse.data.email || "");
+        // const profileResponse = await axios.get("/api/profile");
+        setUserEmail(user?.email || "");
       } catch (error: any) {
         const backendError = error.response.data.error;
         setError(
@@ -78,11 +86,13 @@ export default function SettingsPage() {
       const res = await axios.get(endpoint);
 
       if (checked) {
+        setTwoFAStep("enable");
+        setTwoFADialogOpen(true);
         setQrImage(res.data.imageUrl);
-        alert("2FA successfully enabled!");
       } else {
         setQrImage(null);
-        alert("2FA successfully disabled!");
+        setTwoFAStep("disable");
+        setSuccess("2FA successfully disabled!");
       }
     } catch (error: any) {
       const backendError = error.response.data.error;
@@ -125,15 +135,15 @@ export default function SettingsPage() {
 
       try {
         // Verify OTP
-        await axios.post("/api/auth/verify-reset-otp", { 
-          email: userEmail, 
-          otp: otp 
+        await axios.post("/api/auth/verify-reset-otp", {
+          email: userEmail,
+          otp: otp,
         });
 
         // Change password using the old password verification
         await axios.post("/api/auth/password", {
           oldPassword: oldPassword,
-          newPassword: newPassword
+          newPassword: newPassword,
         });
 
         alert("Password changed successfully!");
@@ -184,16 +194,49 @@ export default function SettingsPage() {
 
     try {
       await axios.delete("/api/profile", {
-        data: { password: deletePassword }
+        data: { password: deletePassword },
       });
-      alert("Account deleted successfully. You will be redirected to the home page.");
+      alert(
+        "Account deleted successfully. You will be redirected to the home page."
+      );
       setDeleteDialogOpen(false);
       setDeletePassword("");
       router.push("/");
     } catch (error: any) {
       const backendError = error.response?.data?.error;
-      setDeleteError(backendError || "Failed to delete account. Please check your password.");
+      setDeleteError(
+        backendError || "Failed to delete account. Please check your password."
+      );
       setIsDeleting(false);
+    }
+  };
+
+  const enableTwoFA = async (e: React.FormEvent) => {
+    try {
+      e.preventDefault();
+      setError("");
+      setSuccess("");
+      const form = e.target as HTMLFormElement;
+      const data = Object.fromEntries(new FormData(form).entries());
+      const response = await axios.post("/api/auth/2fa/enable/verify", data);
+      if (response.status === 200) {
+        setTwoFADialogOpen(false);
+        setSuccess("2FA successfully enabled!");
+      }
+    } catch (error: any) {
+      const backendError = error.response?.data?.error;
+      setError(backendError || "Something went wrong. Please try again later.");
+    }
+  };
+
+  const revertTwoFA = async () => {
+    try {
+      setError("");
+      setSuccess("");
+      await axios.get("/api/2fa/disable");
+    } catch (error: any) {
+      const backendError = error.response?.data?.error;
+      setError(backendError || "Something went wrong. Please try again later.");
     }
   };
 
@@ -206,6 +249,13 @@ export default function SettingsPage() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      {success && (
+        <Alert  className="bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400">
+          <AlertCircleIcon className="h-4 w-4" />
+          <AlertTitle>Success</AlertTitle>
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      )}
       <div className="flex justify-between">
         <p className="text-2xl font-semibold p-5">SETTINGS</p>
       </div>
@@ -214,7 +264,9 @@ export default function SettingsPage() {
           {/* Left Column - Main Settings */}
           <div className="lg:col-span-2 space-y-8">
             <div>
-              <p className="text-xl font-semibold">Two-factor authentication (2FA)</p>
+              <p className="text-xl font-semibold">
+                Two-factor authentication (2FA)
+              </p>
               <div className="flex gap-4 items-center mt-4">
                 <Switch
                   id="twoFA"
@@ -226,25 +278,103 @@ export default function SettingsPage() {
                   {twoFA ? "2FA Enabled" : "2FA Disabled"}
                 </Label>
               </div>
-              {qrImage ? (
-                <div className="mt-4">
-                  <p className="mb-2 text-gray-200">
-                    Scan this QR code with your authenticator app:
-                  </p>
-                  <Image
-                    src={qrImage}
-                    alt="2FA QR Code"
-                    width={192}
-                    height={192}
-                    className="my-4"
-                  />
-                </div>
+              {qrImage && twoFAStep === "enable" ? (
+                <Dialog
+                  open={twoFADialogOpen}
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setTwoFA(false);
+                      setTwoFAStep("disable");
+                      revertTwoFA();
+                    }
+                    setTwoFADialogOpen(open);
+                  }}
+                >
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Enable 2FA</DialogTitle>
+                      <DialogDescription>
+                        Scan this QR code with your authenticator app:
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid place-items-center">
+                      <Image
+                        src={qrImage}
+                        alt="2FA QR Code"
+                        width={192}
+                        height={192}
+                        className="my-4"
+                      />
+                    </div>
+                    <div className="grid justify-end">
+                      <Button
+                        className="w-40"
+                        variant="default"
+                        onClick={() => {
+                          setTwoFAStep("verify");
+                        }}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              ) : twoFAStep === "verify" ? (
+                <Dialog
+                  open={twoFADialogOpen}
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setTwoFA(false);
+                      setTwoFAStep("disable");
+                      revertTwoFA();
+                    }
+                    setTwoFADialogOpen(open);
+                  }}
+                >
+                  <DialogContent>
+                    <form onSubmit={enableTwoFA}>
+                      <DialogHeader>
+                        <DialogTitle>Enable 2FA</DialogTitle>
+                        <DialogDescription>
+                          Enter your OTP from your Google Auth app
+                        </DialogDescription>
+                        {error && (
+                          <Alert variant="destructive">
+                            <AlertCircleIcon className="h-4 w-4" />
+                            <AlertTitle>Error</AlertTitle>
+                            <AlertDescription>{error}</AlertDescription>
+                          </Alert>
+                        )}
+                        <Label className="mt-3" htmlFor="code">
+                          OTP
+                        </Label>
+                        <Input
+                          className="mb-8"
+                          type="number"
+                          id="code"
+                          name="code"
+                          required
+                        ></Input>
+                      </DialogHeader>
+
+                      <div className="grid justify-end">
+                        <Button
+                          className="w-40"
+                          variant="default"
+                          type="submit"
+                        >
+                          Finish
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
               ) : null}
             </div>
-            
+
             <div className="pt-12">
               <p className="text-xl font-semibold mb-4">Change password</p>
-            
+
               <form onSubmit={handleSubmit} className="grid gap-5">
                 {passwordChangeStep === "input" && (
                   <>
@@ -300,7 +430,8 @@ export default function SettingsPage() {
                 {passwordChangeStep === "otp" && (
                   <div className="grid gap-3">
                     <p className="text-sm text-muted-foreground">
-                      We've sent a 6-digit OTP to <strong>{userEmail}</strong>
+                      We&apos;ve sent a 6-digit OTP to{" "}
+                      <strong>{userEmail}</strong>
                     </p>
                     <Label htmlFor="otp">Enter OTP</Label>
                     <Input
@@ -322,7 +453,7 @@ export default function SettingsPage() {
                         onClick={handleResendOTP}
                         className="text-sm text-primary hover:underline text-left"
                       >
-                        Didn't receive OTP? Resend Code
+                        Didn&apos;t receive OTP? Resend Code
                       </button>
                     )}
                   </div>
@@ -330,94 +461,113 @@ export default function SettingsPage() {
 
                 <div className="flex gap-2">
                   <Button type="submit" className="w-auto">
-                    {passwordChangeStep === "input" ? "Save" : "Verify & Change Password"}
+                    {passwordChangeStep === "input"
+                      ? "Save"
+                      : "Verify & Change Password"}
                   </Button>
-                  <Button type="button" variant="outline" onClick={handleCancelPasswordChange} className="w-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancelPasswordChange}
+                    className="w-auto"
+                  >
                     Cancel
                   </Button>
                 </div>
               </form>
+            </div>
           </div>
 
-        </div>
-
-        {/* Right Column - Danger Zone */}
-        <div className="lg:col-span-1">
-          <div className="border border-destructive/50 rounded-lg p-6 bg-destructive/5">
-            <p className="text-xl font-semibold text-destructive mb-2">Danger Zone</p>
-            <p className="text-lg font-medium mb-4">Delete Profile</p>
-            <p className="text-sm text-muted-foreground mb-4">
-              Once you delete your account, there is no going back. This action is irreversible.
-            </p>
-            <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
-              setDeleteDialogOpen(open);
-              if (!open) {
-                setDeletePassword("");
-                setDeleteError("");
-              }
-            }}>
-              <DialogTrigger asChild>
-                <Button variant="destructive" className="w-full">
-                  Delete Account
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Are you sure you want to delete your account?</DialogTitle>
-                  <DialogDescription>
-                    This action will permanently delete your account and all associated data including:
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                    <li>Your profile information</li>
-                    <li>Your email address</li>
-                    <li>All your friends</li>
-                    <li>All your tournament history</li>
-                    <li>All your match records</li>
-                  </ul>
-                  <p className="text-sm font-semibold text-destructive">
-                    This action is irreversible and cannot be undone.
-                  </p>
-                  <div className="space-y-2 pt-2">
-                    <Label htmlFor="deletePassword">Enter your password to confirm</Label>
-                    <Input
-                      id="deletePassword"
-                      type="password"
-                      placeholder="Enter your password"
-                      value={deletePassword}
-                      onChange={(e) => setDeletePassword(e.target.value)}
-                      disabled={isDeleting}
-                    />
-                    {deleteError && (
-                      <p className="text-sm text-destructive">{deleteError}</p>
-                    )}
+          {/* Right Column - Danger Zone */}
+          <div className="lg:col-span-1">
+            <div className="border border-destructive/50 rounded-lg p-6 bg-destructive/5">
+              <p className="text-xl font-semibold text-destructive mb-2">
+                Danger Zone
+              </p>
+              <p className="text-lg font-medium mb-4">Delete Profile</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Once you delete your account, there is no going back. This
+                action is irreversible.
+              </p>
+              <Dialog
+                open={deleteDialogOpen}
+                onOpenChange={(open) => {
+                  setDeleteDialogOpen(open);
+                  if (!open) {
+                    setDeletePassword("");
+                    setDeleteError("");
+                  }
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button variant="destructive" className="w-full">
+                    Delete Account
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>
+                      Are you sure you want to delete your account?
+                    </DialogTitle>
+                    <DialogDescription>
+                      This action will permanently delete your account and all
+                      associated data including:
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                      <li>Your profile information</li>
+                      <li>Your email address</li>
+                      <li>All your friends</li>
+                      <li>All your tournament history</li>
+                      <li>All your match records</li>
+                    </ul>
+                    <p className="text-sm font-semibold text-destructive">
+                      This action is irreversible and cannot be undone.
+                    </p>
+                    <div className="space-y-2 pt-2">
+                      <Label htmlFor="deletePassword">
+                        Enter your password to confirm
+                      </Label>
+                      <Input
+                        id="deletePassword"
+                        type="password"
+                        placeholder="Enter your password"
+                        value={deletePassword}
+                        onChange={(e) => setDeletePassword(e.target.value)}
+                        disabled={isDeleting}
+                      />
+                      {deleteError && (
+                        <p className="text-sm text-destructive">
+                          {deleteError}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setDeleteDialogOpen(false);
-                      setDeletePassword("");
-                      setDeleteError("");
-                    }}
-                    disabled={isDeleting}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={handleDeleteAccount}
-                    disabled={isDeleting || !deletePassword.trim()}
-                  >
-                    {isDeleting ? "Deleting..." : "Yes, Delete My Account"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setDeleteDialogOpen(false);
+                        setDeletePassword("");
+                        setDeleteError("");
+                      }}
+                      disabled={isDeleting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleDeleteAccount}
+                      disabled={isDeleting || !deletePassword.trim()}
+                    >
+                      {isDeleting ? "Deleting..." : "Yes, Delete My Account"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
-        </div>
         </div>
       </div>
     </div>
