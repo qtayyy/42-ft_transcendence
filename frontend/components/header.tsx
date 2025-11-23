@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import Logo from "@/components/logo/logo.png";
 import { useCallback, useMemo } from "react";
 
 // Routes where the profile icon should be hidden (non-authenticated pages)
@@ -52,7 +51,7 @@ export default function Header() {
           suppressHydrationWarning
         >
           <Image
-            src={Logo}
+            src="/logo.png"
             alt="FT Transcendence logo"
             width={90}
             height={90}

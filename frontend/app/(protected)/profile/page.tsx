@@ -10,6 +10,8 @@ import { AlertCircleIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/use-auth";
 
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 export default function ProfilePage() {
   const { refreshUser } = useAuth();
   const [profile, setProfile] = useState({
@@ -133,7 +135,11 @@ export default function ProfilePage() {
       // Refresh profile data from server
       try {
         // Fetch the updated profile directly from the server
+        // await delay(1000);
         const { data: updatedProfile } = await axios.get("/api/profile");
+        // const updatedProfile = await refreshUser();
+        console.log("Update profile:");
+        console.log(updatedProfile);
         const profileData = {
           email: updatedProfile?.email || "",
           username: updatedProfile?.username || "",

@@ -11,7 +11,7 @@ import {
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import FriendsDropdown from "../../../components/ui/friends-dropdown";
+import FriendsDropdown from "../../../../components/ui/friends-dropdown";
 import axios from "axios";
 import { match } from "assert";
 
