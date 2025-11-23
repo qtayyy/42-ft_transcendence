@@ -10,7 +10,6 @@ import { AlertCircleIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/use-auth";
 
-const delay = ms => new Promise(res => setTimeout(res, ms));
 
 export default function ProfilePage() {
   const { refreshUser } = useAuth();
@@ -37,7 +36,6 @@ export default function ProfilePage() {
     async function getProfile() {
       try {
         setError("");
-        // const { data } = await axios.get("/api/profile");
         const profileData = {
           email: user?.email || "",
           username: user?.username || "",
@@ -132,14 +130,8 @@ export default function ProfilePage() {
       setSelectedAvatar(null);
       setIsEditMode(false);
       
-      // Refresh profile data from server
       try {
-        // Fetch the updated profile directly from the server
-        // await delay(1000);
-        const { data: updatedProfile } = await axios.get("/api/profile");
-        // const updatedProfile = await refreshUser();
-        console.log("Update profile:");
-        console.log(updatedProfile);
+        const updatedProfile = await refreshUser();
         const profileData = {
           email: updatedProfile?.email || "",
           username: updatedProfile?.username || "",
@@ -150,9 +142,7 @@ export default function ProfilePage() {
         setOriginalProfile(profileData);
         setPreview(updatedProfile?.avatar || null);
         setOriginalAvatar(updatedProfile?.avatar || null);
-        
-        // Update auth context with new user data
-        await refreshUser();
+
       } catch (refreshError) {
         console.error("Error refreshing profile:", refreshError);
         // Profile was saved, just couldn't refresh - reload the page
