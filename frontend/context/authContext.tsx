@@ -7,13 +7,14 @@ import {
   useContext,
   useEffect,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useSocket } from "@/hooks/use-socket";
 import axios from "axios";
 
 // type FriendStatus = "online" | "offline";
 
 type UserProfile = {
-  id: string;
+  userId: string;
   email: string;
   avatar?: string;
   username: string;
@@ -35,20 +36,38 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<void | undefined>;
   verify2fa: (otp: string) => Promise<void>;
   logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<UserProfile>;
 };
+
+const NON_AUTHENTICATED_ROUTES = [
+  "/",
+  "/login",
+  "/signup",
+  "/reset-password",
+  "/reset-pwd",
+  "/2fa/verify",
+];
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const isNonAuthenticatedPage = useMemo(() => {
+    return NON_AUTHENTICATED_ROUTES.includes(pathname);
+  }, [pathname]);
 
   const refreshUser = useCallback(async () => {
     try {
+      if (isNonAuthenticatedPage)
+        return;
       const response = await axios.get("/api/profile");
       const profileData = response.data;
       setUser(profileData);
+      return (profileData);
     } catch (error: any) {
       // Only clear user if it's an authentication error (401/403)
       // Otherwise, preserve existing user data to avoid UI disappearing
@@ -58,13 +77,15 @@ export const AuthProvider = ({ children }) => {
       // For other errors, keep the existing user data
       // This prevents the header from disappearing on temporary network issues
     }
-  }, []);
+  }, [isNonAuthenticatedPage]);
 
   useEffect(() => {
     let isMounted = true;
 
     const fetchUser = async () => {
       try {
+        if (isNonAuthenticatedPage)
+          return;
         const response = await axios.get("/api/profile");
         if (isMounted) setUser(response.data);
       } catch {
@@ -77,7 +98,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isNonAuthenticatedPage]);
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -88,13 +109,14 @@ export const AuthProvider = ({ children }) => {
         });
         if (response.status === 200) {
           setUser(response.data.profile);
-          router.push("/dashboard");
+          const next = searchParams.get("next") ?? "/dashboard";
+          router.push(next);
         } else if (response.status === 202) router.push("/2fa/verify");
       } catch (error) {
         throw error;
       }
     },
-    [router]
+    [router, searchParams]
   );
 
   const verify2fa = useCallback(
@@ -103,13 +125,14 @@ export const AuthProvider = ({ children }) => {
         const response = await axios.post("/api/auth/2fa/verify", { code });
         if (response.status === 200) {
           setUser(response.data.profile);
-          router.push("/dashboard");
+          const next = searchParams.get("next") ?? "/dashboard";
+          router.push(next);
         }
       } catch (error) {
         throw error;
       }
     },
-    [router]
+    [router, searchParams]
   );
 
   const logout = useCallback(async () => {
