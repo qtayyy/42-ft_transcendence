@@ -49,7 +49,7 @@ export default async function (fastify, opts) {
 
       // Save OTP to database
       await prisma.user.update({
-        where: { id: profile.userId },
+        where: { id: profile.id },
         data: {
           resetOTP: otp,
           resetOTPExpiry: otpExpiry,
@@ -113,7 +113,7 @@ export default async function (fastify, opts) {
         return reply.code(400).send({ error: "Invalid OTP request" });
       }
 
-      const user = await prisma.user.findUnique({ where: { id: profile.userId }});
+      const user = await prisma.user.findUnique({ where: { id: profile.id }});
       if (!user.resetOTP || !user.resetOTPExpiry) {
         return reply.code(400).send({ error: "Invalid OTP request" });
       }
@@ -156,7 +156,7 @@ export default async function (fastify, opts) {
         return reply.code(400).send({ error: "Invalid reset request" });
       }
 
-      const user = await prisma.user.findUnique({ where: { id: profile.userId }});
+      const user = await prisma.user.findUnique({ where: { id: profile.id }});
       if (!user.resetOTP || !user.resetOTPExpiry) {
         return reply.code(400).send({ error: "Invalid reset request" });
       }

@@ -55,7 +55,7 @@ export default async function (fastify, opts) {
           const existingProfile = await prisma.profile.findFirst({ 
             where: { username: updates["username"] } 
           });
-          if (existingProfile && userId !== existingProfile.userId) {
+          if (existingProfile && userId !== existingProfile.id) {
             return reply.code(400).send({ error: `Username: '${updates["username"]}' already exists.`});
           }
         }
@@ -64,7 +64,7 @@ export default async function (fastify, opts) {
         if (deleteAvatar) {
           // Get current profile to find old avatar path
           const currentProfile = await prisma.profile.findUnique({
-            where: { userId }
+            where: { id: userId }
           });
           
           // Delete old avatar file if it exists
@@ -79,7 +79,7 @@ export default async function (fastify, opts) {
         } else if (avatarUrl) {
           // New avatar uploaded, delete old one
           const currentProfile = await prisma.profile.findUnique({
-            where: { userId }
+            where: { id: userId }
           });
           
           if (currentProfile?.avatar) {
@@ -91,7 +91,7 @@ export default async function (fastify, opts) {
         }
 
         await prisma.profile.update({
-          where: { userId },
+          where: { id: userId },
           data: { 
             ...updates, 
             ...(deleteAvatar ? { avatar: null } : avatarUrl ? { avatar: avatarUrl } : {})
@@ -106,7 +106,7 @@ export default async function (fastify, opts) {
             .code(400)
             .send({ error: "Image too large. Max size is 5MB." });
         }
-
+        // To-do: throw generic error
         throw error;
       }
     }
