@@ -8,10 +8,7 @@ import {
   useEffect,
 } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useSocket } from "@/hooks/use-socket";
 import axios from "axios";
-
-// type FriendStatus = "online" | "offline";
 
 type UserProfile = {
   userId: string;
@@ -23,16 +20,10 @@ type UserProfile = {
   region?: string;
 };
 
-// type Friend = {
-//   id: string;
-//   username: string;
-//   status: FriendStatus;
-// };
-
 type AuthContextValue = {
   user: UserProfile | null;
-  // friends: Friend[];
   isAuthenticated: boolean;
+  loadingAuth: boolean;
   login: (email: string, password: string) => Promise<void | undefined>;
   verify2fa: (otp: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -52,10 +43,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-
+  
   const isNonAuthenticatedPage = useMemo(() => {
     return NON_AUTHENTICATED_ROUTES.includes(pathname);
   }, [pathname]);
@@ -84,12 +76,16 @@ export const AuthProvider = ({ children }) => {
 
     const fetchUser = async () => {
       try {
-        if (isNonAuthenticatedPage)
+        if (isNonAuthenticatedPage) {
+          setLoadingAuth(false);
           return;
+        }
         const response = await axios.get("/api/profile");
         if (isMounted) setUser(response.data);
       } catch {
         if (isMounted) setUser(null);
+      } finally {
+        if (isMounted) setLoadingAuth(false);
       }
     };
 
@@ -148,8 +144,9 @@ export const AuthProvider = ({ children }) => {
       logout,
       verify2fa,
       refreshUser,
+      loadingAuth,
     }),
-    [user, login, logout, verify2fa, refreshUser]
+    [user, login, logout, verify2fa, refreshUser, loadingAuth]
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
