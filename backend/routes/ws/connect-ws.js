@@ -6,7 +6,15 @@ export default async function (fastify, opts) {
       websocket: true,
     },
     (connection, request) => {
-      connection.send("Hi from server");
+      const userId = request.user.userId;
+
+      fastify.onlineUsers.set(userId, connection);
+      fastify.notifyFriendStatus(userId, 'online')
+
+      connection.on('close', () => {
+        fastify.onlineUsers.delete(userId);
+        fastify.notifyFriendStatus(userId, 'offline')
+      })
     }
   );
 }

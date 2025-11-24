@@ -61,6 +61,10 @@ export default function Header() {
       </div>
       {shouldShowProfileIcon && (
         <div className="flex space-x-5">
+          {/* Notification bell - WIP */}
+          <DropdownMenu>
+            <DropdownMenuTrigger>Notification</DropdownMenuTrigger>
+          </DropdownMenu>
           <DropdownMenu>
             <DropdownMenuTrigger>
               {/* Add key to force re-render when avatar changes */}
@@ -81,10 +85,15 @@ export default function Header() {
               <DropdownMenuItem onClick={() => router.push("/match")}>
                 Match History
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/friend-request")}>
+                Friend Requests
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push("/settings")}>
                 Settings
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleLogout}>Log Out</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
+                Log Out
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

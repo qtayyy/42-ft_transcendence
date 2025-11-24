@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/authContext";
 import { SocketProvider } from "@/context/socket-context";
 import Footer from "@/components/footer";
 import Header from "@/components/header";
+import { Toaster } from "@/components/ui/sonner"
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({
@@ -35,6 +36,7 @@ export default function RootLayout({
         >
           <AuthProvider>
             <SocketProvider>
+              <Toaster position="top-center"/>
               <Header />
               <main className="min-h-screen w-screen">{children}</main>
               <Footer />
