@@ -13,7 +13,6 @@ datasource db {
 
 model User {
   id             Int       @id @default(autoincrement())
-  email          String    @unique
   password       String
   twoFA          Boolean   @default(false)
   twoFASecret    String?
@@ -21,7 +20,18 @@ model User {
   resetOTP       String?
   resetOTPExpiry DateTime?
   profile        Profile?
+}
 
+model Profile {
+  id       Int       @id
+  user     User      @relation(fields: [id], references: [id])
+  email    String    @unique
+  avatar   String?
+  username String    @unique
+  fullname String
+  dob      DateTime?
+  region   String?
+  
   tournaments    Tournament[]
   tournamentsWon Tournament[] @relation("TournamentWinner")
 
@@ -34,17 +44,6 @@ model User {
   addressee Friendship[] @relation("AddresseeRelations")
 }
 
-model Profile {
-  id       Int       @id @default(autoincrement())
-  avatar   String?
-  username String    @unique
-  fullname String?
-  dob      DateTime?
-  region   String?
-  user     User      @relation(fields: [userId], references: [id])
-  userId   Int       @unique
-}
-
 enum FriendshipStatus {
   PENDING
   ACCEPTED
@@ -54,10 +53,10 @@ enum FriendshipStatus {
 model Friendship {
   id Int @id @default(autoincrement())
 
-  requester   User @relation("RequesterRelations", fields: [requesterId], references: [id])
+  requester   Profile @relation("RequesterRelations", fields: [requesterId], references: [id])
   requesterId Int
 
-  addressee   User @relation("AddresseeRelations", fields: [addresseeId], references: [id])
+  addressee   Profile @relation("AddresseeRelations", fields: [addresseeId], references: [id])
   addresseeId Int
 
   status    FriendshipStatus @default(PENDING)
@@ -70,8 +69,8 @@ model Tournament {
   id       Int      @id @default(autoincrement())
   date     DateTime @default(now())
   winnerId Int?
-  winner   User?    @relation("TournamentWinner", fields: [winnerId], references: [id])
-  players  User[]
+  winner   Profile?    @relation("TournamentWinner", fields: [winnerId], references: [id])
+  players  Profile[]
   matches  Match[]
 }
 
@@ -79,10 +78,10 @@ model Match {
   id Int @id @default(autoincrement())
 
   player1Id Int
-  player1   User @relation("MatchPlayer1", fields: [player1Id], references: [id])
+  player1   Profile @relation("MatchPlayer1", fields: [player1Id], references: [id])
 
   player2Id Int
-  player2   User @relation("MatchPlayer2", fields: [player2Id], references: [id])
+  player2   Profile @relation("MatchPlayer2", fields: [player2Id], references: [id])
 
   score1 Int
   score2 Int

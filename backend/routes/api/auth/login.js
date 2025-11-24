@@ -11,16 +11,21 @@ export default async function (fastify, opts) {
       if (!email || !password)
         return reply.code(400).send({ error: "Missing fields" });
 
-      const user = await prisma.user.findUnique({ where: { email } });
-
-      if (!user)
+      const profile = await prisma.profile.findUnique({
+        where: { email },
+      });
+      if (!profile)
         return reply.code(400).send({ error: "Incorrect email or password" });
+
+      const user = await prisma.user.findUnique({
+        where: { id: profile.id },
+      });
       const match = await bcrypt.compare(password, user.password);
-      if (match === false)
+      if (!match)
         return reply.code(400).send({ error: "Incorrect email or password" });
 
       // If user enabled 2FA, we send them a temporary JWT that will only be
-      // checked by the /api/auth/2fa/verify route. This is needed to check 
+      // checked by the /api/auth/2fa/verify route. This is needed to check
       // users that access the 'verify 2fa' route has at least passed the
       // initial login phase. In other words, the 'verify 2fa' route is
       // protected by the temporary JWT. Note that this temporary JWT CANNOT
@@ -30,44 +35,41 @@ export default async function (fastify, opts) {
       // Read more on: https://github.com/fastify/fastify-jwt
       if (user.twoFA) {
         const token = fastify.jwt.temp.sign(
-          { userId: user.id },
+          { userId: profile.id },
           { expiresIn: "5m" }
         );
         return reply
           .setCookie("token", token, {
-            path: '/', // Should be fine
+            path: "/", // Should be fine
             secure: true,
             httpOnly: true,
             sameSite: true,
-            maxAge: 300
+            maxAge: 300,
           })
           .code(202)
           .send({
             message: "2FA enabled, please complete the authentication process",
-            twofaUrl: "/api/auth/2fa/verify",
           });
       } else {
         // Else, we straight away assign the full JWT that is used to protect
         // all other sensitive routes.
         const token = fastify.jwt.sign(
-          { userId: user.id },
+          { userId: profile.id },
           { expiresIn: "1h" }
         );
 
         return reply
           .setCookie("token", token, {
-            path: '/',
+            path: "/",
             secure: true,
             httpOnly: true,
             sameSite: true,
-            maxAge: 3600
+            maxAge: 3600,
           })
           .code(200)
           .send({
             message: "Login successful",
-            user: {
-              userId: user.id,
-            },
+            profile: profile,
           });
       }
     } catch (error) {

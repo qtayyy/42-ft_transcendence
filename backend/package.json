@@ -10,7 +10,7 @@
   "scripts": {
     "test": "node --test test/**/*.test.js",
     "start": "fastify start -l info app.js",
-    "dev": "fastify start -a 0.0.0.0 -p 3001 -w -l info -P app.js",
+    "dev": "fastify start -a 0.0.0.0 -p 3001 -w -l info -P app.js --ignore-watch='uploads'",
     "seed": "node prisma/seed.js"
   },
   "keywords": [],
