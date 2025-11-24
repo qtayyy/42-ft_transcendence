@@ -18,7 +18,7 @@ export default async function (fastify, opts) {
         return reply.code(400).send({ error: "Incorrect email or password" });
 
       const user = await prisma.user.findUnique({
-        where: { id: profile.userId },
+        where: { id: profile.id },
       });
       const match = await bcrypt.compare(password, user.password);
       if (!match)
@@ -35,7 +35,7 @@ export default async function (fastify, opts) {
       // Read more on: https://github.com/fastify/fastify-jwt
       if (user.twoFA) {
         const token = fastify.jwt.temp.sign(
-          { userId: profile.userId },
+          { userId: profile.id },
           { expiresIn: "5m" }
         );
         return reply
@@ -54,7 +54,7 @@ export default async function (fastify, opts) {
         // Else, we straight away assign the full JWT that is used to protect
         // all other sensitive routes.
         const token = fastify.jwt.sign(
-          { userId: profile.userId },
+          { userId: profile.id },
           { expiresIn: "1h" }
         );
 

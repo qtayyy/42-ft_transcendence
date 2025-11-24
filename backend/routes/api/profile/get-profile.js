@@ -15,7 +15,7 @@ export default async function (fastify, opts) {
         if (!user) return reply.code(400).send({ error: "Invalid user" });
         
         const profile = await prisma.profile.findUnique({
-          where: { userId },
+          where: { id: userId },
         });
         if (!profile)
           return reply.code(500).send({ error: "Profile not found" });

@@ -23,16 +23,15 @@ model User {
 }
 
 model Profile {
-  id       Int       @id @default(autoincrement())
+  id       Int       @id
+  user     User      @relation(fields: [id], references: [id])
   email    String    @unique
   avatar   String?
   username String    @unique
   fullname String
   dob      DateTime?
   region   String?
-  user     User      @relation(fields: [userId], references: [id])
-  userId   Int       @unique
-
+  
   tournaments    Tournament[]
   tournamentsWon Tournament[] @relation("TournamentWinner")
 
