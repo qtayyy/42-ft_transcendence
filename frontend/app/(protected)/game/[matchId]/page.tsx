@@ -1,6 +1,9 @@
 "use client";
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useRouter, useParams } from "next/navigation";
+import axios from "@/lib/axios";
+import { useAuthContext } from "@/context/authContext";
 // import { useSocket } from "../../context/socketContext";
 
 const CANVAS_WIDTH = 800;
@@ -24,12 +27,47 @@ function drawGame(ctx, { ball, paddles }) {
   ctx.fillRect(paddles.p2.x, paddles.p2.y, PADDLE_WIDTH, PADDLE_HEIGHT);
 }
 
-export default function GamePage({ matchId }) {
+export default function GamePage() {
+  const params = useParams();
+  const matchId = params.matchId as string;
   const socketRef = useRef<WebSocket | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameStateRef = useRef(null);
   const [gameStart, setGameStart] = useState(false);
+  const [score, setScore] = useState({ p1: 0, p2: 0 });
+  const [gameOver, setGameOver] = useState(false);
+  const [winner, setWinner] = useState<number | null>(null);
+  const router = useRouter();
+  const { user } = useAuthContext();
   // const { socket } = useSocket();
+
+  // Save match result to database
+  const saveMatchResult = async (finalScore: { p1: number; p2: number }) => {
+    try {
+      console.log("Saving match result:", {
+        tournamentId: parseInt(matchId as string),
+        player1Id: parseInt(user?.userId || "1"),
+        player2Id: 2,
+        score1: finalScore.p1,
+        score2: finalScore.p2,
+      });
+      
+      await axios.post("/api/match/save", {
+        tournamentId: parseInt(matchId as string),
+        player1Id: parseInt(user?.userId || "1"), // Get from authenticated user
+        player2Id: 2, // TODO: Get from game participants
+        score1: finalScore.p1,
+        score2: finalScore.p2,
+      });
+      console.log("Match saved successfully");
+    } catch (error) {
+      console.error("Failed to save match:", error);
+      if (axios.isAxiosError(error)) {
+        console.error("Response data:", error.response?.data);
+        console.error("Response status:", error.response?.status);
+      }
+    }
+  };
 
   // Set up socket connection
   useEffect(() => {
@@ -43,6 +81,18 @@ export default function GamePage({ matchId }) {
     socket.onmessage = (msg) => {
       const data = JSON.parse(msg.data);
       gameStateRef.current = data;
+      
+      // Update score display
+      if (data.score) {
+        setScore(data.score);
+      }
+      
+      // Check for game over
+      if (data.gameOver && !gameOver) {
+        setGameOver(true);
+        setWinner(data.winner);
+        saveMatchResult(data.score);
+      }
     };
 
     socket.onclose = () => {
@@ -111,7 +161,10 @@ export default function GamePage({ matchId }) {
     <div className="m-5">
       <div className="flex justify-between my-4">
         <p className="text-2xl font-semibold">Tournament</p>
-        <div>
+        <div className="flex gap-4 items-center">
+          <div className="text-4xl font-bold">
+            {score.p1} - {score.p2}
+          </div>
           <Button>Pause</Button>
         </div>
       </div>
@@ -123,13 +176,28 @@ export default function GamePage({ matchId }) {
           width={CANVAS_WIDTH}
           height={CANVAS_HEIGHT}
         ></canvas>
-        {gameStart === false ? (
+        {gameStart === false && !gameOver ? (
           <div
             className="absolute top-1/2 left-0 right-0 -translate-y-1/2
                  bg-black bg-opacity-10 py-4
                  flex justify-center items-center"
           >
             <p className="text-white text-4xl">Press Enter to Play</p>
+          </div>
+        ) : null}
+        {gameOver ? (
+          <div
+            className="absolute top-1/2 left-0 right-0 -translate-y-1/2
+                 bg-black bg-opacity-90 py-8
+                 flex flex-col gap-4 justify-center items-center"
+          >
+            <p className="text-white text-5xl font-bold">Game Over!</p>
+            <p className="text-white text-3xl">Player {winner} Wins!</p>
+            <p className="text-white text-2xl">Final Score: {score.p1} - {score.p2}</p>
+            <div className="flex gap-4 mt-4">
+              <Button onClick={() => router.push("/dashboard")}>Back to Dashboard</Button>
+              <Button variant="outline" onClick={() => window.location.reload()}>Play Again</Button>
+            </div>
           </div>
         ) : null}
       </div>

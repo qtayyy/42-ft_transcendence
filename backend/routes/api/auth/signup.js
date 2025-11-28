@@ -16,7 +16,7 @@ export default async function (fastify, opts) {
         return reply.code(400).send({ error: "Email already used" });
 
       const passwordHash = await bcrypt.hash(password, 10);
-      await prisma.user.create({
+      const user = await prisma.user.create({
         data: {
           password: passwordHash,
 
@@ -24,7 +24,7 @@ export default async function (fastify, opts) {
             create: {
               email: email,
               avatar: "",
-              username: email || "",
+              username: fullName || email,
               fullname: fullName,
               dob: null,
               region: null,
@@ -37,6 +37,9 @@ export default async function (fastify, opts) {
         .code(200)
         .send({
           message: "User registered",
+          user: {
+            userId: user.id,
+          },
         });
     } catch (error) {
       console.error("Error occurred during registration:", error);

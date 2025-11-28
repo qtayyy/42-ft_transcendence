@@ -22,6 +22,9 @@ function createInitialState() {
         moving: null,
       },
     },
+    score: { p1: 0, p2: 0 },
+    gameOver: false,
+    winner: null,
   };
 }
 
@@ -100,11 +103,16 @@ function checkCollisionsAndScore() {
 
   
   if (ball.x <= 0) {
-    resetBall();
+    gameState.score.p2++; // Player 2 scores
+    resetBall(true); // Reset ball moving right
+    return true; // Score happened
   }
   else if (ball.x + BALL_SIZE >= CANVAS_WIDTH + 10) {
-    resetBall();
+    gameState.score.p1++; // Player 1 scores
+    resetBall(false); // Reset ball moving left
+    return true; // Score happened
   }
+  return false; // No score
 }
 
 function broadcastState()
@@ -112,13 +120,40 @@ function broadcastState()
   const payload = JSON.stringify(gameState);
   socket.send(payload);
 }
+
+function checkGameOver() {
+  if (gameState.score.p1 >= WINNING_SCORE) {
+    gameState.gameOver = true;
+    gameState.winner = 1;
+    stopGameLoop();
+    return true;
+  }
+  if (gameState.score.p2 >= WINNING_SCORE) {
+    gameState.gameOver = true;
+    gameState.winner = 2;
+    stopGameLoop();
+    return true;
+  }
+  return false;
+}
+
+function stopGameLoop() {
+  if (!running) return;
+  running = false;
+  clearInterval(loopHandle);
+  loopHandle = null;
+}
+
 function startGameLoop() {
   if (running) return;
   running = true;
   loopHandle = setInterval(() => {
     updatePaddles();
     updateBall();
-    checkCollisionsAndScore();
+    const scored = checkCollisionsAndScore();
+    if (scored) {
+      checkGameOver();
+    }
     broadcastState();
   }, TICK_MS);
 }

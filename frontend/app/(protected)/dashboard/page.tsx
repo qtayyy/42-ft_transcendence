@@ -27,6 +27,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const [userFound, setUserFound] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [tournaments, setTournaments] = useState([]);
+  const [matchStats, setMatchStats] = useState({ wins: 0, losses: 0, total: 0 });
   // This placeholder represents all friends:
   const { onlineFriends } = useSocketContext();
 
@@ -39,22 +41,56 @@ export default function DashboardPage() {
     { id: 3, username: "Charlie" },
     { id: 4, username: "Diana" },
   ];
-  const tournaments = [
-    {
-      id: 1,
-      date: "2024-01-15",
-      time: "14:30",
-      players: "Alice, Bob, Charlie, Diana",
-      winner: "Alice",
-    },
-    {
-      id: 2,
-      date: "2024-01-10",
-      time: "10:00",
-      players: "Bob, Charlie",
-      winner: "Bob",
-    },
-  ];
+
+  // Fetch tournaments on mount
+  useEffect(() => {
+    const fetchTournaments = async () => {
+      try {
+        const res = await axios.get("/api/tournament");
+        setTournaments(res.data);
+        
+        // Calculate match statistics
+        const matches = res.data.flatMap((t: any) => t.matches || []);
+        const userId = 1; // TODO: Get from auth context
+        
+        let wins = 0;
+        let losses = 0;
+        
+        matches.forEach((match: any) => {
+          if (match.player1Id === userId) {
+            if (match.score1 > match.score2) wins++;
+            else losses++;
+          } else if (match.player2Id === userId) {
+            if (match.score2 > match.score1) wins++;
+            else losses++;
+          }
+        });
+        
+        setMatchStats({ wins, losses, total: wins + losses });
+      } catch (error) {
+        console.error("Failed to fetch tournaments:", error);
+      }
+    };
+    
+    fetchTournaments();
+  }, []);
+  
+  // const tournaments = [
+  //   {
+  //     id: 1,
+  //     date: "2024-01-15",
+  //     time: "14:30",
+  //     players: "Alice, Bob, Charlie, Diana",
+  //     winner: "Alice",
+  //   },
+  //   {
+  //     id: 2,
+  //     date: "2024-01-10",
+  //     time: "10:00",
+  //     players: "Bob, Charlie",
+  //     winner: "Bob",
+  //   },
+  // ];
 
   // const fetchFriends = async () => {
   //   try {
@@ -218,9 +254,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="h-48 flex items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg">
-                  <p className="text-muted-foreground">
-                    Pie chart on Win-Loss (Incl. total games) - Placeholder
-                  </p>
+                  <p className="text-muted-foreground">graph (placeholder)</p>
                 </div>
               </CardContent>
             </Card>
@@ -236,7 +270,7 @@ export default function DashboardPage() {
             <CardContent>
               <div className="space-y-4">
                 {tournaments.length > 0 ? (
-                  tournaments.map((tournament) => (
+                  tournaments.map((tournament: any) => (
                     <div
                       key={tournament.id}
                       className="p-4 border rounded-lg hover:bg-accent transition-colors"
@@ -250,18 +284,22 @@ export default function DashboardPage() {
                         </div>
                         <div>
                           <span className="text-muted-foreground">Date: </span>
-                          <span className="font-medium">{tournament.date}</span>
+                          <span className="font-medium">
+                            {new Date(tournament.date).toLocaleDateString()}
+                          </span>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Time: </span>
-                          <span className="font-medium">{tournament.time}</span>
+                          <span className="font-medium">
+                            {new Date(tournament.date).toLocaleTimeString()}
+                          </span>
                         </div>
                         <div>
                           <span className="text-muted-foreground">
                             Winner:{" "}
                           </span>
                           <span className="font-medium text-primary">
-                            {tournament.winner}
+                            {tournament.winner?.username || "In Progress"}
                           </span>
                         </div>
                         <div className="md:col-span-4">
@@ -269,7 +307,7 @@ export default function DashboardPage() {
                             Players:{" "}
                           </span>
                           <span className="font-medium">
-                            {tournament.players}
+                            {tournament.players?.map((p: any) => p.username).join(", ")}
                           </span>
                         </div>
                       </div>

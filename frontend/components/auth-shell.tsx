@@ -52,6 +52,12 @@ export function AuthShell({
               <Button className="w-full" type="submit">
                 {submitText}
               </Button>
+              <p className="text-center text-sm text-muted-foreground mt-2">
+                Google (placeholder)
+              </p>
+              <p className="text-center text-sm text-muted-foreground mt-2">
+                42 intra (placeholder)
+              </p>
             </CardFooter>
           </form>
         </CardContent>

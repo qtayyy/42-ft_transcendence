@@ -65,6 +65,7 @@ export default function LoginPage() {
           className="underline text-end text-gray-400 hover:text-gray-200"
         >
           Forgot password
+
         </Link>
         {errorMessage && (
           <Alert variant="destructive">

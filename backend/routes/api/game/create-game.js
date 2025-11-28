@@ -17,7 +17,7 @@ export default async function (fastify, opts) {
           where: { id: { in: userIds, },},
         });
         // Create a single tournament in all of those users
-        const tournament = await prisma.tournaments.create({
+        const tournament = await prisma.tournament.create({
           data: {
             players: {
               connect: players.map((player) => ({ id: player.id })),
