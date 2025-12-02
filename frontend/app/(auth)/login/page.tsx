@@ -75,7 +75,7 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        {/* 2. Login Button (Manually added here) */}
+        {/* 2. Login Button */}
         <Button className="w-full" type="submit">
           Login
         </Button>
