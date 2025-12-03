@@ -37,7 +37,7 @@ export default function FriendRequestsPage() {
   };
 
   const decline = async (id: number) => {
-    await axios.post(`/api/friends/request/${id}/decline`);
+    await axios.put(`/api/friends/request/${id}/decline`);
     fetchRequests();
   };
 
