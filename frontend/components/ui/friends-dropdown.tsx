@@ -23,7 +23,7 @@ export default function FriendsDropdown({ friends, onInvite }) {
   const [search, setSearch] = useState("");
 
   const filtered = friends.filter((f) =>
-    f.label.toLowerCase().includes(search.toLowerCase())
+    f.username.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -49,15 +49,15 @@ export default function FriendsDropdown({ friends, onInvite }) {
               <CommandGroup>
                 {filtered.map((friend) => (
                   <CommandItem
-                    key={friend.value}
+                    key={friend.id}
                     className="flex items-center justify-between pr-2"
                   >
-                    <span>{friend.label}</span>
+                    <span>{friend.username}</span>
                     <Button
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onInvite(friend.value);
+                        onInvite({ id: friend.id, username: friend.username });
                       }}
                     >
                       Invite

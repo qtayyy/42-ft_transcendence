@@ -10,18 +10,23 @@ export default async function (fastify, opts) {
     },
     async (request, reply) => {
       try {
-        const userId = request.user.userId;
-        const [player1, player2] = request.body;
-
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user) return reply.code(404).send({ error: "User not found" });
-
-        return reply.code(200).send(
-          {
-            "matchId": "0001",
-          }
-        );
-
+        const data = request.body;
+        const userIds = data.map((item) => item.userId);
+        // Get all the users that joined the tournament
+        const players = await prisma.user.findMany({
+          where: { id: { in: userIds, },},
+        });
+        // Create a single tournament in all of those users
+        const tournament = await prisma.tournaments.create({
+          data: {
+            players: {
+              connect: players.map((player) => ({ id: player.id })),
+            },
+          },
+        });
+        return reply.code(200).send({
+          tournamentId: tournament.id,
+        });
       } catch (error) {
         throw error;
       }
