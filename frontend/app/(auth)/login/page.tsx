@@ -17,7 +17,7 @@ const fields = [
 
 const GOOGLE_AUTH_URL =
   (process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "") +
-  "/api/auth/google";
+  "/api/auth/google/login";
 
 export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
