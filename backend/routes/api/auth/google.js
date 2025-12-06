@@ -4,7 +4,7 @@ import crypto from 'crypto'; // Built-in Node module to generate random password
 const prisma = new PrismaClient();
 
 // Route: Google Authentication Callback
-// After users log in Google's page, Google redirects them back here with a "CODE"
+// After users log in Google's page, Google redirects them back here with a "AUTHORIZATION CODE"
 // 		We exchange the CODE for a TOKEN, get their email, and log them in
 // This route handles the response from Google after the user grants permission.
 
