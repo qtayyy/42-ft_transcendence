@@ -12,16 +12,35 @@ import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { SocketContextValue } from "@/type/types";
 import { useGame } from "@/hooks/use-game";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const SocketContext = createContext<SocketContextValue | null>(null);
 
 export const SocketProvider = ({ children }) => {
   const wsRef = useRef<WebSocket | null>(null);
   const { user } = useAuth();
-  const { setOnlineFriends, setInvitesReceived, setGameRoom } = useGame();
+  const {
+    setOnlineFriends,
+    setInvitesReceived,
+    setGameRoom,
+    setGameRoomLoaded,
+    gameState,
+    setGameState,
+  } = useGame();
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
+  // Set this to NULL when a match ends
+  const hasActiveGame = useRef(false);
+
+useEffect(() => {
+  if (!gameState) return;
+
+  if (!hasActiveGame.current) {
+    hasActiveGame.current = true;
+    router.push(`/game/${gameState.tournamentId}/${gameState.matchId}`);
+  }
+}, [gameState, router]);
+
 
   useEffect(() => {
     if (!user) return;
@@ -38,7 +57,7 @@ export const SocketProvider = ({ children }) => {
       websocket.onopen = () => {
         console.log("WebSocket connected");
         setIsReady(true);
-      }
+      };
 
       websocket.onmessage = (event) => {
         try {
@@ -85,8 +104,14 @@ export const SocketProvider = ({ children }) => {
                 hostId: payload.hostId,
                 invitedPlayers: payload.invitedPlayers,
                 joinedPlayers: payload.joinedPlayers,
-                maxPlayers: payload.maxPlayers
+                maxPlayers: payload.maxPlayers,
               });
+              setGameRoomLoaded(true);
+              break;
+
+            case "ROOM_NOT_FOUND":
+              setGameRoom(null);
+              setGameRoomLoaded(true);
               break;
 
             case "GAME_INVITE":
@@ -99,7 +124,7 @@ export const SocketProvider = ({ children }) => {
                 },
               ]);
               break;
-            
+
             case "JOIN_ROOM":
               const roomId = payload.roomId;
               router.push(`/game/room/${roomId}`);
@@ -110,6 +135,14 @@ export const SocketProvider = ({ children }) => {
               toast.info("You're removed from the game room");
               router.push("/dashboard");
               break;
+
+            case "GAME_MATCH_START":
+              setGameState(payload);
+              break;
+
+            case "GAME_STATE":
+            setGameState({...payload});  
+            break;
 
             default:
               console.log("Unknown event:", msg.event);
@@ -131,7 +164,7 @@ export const SocketProvider = ({ children }) => {
       websocket.onerror = (err) => {
         setIsReady(false);
         console.error("WebSocket error:", err);
-      }
+      };
     }
 
     return () => {
@@ -140,7 +173,16 @@ export const SocketProvider = ({ children }) => {
         wsRef.current = null;
       }
     };
-  }, [user, setInvitesReceived, setOnlineFriends, setGameRoom, router]);
+  }, [
+    user,
+    // setInvitesReceived,
+    // setOnlineFriends,
+    // setGameRoom,
+    // router,
+    // setGameRoomLoaded,
+    // gameState,
+    // setGameState,
+  ]);
 
   const sendSocketMessage = useCallback((payload) => {
     const socket = wsRef.current;
@@ -155,7 +197,7 @@ export const SocketProvider = ({ children }) => {
     <SocketContext.Provider
       value={{
         sendSocketMessage,
-        isReady
+        isReady,
       }}
     >
       {children}

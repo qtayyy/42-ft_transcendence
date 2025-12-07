@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { Friend, GameContextValue, GameRoomValue, Invites } from "@/type/types";
+import { Friend, GameContextValue, GameRoomValue, Invites, GameStateValue } from "@/type/types";
 import axios from "axios";
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -11,9 +11,9 @@ export const GameProvider = ({ children }) => {
   const { user } = useAuth();
   const [onlineFriends, setOnlineFriends] = useState<Friend[]>([]);
   const [invitesReceived, setInvitesReceived] = useState<Invites[]>([]);
-  // const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
   const [gameRoom, setGameRoom] = useState<GameRoomValue | null>(null);
-  // const [invitesResponses, setInvitesResponses] = useState<Friend[]>([]);
+  const [gameRoomLoaded, setGameRoomLoaded] = useState(false);
+  const [gameState, setGameState] = useState<GameStateValue | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -36,10 +36,12 @@ export const GameProvider = ({ children }) => {
         setOnlineFriends,
         invitesReceived,
         setInvitesReceived,
-        // selectedFriends,
-        // setSelectedFriends,
+        gameRoomLoaded,
+        setGameRoomLoaded,
         gameRoom,
         setGameRoom,
+        gameState,
+        setGameState
       }}
     >
       {children}

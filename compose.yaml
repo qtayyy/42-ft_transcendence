@@ -4,7 +4,7 @@ services:
     build: ./nginx
     networks:
       - capybara
-    restart: always
+    # restart: always
     depends_on:
       - frontend
       - backend
@@ -20,7 +20,7 @@ services:
     build: ./frontend
     networks:
       - capybara
-    restart: always
+    # restart: always
     develop:
       watch:
         - path: ./frontend/package.json
@@ -38,7 +38,7 @@ services:
     build: ./backend
     networks:
       - capybara
-    restart: always
+    # restart: always
     env_file:
       - ./backend/.env
     volumes:
