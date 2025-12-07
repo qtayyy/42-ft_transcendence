@@ -1,5 +1,6 @@
 import { PrismaClient } from '../../../generated/prisma/index.js';
 import crypto from 'crypto'; // Built-in Node module to generate random passwords
+import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
