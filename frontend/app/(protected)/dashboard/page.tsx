@@ -16,27 +16,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useGame } from "@/hooks/use-game";
-import { useSocket } from "@/hooks/use-socket";
-import { useAuth } from "@/hooks/use-auth";
+
 
 export default function DashboardPage() {
   const router = useRouter();
   const [userFound, setUserFound] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  // This placeholder represents all friends:
   const { gameRoom, onlineFriends } = useGame();
-  const { user } = useAuth();
-  const { sendSocketMessage, isReady } = useSocket();
-
-    useEffect(() => {
-    if (!user || !isReady) return;
-    sendSocketMessage({
-      event: "GET_GAME_ROOM",
-      payload: {
-        userId: user?.id,
-      },
-    });
-  }, [sendSocketMessage, user, isReady]);
 
   const offlineFriends = [
     { id: 3, username: "Charlie" },
