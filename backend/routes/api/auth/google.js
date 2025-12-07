@@ -39,12 +39,16 @@ export default async function (fastify, opts) {
 			if (!profile) {
 				// Generate a random password because they will use Google to login,
 				// but our DB schema requires a password string.
-				const randomPassword = crypto.randomBytes(16).toString('hex');
+				const pepper = process.env.SECURITY_PEPPER;
+				const saltRounds = parseInt(process.env.SALT_ROUNDS);
+				const randomPassword = crypto.randomBytes(32).toString("hex");
+				const passwordWithPepper = randomPassword + pepper;
+				const passwordHash = await bcrypt.hash(passwordWithPepper, saltRounds);
 				
 				// We create the User and Profile in one transaction
 				const newUser = await prisma.user.create({
 					data: {
-						password: randomPassword, // Dummy password
+						password: passwordHash, // Store the hash
 						profile: {
 							create: {
 								email: userData.email,

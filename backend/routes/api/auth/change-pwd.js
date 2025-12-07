@@ -11,18 +11,23 @@ export default async function (fastify, opts) {
     async (request, reply) => {
     try {
       const { oldPassword, newPassword } = request.body;
+      const pepper = process.env.SECURITY_PEPPER;
+      const saltRounds = parseInt(process.env.SALT_ROUNDS);
+
       if (!oldPassword || !newPassword)
         return reply.code(400).send({ error: "Missing fields" });
 
       const userId = request.user.userId;
       const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) return reply.code(400).send({ error: "Invalid user" });
-
-      const match = await bcrypt.compare(oldPassword, user.password);
+      
+      const oldPasswordWithPepper = oldPassword + pepper;
+      const match = await bcrypt.compare(oldPasswordWithPepper, user.password);
       if (match === false)
         return reply.code(400).send({ error: "Incorrect old password" });
 
-      const passwordHash = await bcrypt.hash(newPassword, 10);
+      const newPasswordWithPepper = newPassword + pepper;
+      const passwordHash = await bcrypt.hash(newPasswordWithPepper, saltRounds);
       await prisma.user.update({
         where: { id: userId },
         data: { password: passwordHash }
