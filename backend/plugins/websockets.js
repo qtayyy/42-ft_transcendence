@@ -14,7 +14,11 @@ export default fp(async (fastify) => {
   //    userId: roomId
   const currentRoom = new Map();
 
+  // matchId: gameState
+  const gameStates = new Map();
+
   fastify.decorate("onlineUsers", onlineUsers);
   fastify.decorate("gameRooms", gameRooms);
   fastify.decorate("currentRoom", currentRoom);
+  fastify.decorate("gameStates", gameStates);
 });
