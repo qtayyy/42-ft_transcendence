@@ -52,6 +52,11 @@ export default async function (fastify, opts) {
               fastify.leaveRoom(payload.roomId, payload.userId);
               break;
 
+            case "GAME_EVENTS":
+              console.log(payload);
+              fastify.updateGameState(payload.matchId, payload.userId, payload.keyEvent);
+              break;
+
             default:
               safeSend(
                 connection.socket,

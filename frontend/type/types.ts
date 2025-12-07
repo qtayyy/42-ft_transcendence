@@ -1,9 +1,20 @@
 import React from "react";
 
+export interface FriendRequest {
+  id: number;
+  requesterId: number;
+  addresseeId: number;
+  status: "PENDING" | "ACCEPTED" | "DECLINED";
+  createdAt: string;
+  requester: {
+    id: number;
+    username: string;
+  };
+};
+
 export interface Friend {
   id: number;
   username: string;
-  // response?: "pending" | "accepted" | "rejected"
 }
 
 export interface Invites {
@@ -15,11 +26,6 @@ export interface Invites {
 export interface SocketContextValue {
   sendSocketMessage: (payload: Record<string, unknown>) => void;
   isReady: boolean;
-  // onlineFriends: Friend[];
-  // gameInvites: Friend[];
-  // playerResponses: Friend[];
-  // setGameInvites: React.Dispatch<React.SetStateAction<Friend[]>>
-
 }
 
 export interface UserProfile {
@@ -47,10 +53,12 @@ export interface GameContextValue {
   setOnlineFriends: React.Dispatch<React.SetStateAction<Friend[]>>;
   invitesReceived: Invites[];
   setInvitesReceived: React.Dispatch<React.SetStateAction<Invites[]>>;
-  // selectedFriends: Friend[];
-  // setSelectedFriends: React.Dispatch<React.SetStateAction<Friend[]>>;
+  gameRoomLoaded: boolean,
+  setGameRoomLoaded: React.Dispatch<React.SetStateAction<boolean>>;
   gameRoom: GameRoomValue | null;
   setGameRoom: React.Dispatch<React.SetStateAction<GameRoomValue | null>>;
+  gameState: GameStateValue | null;
+  setGameState: React.Dispatch<React.SetStateAction<GameStateValue | null>>;
 }
 
 export interface GameRoomValue {
@@ -59,4 +67,30 @@ export interface GameRoomValue {
   invitedPlayers: Friend[];
   joinedPlayers: Friend[];
   maxPlayers: number;
+}
+
+export interface Player {
+  id: number;
+  username: string;
+  gamePaused: boolean;
+  score: number;
+  paddleX: number;
+  paddleY: number;
+  moving: string;
+}
+
+export interface Ball {
+  posX: number,
+  posY: number,
+  dx: number,
+  dy: number
+}
+
+export interface GameStateValue {
+  tournamentId: number;
+  matchId: number;
+  ball: Ball;
+  leftPlayer: Player;
+  rightPlayer: Player;
+  me: string;
 }

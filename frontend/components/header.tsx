@@ -11,6 +11,8 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useCallback, useMemo } from "react";
+import { useSocket } from "@/hooks/use-socket";
+import { useGame } from "@/hooks/use-game";
 
 // Routes where the profile icon should be hidden (non-authenticated pages)
 const NON_AUTHENTICATED_ROUTES = [
@@ -26,6 +28,8 @@ export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { sendSocketMessage, isReady } = useSocket();
+  const { gameRoom } = useGame();
 
   // Check if current route is a non-authenticated page
   const isNonAuthenticatedPage = useMemo(() => {
@@ -36,9 +40,17 @@ export default function Header() {
   const shouldShowProfileIcon = user && !isNonAuthenticatedPage;
 
   const handleLogout = useCallback(async () => {
+    if (!user || !isReady) return;
+    sendSocketMessage({
+      event: "LEAVE_ROOM",
+      payload: {
+        roomId: gameRoom?.roomId,
+        userId: user.id,
+      },
+    });
     logout();
     router.push("/");
-  }, [router, logout]);
+  }, [router, logout, user, isReady, sendSocketMessage, gameRoom]);
 
   return (
     <div className="z-50 flex w-full items-center justify-between p-3 sticky top-0 bg-background">
