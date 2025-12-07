@@ -3,18 +3,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
-
-type FriendRequest = {
-  id: number;
-  requesterId: number;
-  addresseeId: number;
-  status: "PENDING" | "ACCEPTED" | "DECLINED";
-  createdAt: string;
-  requester: {
-    id: number;
-    username: string;
-  };
-};
+import { FriendRequest } from "@/type/types";
 
 export default function FriendRequestsPage() {
   const [requests, setRequests] = useState<FriendRequest[]>([]);
