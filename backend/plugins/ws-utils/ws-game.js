@@ -16,7 +16,6 @@ export default fp((fastify) => {
       joinedPlayers: [{ id: hostId, username: hostUsername }],
       maxPlayers,
     });
-    console.log("gameroom created: ", fastify.gameRooms.get(roomId));
     return roomId;
   });
 
@@ -24,7 +23,11 @@ export default fp((fastify) => {
     const roomId = fastify.currentRoom.get(userId);
     if (!roomId) return;
     const room = fastify.gameRooms.get(roomId);
-    if (!room) throw new Error(`Room ${roomId} doesn't exist`);
+    if (!room) {
+      const socket = fastify.onlineUsers.get(userId);
+      safeSend(socket, { event: "ROOM_NOT_FOUND" }, userId);
+      return;
+    }
 
     const isHost = userId === room.hostId;
     const isJoined = room.joinedPlayers.some((p) => p.id === userId);
@@ -115,10 +118,9 @@ export default fp((fastify) => {
       });
 
       if (response === "accepted") {
-        // If room is full, remove extra "pending" pl
-        // ayers from host's page and inform
-        // invitee that room is full.
-        if (room.joinedPlayers.size === room.maxPlayers) {
+        // If room is full, remove extra "pending" players from
+        // host's page and inform invitee that room is full.
+        if (room.joinedPlayers.length === room.maxPlayers) {
           room.invitedPlayers = room.invitedPlayers.filter(
             (p) => p.id !== inviteeId
           );
@@ -130,7 +132,7 @@ export default fp((fastify) => {
           throw new Error("Room already full");
         }
         // Else, add new player
-        fastify.currentRoom.set(inviteeId, room.id);
+        fastify.currentRoom.set(inviteeId, roomId);
         room.joinedPlayers.push({ id: inviteeId, username: username });
       }
 
@@ -164,7 +166,7 @@ export default fp((fastify) => {
 
   fastify.decorate("leaveRoom", (roomId, userId) => {
     const room = fastify.gameRooms.get(roomId);
-    if (!room) throw new Error("Room does not exist");
+    if (!room) return; // Not throwing error as we always run leave room when user log outs
 
     // Remove the user from joinedPlayers, invitedPlayers and currentRoom
     room.joinedPlayers = room.joinedPlayers.filter((p) => p.id !== userId);

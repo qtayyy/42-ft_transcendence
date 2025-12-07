@@ -22,10 +22,18 @@ import axios from "axios";
 export default function GameRoom() {
   const { sendSocketMessage, isReady } = useSocket();
   const { user } = useAuth();
-  const { gameRoom, onlineFriends } = useGame();
+  const { gameRoom, onlineFriends, gameRoomLoaded } = useGame();
   const { roomId } = useParams();
-  const router = useRouter();
+  // const router = useRouter();
   const isHost = user?.id === gameRoom?.hostId;
+
+  // useEffect(() => {
+  //   if (!gameRoomLoaded) return;
+
+  //   if (gameRoom === null) {
+  //     router.replace("/dashboard");
+  //   }
+  // }, [gameRoom, router, gameRoomLoaded]);
 
   useEffect(() => {
     if (!user || !isReady) return;
@@ -51,13 +59,13 @@ export default function GameRoom() {
     });
   }
 
-  const handleStart = async () => {
-    // Hardcoded data (handle two players for now)
-    const data = [{ userId: 1 }, { userId: 2 }];
-
-    const response = await axios.post("/api/game/create", data);
-    const tournamentId = response.data.tournamentId;
-    router.push(`/game/${tournamentId}`);
+  const handleStart = async (joinedPlayers) => {
+    try {
+      await axios.post("/api/game/create", joinedPlayers);
+    } catch (error) {
+      // temp error handling
+        throw error;      
+    }
   };
 
   const handleKick = (userId: number) => {
@@ -133,7 +141,7 @@ export default function GameRoom() {
               })}
             </CardContent>
             <CardFooter className="grid justify-end">
-              <Button className="w-40 mt-10" onClick={handleStart}>
+              <Button className="w-40 mt-10" onClick={() => handleStart(gameRoom?.joinedPlayers)}>
                 Start!
               </Button>
             </CardFooter>
