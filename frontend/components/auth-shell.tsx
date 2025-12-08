@@ -20,7 +20,7 @@ export function AuthShell({
   handleSubmit,
   link,
   linkText,
-  submitText
+  // submitText
 }) {
   return (
     <div className="grid h-screen place-items-center">
@@ -48,11 +48,15 @@ export function AuthShell({
               ))}
             </div>
             {children}
+
+            {/* Only render this footer button if submitText is provided */}
+            {/* {submitText && (
             <CardFooter className="flex-col gap-2">
               <Button className="w-full" type="submit">
                 {submitText}
               </Button>
             </CardFooter>
+            )} */}
           </form>
         </CardContent>
       </Card>
