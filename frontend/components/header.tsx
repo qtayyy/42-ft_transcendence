@@ -52,12 +52,21 @@ export default function Header() {
     router.push("/");
   }, [router, logout, user, isReady, sendSocketMessage, gameRoom]);
 
+  function handleLogoClick() {
+    if (user) {
+      router.push("/dashboard");
+    }
+    else {
+      router.push("/");
+    }
+  }
+
   return (
     <div className="z-50 flex w-full items-center justify-between p-3 sticky top-0 bg-background">
       <div>
         <button
           type="button"
-          onClick={() => router.push("/dashboard")}
+          onClick={handleLogoClick}
           className="p-0 border-0 bg-transparent cursor-pointer"
           aria-label="Go to dashboard"
           suppressHydrationWarning
