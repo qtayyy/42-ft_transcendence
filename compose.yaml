@@ -21,8 +21,6 @@ services:
     networks:
       - capybara
     restart: always
-    ports:
-      - 3000:3000
     develop:
       watch:
         - path: ./frontend/package.json
