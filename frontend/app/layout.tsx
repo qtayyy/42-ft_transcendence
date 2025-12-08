@@ -42,7 +42,7 @@ export default function RootLayout({
                 <Toaster position="top-center" />
                 <Header />
                 <GameInviteDialog />
-                <main className="min-h-screen w-screen">{children}</main>
+                <main className="min-h-screen w-full">{children}</main>
                 <Footer />
               </SocketProvider>
             </GameProvider>
