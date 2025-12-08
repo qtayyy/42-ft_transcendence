@@ -11,6 +11,7 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useCallback, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
 
@@ -62,7 +63,12 @@ export default function Header() {
   }
 
   return (
-    <div className="z-50 flex w-full items-center justify-between p-3 sticky top-0 bg-background">
+    <div className={cn(
+        "z-50 flex w-full items-center justify-between p-3",
+        isNonAuthenticatedPage
+          ? "fixed top-0 inset-x-0 bg-transparent" // Overlay on landing
+          : "sticky top-0 bg-background" // Sticky on other pages
+      )}>
       <div>
         <button
           type="button"
