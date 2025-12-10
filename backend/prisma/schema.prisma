@@ -24,19 +24,27 @@ model User {
 
 model Profile {
   id       Int       @id
+  userId     Int?      // Links to your User authentication system: new add
   user     User      @relation(fields: [id], references: [id])
+  rating     Int       @default(1000)  // Elo rating for matchmaking : new add
   email    String    @unique
   avatar   String?
   username String    @unique
   fullname String
   dob      DateTime?
   region   String?
+  wins       Int       @default(0)     // Total wins
+  losses     Int       @default(0)     // Total losses
   
-  tournaments    Tournament[]
+  tournamentsPlayed  Tournament[] @relation("TournamentPlayers") // new
+  // tournaments    Tournament[]
   tournamentsWon Tournament[] @relation("TournamentWinner")
 
   matchesAsPlayer1 Match[] @relation("MatchPlayer1")
   matchesAsPlayer2 Match[] @relation("MatchPlayer2")
+
+  // Matches where this profile is the winner
+  matchesWon Match[] @relation("MatchWinner")
 
   // user sent these requests
   requester Friendship[] @relation("RequesterRelations")
@@ -65,14 +73,42 @@ model Friendship {
   @@unique([requesterId, addresseeId])
 }
 
+// model Tournament {
+//   id       Int      @id @default(autoincrement())
+//   date     DateTime @default(now())
+//   winnerId Int?
+//   winner   Profile?    @relation("TournamentWinner", fields: [winnerId], references: [id])
+//   players  Profile[]
+//   matches  Match[]
+// }
+
+// model Match {
+//   id Int @id @default(autoincrement())
+
+//   player1Id Int
+//   player1   Profile @relation("MatchPlayer1", fields: [player1Id], references: [id])
+
+//   player2Id Int
+//   player2   Profile @relation("MatchPlayer2", fields: [player2Id], references: [id])
+
+//   score1 Int
+//   score2 Int
+
+//   tournament   Tournament @relation(fields: [tournamentId], references: [id])
+//   tournamentId Int
+// }
 model Tournament {
   id       Int      @id @default(autoincrement())
   date     DateTime @default(now())
   winnerId Int?
-  winner   Profile?    @relation("TournamentWinner", fields: [winnerId], references: [id])
-  players  Profile[]
+  winner   Profile? @relation("TournamentWinner", fields: [winnerId], references: [id])
+  
+  // Many-to-many relation for players in tournament
+  players  Profile[] @relation("TournamentPlayers")
+  
   matches  Match[]
 }
+
 
 model Match {
   id Int @id @default(autoincrement())
@@ -85,7 +121,13 @@ model Match {
 
   score1 Int
   score2 Int
+  
+  // Track winner for easier querying
+  winnerId Int?
+  winner   Profile? @relation("MatchWinner", fields: [winnerId], references: [id])
 
   tournament   Tournament @relation(fields: [tournamentId], references: [id])
   tournamentId Int
+  
+  createdAt DateTime @default(now())
 }
