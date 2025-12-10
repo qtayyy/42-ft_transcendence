@@ -7,6 +7,7 @@ export default async function (fastify, opts) {
   fastify.post("/login", async (request, reply) => {
     try {
       const { email, password } = request.body;
+      const pepper = process.env.SECURITY_PEPPER;
 
       if (!email || !password)
         return reply.code(400).send({ error: "Missing fields" });
@@ -20,7 +21,8 @@ export default async function (fastify, opts) {
       const user = await prisma.user.findUnique({
         where: { id: profile.id },
       });
-      const match = await bcrypt.compare(password, user.password);
+      const passwordWithPepper = password + pepper;
+      const match = await bcrypt.compare(passwordWithPepper, user.password);
       if (!match)
         return reply.code(400).send({ error: "Incorrect email or password" });
 

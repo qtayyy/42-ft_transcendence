@@ -172,8 +172,13 @@ export default async function (fastify, opts) {
       }
 
       // Hash new password
+      // UPDATE PASSWORD
       const bcrypt = await import("bcrypt");
-      const passwordHash = await bcrypt.hash(newPassword, 10);
+      const pepper = process.env.SECURITY_PEPPER;
+      const saltRounds = parseInt(process.env.SALT_ROUNDS);
+
+      const newPasswordWithPepper = newPassword + pepper;
+      const passwordHash = await bcrypt.hash(newPasswordWithPepper, saltRounds);
 
       // Update password and clear OTP
       await prisma.user.update({
