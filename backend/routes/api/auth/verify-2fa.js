@@ -1,5 +1,5 @@
 import otplib from "otplib";
-import { PrismaClient } from "../../../generated/prisma/index.js";
+import { PrismaClient } from "/app/generated/prisma/index.js";
 
 const prisma = new PrismaClient();
 
@@ -35,7 +35,7 @@ export default async function (fastify, opts) {
       );
 
       const profile = await prisma.profile.findUnique({
-        where: { userId: user.id },
+        where: { id: user.id },
       });
 
       return reply
