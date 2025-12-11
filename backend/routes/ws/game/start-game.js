@@ -38,7 +38,7 @@ export default async function (fastify, opts) {
 				playerSlot = 1;
 				game.addPlayer(connection, 1, userId);
 			}
-			else if (!game.players.p2.id) {
+			else if (!game.players.p2.id) { // Slot 2 empty
 				playerSlot = 2;
 				game.addPlayer(connection, 2, userId);
 			}
