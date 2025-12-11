@@ -23,7 +23,8 @@ export default async function (fastify, opts) {
 
 			/*
 				Assign sockets to game logic
-				Check if the connecting user is ALREADY one of the players
+				Give slot to player if current game have empty slots
+				Reconnection logic: Check if the connecting user is ALREADY one of the players
 			*/
 			let playerSlot = 0;
 			if (game.players.p1.id === userId) { // User connects as Player 1
