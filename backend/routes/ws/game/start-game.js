@@ -13,6 +13,7 @@ export default async function (fastify, opts) {
 		},
 		(connection, request) => { // A Handler
 			const { matchId } = request.params;
+			const userId = request.user.id; // request.user is populated by the 'authenticate' decorator
 			console.log(`Client connected to match: ${matchId}`);
 
 			// Get or create game
@@ -22,17 +23,24 @@ export default async function (fastify, opts) {
 
 			/*
 				Assign sockets to game logic
-				FUTURE: Ideally need to check request.user.id to check is p1 or p2
-				NOW: assign p1 if empty, else p2
+				Check if the connecting user is ALREADY one of the players
 			*/
 			let playerSlot = 0;
-			if (!game.players.p1) {
+			if (game.players.p1.id === userId) { // User connects as Player 1
 				playerSlot = 1;
-				game.addPlayer(connection, 1);
+				game.addPlayer(connection, 1, userId);
 			}
-			else if (!game.players.p2) {
+			else if (game.players.p2.id === userId) { // User connects as Player 2
 				playerSlot = 2;
-				game.addPlayer(connection, 2);
+				game.addPlayer(connection, 2, userId);
+			}
+			else if (!game.players.p1.id) { // Slot 1 is empty
+				playerSlot = 1;
+				game.addPlayer(connection, 1, userId);
+			}
+			else if (!game.players.p2.id) {
+				playerSlot = 2;
+				game.addPlayer(connection, 2, userId);
 			}
 			else
 			{

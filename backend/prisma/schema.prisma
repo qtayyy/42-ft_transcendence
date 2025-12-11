@@ -86,6 +86,7 @@ model Match {
   score1 Int
   score2 Int
 
-  tournament   Tournament @relation(fields: [tournamentId], references: [id])
-  tournamentId Int
+  // Add '?' to make it optional
+  tournament   Tournament? @relation(fields: [tournamentId], references: [id])
+  tournamentId Int?
 }

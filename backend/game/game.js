@@ -1,3 +1,5 @@
+import { prisma } from '../../app.js';
+
 const	CANVAS_WIDTH = 800;
 const	CANVAS_HEIGHT = 350;
 const	PADDLE_WIDTH = 12;
@@ -15,8 +17,14 @@ class game
 		this.matchId = matchId;
 		// Store connected sockets (Player 1 and Player 2)
 		this.players = {
-			p1: null,
-			p2: null
+			p1: {
+				socket: null,
+				id: null
+			},
+			p2: {
+				socket: null,
+				id: null
+			}
 		};
 		this.status = 'WAITING'; // WAITING, PLAYING, FINISHED
 		this.gameState = this.createInitialState(); 
@@ -55,13 +63,22 @@ class game
 	}
 
 	// Add Player to game
-	addPlayer(socket, playerSlot)
+	addPlayer(socket, playerSlot, userId)
 	{
-		if (playerSlot == 1)
-			this.players.p1 = socket;
+		if (playerSlot == 1) {
+			this.players.p1 = {
+				socket: socket,
+				id: userId
+			};
+		}
 		else if (playerSlot == 2)
-			this.players.p2 = socket;
-		console.log(`Player ${playerSlot} joined match ${this.matchId}`);
+		{
+			this.players.p2 = {
+				socket: socket,
+				id: userId
+			}
+		}
+		console.log(`Player ${playerSlot} (ID: ${userId}) joined match ${this.matchId}`);
 	}
 
 	// Handle Paddle Movement Input
@@ -184,11 +201,34 @@ class game
 
 		// Send to Player 1 if connected
 		if (this.players.p1)
-			this.players.p1.send(payLoad);
+			this.players.p1.socket.send(payLoad);
 
 		// Send to Player 2 if connected
 		if (this.players.p2)
-			this.players.p2.send(payLoad);
+			this.players.p2.socket.send(payLoad);
+	}
+
+	async saveMatch()
+	{
+		try {
+			if (!this.players.p1.id || !this.players.p2.id) {
+				console.warn("Cannot save match: Missing player IDs");
+				return ;
+			}
+
+			await prisma.match.create({
+				data: {
+					player1Id: this.players.p1.id,
+					player2Id: this.players.p2.id,
+					score1: this.gameState.score.p1,
+					score2: this.gameState.score.p2
+				}
+			});
+			console.log("Match saved successfully!");
+		}
+		catch (error) {
+			console.error("Failed to save match:", error);
+		}
 	}
 }
 
