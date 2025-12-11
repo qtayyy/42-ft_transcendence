@@ -8,6 +8,7 @@ const	PADDLE_SPEED = 10;
 const	BALL_SIZE = 12;
 const	FPS = 60;
 const	TICK_MS = 1000 / FPS;
+const	WINNING_SCORE = 7;
 
 
 class game
@@ -100,6 +101,7 @@ class game
 			this._updatePaddles();
 			this._updateBall();
 			this._checkCollisionsAndScore();
+			this._checkWinCondition();
 			this._broadcastState();
 		}, TICK_MS);
 	}
@@ -195,17 +197,22 @@ class game
 		}
 	}
 
+	_broadcast(messageObject)
+	{
+		const payload = JSON.stringify(messageObject);
+
+		if (this.players.p1.socket) {
+			this.players.p1.socket.send(payload);
+		}
+
+		if (this.players.p2.socket) {
+			this.players.p2.socket.send(payload);
+		}
+	}
+
 	_broadcastState()
 	{
-		const payLoad = JSON.stringify(this, this.gameState);
-
-		// Send to Player 1 if connected
-		if (this.players.p1)
-			this.players.p1.socket.send(payLoad);
-
-		// Send to Player 2 if connected
-		if (this.players.p2)
-			this.players.p2.socket.send(payLoad);
+		this._broadcast(this.gameState);
 	}
 
 	async saveMatch()
@@ -229,6 +236,32 @@ class game
 		catch (error) {
 			console.error("Failed to save match:", error);
 		}
+	}
+
+	_checkWinCondition()
+	{
+		const p1Score = this.gameState.score.p1;
+		const p2Score = this.gameState.score.p2;
+
+		if (p1Score >= WINNING_SCORE || p2Score >= WINNING_SCORE) {
+			this._stopGame();
+		}
+	}
+
+	_stopGame()
+	{
+		if (this.running === false)
+			return ;
+		this.running = false;
+		clearInterval(this.loopHandle);
+		this.saveMatch();
+		const winner = this.gameState.score.p1 >= WINNING_SCORE ? 1 : 2;
+		this._broadcast({
+			type: 'GAME_OVER',
+			winner: winner
+		});
+
+		console.log(`Game ${this.matchId} ended. Winner: Player ${winner}`);
 	}
 }
 
