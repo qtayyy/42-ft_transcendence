@@ -1,3 +1,5 @@
+import { Game } from './game.js';
+
 class gameManager
 {
 	constructor()
@@ -5,9 +7,9 @@ class gameManager
 		this.activeGames = new Map(); // stores matchId -> game instance
 	}
 
-	createGame(matchId, p1, p2)
+	createGame(matchId)
 	{
-		const newGame = new Game(matchId, p1, p2);
+		const newGame = new Game(matchId);
 		this.activeGames.set(matchId, newGame);
 		return (newGame);
 	}
@@ -23,4 +25,5 @@ class gameManager
 	}
 }
 
+// Export a single instance to be used across the app
 export const gameManager = new gameManager();
