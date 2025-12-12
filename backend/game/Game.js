@@ -143,23 +143,25 @@ class Game
 	// 'data' is the JSON object sent by client
 	handleInput(role, data)
 	{
+		let targetPaddle = null;
 		if (this.mode === 'local' && role === 'host')
 		{
-			// Client sent inputs for BOTH paddles 
-			// Expected data: { p1 : "UP", p2 : "DOWN" }
-			if (data.p1 !== undefined)
-				this.gameState.paddles.p1.moving = data.p1;
-			if (data.p2 !== undefined)
-				this.gameState.paddles.p2.moving = data.p2;
+			if (data.player === 1)
+				targetPaddle = "p1";
+			if (data.player === 2)
+				targetPaddle = "p2";
 		}
 		else if (this.mode === 'remote')
 		{
-			// Remote: Client only sends their move
-			// Expected data: { p1 : "UP"}
 			if (role === 'p1')
-				this.gameState.paddles.p1.moving = data.move;
-			else if (role === 'p2')
-				this.gameState.paddles.p2.moving = data.move;
+				targetPaddle = "p1";
+			if (role === 'p2')
+				targetPaddle = "p2";
+		}
+
+		if (targetPaddle)
+		{
+			this.gameState.paddles[targetPaddle].moving = data.direction;
 		}
 	}
 
@@ -256,7 +258,7 @@ class Game
 			ball.y <= p2.y + PADDLE_HEIGHT // TOP ball hit BOTTOM paddle 
 		) {
 			ball.dx = Math.abs(ball.dx) * -1; // Force to LEFT
-			const offset = (ball.y + BALL_SIZE / 2) - (p1.y + PADDLE_HEIGHT / 2);
+			const offset = (ball.y + BALL_SIZE / 2) - (p2.y + PADDLE_HEIGHT / 2);
 			ball.dy = offset * 0.1;
 		}
 
