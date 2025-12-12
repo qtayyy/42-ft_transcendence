@@ -58,7 +58,7 @@ export default function GamePage() {
 	// Initialize Websocket Connection
 	useEffect(() => {
 		// Connect to the Websocket route with matchId
-		const ws = new WebSocket(`ws://localhost:8443/ws/game/${matchId}`);
+		const ws = new WebSocket(`wss://localhost:8443/ws/game/start-game?matchId=${matchId}`);
 		ws.onopen = () => {
 			console.log("Connected to Game Server");
 		};
@@ -105,28 +105,28 @@ export default function GamePage() {
 				payload = {
 					type: "PADDLE_MOVE",
 					direction: "UP",
-					p1: "UP"
+					player: 1
 				};
 			}
 			if (e.key === "s") {
 				payload = {
 					type: "PADDLE_MOVE",
 					direction: "DOWN",
-					p1: "DOWN"
+					player: 1
 				};
 			}
 			if (e.key === "ArrowUp") {
 				payload = {
 					type: "PADDLE_MOVE",
 					direction: "UP",
-					p2: "UP"
+					player: 2
 				};
 			}
 			if (e.key === "ArrowDown") {
 				payload = {
 					type: "PADDLE_MOVE",
 					direction: "DOWN",
-					p2: "DOWN"
+					player: 2
 				};
 			}
 
@@ -147,36 +147,18 @@ export default function GamePage() {
 			if (!socketRef.current)
 				return ;
 			let payload: any = null;
-			if (e.key === "w") {
+			if (e.key === "w" || e.key === "s") {
 				payload = {
 					type: "PADDLE_MOVE",
 					direction: null,
-					p1: null,
-					move: null
+					player: 1
 				};
 			}
-			if (e.key === "s") {
+			if (e.key === "ArrowUp" || e.key === "ArrowDown") {
 				payload = {
 					type: "PADDLE_MOVE",
 					direction: null,
-					p1: null,
-					move: null
-				};
-			}
-			if (e.key === "ArrowUp") {
-				payload = {
-					type: "PADDLE_MOVE",
-					direction: null,
-					p2: null,
-					move: null
-				};
-			}
-			if (e.key === "ArrowDown") {
-				payload = {
-					type: "PADDLE_MOVE",
-					direction: null,
-					p2: null,
-					move: null
+					player: 2
 				};
 			}
 
