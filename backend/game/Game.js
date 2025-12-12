@@ -40,6 +40,16 @@ class Game
 	{
 		return ({
 			status: 'waiting', // waiting, playing, finished
+			constant: {
+				canvasWidth: CANVAS_WIDTH,
+				canvasHeight: CANVAS_HEIGHT,
+				paddleWidth: PADDLE_WIDTH,
+				paddleHeight: PADDLE_HEIGHT,
+				paddleSpeed: PADDLE_SPEED,
+				ballSize: BALL_SIZE,
+				FPS: FPS,
+				TICK_MS: TICK_MS
+			},
 			ball: {
 				x: CANVAS_WIDTH / 2,
 				y: CANVAS_HEIGHT / 2,
