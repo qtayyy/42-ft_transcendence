@@ -45,14 +45,20 @@ export default function GamePage() {
 	const params = useParams();
 	const matchId = params.matchId as string;
 
-	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const socketRef = useRef<WebSocket | null>(null);
+	// useRef : Container/ Reference
+	// change this value does not trigger re-render
+	// store stuff that don't affect HTML / hold connection for DOM
+	const canvasRef = useRef<HTMLCanvasElement>(null); // Hold direct link to actual <canvas> HTML tag
+	const socketRef = useRef<WebSocket | null>(null); // Hold the open websocket connection
+	// useState: Componenents's Memory
+	// Whenever you change this value, triggers re-render
+	// <GameState | null> ---->Typescript -->this variable can hold GameState object OR null
 	const [ gameState, setGameState ] = useState<GameState | null>(null);
 
 	// Initialize Websocket Connection
 	useEffect(() => {
 		// Connect to the Websocket route with matchId
-		const ws = new WebSocket(`ws://localhost:3000/ws/game/${matchId}`);
+		const ws = new WebSocket(`ws://localhost:8443/ws/game/${matchId}`);
 		ws.onopen = () => {
 			console.log("Connected to Game Server");
 		};
