@@ -1,6 +1,6 @@
-import { Game } from './game.js';
+import { Game } from './Game.js';
 
-class gameManager
+class GameManager
 {
 	constructor()
 	{
@@ -9,7 +9,7 @@ class gameManager
 
 	createGame(matchId)
 	{
-		const newGame = new Game(matchId);
+		const newGame = new Game(matchId, mode);
 		this.activeGames.set(matchId, newGame);
 		return (newGame);
 	}
@@ -26,4 +26,4 @@ class gameManager
 }
 
 // Export a single instance to be used across the app
-export const gameManager = new gameManager();
+export const gameManager = new GameManager();

@@ -74,19 +74,32 @@ model Tournament {
   matches  Match[]
 }
 
+enum MatchMode {
+  LOCAL
+  REMOTE
+  AI
+}
+
 model Match {
   id Int @id @default(autoincrement())
 
+  // Player 1 is always the Host/LoggedIn user
   player1Id Int
   player1   Profile @relation("MatchPlayer1", fields: [player1Id], references: [id])
 
-  player2Id Int
-  player2   Profile @relation("MatchPlayer2", fields: [player2Id], references: [id])
+  // Player 2 is Optional (Nullable) to support Local Guest players
+  player2Id Int?
+  player2   Profile? @relation("MatchPlayer2", fields: [player2Id], references: [id])
 
   score1 Int
   score2 Int
 
+  // Track if it is local/remote/ai
+  mode MatchMode @default(REMOTE)
+
   // Add '?' to make it optional
   tournament   Tournament? @relation(fields: [tournamentId], references: [id])
   tournamentId Int?
+
+  createdAt DateTime @default(now())
 }

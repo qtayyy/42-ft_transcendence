@@ -1,4 +1,5 @@
-import { prisma } from '../../app.js';
+import { PrismaClient } from "../generated/prisma/index.js"
+const prisma = new PrismaClient();
 
 const	CANVAS_WIDTH = 800;
 const	CANVAS_HEIGHT = 350;
@@ -8,14 +9,16 @@ const	PADDLE_SPEED = 10;
 const	BALL_SIZE = 12;
 const	FPS = 60;
 const	TICK_MS = 1000 / FPS;
-const	WINNING_SCORE = 7;
+const	WINNING_SCORE = 5;
 
 
-class game
+class Game
 {
-	constructor(matchId)
+	constructor(matchId, mode, tournamentId = null)
 	{
 		this.matchId = matchId;
+		this.mode = mode; // local or remote
+		this.tournamentId = tournamentId;
 		// Store connected sockets (Player 1 and Player 2)
 		this.players = {
 			p1: {
@@ -27,7 +30,6 @@ class game
 				id: null
 			}
 		};
-		this.status = 'WAITING'; // WAITING, PLAYING, FINISHED
 		this.gameState = this.createInitialState(); 
 		// Game loop control
 		this.running = false
@@ -37,6 +39,7 @@ class game
 	createInitialState() // Initialise Paddle andb Ball
 	{
 		return ({
+			status: 'waiting', // waiting, playing, finished
 			ball: {
 				x: CANVAS_WIDTH / 2,
 				y: CANVAS_HEIGHT / 2,
@@ -59,35 +62,95 @@ class game
 			{
 				p1: 0,
 				p2: 0
-			}
+			},
+			winner: null
 		});
 	}
 
-	// Add Player to game
-	addPlayer(socket, playerSlot, userId)
+	// Called when a Websocket Connects
+	// Returns the 'role' of the player ('host', 'p1', 'p2', or 'spectator')
+	join(socket, userId)
 	{
-		if (playerSlot == 1) {
-			this.players.p1 = {
-				socket: socket,
-				id: userId
-			};
-		}
-		else if (playerSlot == 2)
+		if (this.mode === 'local')
 		{
-			this.players.p2 = {
-				socket: socket,
-				id: userId
+			// In Local mode, the first user (Host) controls the whole game
+			if (!this.players.p1.socket)
+			{
+				this.players.p1 = {
+					socket: socket,
+					id: userId
+				};
+				console.log(`Local Game Hosted by (ID: ${userId})`);
+				return (`host`);
 			}
 		}
-		console.log(`Player ${playerSlot} (ID: ${userId}) joined match ${this.matchId}`);
+		else if (this.mode === 'remote')
+		{
+			if (!this.players.p2.socket)
+			{
+				this.players.p1 = {
+					socket: socket,
+					id: userId
+				};
+				console.log(`Remote P1 joined (ID: ${userId})`);
+				return ('p1');
+			}
+			else if (!this.players.p2.socket)
+			{
+				this.players.p2 = {
+					socket: socket,
+					id: userId
+				};
+				console.log(`Remote P2 joined (ID: ${userId})`);
+				this.startGameLoop();
+				return('p2');
+			}
+		}
+		return ('spectator');
 	}
 
+	// // Add Player to game
+	// addPlayer(socket, playerSlot, userId)
+	// {
+	// 	if (playerSlot == 1) {
+	// 		this.players.p1 = {
+	// 			socket: socket,
+	// 			id: userId
+	// 		};
+	// 	}
+	// 	else if (playerSlot == 2)
+	// 	{
+	// 		this.players.p2 = {
+	// 			socket: socket,
+	// 			id: userId
+	// 		}
+	// 	}
+	// 	console.log(`Player ${playerSlot} (ID: ${userId}) joined match ${this.matchId}`);
+	// }
+
 	// Handle Paddle Movement Input
-	handleInput(playerSlot, direction)
+	// 'role' comes from the join() return value
+	// 'data' is the JSON object sent by client
+	handleInput(role, data)
 	{
-		const playerKey = (playerSlot === 1) ? "p1" : "p2";
-		// Update the moving status in the state
-		this.gameState.paddles[playerKey].moving = direction;
+		if (this.mode === 'local' && role === 'host')
+		{
+			// Client sent inputs for BOTH paddles 
+			// Expected data: { p1 : "UP", p2 : "DOWN" }
+			if (data.p1 !== undefined)
+				this.gameState.paddles.p1.moving = data.p1;
+			if (data.p2 !== undefined)
+				this.gameState.paddles.p2.moving = data.p2;
+		}
+		else if (this.mode === 'remote')
+		{
+			// Remote: Client only sends their move
+			// Expected data: { p1 : "UP"}
+			if (role === 'p1')
+				this.gameState.paddles.p1.moving = data.move;
+			else if (role === 'p2')
+				this.gameState.paddles.p2.moving = data.move;
+		}
 	}
 
 	// Main game loop function
@@ -95,8 +158,10 @@ class game
 	{
 		if (this.running)
 			return;
-
+		console.log(`Starting Game Loop for Match ${this.matchId}`);
 		this.running = true;
+		this.gameState.status = 'playing';
+
 		this.loopHandle = setInterval(() => {
 			this._updatePaddles();
 			this._updateBall();
@@ -201,11 +266,11 @@ class game
 	{
 		const payload = JSON.stringify(messageObject);
 
-		if (this.players.p1.socket) {
+		if (this.players.p1.socket && this.players.p1.socket.readyState === 1) {
 			this.players.p1.socket.send(payload);
 		}
 
-		if (this.players.p2.socket) {
+		if (this.players.p2.socket && this.players.p2.socket.readyState === 1) {
 			this.players.p2.socket.send(payload);
 		}
 	}
@@ -218,17 +283,24 @@ class game
 	async saveMatch()
 	{
 		try {
-			if (!this.players.p1.id || !this.players.p2.id) {
-				console.warn("Cannot save match: Missing player IDs");
+			// For local games, player2 might not have an ID (Guest)
+			// Allow saving games with only p1 if mode is local
+			const p1Id = this.players.p1.id;
+			const p2Id = this.players.p2 ? this.players.p2.id : null;
+
+			if (!p1Id) {
+				console.warn("Cannot save match: Missing Host ID");
 				return ;
 			}
-
+			
 			await prisma.match.create({
 				data: {
-					player1Id: this.players.p1.id,
-					player2Id: this.players.p2.id,
+					player1Id: p1Id,
+					player2Id: p2Id,
 					score1: this.gameState.score.p1,
-					score2: this.gameState.score.p2
+					score2: this.gameState.score.p2,
+					mode: this.mode === 'local' ? 'LOCAL' : 'REMOTE',
+					tournamentId: this.tournamentId || null
 				}
 			});
 			console.log("Match saved successfully!");
@@ -256,13 +328,17 @@ class game
 		clearInterval(this.loopHandle);
 		this.saveMatch();
 		const winner = this.gameState.score.p1 >= WINNING_SCORE ? 1 : 2;
+		this.gameState.status = 'finished';
+		this.gameState.winner = winner;
+
 		this._broadcast({
 			type: 'GAME_OVER',
-			winner: winner
+			winner: winner,
+			score: this.gameState.score
 		});
 
 		console.log(`Game ${this.matchId} ended. Winner: Player ${winner}`);
 	}
 }
 
-export default game;
+export default Game;
