@@ -85,7 +85,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
+    <div className="bg-background p-4">
       {/* New Game Button - Centered at top */}
       <div className="flex justify-center mb-6">
         <Button size="lg" className="px-8 py-6 text-lg" onClick={handleNewGame}>

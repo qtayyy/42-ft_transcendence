@@ -154,12 +154,14 @@ export default function PongGame({
 			}
 			// Player 2 controls (Arrow keys)
 			else if (e.key === "ArrowUp") {
+				e.preventDefault();
 				payload = {
 					type: "PADDLE_MOVE",
 					direction: "UP",
 					player: 2,
 				};
 			} else if (e.key === "ArrowDown") {
+				e.preventDefault(); // Prevent scrolling
 				payload = {
 					type: "PADDLE_MOVE",
 					direction: "DOWN",
@@ -301,7 +303,7 @@ export default function PongGame({
 	return (
 		<div
 			ref={containerRef}
-			className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-4"
+			className="flex flex-col items-center justify-center h-screen overflow-hidden bg-black text-white p-4"
 		>
 			{/* DEBUG OVERLAY */}
 			{gameState && (
