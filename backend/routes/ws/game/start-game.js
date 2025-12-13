@@ -13,7 +13,7 @@ export default async function (fastify, opts) {
 		},
 		(connection, request) => { // A Handler
 			const { matchId } = request.params;
-			const userId = request.user?.userId ?? request.user?.id; // JWT payload stores userId
+			const userId = request.user.id; // request.user is populated by the 'authenticate' decorator
 			console.log(`Client connected to match: ${matchId}`);
 
 			// Get game via POST api
