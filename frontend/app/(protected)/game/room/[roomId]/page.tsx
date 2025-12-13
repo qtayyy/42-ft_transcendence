@@ -1,3 +1,4 @@
+// Pending to remove: Redundant files
 "use client";
 
 import { Button } from "@/components/ui/button";

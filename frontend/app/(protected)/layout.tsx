@@ -5,5 +5,11 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <ProtectedRoute>{children}</ProtectedRoute>;
+  return (
+    <ProtectedRoute>
+      <div className="pt-28 pb-20 min-h-screen">
+        {children}
+      </div>
+    </ProtectedRoute>
+  );
 }

@@ -157,7 +157,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="h-screen bg-accent m-2 p-6">
+    <div className="bg-accent m-2 p-6 rounded-lg">
       {error && (
         <Alert variant="destructive">
           <AlertCircleIcon className="h-4 w-4" />

@@ -24,9 +24,7 @@ export default function Footer() {
     <div
       className={cn(
         "z-40 w-full p-3 text-gray-100",
-        isNonAuthenticatedPage
-          ? "fixed inset-x-0 bottom-0 bg-background/60 backdrop-blur"
-          : "sticky bottom-0 bg-background"
+        "fixed inset-x-0 bottom-0 bg-background/60 backdrop-blur"
       )}
     >
       <p className="text-end">Switch Language (placeholder)</p>

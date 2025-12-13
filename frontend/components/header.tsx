@@ -65,9 +65,7 @@ export default function Header() {
   return (
     <div className={cn(
         "z-50 flex w-full items-center justify-between p-3",
-        isNonAuthenticatedPage
-          ? "fixed top-0 inset-x-0 bg-transparent" // Overlay on landing
-          : "sticky top-0 bg-background" // Sticky on other pages
+        "fixed top-0 inset-x-0 bg-transparent" // Overlay on all pages
       )}>
       <div>
         <button
