@@ -47,17 +47,17 @@ export default function PongGame({
 
             // Maintain 2:1 aspect ratio
             const aspectRatio = 2;
-            let width = containerWidth - 40; // padding
+            let width = Math.max(containerWidth - 40, 800); // padding, minimum 800px
             let height = width / aspectRatio;
 
             // If height exceeds container, scale down
-            if (height > containerHeight - 100) {
-                height = containerHeight - 100;
+            if (height > containerHeight - 200) {
+                height = Math.max(containerHeight - 200, 400); // minimum 400px
                 width = height * aspectRatio;
             }
 
-            // Set minimum dimensions
-            width = Math.max(800, Math.min(width, 1200));
+            // Cap maximum dimensions
+            width = Math.min(width, 1200);
             height = width / aspectRatio;
 
             setCanvasDimensions({ width, height });
@@ -217,21 +217,21 @@ export default function PongGame({
         const scaleY = canvasDimensions.height / gameState.constant.canvasHeight;
 
         // Clear canvas
-        context.clearRect(0, 0, canvasDimensions.width, canvasDimensions.height);
-        context.fillStyle = "white";
+        context.fillStyle = "#000000"; // Black background
+        context.fillRect(0, 0, canvasDimensions.width, canvasDimensions.height);
 
-        // Draw Ball (scaled)
+        // Draw center line
+        context.setLineDash([10 * scaleX, 10 * scaleX]);
         context.beginPath();
-        context.arc(
-            gameState.ball.x * scaleX,
-            gameState.ball.y * scaleY,
-            6 * scaleX, // ball radius scaled
-            0,
-            Math.PI * 2
-        );
-        context.fill();
+        context.moveTo(canvasDimensions.width / 2, 0);
+        context.lineTo(canvasDimensions.width / 2, canvasDimensions.height);
+        context.strokeStyle = "rgba(255, 255, 255, 0.3)";
+        context.lineWidth = 2;
+        context.stroke();
+        context.setLineDash([]);
 
-        // Draw Paddles (scaled)
+        // Draw Paddles (white)
+        context.fillStyle = "white";
         context.fillRect(
             gameState.paddles.p1.x * scaleX,
             gameState.paddles.p1.y * scaleY,
@@ -245,30 +245,40 @@ export default function PongGame({
             gameState.constant.paddleHeight * scaleY
         );
 
+        // Draw Ball (white circle)
+        context.fillStyle = "white";
+        context.beginPath();
+        const ballRadius = (gameState.constant.ballSize / 2) * scaleX;
+        context.arc(
+            (gameState.ball.x + gameState.constant.ballSize / 2) * scaleX,
+            (gameState.ball.y + gameState.constant.ballSize / 2) * scaleY,
+            ballRadius,
+            0,
+            Math.PI * 2
+        );
+        context.fill();
+
         // Draw Scores (scaled font)
-        const fontSize = Math.max(20, 30 * scaleX);
-        context.font = `${fontSize}px Arial`;
+        const fontSize = Math.max(32, 48 * scaleX);
+        context.font = `bold ${fontSize}px Arial`;
+        context.fillStyle = "white";
         const centerX = canvasDimensions.width / 2;
+        
+        // Player 1 score (left)
+        context.textAlign = "right";
         context.fillText(
             `${gameState.score.p1}`,
-            centerX - 60 * scaleX,
-            50 * scaleY
+            centerX - 30 * scaleX,
+            60 * scaleY
         );
+        
+        // Player 2 score (right)
+        context.textAlign = "left";
         context.fillText(
             `${gameState.score.p2}`,
-            centerX + 40 * scaleX,
-            50 * scaleY
+            centerX + 30 * scaleX,
+            60 * scaleY
         );
-
-        // Draw center line
-        context.setLineDash([10 * scaleX, 10 * scaleX]);
-        context.beginPath();
-        context.moveTo(centerX, 0);
-        context.lineTo(centerX, canvasDimensions.height);
-        context.strokeStyle = "rgba(255, 255, 255, 0.3)";
-        context.lineWidth = 2;
-        context.stroke();
-        context.setLineDash([]);
     }, [gameState, canvasDimensions]);
 
     // Format timer display (MM:SS)
