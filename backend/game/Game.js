@@ -1,21 +1,22 @@
 import { PrismaClient } from "../generated/prisma/index.js"
 const prisma = new PrismaClient();
 
-const	CANVAS_WIDTH = 800;
-const	CANVAS_HEIGHT = 350;
-const	PADDLE_WIDTH = 12;
-const	PADDLE_HEIGHT = 80;
-const	PADDLE_SPEED = 10;
-const	BALL_SIZE = 12;
-const	FPS = 60;
-const	TICK_MS = 1000 / FPS;
-const	WINNING_SCORE = 5;
+// Game Constants
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 350;
+const PADDLE_WIDTH = 12;
+const PADDLE_HEIGHT = 80;
+const PADDLE_SPEED = 10;
+const BALL_SIZE = 12;
+const FPS = 60;
+const TICK_MS = 1000 / FPS;
+
+// Timer-Based Match System (2-minute matches)
+const MATCH_DURATION_MS = 120000; // 2 minutes in milliseconds
 
 
-class Game
-{
-	constructor(matchId, mode, tournamentId = null)
-	{
+class Game {
+	constructor(matchId, mode, tournamentId = null) {
 		this.matchId = matchId;
 		this.mode = mode; // local or remote
 		this.tournamentId = tournamentId;
@@ -30,13 +31,17 @@ class Game
 				id: null
 			}
 		};
-		this.gameState = this.createInitialState(); 
+		this.gameState = this.createInitialState();
 		// Game loop control
 		this.running = false
 		this.loopHandle = null;
+
+		// Timer-based match tracking
+		this.startTime = null; // When the game started
+		this.timeRemaining = MATCH_DURATION_MS; // Time left in ms
 	}
 
-	createInitialState() // Initialise Paddle andb Ball
+	createInitialState() // Initialise Paddle and Ball
 	{
 		return ({
 			status: 'waiting', // waiting, playing, finished
@@ -48,7 +53,13 @@ class Game
 				paddleSpeed: PADDLE_SPEED,
 				ballSize: BALL_SIZE,
 				FPS: FPS,
-				TICK_MS: TICK_MS
+				TICK_MS: TICK_MS,
+				matchDuration: MATCH_DURATION_MS
+			},
+			// Timer tracking
+			timer: {
+				timeRemaining: MATCH_DURATION_MS,
+				timeElapsed: 0
 			},
 			ball: {
 				x: CANVAS_WIDTH / 2,
@@ -59,7 +70,7 @@ class Game
 			paddles: {
 				p1: {
 					x: 0,
-					y: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2, 
+					y: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
 					moving: null,
 				},
 				p2: {
@@ -79,13 +90,10 @@ class Game
 
 	// Called when a Websocket Connects
 	// Returns the 'role' of the player ('host', 'p1', 'p2', or 'spectator')
-	join(socket, userId)
-	{
-		if (this.mode === 'local')
-		{
+	join(socket, userId) {
+		if (this.mode === 'local') {
 			// In Local mode, the first user (Host) controls the whole game
-			if (!this.players.p1.socket)
-			{
+			if (!this.players.p1.socket) {
 				this.players.p1 = {
 					socket: socket,
 					id: userId
@@ -94,10 +102,8 @@ class Game
 				return (`host`);
 			}
 		}
-		else if (this.mode === 'remote')
-		{
-			if (!this.players.p1.socket)
-			{
+		else if (this.mode === 'remote') {
+			if (!this.players.p1.socket) {
 				this.players.p1 = {
 					socket: socket,
 					id: userId
@@ -105,15 +111,14 @@ class Game
 				console.log(`Remote P1 joined (ID: ${userId})`);
 				return ('p1');
 			}
-			else if (!this.players.p2.socket)
-			{
+			else if (!this.players.p2.socket) {
 				this.players.p2 = {
 					socket: socket,
 					id: userId
 				};
 				console.log(`Remote P2 joined (ID: ${userId})`);
 				this.startGameLoop();
-				return('p2');
+				return ('p2');
 			}
 		}
 		return ('spectator');
@@ -141,40 +146,39 @@ class Game
 	// Handle Paddle Movement Input
 	// 'role' comes from the join() return value
 	// 'data' is the JSON object sent by client
-	handleInput(role, data)
-	{
+	handleInput(role, data) {
 		let targetPaddle = null;
-		if (this.mode === 'local' && role === 'host')
-		{
+		if (this.mode === 'local' && role === 'host') {
 			if (data.player === 1)
 				targetPaddle = "p1";
 			if (data.player === 2)
 				targetPaddle = "p2";
 		}
-		else if (this.mode === 'remote')
-		{
+		else if (this.mode === 'remote') {
 			if (role === 'p1')
 				targetPaddle = "p1";
 			if (role === 'p2')
 				targetPaddle = "p2";
 		}
 
-		if (targetPaddle)
-		{
+		if (targetPaddle) {
 			this.gameState.paddles[targetPaddle].moving = data.direction;
 		}
 	}
 
 	// Main game loop function
-	startGameLoop()
-	{
+	startGameLoop() {
 		if (this.running)
 			return;
 		console.log(`Starting Game Loop for Match ${this.matchId}`);
 		this.running = true;
 		this.gameState.status = 'playing';
 
+		// Initialize timer
+		this.startTime = Date.now();
+
 		this.loopHandle = setInterval(() => {
+			this._updateTimer(); // Update timer first
 			this._updatePaddles();
 			this._updateBall();
 			this._checkCollisionsAndScore();
@@ -183,32 +187,43 @@ class Game
 		}, TICK_MS);
 	}
 
-	_updatePaddles()
-	{
+	// Update the match timer
+	_updateTimer() {
+		if (!this.startTime) return;
+
+		const now = Date.now();
+		const elapsed = now - this.startTime;
+		const remaining = Math.max(0, MATCH_DURATION_MS - elapsed);
+
+		// Update game state timer
+		this.gameState.timer.timeElapsed = elapsed;
+		this.gameState.timer.timeRemaining = remaining;
+		this.timeRemaining = remaining;
+	}
+
+	_updatePaddles() {
 		const players = ["p1", "p2"];
 
 		players.forEach((k) => {
 			let paddle = this.gameState.paddles[k];
-			
+
 			if (!paddle.moving)
-				return ;
+				return;
 			if (paddle.moving === "UP")
 				paddle.y = Math.max(0, paddle.y - PADDLE_SPEED);
 			if (paddle.moving === "DOWN")
 				paddle.y = Math.min(CANVAS_HEIGHT - PADDLE_HEIGHT, paddle.y + PADDLE_SPEED);
 		});
 	}
-	
 
-	_updateBall()
-	{
+
+	_updateBall() {
 		let ball = this.gameState.ball;
 		ball.x += ball.dx;
 		ball.y += ball.dy;
 	}
 
-	_resetBall(toRight = true)
-	{
+	_resetBall(toRight = true) {
 		this.gameState.ball.x = (CANVAS_WIDTH - BALL_SIZE) / 2;
 		this.gameState.ball.y = (CANVAS_HEIGHT - BALL_SIZE) / 2;
 		this.gameState.ball.dx = toRight ? 4 : -4;
@@ -220,8 +235,7 @@ class Game
 			this.gameState.ball.dy = -3;
 	}
 
-	_checkCollisionsAndScore()
-	{
+	_checkCollisionsAndScore() {
 		const ball = this.gameState.ball;
 		const p1 = this.gameState.paddles.p1;
 		const p2 = this.gameState.paddles.p2;
@@ -263,19 +277,16 @@ class Game
 		}
 
 		// Scoring Logic 
-		if (ball.x <= 0)
-		{
+		if (ball.x <= 0) {
 			this.gameState.score.p2 += 1;
 			this._resetBall(true);
-		} else if (ball.x >= CANVAS_WIDTH)
-		{
+		} else if (ball.x >= CANVAS_WIDTH) {
 			this.gameState.score.p1 += 1;
 			this._resetBall(false);
 		}
 	}
 
-	_broadcast(messageObject)
-	{
+	_broadcast(messageObject) {
 		const payload = JSON.stringify(messageObject);
 
 		if (this.players.p1.socket && this.players.p1.socket.readyState === 1) {
@@ -287,13 +298,11 @@ class Game
 		}
 	}
 
-	_broadcastState()
-	{
+	_broadcastState() {
 		this._broadcast(this.gameState);
 	}
 
-	async saveMatch()
-	{
+	async saveMatch() {
 		try {
 			// For local games, player2 might not have an ID (Guest)
 			// Allow saving games with only p1 if mode is local
@@ -302,9 +311,9 @@ class Game
 
 			if (!p1Id) {
 				console.warn("Cannot save match: Missing Host ID");
-				return ;
+				return;
 			}
-			
+
 			await prisma.match.create({
 				data: {
 					player1Id: p1Id,
@@ -322,34 +331,51 @@ class Game
 		}
 	}
 
-	_checkWinCondition()
-	{
-		const p1Score = this.gameState.score.p1;
-		const p2Score = this.gameState.score.p2;
-
-		if (p1Score >= WINNING_SCORE || p2Score >= WINNING_SCORE) {
+	// Check if timer has expired (new win condition)
+	_checkWinCondition() {
+		// Timer-based win condition: Check if time is up
+		if (this.timeRemaining <= 0) {
 			this._stopGame();
 		}
 	}
 
-	_stopGame()
-	{
+	_stopGame() {
 		if (this.running === false)
-			return ;
+			return;
 		this.running = false;
 		clearInterval(this.loopHandle);
 		this.saveMatch();
-		const winner = this.gameState.score.p1 >= WINNING_SCORE ? 1 : 2;
+
+		// Determine winner based on scores (or draw)
+		const p1Score = this.gameState.score.p1;
+		const p2Score = this.gameState.score.p2;
+		let winner = null;
+		let result = 'draw';
+
+		if (p1Score > p2Score) {
+			winner = 1;
+			result = 'win';
+		}
+		else if (p2Score > p1Score) {
+			winner = 2;
+			result = 'win';
+		}
+		// else: it's a draw (winner stays null)
+
 		this.gameState.status = 'finished';
 		this.gameState.winner = winner;
 
 		this._broadcast({
 			type: 'GAME_OVER',
-			winner: winner,
+			winner: winner, // null for draw
+			result: result, // 'win' or 'draw'
 			score: this.gameState.score
 		});
 
-		console.log(`Game ${this.matchId} ended. Winner: Player ${winner}`);
+		if (winner)
+			console.log(`Game ${this.matchId} ended. Winner: Player ${winner}`);
+		else
+			console.log(`Game ${this.matchId} ended in a DRAW`);
 	}
 }
 
