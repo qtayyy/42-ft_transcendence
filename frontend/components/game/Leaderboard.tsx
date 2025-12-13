@@ -1,131 +1,98 @@
 import { PlayerStanding } from "@/lib/tournament";
-import { Trophy, TrendingUp, Target } from "lucide-react";
+import { Trophy, TrendingUp, Target, Medal, Crown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface LeaderboardProps {
-    standings: PlayerStanding[];
-    currentUserId?: string;
+	standings: PlayerStanding[];
+	currentUserId?: string;
 }
 
 export default function Leaderboard({ standings, currentUserId }: LeaderboardProps) {
-    return (
-        <div className="w-full bg-gray-800 rounded-lg shadow-xl overflow-hidden">
-            <div className="bg-gradient-to-r from-yellow-600 to-yellow-700 p-4">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <Trophy className="h-6 w-6" />
-                    Leaderboard
-                </h2>
-            </div>
+	return (
+		<div className="space-y-4">
+			{standings.map((standing, index) => {
+				const isCurrentUser = standing.playerId === currentUserId;
+				const isFirst = index === 0;
+				const isSecond = index === 1;
+				const isThird = index === 2;
 
-            <div className="overflow-x-auto">
-                <table className="w-full">
-                    <thead className="bg-gray-700">
-                        <tr>
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Rank</th>
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Player</th>
-                            <th className="px-4 py-3 text-center text-sm font-semibold text-gray-300">
-                                <div className="flex items-center justify-center gap-1">
-                                    <Trophy className="h-4 w-4" />
-                                    Points
-                                </div>
-                            </th>
-                            <th className="px-4 py-3 text-center text-sm font-semibold text-gray-300">W-D-L</th>
-                            <th className="px-4 py-3 text-center text-sm font-semibold text-gray-300">
-                                <div className="flex items-center justify-center gap-1">
-                                    <TrendingUp className="h-4 w-4" />
-                                    Score Diff
-                                </div>
-                            </th>
-                            <th className="px-4 py-3 text-center text-sm font-semibold text-gray-300">
-                                <div className="flex items-center justify-center gap-1">
-                                    <Target className="h-4 w-4" />
-                                    Total Pts
-                                </div>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {standings.map((standing, index) => {
-                            const isCurrentUser = standing.playerId === currentUserId;
-                            const isTop3 = index < 3;
-                            
-                            return (
-                                <tr
-                                    key={standing.playerId}
-                                    className={`border-t border-gray-700 ${
-                                        isCurrentUser ? 'bg-blue-900/30' : 'hover:bg-gray-750'
-                                    }`}
-                                >
-                                    {/* Rank */}
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-2">
-                                            {index === 0 && <Trophy className="h-5 w-5 text-yellow-400" />}
-                                            {index === 1 && <Trophy className="h-5 w-5 text-gray-400" />}
-                                            {index === 2 && <Trophy className="h-5 w-5 text-amber-600" />}
-                                            <span className={`font-bold ${isTop3 ? 'text-yellow-400' : 'text-white'}`}>
-                                                #{standing.rank}
-                                            </span>
-                                        </div>
-                                    </td>
+				return (
+					<div 
+						key={standing.playerId}
+						className={cn(
+							"relative flex items-center gap-4 p-3 rounded-xl border transition-all duration-300",
+							isCurrentUser ? "bg-primary/5 border-primary/20 ring-1 ring-primary/10" : "bg-card/50 border-border/50 hover:bg-card/80",
+							isFirst && "bg-gradient-to-r from-yellow-500/10 to-transparent border-yellow-500/30"
+						)}
+					>
+						{/* Rank Badge */}
+						<div className="flex-shrink-0 w-8 flex justify-center">
+							{isFirst ? (
+								<Crown className="h-6 w-6 text-yellow-500 fill-yellow-500/20" />
+							) : isSecond ? (
+								<Medal className="h-5 w-5 text-gray-400" />
+							) : isThird ? (
+								<Medal className="h-5 w-5 text-amber-700" />
+							) : (
+								<span className="text-sm font-bold text-muted-foreground">#{standing.rank}</span>
+							)}
+						</div>
 
-                                    {/* Player Name */}
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-white font-medium">{standing.playerName}</span>
-                                            {standing.isTemp && (
-                                                <span className="px-2 py-0.5 bg-gray-600 text-gray-300 text-xs rounded">
-                                                    Temp
-                                                </span>
-                                            )}
-                                            {isCurrentUser && (
-                                                <span className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded">
-                                                    You
-                                                </span>
-                                            )}
-                                        </div>
-                                    </td>
+						{/* Player Info */}
+						<div className="flex-1 min-w-0">
+							<div className="flex items-center gap-2">
+								<span className={cn(
+									"font-bold truncate",
+									isFirst ? "text-lg text-yellow-500" : "text-sm",
+									isCurrentUser && !isFirst && "text-primary"
+								)}>
+									{standing.playerName}
+								</span>
+								{isCurrentUser && (
+									<Badge variant="secondary" className="text-[10px] h-4 px-1">You</Badge>
+								)}
+								{standing.isTemp && (
+									<Badge variant="outline" className="text-[10px] h-4 px-1 border-muted-foreground/30 text-muted-foreground">Guest</Badge>
+								)}
+							</div>
+							<div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+								<span title="Wins-Draws-Losses">
+									<span className="text-green-500 font-medium">{standing.wins}</span>W - <span className="text-yellow-500 font-medium">{standing.draws}</span>D - <span className="text-red-500 font-medium">{standing.losses}</span>L
+								</span>
+							</div>
+						</div>
 
-                                    {/* Match Points */}
-                                    <td className="px-4 py-3 text-center">
-                                        <span className="text-xl font-bold text-green-400">
-                                            {standing.matchPoints}
-                                        </span>
-                                    </td>
+						{/* Stats Columns */}
+						<div className="flex items-center gap-3 text-right">
+							{/* Score Diff */}
+							<div className="hidden sm:block text-xs text-muted-foreground w-16 text-center">
+								<div className="text-[10px] uppercase font-bold tracking-wider mb-0.5 text-muted-foreground/60">Diff</div>
+								<span className={cn(
+									"font-mono font-medium",
+									standing.scoreDifferential > 0 ? "text-green-500" : standing.scoreDifferential < 0 ? "text-red-500" : ""
+								)}>
+									{standing.scoreDifferential > 0 && '+'}{standing.scoreDifferential}
+								</span>
+							</div>
 
-                                    {/* W-D-L */}
-                                    <td className="px-4 py-3 text-center text-gray-300">
-                                        <span className="text-green-400">{standing.wins}</span>-
-                                        <span className="text-yellow-400">{standing.draws}</span>-
-                                        <span className="text-red-400">{standing.losses}</span>
-                                    </td>
-
-                                    {/* Score Differential */}
-                                    <td className="px-4 py-3 text-center">
-                                        <span className={`font-semibold ${
-                                            standing.scoreDifferential > 0 ? 'text-green-400' :
-                                            standing.scoreDifferential < 0 ? 'text-red-400' :
-                                            'text-gray-400'
-                                        }`}>
-                                            {standing.scoreDifferential > 0 && '+'}
-                                            {standing.scoreDifferential}
-                                        </span>
-                                    </td>
-
-                                    {/* Total Points Scored */}
-                                    <td className="px-4 py-3 text-center text-gray-300 font-medium">
-                                        {standing.totalPointsScored}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Legend */}
-            <div className="bg-gray-750 p-4 text-sm text-gray-400">
-                <p className="mb-2"><strong>Scoring:</strong> Win = 3 pts | Draw = 1 pt | Loss = 0 pts | Bye = 3 pts</p>
-                <p><strong>Tie-breakers:</strong> 1) Match Points → 2) Score Differential → 3) Total Points Scored</p>
-            </div>
-        </div>
-    );
+							{/* Points (Highlight) */}
+							<div className="w-16 text-center bg-background/50 rounded-lg py-1 border border-border/50">
+								<div className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground/70 mb-0.5">Pts</div>
+								<span className="text-lg font-black text-primary">
+									{standing.matchPoints}
+								</span>
+							</div>
+						</div>
+					</div>
+				);
+			})}
+			
+			{/* Minimal Legend */}
+			<div className="flex flex-wrap justify-between gap-2 px-2 pt-2 text-[10px] text-muted-foreground/50 border-t border-border/30">
+				<span>Win: 3 | Draw: 1 | Bye: 3</span>
+				<span>Tie-break: Points → Diff → Total Scored</span>
+			</div>
+		</div>
+	);
 }
