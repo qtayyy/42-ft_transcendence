@@ -1,0 +1,204 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
+import { Users, Monitor, Gamepad2, Trophy, ArrowLeft, Swords, Globe, Zap } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+export default function NewGamePage() {
+	const router = useRouter();
+	const [selectedMode, setSelectedMode] = useState<"local" | "remote" | null>(null);
+
+	const handleModeSelect = (mode: "local" | "remote") => {
+		setSelectedMode(mode);
+	};
+
+	const handleBack = () => {
+		setSelectedMode(null);
+	};
+
+	return (
+		<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
+			<div className="w-full max-w-5xl space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+				
+				{/* Header Section */}
+				<div className="text-center space-y-4">
+					<div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 mb-4 ring-1 ring-primary/20">
+						<Zap className="h-6 w-6 text-primary animate-pulse" />
+					</div>
+					<h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-white via-primary/50 to-white bg-clip-text text-transparent pb-2">
+						Are You Ready?
+					</h1>
+					<p className="text-xl text-muted-foreground font-medium max-w-2xl mx-auto">
+						Choose your arena. Dominate the court.
+					</p>
+				</div>
+
+				{!selectedMode ? (
+					// Step 1: Choose Local or Remote
+					<div className="grid gap-8 md:grid-cols-2 max-w-4xl mx-auto">
+						{/* Local Play Card */}
+						<div className="group relative">
+							<div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur opacity-25 group-hover:opacity-100 transition duration-500"></div>
+							<Card 
+								className="relative h-full cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:scale-[1.02]"
+								onClick={() => handleModeSelect("local")}
+							>
+								<div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+									<Monitor className="h-32 w-32 -mr-8 -mt-8" />
+								</div>
+								<CardHeader className="text-center pb-2">
+									<div className="mx-auto p-4 rounded-2xl bg-blue-500/10 mb-4 group-hover:bg-blue-500/20 transition-colors">
+										<Monitor className="h-10 w-10 text-blue-500" />
+									</div>
+									<CardTitle className="text-3xl font-bold">Local Play</CardTitle>
+									<CardDescription className="text-base">Same device multiplayer</CardDescription>
+								</CardHeader>
+								<CardContent className="text-center space-y-4">
+									<div className="space-y-2">
+										<div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+											<Swords className="h-4 w-4" /> 1v1 Matches
+										</div>
+										<div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+											<Trophy className="h-4 w-4" /> Tournaments
+										</div>
+									</div>
+									<Button variant="outline" className="w-full border-blue-500/20 hover:bg-blue-500/10 hover:text-blue-500">
+										Select Local
+									</Button>
+								</CardContent>
+							</Card>
+						</div>
+
+						{/* Remote Play Card */}
+						<div className="group relative">
+							<div className="absolute -inset-0.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl blur opacity-25 group-hover:opacity-100 transition duration-500"></div>
+							<Card 
+								className="relative h-full cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:scale-[1.02]"
+								onClick={() => handleModeSelect("remote")}
+							>
+								<div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+									<Globe className="h-32 w-32 -mr-8 -mt-8" />
+								</div>
+								<CardHeader className="text-center pb-2">
+									<div className="mx-auto p-4 rounded-2xl bg-green-500/10 mb-4 group-hover:bg-green-500/20 transition-colors">
+										<Users className="h-10 w-10 text-green-500" />
+									</div>
+									<CardTitle className="text-3xl font-bold">Remote Play</CardTitle>
+									<CardDescription className="text-base">Online multiplayer</CardDescription>
+								</CardHeader>
+								<CardContent className="text-center space-y-4">
+									<div className="space-y-2">
+										<div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+											<Globe className="h-4 w-4" /> Online Matchmaking
+										</div>
+										<div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+											<Users className="h-4 w-4" /> Play with Friends
+										</div>
+									</div>
+									<Button variant="outline" className="w-full border-green-500/20 hover:bg-green-500/10 hover:text-green-500">
+										Select Remote
+									</Button>
+								</CardContent>
+							</Card>
+						</div>
+					</div>
+				) : selectedMode === "local" ? (
+					// Step 2: Local Play Options
+					<div className="space-y-8 animate-in zoom-in-95 duration-500">
+						<div className="flex justify-center">
+							<Button 
+								variant="ghost" 
+								onClick={handleBack}
+								className="gap-2 text-muted-foreground hover:text-foreground"
+							>
+								<ArrowLeft className="h-4 w-4" />
+								Return to Mode Selection
+							</Button>
+						</div>
+
+						<div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto">
+							{/* Single Match */}
+							<div className="group relative">
+								<div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
+								<Card 
+									className="relative cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]"
+									onClick={() => router.push("/game/local/single")}
+								>
+									<CardHeader className="text-center">
+										<div className="mx-auto p-3 rounded-xl bg-purple-500/10 mb-3">
+											<Gamepad2 className="h-8 w-8 text-purple-500" />
+										</div>
+										<CardTitle className="text-2xl">Single Match</CardTitle>
+										<CardDescription>Classic 1v1 Duel</CardDescription>
+									</CardHeader>
+									<CardContent className="text-center pb-8">
+										<p className="text-sm text-muted-foreground">
+											Quick match
+										</p>
+									</CardContent>
+								</Card>
+							</div>
+
+							{/* Tournament */}
+							<div className="group relative">
+								<div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
+								<Card 
+									className="relative cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]"
+									onClick={() => router.push("/game/local/tournament")}
+								>
+									<CardHeader className="text-center">
+										<div className="mx-auto p-3 rounded-xl bg-yellow-500/10 mb-3">
+											<Trophy className="h-8 w-8 text-yellow-500" />
+										</div>
+										<CardTitle className="text-2xl">Tournament</CardTitle>
+										<CardDescription>Bracket Elimination</CardDescription>
+									</CardHeader>
+									<CardContent className="text-center pb-8">
+										<p className="text-sm text-muted-foreground">
+											4-8 Players • Final Champion
+										</p>
+									</CardContent>
+								</Card>
+							</div>
+						</div>
+					</div>
+				) : (
+					// Remote Play Placeholder
+					<div className="space-y-8 animate-in zoom-in-95 duration-500">
+						<div className="flex justify-center">
+							<Button 
+								variant="ghost" 
+								onClick={handleBack}
+								className="gap-2 text-muted-foreground hover:text-foreground"
+							>
+								<ArrowLeft className="h-4 w-4" />
+								Back
+							</Button>
+						</div>
+						
+						<div className="max-w-2xl mx-auto">
+							<Card className="border-dashed border-2 bg-muted/30">
+								<CardContent className="p-16 text-center space-y-6">
+									<div className="flex justify-center">
+										<div className="p-6 rounded-full bg-background border-2 shadow-sm">
+											<Users className="h-16 w-16 text-muted-foreground/50" />
+										</div>
+									</div>
+									<div className="space-y-2">
+										<h3 className="text-2xl font-bold">Coming Soon</h3>
+										<p className="text-muted-foreground max-w-md mx-auto">
+											Our engineers are hard at work building the ultimate online arena. Stay tuned for the next update!
+										</p>
+									</div>
+								</CardContent>
+							</Card>
+						</div>
+					</div>
+				)}
+			</div>
+		</div>
+	);
+}
