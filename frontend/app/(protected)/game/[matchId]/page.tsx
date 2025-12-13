@@ -48,12 +48,12 @@ export default function LocalGamePage() {
 				}
 			} catch (error: any) {
 				console.error("Failed to save match:", error);
-                if (error.response?.status === 401) {
-                    toast.error("Session expired. Match could not be saved.");
-                    // Optional: redirect to login or just let them know
-                } else {
-                    toast.error("Failed to save match result.");
-                }
+				if (error.response?.status === 401) {
+					toast.error("Session expired. Match could not be saved.");
+					// Optional: redirect to login or just let them know
+				} else {
+					toast.error("Failed to save match result.");
+				}
 			}
 		}
 		
@@ -73,14 +73,14 @@ export default function LocalGamePage() {
 		}
 	};
 
-    const handleExit = () => {
-        if (matchData?.isTournamentMatch) {
-            router.push(`/game/local/tournament/${matchData.tournamentId}`);
-        } else {
-            localStorage.removeItem("current-match");
-            router.push("/game/new");
-        }
-    };
+	const handleExit = () => {
+		if (matchData?.isTournamentMatch) {
+			router.push(`/game/local/tournament/${matchData.tournamentId}`);
+		} else {
+			localStorage.removeItem("current-match");
+			router.push("/game/new");
+		}
+	};
 
 	return (
 		<div className="relative">
@@ -104,7 +104,7 @@ export default function LocalGamePage() {
 				mode="local"
 				wsUrl={`wss://localhost:8443/ws/game?matchId=${matchId}`}
 				onGameOver={handleGameOver}
-                onExit={handleExit}
+				onExit={handleExit}
 			/>
 		</div>
 	);

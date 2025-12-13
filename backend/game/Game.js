@@ -12,7 +12,7 @@ const FPS = 60;
 const TICK_MS = 1000 / FPS;
 
 // Timer-Based Match System (2-minute matches)
-const MATCH_DURATION_MS = 120000; // 2 minutes in milliseconds
+const MATCH_DURATION_MS = 1200; // 2 minutes in milliseconds
 
 // Power-Up Configuration
 const POWERUP_SIZE = 20;
@@ -136,25 +136,6 @@ class Game {
 		}
 		return ('spectator');
 	}
-
-	// // Add Player to game
-	// addPlayer(socket, playerSlot, userId)
-	// {
-	// 	if (playerSlot == 1) {
-	// 		this.players.p1 = {
-	// 			socket: socket,
-	// 			id: userId
-	// 		};
-	// 	}
-	// 	else if (playerSlot == 2)
-	// 	{
-	// 		this.players.p2 = {
-	// 			socket: socket,
-	// 			id: userId
-	// 		}
-	// 	}
-	// 	console.log(`Player ${playerSlot} (ID: ${userId}) joined match ${this.matchId}`);
-	// }
 
 	// Handle Paddle Movement Input
 	// 'role' comes from the join() return value
