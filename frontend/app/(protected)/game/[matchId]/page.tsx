@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import axios from "axios";
+import { toast } from "sonner";
 
 export default function LocalGamePage() {
 	const params = useParams();
@@ -45,8 +46,14 @@ export default function LocalGamePage() {
 					});
 					console.log("Match saved to backend");
 				}
-			} catch (error) {
+			} catch (error: any) {
 				console.error("Failed to save match:", error);
+                if (error.response?.status === 401) {
+                    toast.error("Session expired. Match could not be saved.");
+                    // Optional: redirect to login or just let them know
+                } else {
+                    toast.error("Failed to save match result.");
+                }
 			}
 		}
 		
@@ -63,18 +70,17 @@ export default function LocalGamePage() {
 				},
 				window.location.origin
 			);
-
-			setTimeout(() => {
-				router.push(`/game/local/tournament/${matchData.tournamentId}`);
-			}, 2000);
-		} else {
-			// Single match - go back to menu after a delay
-			setTimeout(() => {
-				localStorage.removeItem("current-match");
-				router.push("/game/new");
-			}, 3000);
 		}
 	};
+
+    const handleExit = () => {
+        if (matchData?.isTournamentMatch) {
+            router.push(`/game/local/tournament/${matchData.tournamentId}`);
+        } else {
+            localStorage.removeItem("current-match");
+            router.push("/game/new");
+        }
+    };
 
 	return (
 		<div className="relative">
@@ -98,6 +104,7 @@ export default function LocalGamePage() {
 				mode="local"
 				wsUrl={`wss://localhost:8443/ws/game?matchId=${matchId}`}
 				onGameOver={handleGameOver}
+                onExit={handleExit}
 			/>
 		</div>
 	);

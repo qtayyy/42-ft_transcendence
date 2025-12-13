@@ -2,6 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { GameState, GameMode } from "@/types/game";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface PongGameProps {
 	matchId: string;
@@ -11,6 +20,7 @@ interface PongGameProps {
 	// For context mode (remote/tournament games)
 	gameState?: GameState | null;
 	onGameOver?: (winner: number | null, score: { p1: number; p2: number }, result: string) => void;
+	onExit?: () => void;
 }
 
 export default function PongGame({
@@ -19,6 +29,7 @@ export default function PongGame({
 	wsUrl,
 	gameState: externalGameState,
 	onGameOver,
+	onExit,
 }: PongGameProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -95,10 +106,13 @@ export default function PongGame({
 					if (onGameOver) {
 						onGameOver(data.winner, data.score, data.result || 'win');
 					}
-					const message = data.result === 'draw' 
-						? "Game Over! It's a DRAW!" 
-						: `Game Over! Winner: Player ${data.winner}`;
-					alert(message);
+					// Update local state to trigger Dialog
+					setLocalGameState(prev => prev ? ({
+						...prev,
+						status: 'finished',
+						winner: data.winner,
+						score: data.score
+					}) : null);
 				} else {
 					// Update local game state
 					console.log("Setting game state - ball:", data.ball, "paddles:", data.paddles); // DEBUG
@@ -354,10 +368,6 @@ export default function PongGame({
 					<span className="mx-4">|</span>{" "}
 					<span className="font-semibold">Player 2:</span> Arrow Keys
 				</p>
-				<p className="text-sm text-gray-400">
-					Press <kbd className="px-2 py-1 bg-gray-700 rounded">Enter</kbd> to start • 
-					Highest score wins when timer expires
-				</p>
 			</div>
 
 			{gameState?.status === "waiting" && (
@@ -365,12 +375,35 @@ export default function PongGame({
 					Waiting for players...
 				</div>
 			)}
-			
-			{gameState?.status === "finished" && (
-				<div className="mt-4 px-8 py-4 bg-green-600 text-white rounded-lg font-bold text-xl">
-					{gameState.winner ? `Player ${gameState.winner} Wins!` : "It's a Draw!"}
-				</div>
-			)}
+
+			<Dialog open={gameState?.status === "finished"}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle className="text-center text-2xl">match Finished</DialogTitle>
+						<DialogDescription className="text-center text-lg">
+							{gameState?.winner ? `Player ${gameState.winner} Wins!` : "It's a Draw!"}
+						</DialogDescription>
+					</DialogHeader>
+					
+					<div className="flex justify-center items-center gap-8 py-6">
+						<div className="text-center">
+							<p className="text-sm text-muted-foreground">Player 1</p>
+							<p className="text-4xl font-bold">{gameState?.score?.p1}</p>
+						</div>
+						<div className="text-2xl font-bold text-muted-foreground">-</div>
+						<div className="text-center">
+							<p className="text-sm text-muted-foreground">Player 2</p>
+							<p className="text-4xl font-bold">{gameState?.score?.p2}</p>
+						</div>
+					</div>
+
+					<DialogFooter className="sm:justify-center">
+						<Button onClick={onExit} size="lg" className="w-full sm:w-auto">
+							Continue
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
