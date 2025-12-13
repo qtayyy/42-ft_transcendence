@@ -1,180 +1,146 @@
 "use client";
 
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import axios from "axios";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import TournamentBracket from "@/components/game/TournamentBracket";
-import {
-    Player,
-    Match,
-    generateBracket,
-    shufflePlayers,
-    updateBracketWithResult,
-    getCurrentMatch,
-    isTournamentComplete,
-    getTournamentWinner,
-} from "@/lib/tournament";
-import { Trophy, Play, ArrowLeft } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import Leaderboard from "@/components/game/Leaderboard";
+import { Tournament, TournamentMatch } from "@/lib/tournament";
+import { Play, Trophy, ArrowLeft } from "lucide-react";
 
-export default function LocalTournamentPage() {
+export default function TournamentPage() {
     const params = useParams();
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const { user } = useAuth();
     const tournamentId = params.tournamentId as string;
 
-    const [matches, setMatches] = useState<Match[]>([]);
-    const [players, setPlayers] = useState<Player[]>([]);
-    const [currentMatch, setCurrentMatch] = useState<Match | null>(null);
-    const [winner, setWinner] = useState<Player | null>(null);
-    const [isComplete, setIsComplete] = useState(false);
+    const [tournament, setTournament] = useState<Tournament | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [currentMatch, setCurrentMatch] = useState<TournamentMatch | null>(null);
 
-    // Initialize tournament from URL params or localStorage
+    // Load tournament from backend
     useEffect(() => {
-        // Try to load from localStorage first
-        const savedTournament = localStorage.getItem(`tournament-${tournamentId}`);
-        
-        if (savedTournament) {
-            const data = JSON.parse(savedTournament);
-            setPlayers(data.players);
-            setMatches(data.matches);
-        } else {
-            // Initialize new tournament from URL params
-            const playerNames = searchParams.get("players")?.split(",") || [];
+        fetchTournament();
+    }, [tournamentId]);
+
+    const fetchTournament = async () => {
+        try {
+            const response = await axios.get(`/api/tournament/${tournamentId}`);
+            setTournament(response.data);
             
-            if (playerNames.length === 0) {
-                // Generate default players
-                const count = parseInt(tournamentId.split("-")[3]?.replace("p", "") || "4");
-                for (let i = 1; i <= count; i++) {
-                    playerNames.push(`Player ${i}`);
-                }
-            }
-
-            const playerList: Player[] = playerNames.map((name, index) => ({
-                id: `player-${index + 1}`,
-                name: name,
-            }));
-
-            // Shuffle players randomly
-            const shuffledPlayers = shufflePlayers(playerList);
-            setPlayers(shuffledPlayers);
-
-            // Generate bracket
-            const bracket = generateBracket(shuffledPlayers);
-            setMatches(bracket);
-
-            // Save to localStorage
-            localStorage.setItem(
-                `tournament-${tournamentId}`,
-                JSON.stringify({
-                    players: shuffledPlayers,
-                    matches: bracket,
-                })
+            // Find next pending match
+            const nextMatch = response.data.matches.find(
+                (m: TournamentMatch) => m.status === 'pending'
             );
+            setCurrentMatch(nextMatch || null);
+            setLoading(false);
+        } catch (error) {
+            console.error("Failed to load tournament:", error);
+            setLoading(false);
         }
-    }, [tournamentId, searchParams]);
+    };
 
-    // Update current match and check completion
+    const handleStartMatch = () => {
+        if (!currentMatch) return;
+
+        // Store match data for game page
+        const matchData = {
+            matchId: currentMatch.matchId,
+            tournamentId: tournamentId,
+            player1: currentMatch.player1,
+            player2: currentMatch.player2,
+            isTournamentMatch: true
+        };
+
+        localStorage.setItem("current-match", JSON.stringify(matchData));
+        router.push(`/game/${currentMatch.matchId}`);
+    };
+
+    // Listen for match results from game page
     useEffect(() => {
-        if (matches.length > 0) {
-            const current = getCurrentMatch(matches);
-            setCurrentMatch(current);
+        const handleMessage = async (event: MessageEvent) => {
+            if (event.data.type === "TOURNAMENT_MATCH_RESULT") {
+                const { matchId, player1Id, player2Id, score, outcome } = event.data;
 
-            const complete = isTournamentComplete(matches);
-            setIsComplete(complete);
-
-            if (complete) {
-                const tournamentWinner = getTournamentWinner(matches);
-                setWinner(tournamentWinner);
-            }
-
-            // Save state to localStorage
-            localStorage.setItem(
-                `tournament-${tournamentId}`,
-                JSON.stringify({ players, matches })
-            );
-        }
-    }, [matches, tournamentId, players]);
-
-    // Handle match result from game
-    useEffect(() => {
-        const handleMessage = (event: MessageEvent) => {
-            if (event.data.type === "MATCH_RESULT") {
-                const { matchId, winner, score } = event.data;
-                const winnerPlayer = players.find((p) => p.id === winner);
-                
-                if (winnerPlayer) {
-                    const updatedMatches = updateBracketWithResult(
-                        matches,
+                try {
+                    // Send result to backend
+                    await axios.post(`/api/tournament/${tournamentId}/match-result`, {
                         matchId,
-                        winnerPlayer,
-                        score
-                    );
-                    setMatches(updatedMatches);
+                        player1Id,
+                        player2Id,
+                        score,
+                        outcome
+                    });
+
+                    // Refresh tournament data
+                    await fetchTournament();
+                } catch (error) {
+                    console.error("Failed to update match result:", error);
                 }
             }
         };
 
         window.addEventListener("message", handleMessage);
         return () => window.removeEventListener("message", handleMessage);
-    }, [matches, players]);
+    }, [tournamentId]);
 
-    const handleStartMatch = () => {
-        if (!currentMatch) return;
+    if (loading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black">
+                <div className="text-white text-xl">Loading tournament...</div>
+            </div>
+        );
+    }
 
-        // Navigate to game with match info
-        const matchData = {
-            matchId: currentMatch.id,
-            tournamentId: tournamentId,
-            player1: currentMatch.player1,
-            player2: currentMatch.player2,
-        };
+    if (!tournament) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black">
+                <div className="text-white text-xl">Tournament not found</div>
+            </div>
+        );
+    }
 
-        // Store match data in localStorage for game to retrieve
-        localStorage.setItem("current-match", JSON.stringify(matchData));
-
-        // Navigate to game
-        router.push(`/game/${currentMatch.id}`);
-    };
-
-    const handleReset = () => {
-        localStorage.removeItem(`tournament-${tournamentId}`);
-        router.push("/game/new");
-    };
-
-    if (isComplete && winner) {
+    // Tournament complete - show final results
+    if (tournament.isComplete) {
+        const winner = tournament.leaderboard[0];
+        
         return (
             <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
-                <Card className="w-full max-w-2xl border-4 border-yellow-500 bg-gray-800/50">
-                    <CardHeader>
-                        <div className="flex justify-center mb-4">
-                            <Trophy className="h-24 w-24 text-yellow-500" />
-                        </div>
-                        <CardTitle className="text-center text-4xl text-white">
-                            Tournament Complete!
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="text-center">
-                            <p className="text-gray-300 text-xl mb-2">Winner:</p>
-                            <p className="text-yellow-400 text-5xl font-bold">
-                                {winner.name}
+                <Card className="w-full max-w-4xl border-4 border-yellow-500 bg-gray-800/50">
+                    <CardContent className="pt-8">
+                        <div className="flex flex-col items-center mb-8">
+                            <Trophy className="h-24 w-24 text-yellow-400 mb-4" />
+                            <h1 className="text-4xl font-bold text-white mb-2">Tournament Complete!</h1>
+                            <p className="text-xl text-gray-300">
+                                {tournament.format === 'round-robin' ? 'Round Robin' : 'Swiss'} • {tournament.playerCount} Players
                             </p>
                         </div>
 
-                        <div className="space-y-2">
-                            <Button
-                                onClick={handleReset}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-lg py-6"
-                            >
-                                New Tournament
-                            </Button>
+                        <div className="mb-6">
+                            <div className="text-center mb-4">
+                                <p className="text-gray-400 text-lg">Champion</p>
+                                <p className="text-yellow-400 text-5xl font-bold">{winner.playerName}</p>
+                                <p className="text-gray-300 mt-2">{winner.matchPoints} Match Points</p>
+                            </div>
+                        </div>
+
+                        <Leaderboard standings={tournament.leaderboard} currentUserId={user?.id} />
+
+                        <div className="mt-6 flex gap-4">
                             <Button
                                 onClick={() => router.push("/game/new")}
-                                variant="outline"
-                                className="w-full text-lg py-6"
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-6"
                             >
-                                Main Menu
+                                New Game
+                            </Button>
+                            <Button
+                                onClick={() => router.push("/dashboard")}
+                                variant="outline"
+                                className="flex-1 py-6"
+                            >
+                                Dashboard
                             </Button>
                         </div>
                     </CardContent>
@@ -183,6 +149,7 @@ export default function LocalTournamentPage() {
         );
     }
 
+    // Tournament in progress
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
             <div className="max-w-7xl mx-auto">
@@ -196,13 +163,19 @@ export default function LocalTournamentPage() {
                         Back to Menu
                     </Button>
                     
-                    <h1 className="text-3xl font-bold text-white">
-                        Local Tournament
-                    </h1>
+                    <div className="text-center">
+                        <h1 className="text-3xl font-bold text-white">
+                            {tournament.format === 'round-robin' ? 'Round Robin' : 'Swiss'} Tournament
+                        </h1>
+                        <p className="text-gray-400">
+                            Round {tournament.currentRound} of {tournament.totalRounds}
+                        </p>
+                    </div>
                     
-                    <div className="w-32" /> {/* Spacer for centering */}
+                    <div className="w-32" /> {/* Spacer */}
                 </div>
 
+                {/* Current Match Card */}
                 {currentMatch && (
                     <Card className="mb-6 border-2 border-blue-500/50 bg-gray-800/50">
                         <CardContent className="pt-6">
@@ -210,25 +183,85 @@ export default function LocalTournamentPage() {
                                 <div className="text-white">
                                     <p className="text-sm text-gray-400 mb-1">Next Match:</p>
                                     <p className="text-2xl font-bold">
-                                        {currentMatch.player1?.name} vs {currentMatch.player2?.name}
+                                        {currentMatch.player1.name} vs {currentMatch.player2?.name || 'BYE'}
                                     </p>
+                                    {!currentMatch.player2 && (
+                                        <p className="text-sm text-yellow-400 mt-1">
+                                            {currentMatch.player1.name} receives an automatic bye (3 points)
+                                        </p>
+                                    )}
                                 </div>
-                                <Button
-                                    onClick={handleStartMatch}
-                                    className="bg-green-600 hover:bg-green-700 text-white text-lg px-8 py-6"
-                                >
-                                    <Play className="mr-2 h-5 w-5" />
-                                    Start Match
-                                </Button>
+                                {currentMatch.player2 && (
+                                    <Button
+                                        onClick={handleStartMatch}
+                                        className="bg-green-600 hover:bg-green-700 text-white text-lg px-8 py-6"
+                                    >
+                                        <Play className="mr-2 h-5 w-5" />
+                                        Start Match
+                                    </Button>
+                                )}
+                                {!currentMatch.player2 && (
+                                    <Button
+                                        onClick={async () => {
+                                            // Auto-process bye
+                                            await axios.post(`/api/tournament/${tournamentId}/match-result`, {
+                                                matchId: currentMatch.matchId,
+                                                player1Id: currentMatch.player1.id,
+                                                player2Id: null,
+                                                score: { p1: 0, p2: 0 },
+                                                outcome: 'bye'
+                                            });
+                                            await fetchTournament();
+                                        }}
+                                        className="bg-yellow-600 hover:bg-yellow-700 text-white px-8 py-6"
+                                    >
+                                        Process Bye
+                                    </Button>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
                 )}
 
-                <TournamentBracket
-                    matches={matches}
-                    currentMatchId={currentMatch?.id || null}
-                />
+                {/* Leaderboard */}
+                <Leaderboard standings={tournament.leaderboard} currentUserId={user?.id} />
+
+                {/* Matches History */}
+                <Card className="mt-6 bg-gray-800/50">
+                    <CardContent className="pt-6">
+                        <h3 className="text-xl font-bold text-white mb-4">Match History</h3>
+                        <div className="space-y-2">
+                            {tournament.matches
+                                .filter(m => m.status === 'completed' || m.status === 'bye')
+                                .map((match) => (
+                                    <div
+                                        key={match.matchId}
+                                        className="flex items-center justify-between p-3 bg-gray-700 rounded"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-400 text-sm">R{match.round}</span>
+                                            <span className="text-white">
+                                                {match.player1.name} vs {match.player2?.name || 'BYE'}
+                                            </span>
+                                        </div>
+                                        <div className="text-gray-300">
+                                            {match.result?.outcome === 'bye' ? (
+                                                <span className="text-yellow-400">Bye</span>
+                                            ) : match.result?.outcome === 'draw' ? (
+                                                <span className="text-yellow-400">
+                                                    Draw ({match.result.score.p1}-{match.result.score.p2})
+                                                </span>
+                                            ) : (
+                                                <span>
+                                                    {match.result?.score.p1} - {match.result?.score.p2}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );

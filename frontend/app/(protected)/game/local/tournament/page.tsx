@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,25 +29,35 @@ export default function LocalTournamentPage() {
         setTempPlayers(tempPlayers.filter((_, i) => i !== index));
     };
 
-    const canStartTournament = totalPlayers >= 4 && isPowerOf2(totalPlayers);
+    const canStartTournament = totalPlayers >= 3 && totalPlayers <= 8;
 
     function isPowerOf2(n: number): boolean {
         return n > 0 && (n & (n - 1)) === 0;
     }
 
-    const handleStartTournament = () => {
+    const handleStartTournament = async () => {
         if (!canStartTournament) return;
 
-        // Build full player list
-        const allPlayers = [
-            { id: user?.id, name: user?.username || "You", isTemp: false },
-            ...tempPlayers.map((p, i) => ({ id: `temp-${i}`, name: p.name, isTemp: true }))
-        ];
+        try {
+            // Build full player list
+            const allPlayers = [
+                { id: user?.id || 'user', name: user?.username || "You", isTemp: false },
+                ...tempPlayers.map((p, i) => ({ id: `temp-${Date.now()}-${i}`, name: p.name, isTemp: true }))
+            ];
 
-        const tournamentId = `local-tournament-${totalPlayers}p-${Date.now()}`;
-        const playersParam = allPlayers.map(p => `${p.name}|${p.isTemp ? 'temp' : p.id}`).join(",");
+            // Create tournament via backend
+            const response = await axios.post("/api/tournament/create", {
+                players: allPlayers
+            });
 
-        router.push(`/game/local/tournament/${tournamentId}?players=${encodeURIComponent(playersParam)}`);
+            const { tournamentId } = response.data;
+
+            // Navigate to tournament page
+            router.push(`/game/local/tournament/${tournamentId}`);
+        } catch (error) {
+            console.error("Failed to create tournament:", error);
+            alert("Failed to create tournament. Please try again.");
+        }
     };
 
     return (
@@ -130,17 +141,19 @@ export default function LocalTournamentPage() {
                     {/* Player Count Info */}
                     <div className="bg-gray-900/50 p-4 rounded-lg">
                         <p className="text-center text-sm text-gray-300">
-                            {totalPlayers < 4 ? (
+                            {totalPlayers < 3 ? (
                                 <span className="text-yellow-400">
-                                    Need at least 4 players total (add {4 - totalPlayers} more)
+                                    Need at least 3 players total (add {3 - totalPlayers} more)
                                 </span>
-                            ) : !isPowerOf2(totalPlayers) ? (
+                            ) : totalPlayers > 8 ? (
                                 <span className="text-yellow-400">
-                                    Player count must be 4, 8, or 16 (currently {totalPlayers})
+                                    Maximum 8 players allowed (remove {totalPlayers - 8} players)
                                 </span>
                             ) : (
                                 <span className="text-green-400">
-                                    ✓ Ready to start with {totalPlayers} players
+                                    ✓ Ready to start with {totalPlayers} players ({
+                                        totalPlayers >= 3 && totalPlayers <= 4 ? 'Round Robin' : 'Swiss, 3 rounds'
+                                    })
                                 </span>
                             )}
                         </p>
