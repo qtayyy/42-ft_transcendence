@@ -303,7 +303,7 @@ export default function PongGame({
 	return (
 		<div
 			ref={containerRef}
-			className="flex flex-col items-center justify-center h-screen overflow-hidden bg-black text-white p-4"
+			className="flex flex-col items-center justify-center h-[calc(100vh-12rem)] overflow-hidden bg-black text-white p-4"
 		>
 			{/* DEBUG OVERLAY */}
 			{gameState && (

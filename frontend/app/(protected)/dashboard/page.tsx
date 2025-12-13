@@ -70,26 +70,34 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleNewGame() {
-    if (gameRoom) router.push(`/game/room/${gameRoom.roomId}`);
-    else {
+  // async function handleNewGame() {
+  //   if (gameRoom) router.push(`/game/room/${gameRoom.roomId}`);
+  //   else {
+  //     try {
+  //       const res = await axios.get("/api/game/room/create");
+  //       const roomId = res.data.roomId;
+  //       router.push(`/game/room/${roomId}`);
+  //     } catch (error: any) {
+  //       const backendError = error.response?.data?.error;
+  //       alert(backendError || "Something went wrong. Please try again later.");
+  //     }
+  //   }
+  // }
+
+    async function handleNewGame() {
       try {
-        const res = await axios.get("/api/game/room/create");
-        const roomId = res.data.roomId;
-        router.push(`/game/room/${roomId}`);
-      } catch (error: any) {
-        const backendError = error.response?.data?.error;
-        alert(backendError || "Something went wrong. Please try again later.");
+        router.push("/game/new");
+      } catch (error) {
+        console.error(error);
       }
     }
-  }
 
   return (
     <div className="bg-background p-4">
       {/* New Game Button - Centered at top */}
       <div className="flex justify-center mb-6">
         <Button size="lg" className="px-8 py-6 text-lg" onClick={handleNewGame}>
-          {gameRoom ? "Back to Game Room" : "New Game"}
+          New Game
         </Button>
       </div>
       {/* Main Content Area */}

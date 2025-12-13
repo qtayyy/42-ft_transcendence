@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, UserPlus, X, Play } from "lucide-react";
+import { User, UserPlus, X, Play, ArrowLeft, Trophy } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function LocalTournamentPage() {
     const router = useRouter();
@@ -30,10 +31,6 @@ export default function LocalTournamentPage() {
     };
 
     const canStartTournament = totalPlayers >= 3 && totalPlayers <= 8;
-
-    function isPowerOf2(n: number): boolean {
-        return n > 0 && (n & (n - 1)) === 0;
-    }
 
     const handleStartTournament = async () => {
         if (!canStartTournament) return;
@@ -61,50 +58,62 @@ export default function LocalTournamentPage() {
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
-            <Card className="w-full max-w-3xl border-2 border-yellow-500/50 bg-gray-800/50">
-                <CardHeader>
-                    <Button
-                        variant="ghost"
-                        onClick={() => router.push("/game/new")}
-                        className="absolute top-4 left-4 text-white hover:text-gray-300"
-                    >
-                        ← Back
-                    </Button>
-                    <CardTitle className="text-center text-3xl text-white pt-2">
+        <div className="container mx-auto max-w-3xl px-6 flex flex-col justify-center min-h-[calc(100vh-12rem)]">
+            <div className="mb-6">
+                <Button 
+                    variant="ghost" 
+                    onClick={() => router.push("/game/new")}
+                    className="gap-2"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Modes
+                </Button>
+            </div>
+
+            <Card className="border-2 shadow-lg">
+                <CardHeader className="text-center space-y-2">
+                    <CardTitle className="text-3xl flex items-center justify-center gap-2">
+                        <Trophy className="h-8 w-8 text-yellow-500" />
                         Local Tournament
                     </CardTitle>
-                    <p className="text-center text-gray-400 mt-2">
-                        Add temporary players to start ({totalPlayers}/4+ players)
-                    </p>
+                    <CardDescription>
+                        Set up a local tournament for 3-8 players
+                    </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                    {/* Account User */}
-                    <div>
-                        <Label className="text-white text-lg mb-2 block">Players</Label>
-                        <div className="space-y-2">
+                <CardContent className="space-y-8">
+                    {/* Player List */}
+                    <div className="space-y-4">
+                        <Label className="text-lg font-semibold">
+                            Players ({totalPlayers})
+                        </Label>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {/* Account User (Always present) */}
-                            <div className="flex items-center gap-3 p-3 bg-blue-600/20 border-2 border-blue-500 rounded-lg">
-                                <User className="h-5 w-5 text-blue-400" />
-                                <div className="flex-1">
-                                    <p className="text-white font-semibold">{user?.username || "Account User"}</p>
-                                    <p className="text-xs text-gray-400">Account Player</p>
+                            <div className="flex items-center gap-3 p-3 bg-primary/5 border rounded-lg">
+                                <div className="p-2 bg-primary/10 rounded-full">
+                                    <User className="h-4 w-4 text-primary" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-semibold truncate">{user?.username || "Account User"}</p>
+                                    <p className="text-xs text-muted-foreground">Account Player</p>
                                 </div>
                             </div>
 
                             {/* Temporary Players */}
                             {tempPlayers.map((player, index) => (
-                                <div key={index} className="flex items-center gap-3 p-3 bg-gray-700 border-2 border-gray-600 rounded-lg">
-                                    <User className="h-5 w-5 text-gray-400" />
-                                    <div className="flex-1">
-                                        <p className="text-white font-semibold">{player.name}</p>
-                                        <p className="text-xs text-gray-400">Temporary Player</p>
+                                <div key={index} className="flex items-center gap-3 p-3 bg-secondary/50 border rounded-lg group">
+                                    <div className="p-2 bg-secondary rounded-full">
+                                        <User className="h-4 w-4 text-secondary-foreground" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-semibold truncate">{player.name}</p>
+                                        <p className="text-xs text-muted-foreground">Guest</p>
                                     </div>
                                     <Button
                                         variant="ghost"
-                                        size="sm"
+                                        size="icon"
                                         onClick={() => handleRemoveTempPlayer(index)}
-                                        className="text-red-400 hover:text-red-300"
+                                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 opacity-70 group-hover:opacity-100 transition-opacity"
                                     >
                                         <X className="h-4 w-4" />
                                     </Button>
@@ -114,56 +123,58 @@ export default function LocalTournamentPage() {
                     </div>
 
                     {/* Add Player Input */}
-                    <div>
-                        <Label className="text-white mb-2 block">Add Temporary Player</Label>
-                        <div className="flex gap-2">
+                    <div className="space-y-3">
+                        <Label>Add Guest Player</Label>
+                        <div className="flex gap-3">
                             <Input
                                 placeholder="Enter player name..."
                                 value={tempPlayerName}
                                 onChange={(e) => setTempPlayerName(e.target.value)}
                                 onKeyPress={(e) => e.key === "Enter" && handleAddTempPlayer()}
-                                className="bg-gray-700 text-white border-gray-600"
+                                className="h-11"
                             />
                             <Button
                                 onClick={handleAddTempPlayer}
-                                disabled={!tempPlayerName.trim()}
-                                className="bg-green-600 hover:bg-green-700"
+                                disabled={!tempPlayerName.trim() || totalPlayers >= 8}
+                                className="h-11 px-6"
                             >
                                 <UserPlus className="h-4 w-4 mr-2" />
                                 Add
                             </Button>
                         </div>
-                        <p className="text-sm text-gray-500 mt-2">
-                            Temporary player data will not be saved
+                        <p className="text-sm text-muted-foreground">
+                            Guest players are temporary for this session only.
                         </p>
                     </div>
 
-                    {/* Player Count Info */}
-                    <div className="bg-gray-900/50 p-4 rounded-lg">
-                        <p className="text-center text-sm text-gray-300">
-                            {totalPlayers < 3 ? (
-                                <span className="text-yellow-400">
-                                    Need at least 3 players total (add {3 - totalPlayers} more)
-                                </span>
-                            ) : totalPlayers > 8 ? (
-                                <span className="text-yellow-400">
-                                    Maximum 8 players allowed (remove {totalPlayers - 8} players)
-                                </span>
-                            ) : (
-                                <span className="text-green-400">
-                                    ✓ Ready to start with {totalPlayers} players ({
-                                        totalPlayers >= 3 && totalPlayers <= 4 ? 'Round Robin' : 'Swiss, 3 rounds'
-                                    })
-                                </span>
-                            )}
-                        </p>
-                    </div>
+                    {/* Tournament Status Info */}
+                    <Alert variant={canStartTournament ? "default" : "destructive"} className={canStartTournament ? "border-green-500/50 bg-green-500/10" : ""}>
+                         <div className="flex items-center gap-2">
+                             {canStartTournament ? (
+                                 <Trophy className="h-4 w-4 text-green-500" />
+                             ) : (
+                                 <AlertDescription className="flex items-center gap-2">
+                                    <User className="h-4 w-4" />
+                                 </AlertDescription>
+                             )}
+                            <AlertTitle className={canStartTournament ? "text-green-600 dark:text-green-400 mb-0" : "mb-0"}>
+                                {totalPlayers < 3 ? (
+                                    `Need ${3 - totalPlayers} more player${3 - totalPlayers === 1 ? '' : 's'} to start`
+                                ) : totalPlayers > 8 ? (
+                                    `Maximum 8 players allowed (remove ${totalPlayers - 8})`
+                                ) : (
+                                    `Ready! Format: ${totalPlayers <= 4 ? 'Round Robin' : 'Swiss System'}`
+                                )}
+                            </AlertTitle>
+                        </div>
+                    </Alert>
 
-                    {/*Start Button */}
+                    {/* Start Button */}
                     <Button
                         onClick={handleStartTournament}
                         disabled={!canStartTournament}
-                        className="w-full bg-yellow-600 hover:bg-yellow-700 text-white text-lg py-6 disabled:opacity-50"
+                        size="lg"
+                        className="w-full text-lg h-14"
                     >
                         <Play className="mr-2 h-5 w-5" />
                         Start Tournament
