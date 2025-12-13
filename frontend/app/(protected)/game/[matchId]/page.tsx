@@ -49,6 +49,60 @@ export default function GamePage() {
 	// change this value does not trigger re-render
 	// store stuff that don't affect HTML / hold connection for DOM
 	const canvasRef = useRef<HTMLCanvasElement>(null); // Hold direct link to actual <canvas> HTML tag
+	    const handleGameOver = async (winner: number | null, score: { p1: number; p2: number }, result: string) => {
+        console.log(`Game Over! Result: ${result}`, { winner, score });
+        
+        // Save match to backend (only for account user)
+        if (matchData && user) {
+            try {
+                const player1Id = matchData.player1.isTemp ? null : matchData.player1.id;
+                const player2Id = matchData.player2.isTemp ? null : matchData.player2.id;
+
+                // Only save if at least one player is the account user
+                if (player1Id || player2Id) {
+                    await axios.post("/api/game/save-match", {
+                        matchId: matchData.matchId,
+                        player1Id: player1Id,
+                        player2Id: player2Id,
+                        player1Name: matchData.player1.name,
+                        player2Name: matchData.player2.name,
+                        score1: score.p1,
+                        score2: score.p2,
+                        winner: winner,
+                        mode: "LOCAL",
+                    });
+                    console.log("Match saved to backend");
+                }
+            } catch (error) {
+                console.error("Failed to save match:", error);
+            }
+        }
+        
+        // If this is a tournament match, send result back
+        if (matchData?.isTournamentMatch) {
+            window.opener?.postMessage(
+                {
+                    type: "TOURNAMENT_MATCH_RESULT",
+                    matchId: matchData.matchId,
+                    player1Id: matchData.player1.id,
+                    player2Id: matchData.player2?.id || null,
+                    score: score,
+                    outcome: result // 'win' or 'draw'
+                },
+                window.location.origin
+            );
+
+            setTimeout(() => {
+                router.push(`/game/local/tournament/${matchData.tournamentId}`);
+            }, 2000);
+        } else {
+            // Single match - go back to menu after a delay
+            setTimeout(() => {
+                localStorage.removeItem("current-match");
+                router.push("/game/new");
+            }, 3000);
+        }
+    };
 	const socketRef = useRef<WebSocket | null>(null); // Hold the open websocket connection
 	// useState: Componenents's Memory
 	// Whenever you change this value, triggers re-render
