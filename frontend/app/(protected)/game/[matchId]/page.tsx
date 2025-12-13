@@ -96,7 +96,7 @@ export default function LocalGamePage() {
             <PongGame
                 matchId={matchId}
                 mode="local"
-                wsUrl={`wss://localhost:8443/ws/game/start-game?matchId=${matchId}`}
+                wsUrl={`wss://localhost:8443/ws/game?matchId=${matchId}`}
                 onGameOver={handleGameOver}
             />
         </div>
