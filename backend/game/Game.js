@@ -1,4 +1,4 @@
-import { PrismaClient } from "../generated/prisma/index.js"
+import { PrismaClient } from "/app/generated/prisma/index.js"
 const prisma = new PrismaClient();
 
 // Game Constants
