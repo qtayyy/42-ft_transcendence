@@ -14,6 +14,11 @@ const TICK_MS = 1000 / FPS;
 // Timer-Based Match System (2-minute matches)
 const MATCH_DURATION_MS = 120000; // 2 minutes in milliseconds
 
+// Power-Up Configuration
+const POWERUP_SIZE = 20;
+const POWERUP_SPAWN_INTERVAL_MS = 10000; // Spawn every 10 seconds
+const POWERUP_DURATION_MS = 5000; // Effect duration
+
 
 class Game {
 	constructor(matchId, mode, tournamentId = null) {
@@ -39,6 +44,10 @@ class Game {
 		// Timer-based match tracking
 		this.startTime = null; // When the game started
 		this.timeRemaining = MATCH_DURATION_MS; // Time left in ms
+
+		// Power-Up State
+		this.lastSpawnTime = 0;
+		this.nextSpawnId = 1;
 	}
 
 	createInitialState() // Initialise Paddle and Ball
@@ -54,7 +63,8 @@ class Game {
 				ballSize: BALL_SIZE,
 				FPS: FPS,
 				TICK_MS: TICK_MS,
-				matchDuration: MATCH_DURATION_MS
+				matchDuration: MATCH_DURATION_MS,
+				powerUpSize: POWERUP_SIZE
 			},
 			// Timer tracking
 			timer: {
@@ -85,7 +95,9 @@ class Game {
 				p2: 0
 			},
 			winner: null,
-			result: null
+			result: null,
+			powerUps: [], // Array of { id, x, y, type }
+			activeEffect: null // { type, expiresAt }
 		});
 	}
 
@@ -181,8 +193,10 @@ class Game {
 		this.loopHandle = setInterval(() => {
 			this._updateTimer(); // Update timer first
 			this._updatePaddles();
+			this._spawnPowerUp(); // Try spawning
 			this._updateBall();
 			this._checkCollisionsAndScore();
+			this._updateEffect(); // Check active effect expiry
 			this._checkWinCondition();
 			this._broadcastState();
 		}, TICK_MS);
@@ -225,6 +239,9 @@ class Game {
 	}
 
 	_resetBall(toRight = true) {
+		this._clearEffect(); // Reset any active effects on goal
+		this.gameState.constant.ballSize = BALL_SIZE; // Ensure size reset
+
 		this.gameState.ball.x = (CANVAS_WIDTH - BALL_SIZE) / 2;
 		this.gameState.ball.y = (CANVAS_HEIGHT - BALL_SIZE) / 2;
 		this.gameState.ball.dx = toRight ? 4 : -4;
@@ -304,6 +321,109 @@ class Game {
 		} else if (ball.x >= CANVAS_WIDTH) {
 			this.gameState.score.p1 += 1;
 			this._resetBall(false);
+		}
+
+		// Power-Up Collision Check
+		for (let i = 0; i < this.gameState.powerUps.length; i++) {
+			const pu = this.gameState.powerUps[i];
+			const dist = Math.sqrt(
+				Math.pow((ball.x + BALL_SIZE / 2) - pu.x, 2) +
+				Math.pow((ball.y + BALL_SIZE / 2) - pu.y, 2)
+			);
+
+			// Simple circular collision check
+			if (dist < (BALL_SIZE / 2 + POWERUP_SIZE / 2)) {
+				this._applyEffect(pu.type);
+				this.gameState.powerUps.splice(i, 1); // Remove item
+				break; // One item per frame
+			}
+		}
+	}
+
+	_spawnPowerUp() {
+		const now = Date.now();
+		if (now - this.lastSpawnTime > POWERUP_SPAWN_INTERVAL_MS && this.gameState.powerUps.length < 2) {
+			this.lastSpawnTime = now;
+			const validTypes = ['SPEED_UP', 'SPEED_DOWN', 'SIZE_UP', 'SIZE_DOWN'];
+			const type = validTypes[Math.floor(Math.random() * validTypes.length)];
+
+			// Random position away from edges
+			const margin = 100;
+			const x = margin + Math.random() * (CANVAS_WIDTH - 2 * margin);
+			const y = margin + Math.random() * (CANVAS_HEIGHT - 2 * margin);
+
+			this.gameState.powerUps.push({
+				id: (this.nextSpawnId++).toString(),
+				x,
+				y,
+				type
+			});
+		}
+	}
+
+	_applyEffect(type) {
+		this._clearEffect(); // Remove existing first
+
+		const effect = {
+			type: type,
+			expiresAt: Date.now() + POWERUP_DURATION_MS
+		};
+		this.gameState.activeEffect = effect;
+
+		switch (type) {
+			case 'SPEED_UP':
+				// Increase speed by 50%
+				this.gameState.ball.dx *= 1.5;
+				this.gameState.ball.dy *= 1.5;
+				break;
+			case 'SPEED_DOWN':
+				// Decrease speed by 50%
+				this.gameState.ball.dx *= 0.5;
+				this.gameState.ball.dy *= 0.5;
+				break;
+			case 'SIZE_UP':
+				// Double size
+				this.gameState.constant.ballSize *= 2;
+				break;
+			case 'SIZE_DOWN':
+				// Half size
+				this.gameState.constant.ballSize *= 0.5;
+				break;
+		}
+	}
+
+	_clearEffect() {
+		if (!this.gameState.activeEffect) return;
+
+		const type = this.gameState.activeEffect.type;
+		// Revert changes logic
+		// For speed, we just let physics take over or reset to "normal" speed? 
+		// Actually, just resetting 'dx' might be abrupt. 
+		// Better: apply the inverse if it wasn't a goal reset.
+		// But _resetBall handles goal resets.
+		// Here we handle timeouts.
+		switch (type) {
+			case 'SPEED_UP':
+				this.gameState.ball.dx /= 1.5;
+				this.gameState.ball.dy /= 1.5;
+				break;
+			case 'SPEED_DOWN':
+				this.gameState.ball.dx /= 0.5;
+				this.gameState.ball.dy /= 0.5;
+				break;
+			case 'SIZE_UP':
+				this.gameState.constant.ballSize /= 2;
+				break;
+			case 'SIZE_DOWN':
+				this.gameState.constant.ballSize /= 0.5;
+				break;
+		}
+		this.gameState.activeEffect = null;
+	}
+
+	_updateEffect() {
+		if (this.gameState.activeEffect && Date.now() > this.gameState.activeEffect.expiresAt) {
+			this._clearEffect();
 		}
 	}
 

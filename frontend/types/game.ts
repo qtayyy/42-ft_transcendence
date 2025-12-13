@@ -40,10 +40,21 @@ export interface GameState {
 	};
 	winner: number | null;
 	result?: "win" | "draw" | null;
+	powerUps: PowerUp[];
+	activeEffect: { type: PowerUpType; expiresAt: number } | null;
+}
+
+export type PowerUpType = 'SPEED_UP' | 'SPEED_DOWN' | 'SIZE_UP' | 'SIZE_DOWN';
+
+export interface PowerUp {
+	id: string;
+	x: number;
+	y: number;
+	type: PowerUpType;
 }
 
 // Game Mode Types
-export type GameMode = "local" | "remote" | "tournament";
+export type GameMode = "local" | "remote";
 
 // WebSocket Connection Type
 export type WebSocketMode = "direct" | "context";
