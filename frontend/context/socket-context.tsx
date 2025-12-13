@@ -37,7 +37,7 @@ useEffect(() => {
 
   if (!hasActiveGame.current) {
     hasActiveGame.current = true;
-    router.push(`/game/${gameState.tournamentId}/${gameState.matchId}`);
+    router.push(`/game/tournament/${gameState.matchId}`);
   }
 }, [gameState, router]);
 
