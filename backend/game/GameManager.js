@@ -7,7 +7,7 @@ class GameManager
 		this.activeGames = new Map(); // stores matchId -> game instance
 	}
 
-	createGame(matchId)
+	createGame(matchId, mode)
 	{
 		const newGame = new Game(matchId, mode);
 		this.activeGames.set(matchId, newGame);

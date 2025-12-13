@@ -96,7 +96,7 @@ class Game
 		}
 		else if (this.mode === 'remote')
 		{
-			if (!this.players.p2.socket)
+			if (!this.players.p1.socket)
 			{
 				this.players.p1 = {
 					socket: socket,
