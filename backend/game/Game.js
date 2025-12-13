@@ -12,7 +12,7 @@ const FPS = 60;
 const TICK_MS = 1000 / FPS;
 
 // Timer-Based Match System (2-minute matches)
-const MATCH_DURATION_MS = 1200; // 2 minutes in milliseconds
+const MATCH_DURATION_MS = 120000; // 2 minutes in milliseconds
 
 
 class Game {
@@ -84,7 +84,8 @@ class Game {
 				p1: 0,
 				p2: 0
 			},
-			winner: null
+			winner: null,
+			result: null
 		});
 	}
 
@@ -241,8 +242,14 @@ class Game {
 		const p2 = this.gameState.paddles.p2;
 
 		// Wall collision : Top / Bottom
-		if (ball.y <= 0 || ball.y + BALL_SIZE >= CANVAS_HEIGHT)
-			ball.y *= -1;
+		if (ball.y <= 0) {
+			ball.y = 0;
+			ball.dy = Math.abs(ball.dy);
+		}
+		else if (ball.y + BALL_SIZE >= CANVAS_HEIGHT) {
+			ball.y = CANVAS_HEIGHT - BALL_SIZE;
+			ball.dy = -Math.abs(ball.dy);
+		}
 
 		// Paddle 1 Collision
 		/*
@@ -262,6 +269,13 @@ class Game {
 			const offset = ball.y + BALL_SIZE / 2 - (p1.y + PADDLE_HEIGHT / 2);
 			// Adjust vertical speed based on that distance
 			ball.dy = offset * 0.1;
+
+			// Prevent horizontal loop: If trajectory is too flat, add significant random vertical force
+			if (Math.abs(ball.dy) < 1.0) {
+				// Ensure at least 1.5 velocity in a random direction
+				const direction = Math.random() > 0.5 ? 1 : -1;
+				ball.dy = direction * (1.5 + Math.random());
+			}
 		}
 
 		// Paddle 2 Collision
@@ -274,6 +288,13 @@ class Game {
 			ball.dx = Math.abs(ball.dx) * -1; // Force to LEFT
 			const offset = (ball.y + BALL_SIZE / 2) - (p2.y + PADDLE_HEIGHT / 2);
 			ball.dy = offset * 0.1;
+
+			// Prevent horizontal loop
+			if (Math.abs(ball.dy) < 1.0) {
+				// Ensure at least 1.5 velocity in a random direction
+				const direction = Math.random() > 0.5 ? 1 : -1;
+				ball.dy = direction * (1.5 + Math.random());
+			}
 		}
 
 		// Scoring Logic 
@@ -364,6 +385,7 @@ class Game {
 
 		this.gameState.status = 'finished';
 		this.gameState.winner = winner;
+		this.gameState.result = result;
 
 		this._broadcast({
 			type: 'GAME_OVER',

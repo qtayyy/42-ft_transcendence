@@ -39,6 +39,7 @@ export interface GameState {
 		p2: number;
 	};
 	winner: number | null;
+	result?: "win" | "draw" | null;
 }
 
 // Game Mode Types
