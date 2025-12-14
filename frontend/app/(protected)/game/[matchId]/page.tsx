@@ -57,19 +57,21 @@ export default function LocalGamePage() {
 			}
 		}
 		
-		// If this is a tournament match, send result back
-		if (matchData?.isTournamentMatch) {
-			window.postMessage(
-				{
-					type: "TOURNAMENT_MATCH_RESULT",
+		// If this is a tournament match, update tournament state
+		if (matchData?.isTournamentMatch && matchData.tournamentId) {
+			try {
+				await axios.post(`/api/tournament/${matchData.tournamentId}/match-result`, {
 					matchId: matchData.matchId,
 					player1Id: matchData.player1?.id,
 					player2Id: matchData.player2?.id || null,
 					score: score,
 					outcome: result // 'win' or 'draw'
-				},
-				window.location.origin
-			);
+				});
+				console.log("Tournament match result updated");
+			} catch (error) {
+				console.error("Failed to update tournament result:", error);
+				toast.error("Failed to update tournament progress.");
+			}
 		}
 	};
 
