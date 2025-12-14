@@ -36,6 +36,8 @@ export interface PlayerStanding {
 	totalPointsScored: number;
 	byes: number;
 	matchesPlayed: number;
+	avgScoreDifferential: number;
+	avgTotalPointsScored: number;
 }
 
 export type TournamentFormat = 'round-robin' | 'swiss';
