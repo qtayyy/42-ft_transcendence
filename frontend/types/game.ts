@@ -1,4 +1,5 @@
 // Game State Types
+// "interface" means "struct" in C++ to holds data
 export interface GameState {
 	status: string;
 	constant: {
@@ -44,6 +45,8 @@ export interface GameState {
 	activeEffect: { type: PowerUpType; expiresAt: number } | null;
 }
 
+// "type" defines a list of specific option
+// PowerUpType can be either the following options, other than these will be error
 export type PowerUpType = 'SPEED_UP' | 'SPEED_DOWN' | 'SIZE_UP' | 'SIZE_DOWN';
 
 export interface PowerUp {

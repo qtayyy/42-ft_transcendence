@@ -12,7 +12,7 @@ const FPS = 60;
 const TICK_MS = 1000 / FPS;
 
 // Timer-Based Match System (2-minute matches)
-const MATCH_DURATION_MS = 120000; // 2 minutes in milliseconds
+const MATCH_DURATION_MS = 1200; // 2 minutes in milliseconds
 
 // Power-Up Configuration
 const POWERUP_SIZE = 20;

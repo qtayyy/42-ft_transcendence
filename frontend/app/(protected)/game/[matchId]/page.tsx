@@ -57,19 +57,21 @@ export default function LocalGamePage() {
 			}
 		}
 		
-		// If this is a tournament match, send result back
-		if (matchData?.isTournamentMatch) {
-			window.postMessage(
-				{
-					type: "TOURNAMENT_MATCH_RESULT",
+		// If this is a tournament match, update tournament state
+		if (matchData?.isTournamentMatch && matchData.tournamentId) {
+			try {
+				await axios.post(`/api/tournament/${matchData.tournamentId}/match-result`, {
 					matchId: matchData.matchId,
 					player1Id: matchData.player1?.id,
 					player2Id: matchData.player2?.id || null,
 					score: score,
 					outcome: result // 'win' or 'draw'
-				},
-				window.location.origin
-			);
+				});
+				console.log("Tournament match result updated");
+			} catch (error) {
+				console.error("Failed to update tournament result:", error);
+				toast.error("Failed to update tournament progress.");
+			}
 		}
 	};
 
@@ -84,27 +86,14 @@ export default function LocalGamePage() {
 
 	return (
 		<div className="relative">
-			{matchData && (
-				<div className="absolute top-4 left-4 bg-gray-800/90 text-white p-3 rounded-lg shadow-lg z-10">
-					<p className="text-sm font-semibold">
-						{matchData.isTournamentMatch ? "Tournament Match" : "Local Match"}
-					</p>
-					<p className="text-xs text-gray-300">
-						{matchData.player1?.name} vs {matchData.player2?.name}
-					</p>
-					{(matchData.player1?.isTemp || matchData.player2?.isTemp) && (
-						<p className="text-xs text-yellow-400 mt-1">
-							Temporary player data won't be saved
-						</p>
-					)}
-				</div>
-			)}
+
 			<PongGame
 				matchId={matchId}
 				mode="local"
 				wsUrl={`wss://localhost:8443/ws/game?matchId=${matchId}`}
 				onGameOver={handleGameOver}
 				onExit={handleExit}
+				isTournamentMatch={matchData?.isTournamentMatch}
 			/>
 		</div>
 	);
