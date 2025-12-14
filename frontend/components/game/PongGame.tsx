@@ -20,6 +20,7 @@ interface PongGameProps {
 	gameState?: GameState | null;
 	onGameOver?: (winner: number | null, score: { p1: number; p2: number }, result: string) => void;
 	onExit?: () => void;
+	isTournamentMatch?: boolean;
 }
 
 export default function PongGame({
@@ -29,6 +30,7 @@ export default function PongGame({
 	gameState: externalGameState,
 	onGameOver,
 	onExit,
+	isTournamentMatch = false,
 }: PongGameProps) {
 	const { 
 		gameState, 
@@ -36,6 +38,26 @@ export default function PongGame({
 		containerRef, 
 		canvasDimensions 
 	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver });
+
+	// Determine Display ID & Suffix
+	let cleanId = matchId.replace(/^(local-|tournament-)/, '');
+	let matchSuffix = "";
+
+	// Check for match suffix (-m1, -m2, etc) or Swiss (-r1-m1)
+	const matchMatch = cleanId.match(/-(m\d+)$/);
+	const swissMatch = cleanId.match(/-(r\d+-m\d+)$/);
+
+	if (swissMatch) {
+		matchSuffix = swissMatch[1].replace('r', 'Round ').replace('-m', ' • Match '); // "Round 1 • Match 1"
+		cleanId = cleanId.replace(/-(r\d+-m\d+)$/, '');
+	} else if (matchMatch) {
+		matchSuffix = matchMatch[1].replace('m', 'Match '); // "Match 1"
+		cleanId = cleanId.replace(/-(m\d+)$/, '');
+	}
+
+	const displayMatchId = mode === "local"
+		? (isTournamentMatch ? `LT-${cleanId}` : `LS-${cleanId}`)
+		: cleanId;
 
 	// Game Loop / Rendering
 	useEffect(() => {
@@ -73,9 +95,17 @@ export default function PongGame({
 					<h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 drop-shadow-sm">
 						{mode === "local" ? "LOCAL MATCH" : "REMOTE MATCH"}
 					</h1>
-					<Badge variant="outline" className="font-mono text-[10px] tracking-widest text-muted-foreground border-white/10 bg-black/20 px-2 py-0.5 rounded-full">
-						#{matchId.substring(0, 8).toUpperCase()}
-					</Badge>
+					<div className="flex items-center gap-2">
+						<Badge variant="outline" className="inline-flex items-center justify-center gap-1 font-mono text-[10px] tracking-widest text-muted-foreground border-white/10 bg-black/20 px-3 py-1 rounded-full leading-normal">
+							<Hash className="h-3 w-3 opacity-50" />
+							{displayMatchId}
+						</Badge>
+						{matchSuffix && (
+							<Badge variant="secondary" className="text-[10px] font-bold px-2 py-0.5 bg-white/10 text-white/80 border-white/10">
+								{matchSuffix.toUpperCase()}
+							</Badge>
+						)}
+					</div>
 				</div>
 
 				{/* Center: Timer */}
