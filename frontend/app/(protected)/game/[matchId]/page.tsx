@@ -93,6 +93,7 @@ export default function LocalGamePage() {
 				wsUrl={`wss://localhost:8443/ws/game?matchId=${matchId}`}
 				onGameOver={handleGameOver}
 				onExit={handleExit}
+				isTournamentMatch={matchData?.isTournamentMatch}
 			/>
 		</div>
 	);
