@@ -7,6 +7,10 @@ import { renderGame } from "@/utils/gameRenderer";
 import { GameOverDialog } from "@/components/game/GameOverDialog";
 import { formatTime } from "@/utils/gameHelpers";
 
+/** 
+ * "?:" means it can be optional
+ * ": " means it is mandatory
+*/
 interface PongGameProps {
 	matchId: string;
 	mode: GameMode;
@@ -32,6 +36,7 @@ export default function PongGame({
 	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver });
 
 	// Game Loop / Rendering
+	// useEffect is basically trigger AFTER RENDER; dependencies change, run the specified function
 	useEffect(() => {
 		if (!gameState || !canvasRef.current) return;
 		const canvas = canvasRef.current;
@@ -101,9 +106,20 @@ export default function PongGame({
 
 			<GameOverDialog 
 				gameState={gameState || null} 
-				open={gameState?.status === "finished"} 
+				open={gameState?.status === "finished"}
 				onExit={onExit} 
 			/>
 		</div>
 	);
 }
+
+/*
+	const s = gameState.status;
+	- If gameState is null, this causes a "TypeError" crash!
+	- It's like doing nullptr->status in C++.
+
+	const s = gameState?.status;
+	- check if gameState is not NULL/Undefined
+	- if it has content, grab it
+	- if no, stop immediately, return undefined, do not crash
+*/
