@@ -160,16 +160,8 @@ class TournamentManager {
 	generateSubsequentRoundPairings(roundNumber) {
 		const matches = [];
 
-		// Sort players by current standings
-		const sorted = [...this.standings].sort((a, b) => {
-			if (a.matchPoints !== b.matchPoints) {
-				return b.matchPoints - a.matchPoints;
-			}
-			if (a.scoreDifferential !== b.scoreDifferential) {
-				return b.scoreDifferential - a.scoreDifferential;
-			}
-			return b.totalPointsScored - a.totalPointsScored;
-		});
+		// Sort players by current standings (use consistent logic)
+		const sorted = this.getLeaderboard();
 
 		const paired = new Set();
 		let matchId = 1;
@@ -307,17 +299,21 @@ class TournamentManager {
 	 * Get current leaderboard (sorted standings)
 	 */
 	getLeaderboard() {
-		return [...this.standings].sort((a, b) => {
+		return [...this.standings].map(s => ({
+			...s,
+			avgScoreDifferential: s.matchesPlayed > 0 ? Number((s.scoreDifferential / s.matchesPlayed).toFixed(2)) : 0,
+			avgTotalPointsScored: s.matchesPlayed > 0 ? Number((s.totalPointsScored / s.matchesPlayed).toFixed(2)) : 0
+		})).sort((a, b) => {
 			// Primary: Match points
 			if (a.matchPoints !== b.matchPoints) {
 				return b.matchPoints - a.matchPoints;
 			}
-			// Tie-breaker 1: Score differential
-			if (a.scoreDifferential !== b.scoreDifferential) {
-				return b.scoreDifferential - a.scoreDifferential;
+			// Tie-breaker 1: Average Score differential
+			if (a.avgScoreDifferential !== b.avgScoreDifferential) {
+				return b.avgScoreDifferential - a.avgScoreDifferential;
 			}
-			// Tie-breaker 2: Total points scored
-			return b.totalPointsScored - a.totalPointsScored;
+			// Tie-breaker 2: Average Total points scored
+			return b.avgTotalPointsScored - a.avgTotalPointsScored;
 		}).map((standing, index) => ({
 			rank: index + 1,
 			...standing
