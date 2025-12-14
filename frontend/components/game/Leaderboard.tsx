@@ -64,20 +64,28 @@ export default function Leaderboard({ standings, currentUserId }: LeaderboardPro
 						</div>
 
 						{/* Stats Columns */}
-						<div className="flex items-center gap-3 text-right">
-							{/* Score Diff */}
-							<div className="hidden sm:block text-xs text-muted-foreground w-16 text-center">
-								<div className="text-[10px] uppercase font-bold tracking-wider mb-0.5 text-muted-foreground/60">Diff</div>
+						<div className="flex items-center gap-2 text-right">
+							{/* Avg Score Diff */}
+							<div className="hidden sm:block text-xs text-muted-foreground w-14 text-center">
+								<div className="text-[10px] uppercase font-bold tracking-wider mb-0.5 text-muted-foreground/60">Avg Diff</div>
 								<span className={cn(
 									"font-mono font-medium",
-									standing.scoreDifferential > 0 ? "text-green-500" : standing.scoreDifferential < 0 ? "text-red-500" : ""
+									standing.avgScoreDifferential > 0 ? "text-green-500" : standing.avgScoreDifferential < 0 ? "text-red-500" : ""
 								)}>
-									{standing.scoreDifferential > 0 && '+'}{standing.scoreDifferential}
+									{standing.avgScoreDifferential > 0 && '+'}{standing.avgScoreDifferential}
 								</span>
 							</div>
 
-							{/* Points (Highlight) */}
-							<div className="w-16 text-center bg-background/50 rounded-lg py-1 border border-border/50">
+							{/* Avg Total Points Scored */}
+							<div className="hidden sm:block text-xs text-muted-foreground w-14 text-center border-l border-border/30 pl-2">
+								<div className="text-[10px] uppercase font-bold tracking-wider mb-0.5 text-muted-foreground/60">Avg Pts</div>
+								<span className="font-mono font-medium text-foreground/80">
+									{standing.avgTotalPointsScored}
+								</span>
+							</div>
+
+							{/* Match Points (Highlight) */}
+							<div className="w-14 text-center bg-background/50 rounded-lg py-1 border border-border/50 shadow-sm ml-2">
 								<div className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground/70 mb-0.5">Pts</div>
 								<span className="text-lg font-black text-primary">
 									{standing.matchPoints}
