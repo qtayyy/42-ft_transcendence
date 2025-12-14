@@ -48,7 +48,8 @@ export default function PongGame({
 	const swissMatch = cleanId.match(/-(r\d+-m\d+)$/);
 
 	if (swissMatch) {
-		matchSuffix = swissMatch[1].replace('r', 'Round ').replace('-m', ' • Match '); // "Round 1 • Match 1"
+		const matchNum = swissMatch[1].match(/-m(\d+)$/)?.[1];
+		matchSuffix = matchNum ? `Match ${matchNum}` : "";
 		cleanId = cleanId.replace(/-(r\d+-m\d+)$/, '');
 	} else if (matchMatch) {
 		matchSuffix = matchMatch[1].replace('m', 'Match '); // "Match 1"
