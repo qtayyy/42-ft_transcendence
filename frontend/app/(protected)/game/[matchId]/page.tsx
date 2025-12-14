@@ -84,21 +84,7 @@ export default function LocalGamePage() {
 
 	return (
 		<div className="relative">
-			{matchData && (
-				<div className="absolute top-4 left-4 bg-gray-800/90 text-white p-3 rounded-lg shadow-lg z-10">
-					<p className="text-sm font-semibold">
-						{matchData.isTournamentMatch ? "Tournament Match" : "Local Match"}
-					</p>
-					<p className="text-xs text-gray-300">
-						{matchData.player1?.name} vs {matchData.player2?.name}
-					</p>
-					{(matchData.player1?.isTemp || matchData.player2?.isTemp) && (
-						<p className="text-xs text-yellow-400 mt-1">
-							Temporary player data won't be saved
-						</p>
-					)}
-				</div>
-			)}
+
 			<PongGame
 				matchId={matchId}
 				mode="local"

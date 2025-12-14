@@ -31,11 +31,11 @@ export function usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOve
 			let width = Math.max(container.clientWidth - 40, 800);
 			let height = width / aspectRatio;
 
-			if (height > container.clientHeight - 200) {
-				height = Math.max(container.clientHeight - 200, 400);
+			if (height > container.clientHeight - 10) {
+				height = Math.max(container.clientHeight - 10, 300);
 				width = height * aspectRatio;
 			}
-			width = Math.min(width, 1200);
+			width = Math.min(width, 1400);
 			height = width / aspectRatio;
 			setCanvasDimensions({ width, height });
 		};
