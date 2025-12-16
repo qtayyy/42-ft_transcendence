@@ -3,20 +3,22 @@ import { AuthShell } from "@/components/auth-shell";
 import React from "react";
 import { useState } from "react";
 import axios from "axios";
-import { AlertCircleIcon } from "lucide-react";
+import { AlertCircleIcon, Eye, EyeOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button"; // import buttons
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const fields = [
   { name: "fullName", label: "Full Name", type: "text" },
   { name: "email", label: "Email", type: "email" },
-  { name: "password", label: "Password", type: "password" },
 ];
 
 export default function SignUpPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,6 +73,31 @@ export default function SignUpPage() {
         linkText="Back to login"
         // submitText="Sign Up"
       >
+        {/* Password field with eye icon */}
+        <div className="grid gap-2">
+          <Label htmlFor="password">Password</Label>
+          <div className="relative">
+            <Input
+              type={showPassword ? "text" : "password"}
+              id="password"
+              name="password"
+              required
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
+
         {/* Added Custom Sign Up Button */}
         <div className="mt-4">
               <Button 
