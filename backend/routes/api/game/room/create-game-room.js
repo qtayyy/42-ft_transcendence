@@ -12,7 +12,7 @@ export default async function (fastify, opts) {
     async (request, reply) => {
       try {
         const hostId = request.user.userId;
-        const profile = await prisma.profile.findUnique({ where: { id: hostId }});
+        const profile = await prisma.profile.findUnique({ where: { id: hostId } });
 
         const existing = fastify.currentRoom.get(hostId);
         if (existing) return reply.code(400).send({ error: "Already in a game room" });
