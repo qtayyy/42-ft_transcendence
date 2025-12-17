@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 const NON_AUTHENTICATED_ROUTES = [
   "/",
@@ -27,7 +28,9 @@ export default function Footer() {
         "fixed inset-x-0 bottom-0 bg-background/60 backdrop-blur"
       )}
     >
-      <p className="text-end">Switch Language (placeholder)</p>
+      {/* <div className="flex items-center justify-end"> */}
+        {/* <LanguageSwitcher /> */}
+      {/* </div> */}
     </div>
   );
 }

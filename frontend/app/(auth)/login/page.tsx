@@ -11,10 +11,7 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const fields = [
-  { name: "email", label: "Email", type: "email" },
-];
+import { useLanguage } from "@/context/languageContext";
 
 const GOOGLE_AUTH_URL =
   (process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "") +
@@ -23,8 +20,12 @@ const GOOGLE_AUTH_URL =
 export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  // const Router = useRouter();
   const { login } = useAuth();
+  const { t } = useLanguage();
+  
+  const fields = [
+    { name: "email", label: t.auth.email, type: "email" },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,17 +60,17 @@ export default function LoginPage() {
   return (
     <div>
       <AuthShell
-        title="Login"
-        description="Enter your email and password OR login with Google"
+        title={t.auth.login}
+        description={`${t.auth.email} ${t.common.and || 'and'} ${t.auth.password} ${t.common.or || 'OR'} ${t.auth.login} ${t.common.with || 'with'} Google`}
       handleSubmit={handleSubmit}
       fields={fields}
       link="/signup"
-      linkText="Don't have an account?"
+      linkText={t.auth.dontHaveAccount}
       // submitText="Login"
     >
         {/* Password field with eye icon */}
         <div className="grid gap-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{t.auth.password}</Label>
           <div className="relative">
             <Input
               type={showPassword ? "text" : "password"}
@@ -98,13 +99,13 @@ export default function LoginPage() {
             href="/reset-pwd"
             className="text-sm text-muted-foreground hover:text-primary underline"
           >
-            Forgot password?
+            {t.auth.forgotPassword}
           </Link>
         </div>
 
         {/* 2. Login Button */}
         <Button className="w-full" type="submit">
-          Login
+          {t.auth.login}
         </Button>
 
         {/* 3. The 'Or login with' Separator */}
@@ -114,7 +115,7 @@ export default function LoginPage() {
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-background px-2 text-muted-foreground">
-              Or login with
+              {t.common.or || 'OR'} {t.auth.login} {t.common.with || 'with'}
             </span>
           </div>
         </div>
@@ -124,7 +125,7 @@ export default function LoginPage() {
           variant="outline"
           type="button"
           className="w-full flex items-center justify-center gap-2 h-10"
-          aria-label="Login with Google"
+          aria-label={`${t.auth.login} ${t.common.with || 'with'} Google`}
           onClick={() => {
             window.location.href = GOOGLE_AUTH_URL;
           }}
@@ -135,14 +136,14 @@ export default function LoginPage() {
             width={20}
             height={20}
           />
-          Login with Google
+          {t.auth.login} {t.common.with || 'with'} Google
         </Button>
 
         {/* 5. Error Alerts */}
         {errorMessage && (
           <Alert variant="destructive" className="mt-4">
             <AlertCircleIcon className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
+            <AlertTitle>{t.common.error}</AlertTitle>
             <AlertDescription>{errorMessage}</AlertDescription>
           </Alert>
         )}

@@ -1,0 +1,101 @@
+{
+  "common": {
+    "welcome": "환영합니다",
+    "loading": "로딩 중...",
+    "error": "오류",
+    "save": "저장",
+    "cancel": "취소",
+    "delete": "삭제",
+    "edit": "편집",
+    "submit": "제출",
+    "search": "검색",
+    "logout": "로그아웃",
+    "switchLanguage": "언어 전환",
+    "or": "또는",
+    "with": "사용하여",
+    "and": "및"
+  },
+  "nav": {
+    "dashboard": "대시보드",
+    "profile": "프로필",
+    "settings": "설정",
+    "game": "게임",
+    "friends": "친구",
+    "friendRequest": "친구 요청",
+    "leaderboard": "리더보드"
+  },
+  "auth": {
+    "login": "로그인",
+    "signup": "회원가입",
+    "forgotPassword": "비밀번호 찾기",
+    "resetPassword": "비밀번호 재설정",
+    "email": "이메일",
+    "password": "비밀번호",
+    "confirmPassword": "비밀번호 확인",
+    "rememberMe": "로그인 상태 유지",
+    "dontHaveAccount": "계정이 없으신가요?",
+    "alreadyHaveAccount": "이미 계정이 있으신가요?",
+    "twoFa": "2단계 인증",
+    "enable2fa": "2FA 활성화",
+    "disable2fa": "2FA 비활성화",
+    "verifyCode": "코드 확인"
+  },
+  "game": {
+    "play": "플레이",
+    "startGame": "게임 시작",
+    "joinGame": "게임 참가",
+    "spectate": "관전",
+    "waiting": "상대를 기다리는 중...",
+    "gameOver": "게임 종료",
+    "winner": "승자",
+    "score": "점수",
+    "tournament": "토너먼트",
+    "matches": "경기",
+    "inviteToGame": "게임 초대"
+  },
+  "profile": {
+    "username": "사용자명",
+    "bio": "소개",
+    "avatar": "아바타",
+    "stats": "통계",
+    "wins": "승리",
+    "losses": "패배",
+    "winRate": "승률",
+    "matchHistory": "경기 기록",
+    "achievements": "업적"
+  },
+  "friends": {
+    "addFriend": "친구 추가",
+    "removeFriend": "친구 삭제",
+    "friendsList": "친구 목록",
+    "pending": "대기 중",
+    "accept": "수락",
+    "decline": "거절",
+    "online": "온라인",
+    "offline": "오프라인",
+    "sendRequest": "친구 요청 보내기"
+  },
+  "settings": {
+    "title": "설정",
+    "general": "일반",
+    "security": "보안",
+    "privacy": "개인정보",
+    "notifications": "알림",
+    "language": "언어",
+    "theme": "테마",
+    "changePassword": "비밀번호 변경",
+    "currentPassword": "현재 비밀번호",
+    "newPassword": "새 비밀번호"
+  },
+  "header": {
+    "notification": "알림",
+    "profile": "프로필",
+    "matchHistory": "경기 기록",
+    "friendRequests": "친구 요청",
+    "settings": "설정",
+    "logout": "로그아웃"
+  },
+  "footer": {
+    "copyright": "© 2025 ft_transcendence. 모든 권리 보유."
+  }
+}

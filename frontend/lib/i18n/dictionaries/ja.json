@@ -1,0 +1,101 @@
+{
+  "common": {
+    "welcome": "ようこそ",
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "submit": "送信",
+    "search": "検索",
+    "logout": "ログアウト",
+    "switchLanguage": "言語を切り替える",
+    "or": "または",
+    "with": "で",
+    "and": "と"
+  },
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "profile": "プロフィール",
+    "settings": "設定",
+    "game": "ゲーム",
+    "friends": "友達",
+    "friendRequest": "友達リクエスト",
+    "leaderboard": "リーダーボード"
+  },
+  "auth": {
+    "login": "ログイン",
+    "signup": "新規登録",
+    "forgotPassword": "パスワードを忘れた",
+    "resetPassword": "パスワードをリセット",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "confirmPassword": "パスワード確認",
+    "rememberMe": "ログイン状態を保持",
+    "dontHaveAccount": "アカウントをお持ちでない方",
+    "alreadyHaveAccount": "すでにアカウントをお持ちの方",
+    "twoFa": "2要素認証",
+    "enable2fa": "2FAを有効化",
+    "disable2fa": "2FAを無効化",
+    "verifyCode": "コードを確認"
+  },
+  "game": {
+    "play": "プレイ",
+    "startGame": "ゲーム開始",
+    "joinGame": "ゲームに参加",
+    "spectate": "観戦",
+    "waiting": "対戦相手を待っています...",
+    "gameOver": "ゲーム終了",
+    "winner": "勝者",
+    "score": "スコア",
+    "tournament": "トーナメント",
+    "matches": "試合",
+    "inviteToGame": "ゲームに招待"
+  },
+  "profile": {
+    "username": "ユーザー名",
+    "bio": "自己紹介",
+    "avatar": "アバター",
+    "stats": "統計",
+    "wins": "勝利",
+    "losses": "敗北",
+    "winRate": "勝率",
+    "matchHistory": "試合履歴",
+    "achievements": "実績"
+  },
+  "friends": {
+    "addFriend": "友達を追加",
+    "removeFriend": "友達を削除",
+    "friendsList": "友達リスト",
+    "pending": "保留中",
+    "accept": "承認",
+    "decline": "拒否",
+    "online": "オンライン",
+    "offline": "オフライン",
+    "sendRequest": "友達リクエストを送る"
+  },
+  "settings": {
+    "title": "設定",
+    "general": "一般",
+    "security": "セキュリティ",
+    "privacy": "プライバシー",
+    "notifications": "通知",
+    "language": "言語",
+    "theme": "テーマ",
+    "changePassword": "パスワード変更",
+    "currentPassword": "現在のパスワード",
+    "newPassword": "新しいパスワード"
+  },
+  "header": {
+    "notification": "通知",
+    "profile": "プロフィール",
+    "matchHistory": "試合履歴",
+    "friendRequests": "友達リクエスト",
+    "settings": "設定",
+    "logout": "ログアウト"
+  },
+  "footer": {
+    "copyright": "© 2025 ft_transcendence. 全著作権所有。"
+  }
+}
