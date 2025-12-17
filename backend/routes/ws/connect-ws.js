@@ -57,6 +57,22 @@ export default async function (fastify, opts) {
               fastify.updateGameState(payload.matchId, payload.userId, payload.keyEvent);
               break;
 
+            case "CHAT_MESSAGE":
+              // Broadcast message to all online users
+              fastify.onlineUsers.forEach((socket, recipientId) => {
+                if (recipientId !== userId) {
+                  safeSend(socket, {
+                    event: "CHAT_MESSAGE",
+                    payload: {
+                      username: request.user.username || "User",
+                      message: payload.message,
+                      timestamp: new Date().toISOString()
+                    }
+                  }, recipientId);
+                }
+              });
+              break;
+
             default:
               safeSend(
                 connection.socket,

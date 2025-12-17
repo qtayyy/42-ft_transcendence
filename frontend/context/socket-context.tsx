@@ -144,6 +144,12 @@ useEffect(() => {
             setGameState({...payload});  
             break;
 
+            case "CHAT_MESSAGE":
+              window.dispatchEvent(
+                new CustomEvent("chatMessage", { detail: payload })
+              );
+              break;
+
             default:
               console.log("Unknown event:", msg.event);
               break;
