@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/context/authContext";
 import { SocketProvider } from "@/context/socket-context";
 import { GameProvider } from "@/context/game-context";
+import { LanguageProvider } from "@/context/languageContext";
 import Footer from "@/components/footer";
 import Header from "@/components/header";
 import { Toaster } from "@/components/ui/sonner";
@@ -36,17 +37,19 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
-            <GameProvider>
-              <SocketProvider>
-                <Toaster position="top-center" />
-                <Header />
-                <GameInviteDialog />
-                <main className="min-h-screen w-full">{children}</main>
-                <Footer />
-              </SocketProvider>
-            </GameProvider>
-          </AuthProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <GameProvider>
+                <SocketProvider>
+                  <Toaster position="top-center" />
+                  <Header />
+                  <GameInviteDialog />
+                  <main className="min-h-screen w-full">{children}</main>
+                  <Footer />
+                </SocketProvider>
+              </GameProvider>
+            </AuthProvider>
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

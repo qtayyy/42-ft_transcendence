@@ -1,0 +1,101 @@
+{
+  "common": {
+    "welcome": "Welcome",
+    "loading": "Loading...",
+    "error": "Error",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "submit": "Submit",
+    "search": "Search",
+    "logout": "Logout",
+    "switchLanguage": "Switch Language",
+    "or": "OR",
+    "with": "with",
+    "and": "and"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "settings": "Settings",
+    "game": "Game",
+    "friends": "Friends",
+    "friendRequest": "Friend Requests",
+    "leaderboard": "Leaderboard"
+  },
+  "auth": {
+    "login": "Login",
+    "signup": "Sign Up",
+    "forgotPassword": "Forgot Password",
+    "resetPassword": "Reset Password",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "rememberMe": "Remember me",
+    "dontHaveAccount": "Don't have an account?",
+    "alreadyHaveAccount": "Already have an account?",
+    "twoFa": "Two-Factor Authentication",
+    "enable2fa": "Enable 2FA",
+    "disable2fa": "Disable 2FA",
+    "verifyCode": "Verify Code"
+  },
+  "game": {
+    "play": "Play",
+    "startGame": "Start Game",
+    "joinGame": "Join Game",
+    "spectate": "Spectate",
+    "waiting": "Waiting for opponent...",
+    "gameOver": "Game Over",
+    "winner": "Winner",
+    "score": "Score",
+    "tournament": "Tournament",
+    "matches": "Matches",
+    "inviteToGame": "Invite to Game"
+  },
+  "profile": {
+    "username": "Username",
+    "bio": "Bio",
+    "avatar": "Avatar",
+    "stats": "Statistics",
+    "wins": "Wins",
+    "losses": "Losses",
+    "winRate": "Win Rate",
+    "matchHistory": "Match History",
+    "achievements": "Achievements"
+  },
+  "friends": {
+    "addFriend": "Add Friend",
+    "removeFriend": "Remove Friend",
+    "friendsList": "Friends List",
+    "pending": "Pending",
+    "accept": "Accept",
+    "decline": "Decline",
+    "online": "Online",
+    "offline": "Offline",
+    "sendRequest": "Send Friend Request"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "security": "Security",
+    "privacy": "Privacy",
+    "notifications": "Notifications",
+    "language": "Language",
+    "theme": "Theme",
+    "changePassword": "Change Password",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password"
+  },
+  "header": {
+    "notification": "Notification",
+    "profile": "Profile",
+    "matchHistory": "Match History",
+    "friendRequests": "Friend Requests",
+    "settings": "Settings",
+    "logout": "Log Out"
+  },
+  "footer": {
+    "copyright": "© 2025 ft_transcendence. All rights reserved."
+  }
+}

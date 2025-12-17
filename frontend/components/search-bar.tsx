@@ -2,9 +2,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLanguage } from "@/context/languageContext";
 
 export default function SearchBar({ searchUser }) {
   const [query, setQuery] = useState("");
+  const { t } = useLanguage();
 
   const handleInputChange = (event) => {
     setQuery(event.target.value);
@@ -20,12 +22,12 @@ export default function SearchBar({ searchUser }) {
       <Input
         type="text"
         className="px-3 py-2"
-        placeholder="Type your friend's username or email here..."
+        placeholder={t.common.search}
         value={query}
         onChange={handleInputChange}
       />
       <Button className="px-3 py-2" onClick={handleSearchClick}>
-        Search
+        {t.common.search}
       </Button>
     </div>
   );

@@ -1,0 +1,101 @@
+{
+  "common": {
+    "welcome": "Selamat Datang",
+    "loading": "Memuatkan...",
+    "error": "Ralat",
+    "save": "Simpan",
+    "cancel": "Batal",
+    "delete": "Padam",
+    "edit": "Edit",
+    "submit": "Hantar",
+    "search": "Cari",
+    "logout": "Log Keluar",
+    "switchLanguage": "Tukar Bahasa",
+    "or": "ATAU",
+    "with": "dengan",
+    "and": "dan"
+  },
+  "nav": {
+    "dashboard": "Papan Pemuka",
+    "profile": "Profil",
+    "settings": "Tetapan",
+    "game": "Permainan",
+    "friends": "Rakan",
+    "friendRequest": "Permintaan Rakan",
+    "leaderboard": "Papan Pendahulu"
+  },
+  "auth": {
+    "login": "Log Masuk",
+    "signup": "Daftar",
+    "forgotPassword": "Lupa Kata Laluan",
+    "resetPassword": "Tetapkan Semula Kata Laluan",
+    "email": "E-mel",
+    "password": "Kata Laluan",
+    "confirmPassword": "Sahkan Kata Laluan",
+    "rememberMe": "Ingat saya",
+    "dontHaveAccount": "Tidak mempunyai akaun?",
+    "alreadyHaveAccount": "Sudah mempunyai akaun?",
+    "twoFa": "Pengesahan Dua Faktor",
+    "enable2fa": "Aktifkan 2FA",
+    "disable2fa": "Nyahaktifkan 2FA",
+    "verifyCode": "Sahkan Kod"
+  },
+  "game": {
+    "play": "Main",
+    "startGame": "Mulakan Permainan",
+    "joinGame": "Sertai Permainan",
+    "spectate": "Tonton",
+    "waiting": "Menunggu lawan...",
+    "gameOver": "Permainan Tamat",
+    "winner": "Pemenang",
+    "score": "Skor",
+    "tournament": "Kejohanan",
+    "matches": "Perlawanan",
+    "inviteToGame": "Jemput ke Permainan"
+  },
+  "profile": {
+    "username": "Nama Pengguna",
+    "bio": "Bio",
+    "avatar": "Avatar",
+    "stats": "Statistik",
+    "wins": "Menang",
+    "losses": "Kalah",
+    "winRate": "Kadar Menang",
+    "matchHistory": "Sejarah Perlawanan",
+    "achievements": "Pencapaian"
+  },
+  "friends": {
+    "addFriend": "Tambah Rakan",
+    "removeFriend": "Buang Rakan",
+    "friendsList": "Senarai Rakan",
+    "pending": "Menunggu",
+    "accept": "Terima",
+    "decline": "Tolak",
+    "online": "Dalam Talian",
+    "offline": "Luar Talian",
+    "sendRequest": "Hantar Permintaan Rakan"
+  },
+  "settings": {
+    "title": "Tetapan",
+    "general": "Umum",
+    "security": "Keselamatan",
+    "privacy": "Privasi",
+    "notifications": "Pemberitahuan",
+    "language": "Bahasa",
+    "theme": "Tema",
+    "changePassword": "Tukar Kata Laluan",
+    "currentPassword": "Kata Laluan Semasa",
+    "newPassword": "Kata Laluan Baru"
+  },
+  "header": {
+    "notification": "Pemberitahuan",
+    "profile": "Profil",
+    "matchHistory": "Sejarah Perlawanan",
+    "friendRequests": "Permintaan Rakan",
+    "settings": "Tetapan",
+    "logout": "Log Keluar"
+  },
+  "footer": {
+    "copyright": "© 2025 ft_transcendence. Hak cipta terpelihara."
+  }
+}

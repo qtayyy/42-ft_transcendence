@@ -1,0 +1,101 @@
+{
+  "common": {
+    "welcome": "欢迎",
+    "loading": "加载中...",
+    "error": "错误",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "submit": "提交",
+    "search": "搜索",
+    "logout": "登出",
+    "switchLanguage": "切换语言",
+    "or": "或",
+    "with": "使用",
+    "and": "和"
+  },
+  "nav": {
+    "dashboard": "仪表板",
+    "profile": "个人资料",
+    "settings": "设置",
+    "game": "游戏",
+    "friends": "好友",
+    "friendRequest": "好友请求",
+    "leaderboard": "排行榜"
+  },
+  "auth": {
+    "login": "登录",
+    "signup": "注册",
+    "forgotPassword": "忘记密码",
+    "resetPassword": "重置密码",
+    "email": "电子邮件",
+    "password": "密码",
+    "confirmPassword": "确认密码",
+    "rememberMe": "记住我",
+    "dontHaveAccount": "还没有账户？",
+    "alreadyHaveAccount": "已有账户？",
+    "twoFa": "双因素认证",
+    "enable2fa": "启用2FA",
+    "disable2fa": "禁用2FA",
+    "verifyCode": "验证代码"
+  },
+  "game": {
+    "play": "开始",
+    "startGame": "开始游戏",
+    "joinGame": "加入游戏",
+    "spectate": "观战",
+    "waiting": "等待对手...",
+    "gameOver": "游戏结束",
+    "winner": "获胜者",
+    "score": "得分",
+    "tournament": "锦标赛",
+    "matches": "比赛",
+    "inviteToGame": "邀请游戏"
+  },
+  "profile": {
+    "username": "用户名",
+    "bio": "简介",
+    "avatar": "头像",
+    "stats": "统计",
+    "wins": "胜利",
+    "losses": "失败",
+    "winRate": "胜率",
+    "matchHistory": "比赛历史",
+    "achievements": "成就"
+  },
+  "friends": {
+    "addFriend": "添加好友",
+    "removeFriend": "删除好友",
+    "friendsList": "好友列表",
+    "pending": "待处理",
+    "accept": "接受",
+    "decline": "拒绝",
+    "online": "在线",
+    "offline": "离线",
+    "sendRequest": "发送好友请求"
+  },
+  "settings": {
+    "title": "设置",
+    "general": "常规",
+    "security": "安全",
+    "privacy": "隐私",
+    "notifications": "通知",
+    "language": "语言",
+    "theme": "主题",
+    "changePassword": "更改密码",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码"
+  },
+  "header": {
+    "notification": "通知",
+    "profile": "个人资料",
+    "matchHistory": "比赛历史",
+    "friendRequests": "好友请求",
+    "settings": "设置",
+    "logout": "登出"
+  },
+  "footer": {
+    "copyright": "© 2025 ft_transcendence. 版权所有。"
+  }
+}

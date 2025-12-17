@@ -7,6 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -14,6 +15,8 @@ import { useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
+import { useLanguage } from "@/context/languageContext";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 // Routes where the profile icon should be hidden (non-authenticated pages)
 const NON_AUTHENTICATED_ROUTES = [
@@ -31,6 +34,7 @@ export default function Header() {
   const { user, logout } = useAuth();
   const { sendSocketMessage, isReady } = useSocket();
   const { gameRoom } = useGame();
+  const { t } = useLanguage(); // change language to header
 
   // Check if current route is a non-authenticated page
   const isNonAuthenticatedPage = useMemo(() => {
@@ -84,13 +88,18 @@ export default function Header() {
           />
         </button>
       </div>
-      {shouldShowProfileIcon && (
-        <div className="flex space-x-5">
-          {/* Notification bell - WIP */}
-          <DropdownMenu>
-            <DropdownMenuTrigger>Notification</DropdownMenuTrigger>
-          </DropdownMenu>
-          <DropdownMenu>
+      <div className="flex space-x-5 items-center">
+        {/* Language Switcher  */}
+        <LanguageSwitcher />
+        
+        {shouldShowProfileIcon && (
+          <>
+            {/* Notification bell - WIP */}
+            <DropdownMenu>
+              <DropdownMenuTrigger>{t.header.notification}</DropdownMenuTrigger>
+            </DropdownMenu>
+            
+            <DropdownMenu>
             <DropdownMenuTrigger>
               {/* Add key to force re-render when avatar changes */}
               <Avatar
@@ -105,24 +114,25 @@ export default function Header() {
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => router.push("/profile")}>
-                Profile
+                {t.header.profile}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push("/match")}>
-                Match History
+                {t.header.matchHistory}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push("/friend-request")}>
-                Friend Requests
+                {t.header.friendRequests}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push("/settings")}>
-                Settings
+                {t.header.settings}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleLogout}>
-                Log Out
+                {t.header.logout}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
