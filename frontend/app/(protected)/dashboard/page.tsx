@@ -16,11 +16,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useGame } from "@/hooks/use-game";
-import { useLanguage } from "@/context/languageContext";
 
 
 export default function DashboardPage() {
-  const { t } = useLanguage();
   const router = useRouter();
   const [userFound, setUserFound] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -96,10 +94,18 @@ export default function DashboardPage() {
 
   return (
     <div className="bg-background p-4">
+      {/* Default shadcn Chat Button */}
+      <Button
+        onClick={() => router.push('/chat')}
+        aria-label="Go to Chat"
+        className="fixed bottom-8 right-8 z-50 rounded-full text-2xl"
+      >
+        💬
+      </Button>
       {/* New Game Button - Centered at top */}
       <div className="flex justify-center mb-6">
         <Button size="lg" className="px-8 py-6 text-lg" onClick={handleNewGame}>
-          {t.game.startGame}
+          New Game
         </Button>
       </div>
       {/* Main Content Area */}
@@ -107,9 +113,9 @@ export default function DashboardPage() {
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="p-10">
             <DialogHeader>
-              <DialogTitle>{t.friends.addFriend}</DialogTitle>
+              <DialogTitle>Add Friend</DialogTitle>
               <DialogDescription>
-                {t.friends.sendRequest}:
+                Click &lsquo;Confirm&rsquo; to send a friend request to:
               </DialogDescription>
               <p className="text-4xl">{userFound}</p>
             </DialogHeader>
@@ -120,7 +126,7 @@ export default function DashboardPage() {
                 variant="default"
                 onClick={sendFriendRequest}
               >
-                {t.common.submit}
+                Confirm
               </Button>
             </div>
           </DialogContent>
@@ -131,13 +137,13 @@ export default function DashboardPage() {
         <div className="lg:col-span-1 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl font-bold">{t.nav.friends.toUpperCase()}</CardTitle>
+              <CardTitle className="text-xl font-bold">FRIENDS</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <SearchBar searchUser={handleSearchUser}></SearchBar>
               {/* Online Friends */}
               <div>
-                <h3 className="font-semibold mb-2 text-sm uppercase">{t.friends.online.toUpperCase()}</h3>
+                <h3 className="font-semibold mb-2 text-sm uppercase">ONLINE</h3>
                 <Card className="bg-muted/50 min-h-[150px]">
                   <CardContent className="p-4 space-y-2">
                     {onlineFriends.length !== 0 ? (
@@ -152,7 +158,7 @@ export default function DashboardPage() {
                       ))
                     ) : (
                       <p className="text-muted-foreground text-sm">
-                        {t.friends.online} - 0
+                        No friends online
                       </p>
                     )}
                   </CardContent>
@@ -162,7 +168,7 @@ export default function DashboardPage() {
               {/* Offline Friends */}
               <div>
                 <h3 className="font-semibold mb-2 text-sm uppercase">
-                  {t.friends.offline.toUpperCase()}
+                  OFFLINE
                 </h3>
                 <Card className="bg-muted/50 min-h-[150px]">
                   <CardContent className="p-4 space-y-2">
@@ -178,7 +184,7 @@ export default function DashboardPage() {
                       ))
                     ) : (
                       <p className="text-muted-foreground text-sm">
-                        {t.friends.offline} - 0
+                        No friends offline
                       </p>
                     )}
                   </CardContent>
@@ -195,7 +201,7 @@ export default function DashboardPage() {
             {/* Activity Bar Chart */}
             <Card>
               <CardHeader>
-                <CardTitle>{t.profile.stats}</CardTitle>
+                <CardTitle>Activity</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-48 flex items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg">
@@ -207,7 +213,7 @@ export default function DashboardPage() {
             {/* Win-Loss Pie Chart */}
             <Card>
               <CardHeader>
-                <CardTitle>{t.profile.wins}-{t.profile.losses}</CardTitle>
+                <CardTitle>Win-Loss</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-48 flex items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg">
@@ -223,7 +229,7 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-xl font-bold">
-                {t.game.tournament.toUpperCase()} {t.profile.matchHistory.toUpperCase()}
+                TOURNAMENT HISTORY
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -237,7 +243,7 @@ export default function DashboardPage() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                           <span className="text-muted-foreground">
-                            {t.game.tournament} ID:{" "}
+                            Tournament ID:{" "}
                           </span>
                           <span className="font-medium">#{tournament.id}</span>
                         </div>
@@ -251,7 +257,7 @@ export default function DashboardPage() {
                         </div>
                         <div>
                           <span className="text-muted-foreground">
-                            {t.game.winner}:{" "}
+                            Winner:{" "}
                           </span>
                           <span className="font-medium text-primary">
                             {tournament.winner}
@@ -270,7 +276,7 @@ export default function DashboardPage() {
                   ))
                 ) : (
                   <p className="text-muted-foreground text-center py-8">
-                    {t.game.tournament} - 0
+                    No tournament history available
                   </p>
                 )}
               </div>
