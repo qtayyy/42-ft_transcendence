@@ -21,20 +21,25 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   // Load user's saved language preference from localStorage on mount
   useEffect(() => {
-    const savedLocale = localStorage.getItem('locale') as Locale;
-    if (savedLocale && translations[savedLocale]) {
-      setLocaleState(savedLocale);
+    if (typeof window !== 'undefined') {
+      const savedLocale = localStorage.getItem('locale') as Locale;
+      if (savedLocale && translations[savedLocale]) {
+        setLocaleState(savedLocale);
+      }
     }
   }, []);
 
   const setLocale = (newLocale: Locale) => {
     setLocaleState(newLocale);
-    localStorage.setItem('locale', newLocale);
-    // Update HTML lang attribute
-    document.documentElement.lang = newLocale;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('locale', newLocale);
+      // Update HTML lang attribute
+      document.documentElement.lang = newLocale;
+    }
   };
 
-  const t = translations[locale] as TranslationKeys;
+  // Ensure we always have a valid translation object, fallback to default
+  const t = (translations[locale] || translations[defaultLocale]) as TranslationKeys;
 
   return (
     <LanguageContext.Provider value={{ locale, setLocale, t }}>

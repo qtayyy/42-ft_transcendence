@@ -17,10 +17,12 @@ import {
 } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChevronDown } from "lucide-react";
+import { useLanguage } from '@/context/languageContext';
 
 export default function FriendsDropdown({ friends, onInvite, gameRoom }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const { t } = useLanguage();
 
   const filtered = friends.filter((f) => {
     const isAlreadyJoined = gameRoom?.joinedPlayers.some((j) => j.id === f.id);
@@ -38,7 +40,7 @@ export default function FriendsDropdown({ friends, onInvite, gameRoom }) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" className="w-full justify-between">
-          Invite Friends
+          {t.Dashboard.Friends}
           <ChevronDown className="h-4 w-4 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -49,11 +51,11 @@ export default function FriendsDropdown({ friends, onInvite, gameRoom }) {
       >
         <Command>
           <CommandInput
-            placeholder="Search friends..."
+            placeholder={t.Dashboard.Search}
             value={search}
             onValueChange={setSearch}
           />
-          <CommandEmpty>No online friends found.</CommandEmpty>
+          <CommandEmpty>{t.Dashboard.Friends} {t.Dashboard.Offline}</CommandEmpty>
 
           <CommandList>
             <ScrollArea className="h-52">
@@ -71,7 +73,7 @@ export default function FriendsDropdown({ friends, onInvite, gameRoom }) {
                         onInvite({ id: friend.id, username: friend.username });
                       }}
                     >
-                      Invite
+                      {t.Dashboard.Friends}
                     </Button>
                   </CommandItem>
                 ))}

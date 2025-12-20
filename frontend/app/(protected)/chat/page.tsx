@@ -4,13 +4,15 @@ import { useState, useEffect } from "react";
 import { useSocketContext } from "@/context/socket-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useFriends } from '@/hooks/use-friends';
+import { useLanguage } from '@/context/languageContext';
 
 export default function ChatPage() {
   const { sendSocketMessage, isReady } = useSocketContext();
   const { user } = useAuth();
   const { friends, pending, loading: friendsLoading, error: friendsError } = useFriends();
-  const [messages, setMessages] = useState<Array<{username: string, message: string, timestamp: string}>>([]);
+  const [messages, setMessages] = useState<Array<{ username: string, message: string, timestamp: string }>>([]);
   const [inputValue, setInputValue] = useState("");
+  const { t } = useLanguage();
 
   // Listen for incoming messages
   useEffect(() => {
@@ -33,7 +35,7 @@ export default function ChatPage() {
     setMessages((prev) => [
       ...prev,
       {
-        username: user?.username || "You",
+        username: user?.username || t.chat.You,
         message: inputValue.trim(),
         timestamp: new Date().toISOString(),
       },
@@ -60,9 +62,9 @@ export default function ChatPage() {
     <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
       <aside className="w-64 bg-muted text-foreground p-6 flex flex-col items-start">
-        <h2 className="text-xl font-semibold mb-4">Friends ({friends.length})</h2>
+        <h2 className="text-xl font-semibold mb-4">{t.Dashboard.Friends} ({friends.length})</h2>
         {friendsLoading ? (
-          <div>Loading friends...</div>
+          <div>{t.chat.loading}</div>
         ) : friendsError ? (
           <div className="text-red-500">{friendsError}</div>
         ) : (
@@ -75,10 +77,10 @@ export default function ChatPage() {
                 <span>{friend.username}</span>
               </li>
             ))}
-            {friends.length === 0 && <li className="text-muted-foreground">No friends</li>}
+            {friends.length === 0 && <li className="text-muted-foreground">{t.chat["No friends"]}</li>}
           </ul>
         )}
-        <h3 className="text-base font-medium mt-8 mb-2">Pending Requests ({pending.length})</h3>
+        <h3 className="text-base font-medium mt-8 mb-2">{t.chat["Pending Requests"]} ({pending.length})</h3>
         <ul className="list-none p-0 w-full">
           {pending.map(req => (
             <li key={req.id} className="flex items-center mb-3 bg-muted-foreground/50 rounded px-3 py-2 opacity-70 w-full">
@@ -89,18 +91,18 @@ export default function ChatPage() {
               <span className="ml-2 text-xs text-muted-foreground">(pending)</span>
             </li>
           ))}
-          {pending.length === 0 && <li className="text-muted-foreground">No pending requests</li>}
+          {pending.length === 0 && <li className="text-muted-foreground">{t.chat["No pending requests"]}</li>}
         </ul>
       </aside>
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col items-center justify-center">
         <div className="container mx-auto p-8 max-w-4xl w-full">
-          <h1 className="text-3xl font-bold mb-6">Simple Chat</h1>
+          <h1 className="text-3xl font-bold mb-6">{t.chat.SimpleChat}</h1>
           {/* Messages Display */}
           <div className="bg-card border rounded-lg p-4 mb-4">
             {messages.length === 0 ? (
               <p className="text-muted-foreground text-center mt-10">
-                No messages yet. Start chatting! 💬
+                {t.chat["No messages yet. Start chatting!"]} 💬
               </p>
             ) : (
               <div className="space-y-3">
@@ -122,7 +124,7 @@ export default function ChatPage() {
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Type a message..."
+              placeholder={t.chat["Type a message..."]}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
@@ -134,12 +136,12 @@ export default function ChatPage() {
               disabled={!inputValue.trim() || !isReady}
               className="px-6 py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50"
             >
-              Send
+              {t.chat.Send}
             </button>
           </div>
           {!isReady && (
             <p className="text-sm text-muted-foreground mt-2">
-              Connecting to chat...
+              {t.chat["Connecting to chat..."]}
             </p>
           )}
         </div>
