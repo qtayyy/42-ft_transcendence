@@ -2,18 +2,16 @@
 import { AuthShell } from "@/components/auth-shell";
 import React from "react";
 import { useState } from "react";
-import { AlertCircleIcon } from "lucide-react";
+import { AlertCircleIcon, Eye, EyeOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-
-const fields = [
-  { name: "email", label: "Email", type: "email" },
-  { name: "password", label: "Password", type: "password" },
-];
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useLanguage } from "@/context/languageContext";
 
 const GOOGLE_AUTH_URL =
   (process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "") +
@@ -21,8 +19,13 @@ const GOOGLE_AUTH_URL =
 
 export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
-  // const Router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
+  const { t } = useLanguage();
+
+  const fields = [
+    { name: "email", label: t["Login & Sign up"].Email, type: "email" },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,27 +60,52 @@ export default function LoginPage() {
   return (
     <div>
       <AuthShell
-        title="Login"
-        description="Enter your email and password OR login with Google"
-      handleSubmit={handleSubmit}
-      fields={fields}
-      link="/signup"
-      linkText="Don't have an account?"
+        title={t["Login & Sign up"].Login}
+        description={`${t["Login & Sign up"].Email} and ${t["Login & Sign up"].Password} OR ${t["Login & Sign up"].Login} with Google`}
+        handleSubmit={handleSubmit}
+        fields={fields}
+        link="/signup"
+        linkText={t["Login & Sign up"]["Dont have an account?"]}
       // submitText="Login"
-    >
+      >
+        {/* Password field with eye icon */}
+        <div className="grid gap-2">
+          <Label htmlFor="password">{t["Login & Sign up"].Password}</Label>
+          <div className="relative">
+            <Input
+              type={showPassword ? "text" : "password"}
+              id="password"
+              name="password"
+              required
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
+
         {/* 1. Forgot Password Link */}
         <div className="flex justify-end">
           <Link
             href="/reset-pwd"
             className="text-sm text-muted-foreground hover:text-primary underline"
           >
-            Forgot password?
+            {t["Login & Sign up"]["Forgot Password"]}
           </Link>
         </div>
 
         {/* 2. Login Button */}
         <Button className="w-full" type="submit">
-          Login
+          {t["Login & Sign up"].Login}
         </Button>
 
         {/* 3. The 'Or login with' Separator */}
@@ -87,7 +115,7 @@ export default function LoginPage() {
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-background px-2 text-muted-foreground">
-              Or login with
+              {t["Login & Sign up"]["OR Login with"]}
             </span>
           </div>
         </div>
@@ -97,7 +125,7 @@ export default function LoginPage() {
           variant="outline"
           type="button"
           className="w-full flex items-center justify-center gap-2 h-10"
-          aria-label="Login with Google"
+          aria-label={`${t["Login & Sign up"]["Login with Google"]}`}
           onClick={() => {
             window.location.href = GOOGLE_AUTH_URL;
           }}
@@ -108,7 +136,7 @@ export default function LoginPage() {
             width={20}
             height={20}
           />
-          Login with Google
+          {t["Login & Sign up"]["Login with Google"]}
         </Button>
 
         {/* 5. Error Alerts */}

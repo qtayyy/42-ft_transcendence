@@ -16,6 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useGame } from "@/hooks/use-game";
+import { useLanguage } from '@/context/languageContext';
 
 
 export default function DashboardPage() {
@@ -23,6 +24,7 @@ export default function DashboardPage() {
   const [userFound, setUserFound] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const { gameRoom, onlineFriends } = useGame();
+  const { t } = useLanguage();
 
   const offlineFriends = [
     { id: 3, username: "Charlie" },
@@ -84,20 +86,28 @@ export default function DashboardPage() {
   //   }
   // }
 
-    async function handleNewGame() {
-      try {
-        router.push("/game/new");
-      } catch (error) {
-        console.error(error);
-      }
+  async function handleNewGame() {
+    try {
+      router.push("/game/new");
+    } catch (error) {
+      console.error(error);
     }
+  }
 
   return (
     <div className="bg-background p-4">
+      {/* Default shadcn Chat Button */}
+      <Button
+        onClick={() => router.push('/chat')}
+        aria-label="Go to Chat"
+        className="fixed bottom-8 right-8 z-50 rounded-full text-2xl"
+      >
+        💬
+      </Button>
       {/* New Game Button - Centered at top */}
       <div className="flex justify-center mb-6">
         <Button size="lg" className="px-8 py-6 text-lg" onClick={handleNewGame}>
-          New Game
+          {t.Dashboard["New Game"]}
         </Button>
       </div>
       {/* Main Content Area */}
@@ -105,9 +115,9 @@ export default function DashboardPage() {
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="p-10">
             <DialogHeader>
-              <DialogTitle>Add Friend</DialogTitle>
+              <DialogTitle>{t.Dashboard.Friends}</DialogTitle>
               <DialogDescription>
-                Click &lsquo;Confirm&rsquo; to send a friend request to:
+                Click &lsquo;{t.Setting.Save}&rsquo; to send a friend request to:
               </DialogDescription>
               <p className="text-4xl">{userFound}</p>
             </DialogHeader>
@@ -118,7 +128,7 @@ export default function DashboardPage() {
                 variant="default"
                 onClick={sendFriendRequest}
               >
-                Confirm
+                {t.chat.Send}
               </Button>
             </div>
           </DialogContent>
@@ -129,13 +139,13 @@ export default function DashboardPage() {
         <div className="lg:col-span-1 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl font-bold">FRIENDS</CardTitle>
+              <CardTitle className="text-xl font-bold uppercase">{t.Dashboard.Friends}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <SearchBar searchUser={handleSearchUser}></SearchBar>
               {/* Online Friends */}
               <div>
-                <h3 className="font-semibold mb-2 text-sm uppercase">ONLINE</h3>
+                <h3 className="font-semibold mb-2 text-sm uppercase">{t.Dashboard.Online}</h3>
                 <Card className="bg-muted/50 min-h-[150px]">
                   <CardContent className="p-4 space-y-2">
                     {onlineFriends.length !== 0 ? (
@@ -150,7 +160,7 @@ export default function DashboardPage() {
                       ))
                     ) : (
                       <p className="text-muted-foreground text-sm">
-                        No friends online
+                        {t.Dashboard.Friends} {t.Dashboard.Offline}
                       </p>
                     )}
                   </CardContent>
@@ -160,7 +170,7 @@ export default function DashboardPage() {
               {/* Offline Friends */}
               <div>
                 <h3 className="font-semibold mb-2 text-sm uppercase">
-                  OFFLINE
+                  {t.Dashboard.Offline}
                 </h3>
                 <Card className="bg-muted/50 min-h-[150px]">
                   <CardContent className="p-4 space-y-2">
@@ -176,7 +186,7 @@ export default function DashboardPage() {
                       ))
                     ) : (
                       <p className="text-muted-foreground text-sm">
-                        No friends offline
+                        {t.Dashboard.Friends} {t.Dashboard.Offline}
                       </p>
                     )}
                   </CardContent>
@@ -193,11 +203,11 @@ export default function DashboardPage() {
             {/* Activity Bar Chart */}
             <Card>
               <CardHeader>
-                <CardTitle>Activity</CardTitle>
+                <CardTitle>{t.Dashboard.Activity}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-48 flex items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg">
-                  <p className="text-muted-foreground">Chart (placeholder)</p>
+                  <p className="text-muted-foreground">{t.Dashboard["Chart (placeholder)"]}</p>
                 </div>
               </CardContent>
             </Card>
@@ -205,12 +215,12 @@ export default function DashboardPage() {
             {/* Win-Loss Pie Chart */}
             <Card>
               <CardHeader>
-                <CardTitle>Win-Loss</CardTitle>
+                <CardTitle>{t.Dashboard["Win-Loss"]}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-48 flex items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg">
                   <p className="text-muted-foreground">
-                    Pie chart on Win-Loss (Incl. total games) - Placeholder
+                    {t.Dashboard["Pie chart on Win-Loss (Incl. total games) - Placeholder"]}
                   </p>
                 </div>
               </CardContent>
@@ -220,8 +230,8 @@ export default function DashboardPage() {
           {/* Tournament History */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl font-bold">
-                TOURNAMENT HISTORY
+              <CardTitle className="text-xl font-bold uppercase">
+                {t.Dashboard["Tournament History"]}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -235,21 +245,21 @@ export default function DashboardPage() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                           <span className="text-muted-foreground">
-                            Tournament ID:{" "}
+                            {t.Dashboard["Tournament ID:"]}{" "}
                           </span>
                           <span className="font-medium">#{tournament.id}</span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Date: </span>
+                          <span className="text-muted-foreground">{t.Dashboard.Date}: </span>
                           <span className="font-medium">{tournament.date}</span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Time: </span>
+                          <span className="text-muted-foreground">{t.Dashboard.Time}: </span>
                           <span className="font-medium">{tournament.time}</span>
                         </div>
                         <div>
                           <span className="text-muted-foreground">
-                            Winner:{" "}
+                            {t.Dashboard.Winner}:{" "}
                           </span>
                           <span className="font-medium text-primary">
                             {tournament.winner}
@@ -257,7 +267,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="md:col-span-4">
                           <span className="text-muted-foreground">
-                            Players:{" "}
+                            {t.Dashboard.Player}:{" "}
                           </span>
                           <span className="font-medium">
                             {tournament.players}
@@ -268,7 +278,7 @@ export default function DashboardPage() {
                   ))
                 ) : (
                   <p className="text-muted-foreground text-center py-8">
-                    No tournament history available
+                    {t.Dashboard["Tournament History"]}
                   </p>
                 )}
               </div>
