@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { FriendRequest } from "@/type/types";
+import { useLanguage } from "@/context/languageContext";
 
 export default function FriendRequestsPage() {
   const [requests, setRequests] = useState<FriendRequest[]>([]);
+  const { t } = useLanguage();
 
   const fetchRequests = async () => {
     const res = await axios.get("/api/friends/pending");
@@ -32,9 +34,9 @@ export default function FriendRequestsPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-xl font-semibold mb-4">Friend Requests</h1>
+      <h1 className="text-xl font-semibold mb-4">{t?.DropDown?.FriendRequests || "Friend Requests"}</h1>
 
-      {requests.length === 0 && <p>No pending requests</p>}
+      {requests.length === 0 && <p>{t?.FriendRequests?.["No pending requests"] || "No pending requests"}</p>}
 
       {requests.map((req) => (
         <div
@@ -44,9 +46,9 @@ export default function FriendRequestsPage() {
           <span>{req.requester.username}</span>
 
           <div className="flex gap-2">
-            <Button onClick={() => accept(req.id)}>Accept</Button>
+            <Button onClick={() => accept(req.id)}>{t?.FriendRequests?.Accept || "Accept"}</Button>
             <Button variant="destructive" onClick={() => decline(req.id)}>
-              Decline
+              {t?.FriendRequests?.Decline || "Decline"}
             </Button>
           </div>
         </div>

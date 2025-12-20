@@ -68,9 +68,9 @@ export default function Header() {
 
   return (
     <div className={cn(
-        "z-50 flex w-full items-center justify-between p-3",
-        "fixed top-0 inset-x-0 bg-transparent" // Overlay on all pages
-      )}>
+      "z-50 flex w-full items-center justify-between p-3",
+      "fixed top-0 inset-x-0 bg-transparent" // Overlay on all pages
+    )}>
       <div>
         <button
           type="button"
@@ -91,45 +91,45 @@ export default function Header() {
       <div className="flex space-x-5 items-center">
         {/* Language Switcher  */}
         <LanguageSwitcher />
-        
+
         {shouldShowProfileIcon && (
           <>
             {/* Notification bell - WIP */}
             <DropdownMenu>
-              <DropdownMenuTrigger>{t.header.notification}</DropdownMenuTrigger>
+              <DropdownMenuTrigger>{t?.DropDown?.Notification || "Notification"}</DropdownMenuTrigger>
             </DropdownMenu>
-            
+
             <DropdownMenu>
-            <DropdownMenuTrigger>
-              {/* Add key to force re-render when avatar changes */}
-              <Avatar
-                className="w-15 h-15"
-                key={`avatar-${user?.avatar || "none"}-${user?.username || ""}`}
-              >
-                {user?.avatar ? <AvatarImage src={user.avatar} /> : null}
-                <AvatarFallback className="text-2xl">
-                  {user?.username ? user.username[0].toUpperCase() : "?"}
-                </AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => router.push("/profile")}>
-                {t.header.profile}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/match")}>
-                {t.header.matchHistory}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/friend-request")}>
-                {t.header.friendRequests}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/settings")}>
-                {t.header.settings}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleLogout}>
-                {t.header.logout}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <DropdownMenuTrigger>
+                {/* Add key to force re-render when avatar changes */}
+                <Avatar
+                  className="w-15 h-15"
+                  key={`avatar-${user?.avatar || "none"}-${user?.username || ""}`}
+                >
+                  {user?.avatar ? <AvatarImage src={user.avatar} /> : null}
+                  <AvatarFallback className="text-2xl">
+                    {user?.username ? user.username[0].toUpperCase() : "?"}
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => router.push("/profile")}>
+                  {t?.DropDown?.Profile || "Profile"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/match")}>
+                  {t?.DropDown?.MatchHistory || "Match History"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/friend-request")}>
+                  {t?.DropDown?.FriendRequests || "Friend Requests"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/settings")}>
+                  {t?.DropDown?.Settings || "Settings"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}>
+                  {t?.DropDown?.Logout || "Logout"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         )}
       </div>

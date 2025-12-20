@@ -22,9 +22,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const { t } = useLanguage();
-  
+
   const fields = [
-    { name: "email", label: t.auth.email, type: "email" },
+    { name: "email", label: t["Login & Sign up"].Email, type: "email" },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,17 +60,17 @@ export default function LoginPage() {
   return (
     <div>
       <AuthShell
-        title={t.auth.login}
-        description={`${t.auth.email} ${t.common.and || 'and'} ${t.auth.password} ${t.common.or || 'OR'} ${t.auth.login} ${t.common.with || 'with'} Google`}
-      handleSubmit={handleSubmit}
-      fields={fields}
-      link="/signup"
-      linkText={t.auth.dontHaveAccount}
+        title={t["Login & Sign up"].Login}
+        description={`${t["Login & Sign up"].Email} and ${t["Login & Sign up"].Password} OR ${t["Login & Sign up"].Login} with Google`}
+        handleSubmit={handleSubmit}
+        fields={fields}
+        link="/signup"
+        linkText={t["Login & Sign up"]["Dont have an account?"]}
       // submitText="Login"
-    >
+      >
         {/* Password field with eye icon */}
         <div className="grid gap-2">
-          <Label htmlFor="password">{t.auth.password}</Label>
+          <Label htmlFor="password">{t["Login & Sign up"].Password}</Label>
           <div className="relative">
             <Input
               type={showPassword ? "text" : "password"}
@@ -99,13 +99,13 @@ export default function LoginPage() {
             href="/reset-pwd"
             className="text-sm text-muted-foreground hover:text-primary underline"
           >
-            {t.auth.forgotPassword}
+            {t["Login & Sign up"]["Forgot Password"]}
           </Link>
         </div>
 
         {/* 2. Login Button */}
         <Button className="w-full" type="submit">
-          {t.auth.login}
+          {t["Login & Sign up"].Login}
         </Button>
 
         {/* 3. The 'Or login with' Separator */}
@@ -115,7 +115,7 @@ export default function LoginPage() {
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-background px-2 text-muted-foreground">
-              {t.common.or || 'OR'} {t.auth.login} {t.common.with || 'with'}
+              {t["Login & Sign up"]["OR Login with"]}
             </span>
           </div>
         </div>
@@ -125,7 +125,7 @@ export default function LoginPage() {
           variant="outline"
           type="button"
           className="w-full flex items-center justify-center gap-2 h-10"
-          aria-label={`${t.auth.login} ${t.common.with || 'with'} Google`}
+          aria-label={`${t["Login & Sign up"]["Login with Google"]}`}
           onClick={() => {
             window.location.href = GOOGLE_AUTH_URL;
           }}
@@ -136,14 +136,14 @@ export default function LoginPage() {
             width={20}
             height={20}
           />
-          {t.auth.login} {t.common.with || 'with'} Google
+          {t["Login & Sign up"]["Login with Google"]}
         </Button>
 
         {/* 5. Error Alerts */}
         {errorMessage && (
           <Alert variant="destructive" className="mt-4">
             <AlertCircleIcon className="h-4 w-4" />
-            <AlertTitle>{t.common.error}</AlertTitle>
+            <AlertTitle>Error</AlertTitle>
             <AlertDescription>{errorMessage}</AlertDescription>
           </Alert>
         )}

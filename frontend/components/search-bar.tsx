@@ -22,12 +22,12 @@ export default function SearchBar({ searchUser }) {
       <Input
         type="text"
         className="px-3 py-2"
-        placeholder={t.common.search}
+        placeholder={t.Dashboard.Search}
         value={query}
         onChange={handleInputChange}
       />
       <Button className="px-3 py-2" onClick={handleSearchClick}>
-        {t.common.search}
+        {t.Dashboard.Search}
       </Button>
     </div>
   );

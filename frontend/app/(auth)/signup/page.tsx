@@ -9,17 +9,19 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const fields = [
-  { name: "fullName", label: "Full Name", type: "text" },
-  { name: "email", label: "Email", type: "email" },
-];
+import { useLanguage } from "@/context/languageContext";
 
 export default function SignUpPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const { t } = useLanguage();
+
+  const fields = [
+    { name: "fullName", label: t?.["Login & Sign up"]?.["Full Name"] || "Full Name", type: "text" },
+    { name: "email", label: t?.["Login & Sign up"]?.Email || "Email", type: "email" },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +54,7 @@ export default function SignUpPage() {
           setSuccessMessage("");
           router.push("/login");
         }, 800);
-        
+
       }
     } catch (error: any) {
       const backendError = error.response?.data?.error;
@@ -65,17 +67,17 @@ export default function SignUpPage() {
   return (
     <div>
       <AuthShell
-        title="Sign Up"
-        description="Create an account to start playing!"
+        title={t?.["Login & Sign up"]?.["Sign up"] || "Sign Up"}
+        description={t?.["Login & Sign up"]?.["Create an account to start playing!"] || "Create an account to start playing!"}
         handleSubmit={handleSubmit}
         fields={fields}
         link="/login"
-        linkText="Back to login"
-        // submitText="Sign Up"
+        linkText={t?.["Login & Sign up"]?.["Back to login"] || "Back to login"}
+      // submitText="Sign Up"
       >
         {/* Password field with eye icon */}
         <div className="grid gap-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{t?.["Login & Sign up"]?.Password || "Password"}</Label>
           <div className="relative">
             <Input
               type={showPassword ? "text" : "password"}
@@ -100,12 +102,12 @@ export default function SignUpPage() {
 
         {/* Added Custom Sign Up Button */}
         <div className="mt-4">
-              <Button 
-                className="w-full" 
-                type="submit"
-            >
-                Sign Up
-            </Button>
+          <Button
+            className="w-full"
+            type="submit"
+          >
+            {t?.["Login & Sign up"]?.["Sign up"] || "Sign Up"}
+          </Button>
         </div>
 
         {successMessage && (

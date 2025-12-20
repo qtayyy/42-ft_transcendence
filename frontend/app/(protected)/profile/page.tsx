@@ -9,10 +9,12 @@ import React, { useEffect, useState } from "react";
 import { AlertCircleIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/context/languageContext";
 
 
 export default function ProfilePage() {
   const { refreshUser } = useAuth();
+  const { t } = useLanguage();
   const [profile, setProfile] = useState({
     email: "",
     username: "",
@@ -67,13 +69,13 @@ export default function ProfilePage() {
 
   async function handleDeleteAvatar() {
     if (!isEditMode) return;
-    
+
     const confirmed = window.confirm(
       "Are you sure you want to delete your profile picture?"
     );
-    
+
     if (!confirmed) return;
-    
+
     setPreview(null);
     setSelectedAvatar("DELETE");
   }
@@ -129,7 +131,7 @@ export default function ProfilePage() {
 
       setSelectedAvatar(null);
       setIsEditMode(false);
-      
+
       try {
         const updatedProfile = await refreshUser();
         const profileData = {
@@ -148,7 +150,7 @@ export default function ProfilePage() {
         // Profile was saved, just couldn't refresh - reload the page
         window.location.reload();
       }
-      
+
       alert("Profile saved");
     } catch (error: any) {
       const backendError = error.response?.data?.error;
@@ -166,20 +168,20 @@ export default function ProfilePage() {
         </Alert>
       )}
       <div className="flex justify-between">
-        <p className="text-2xl font-semibold p-5">PROFILE</p>
+        <p className="text-2xl font-semibold p-5">{t?.DropDown?.Profile?.toUpperCase() || "PROFILE"}</p>
         <div className="m-5 flex gap-2">
           {isEditMode ? (
             <>
               <Button variant="outline" onClick={handleCancel}>
-                Cancel
+                {t?.Profile?.Cancel || "Cancel"}
               </Button>
               <Button variant="default" onClick={handleSave}>
-                Save
+                {t?.Profile?.Save || "Save"}
               </Button>
             </>
           ) : (
             <Button variant="default" onClick={handleEdit}>
-              Edit
+              {t?.Profile?.Edit || "Edit"}
             </Button>
           )}
         </div>
@@ -228,7 +230,7 @@ export default function ProfilePage() {
       </div>
       <div className="grid grid-cols-1 gap-10 md:grid-cols-2 mt-8 mx-5">
         <div className="grid gap-3">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t?.["Login & Sign up"]?.Email || "Email"}</Label>
           <Input
             type="email"
             id="email"
@@ -239,7 +241,7 @@ export default function ProfilePage() {
           />
         </div>
         <div className="grid gap-3">
-          <Label htmlFor="username">Username</Label>
+          <Label htmlFor="username">{t?.Profile?.Username || "Username"}</Label>
           <Input
             type="text"
             id="username"
@@ -250,7 +252,7 @@ export default function ProfilePage() {
           />
         </div>
         <div className="grid gap-3">
-          <Label htmlFor="dob">Date of Birth</Label>
+          <Label htmlFor="dob">{t?.Profile?.DateofBirth || "Date of Birth"}</Label>
           <Input
             type="date"
             id="dob"
@@ -261,7 +263,7 @@ export default function ProfilePage() {
           />
         </div>
         <div className="grid gap-3">
-          <Label htmlFor="region">Country/Region</Label>
+          <Label htmlFor="region">{t?.Profile?.["Country/Region"] || "Country/Region"}</Label>
           <Input
             type="text"
             id="region"

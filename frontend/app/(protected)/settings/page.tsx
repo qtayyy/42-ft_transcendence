@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/context/languageContext";
 
 export default function SettingsPage() {
   const [error, setError] = useState("");
@@ -47,6 +48,7 @@ export default function SettingsPage() {
   const [twoFADialogOpen, setTwoFADialogOpen] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   // Countdown timer effect
   useEffect(() => {
@@ -250,14 +252,14 @@ export default function SettingsPage() {
         </Alert>
       )}
       {success && (
-        <Alert  className="bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400">
+        <Alert className="bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400">
           <AlertCircleIcon className="h-4 w-4" />
           <AlertTitle>Success</AlertTitle>
           <AlertDescription>{success}</AlertDescription>
         </Alert>
       )}
       <div className="flex justify-between">
-        <p className="text-2xl font-semibold p-5">SETTINGS</p>
+        <p className="text-2xl font-semibold p-5">{t?.DropDown?.Settings?.toUpperCase() || "SETTINGS"}</p>
       </div>
       <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-5 mx-5">
@@ -265,7 +267,7 @@ export default function SettingsPage() {
           <div className="lg:col-span-2 space-y-8">
             <div>
               <p className="text-xl font-semibold">
-                Two-factor authentication (2FA)
+                {t?.Setting?.["Two-factor authentication (2FA)"] || "Two-factor authentication (2FA)"}
               </p>
               <div className="flex gap-4 items-center mt-4">
                 <Switch
@@ -275,7 +277,7 @@ export default function SettingsPage() {
                   className="bg-gray-400"
                 />
                 <Label htmlFor="twoFA">
-                  {twoFA ? "2FA Enabled" : "2FA Disabled"}
+                  {twoFA ? (t?.Setting?.["2FAEnable"] || "2FA Enabled") : (t?.Setting?.["2FADisable"] || "2FA Disabled")}
                 </Label>
               </div>
               {qrImage && twoFAStep === "enable" ? (
@@ -373,13 +375,13 @@ export default function SettingsPage() {
             </div>
 
             <div className="pt-12">
-              <p className="text-xl font-semibold mb-4">Change password</p>
+              <p className="text-xl font-semibold mb-4">{t?.Setting?.ChangePassword || "Change password"}</p>
 
               <form onSubmit={handleSubmit} className="grid gap-5">
                 {passwordChangeStep === "input" && (
                   <>
                     <div className="grid gap-3">
-                      <Label htmlFor="oldPassword">Current password</Label>
+                      <Label htmlFor="oldPassword">{t?.Setting?.CurrentPassword || "Current password"}</Label>
                       <div className="relative w-full md:w-3/4">
                         <Input
                           type={showOldPassword ? "text" : "password"}
@@ -402,7 +404,7 @@ export default function SettingsPage() {
                       </div>
                     </div>
                     <div className="grid gap-3">
-                      <Label htmlFor="newPassword">New password</Label>
+                      <Label htmlFor="newPassword">{t?.Setting?.NewPassword || "New password"}</Label>
                       <div className="relative w-full md:w-3/4">
                         <Input
                           type={showNewPassword ? "text" : "password"}
@@ -462,7 +464,7 @@ export default function SettingsPage() {
                 <div className="flex gap-2">
                   <Button type="submit" className="w-auto">
                     {passwordChangeStep === "input"
-                      ? "Save"
+                      ? (t?.Setting?.Save || "Save")
                       : "Verify & Change Password"}
                   </Button>
                   <Button
@@ -471,7 +473,7 @@ export default function SettingsPage() {
                     onClick={handleCancelPasswordChange}
                     className="w-auto"
                   >
-                    Cancel
+                    {t?.Setting?.Cancel || "Cancel"}
                   </Button>
                 </div>
               </form>
@@ -482,12 +484,11 @@ export default function SettingsPage() {
           <div className="lg:col-span-1">
             <div className="border border-destructive/50 rounded-lg p-6 bg-destructive/5">
               <p className="text-xl font-semibold text-destructive mb-2">
-                Danger Zone
+                {t?.Setting?.DangerZone || "Danger Zone"}
               </p>
-              <p className="text-lg font-medium mb-4">Delete Profile</p>
+              <p className="text-lg font-medium mb-4">{t?.Setting?.DeleteProfile || "Delete Profile"}</p>
               <p className="text-sm text-muted-foreground mb-4">
-                Once you delete your account, there is no going back. This
-                action is irreversible.
+                {t?.Setting?.["Once you delete your account, there is no going back. This action is irreversible."] || "Once you delete your account, there is no going back. This action is irreversible."}
               </p>
               <Dialog
                 open={deleteDialogOpen}
@@ -501,38 +502,37 @@ export default function SettingsPage() {
               >
                 <DialogTrigger asChild>
                   <Button variant="destructive" className="w-full">
-                    Delete Account
+                    {t?.Setting?.["DeleteAccount "] || "Delete Account"}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>
-                      Are you sure you want to delete your account?
+                      {t?.Setting?.["Are you sure you want to delete your account?"] || "Are you sure you want to delete your account?"}
                     </DialogTitle>
                     <DialogDescription>
-                      This action will permanently delete your account and all
-                      associated data including:
+                      {t?.Setting?.["This action will permanently delete your account and all associated data including: "] || "This action will permanently delete your account and all associated data including:"}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                      <li>Your profile information</li>
-                      <li>Your email address</li>
-                      <li>All your friends</li>
-                      <li>All your tournament history</li>
-                      <li>All your match records</li>
+                      <li>{t?.Setting?.["Your profile information"] || "Your profile information"}</li>
+                      <li>{t?.Setting?.["Your email address"] || "Your email address"}</li>
+                      <li>{t?.Setting?.["All your friends"] || "All your friends"}</li>
+                      <li>{t?.Setting?.["All your tournaments history"] || "All your tournament history"}</li>
+                      <li>{t?.Setting?.["All your match records"] || "All your match records"}</li>
                     </ul>
                     <p className="text-sm font-semibold text-destructive">
-                      This action is irreversible and cannot be undone.
+                      {t?.Setting?.["This action is irreversible and cannot be undone."] || "This action is irreversible and cannot be undone."}
                     </p>
                     <div className="space-y-2 pt-2">
                       <Label htmlFor="deletePassword">
-                        Enter your password to confirm
+                        {t?.Setting?.["Enter your password to confirm"] || "Enter your password to confirm"}
                       </Label>
                       <Input
                         id="deletePassword"
                         type="password"
-                        placeholder="Enter your password"
+                        placeholder={t?.Setting?.["Enter your password"] || "Enter your password"}
                         value={deletePassword}
                         onChange={(e) => setDeletePassword(e.target.value)}
                         disabled={isDeleting}
@@ -554,14 +554,14 @@ export default function SettingsPage() {
                       }}
                       disabled={isDeleting}
                     >
-                      Cancel
+                      {t?.Setting?.Cancel || "Cancel"}
                     </Button>
                     <Button
                       variant="destructive"
                       onClick={handleDeleteAccount}
                       disabled={isDeleting || !deletePassword.trim()}
                     >
-                      {isDeleting ? "Deleting..." : "Yes, Delete My Account"}
+                      {isDeleting ? "Deleting..." : (t?.Setting?.["Yes,Delete My Account"] || "Yes, Delete My Account")}
                     </Button>
                   </DialogFooter>
                 </DialogContent>

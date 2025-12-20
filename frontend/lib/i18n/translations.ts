@@ -31,3 +31,4 @@ export const translations = {
 } as const;
 
 export type TranslationKeys = typeof translations.en;
+
