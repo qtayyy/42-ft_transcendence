@@ -3,21 +3,25 @@ import { AuthShell } from "@/components/auth-shell";
 import React from "react";
 import { useState } from "react";
 import axios from "axios";
-import { AlertCircleIcon } from "lucide-react";
+import { AlertCircleIcon, Eye, EyeOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button"; // import buttons
-
-const fields = [
-  { name: "fullName", label: "Full Name", type: "text" },
-  { name: "email", label: "Email", type: "email" },
-  { name: "password", label: "Password", type: "password" },
-];
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useLanguage } from "@/context/languageContext";
 
 export default function SignUpPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const { t } = useLanguage();
+
+  const fields = [
+    { name: "fullName", label: t?.["Login & Sign up"]?.["Full Name"] || "Full Name", type: "text" },
+    { name: "email", label: t?.["Login & Sign up"]?.Email || "Email", type: "email" },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +54,7 @@ export default function SignUpPage() {
           setSuccessMessage("");
           router.push("/login");
         }, 800);
-        
+
       }
     } catch (error: any) {
       const backendError = error.response?.data?.error;
@@ -63,22 +67,47 @@ export default function SignUpPage() {
   return (
     <div>
       <AuthShell
-        title="Sign Up"
-        description="Create an account to start playing!"
+        title={t?.["Login & Sign up"]?.["Sign up"] || "Sign Up"}
+        description={t?.["Login & Sign up"]?.["Create an account to start playing!"] || "Create an account to start playing!"}
         handleSubmit={handleSubmit}
         fields={fields}
         link="/login"
-        linkText="Back to login"
-        // submitText="Sign Up"
+        linkText={t?.["Login & Sign up"]?.["Back to login"] || "Back to login"}
+      // submitText="Sign Up"
       >
+        {/* Password field with eye icon */}
+        <div className="grid gap-2">
+          <Label htmlFor="password">{t?.["Login & Sign up"]?.Password || "Password"}</Label>
+          <div className="relative">
+            <Input
+              type={showPassword ? "text" : "password"}
+              id="password"
+              name="password"
+              required
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
+
         {/* Added Custom Sign Up Button */}
         <div className="mt-4">
-              <Button 
-                className="w-full" 
-                type="submit"
-            >
-                Sign Up
-            </Button>
+          <Button
+            className="w-full"
+            type="submit"
+          >
+            {t?.["Login & Sign up"]?.["Sign up"] || "Sign Up"}
+          </Button>
         </div>
 
         {successMessage && (
