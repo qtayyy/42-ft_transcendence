@@ -6,7 +6,6 @@ import axios from "axios";
 import { AlertCircleIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button"; // import buttons
 
 const fields = [
   { name: "fullName", label: "Full Name", type: "text" },
@@ -69,18 +68,8 @@ export default function SignUpPage() {
         fields={fields}
         link="/login"
         linkText="Back to login"
-        // submitText="Sign Up"
+        submitText="Sign Up"
       >
-        {/* Added Custom Sign Up Button */}
-        <div className="mt-4">
-              <Button 
-                className="w-full" 
-                type="submit"
-            >
-                Sign Up
-            </Button>
-        </div>
-
         {successMessage && (
           <Alert className="bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400">
             <AlertCircleIcon className="h-4 w-4" />

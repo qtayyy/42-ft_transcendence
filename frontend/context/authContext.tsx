@@ -9,7 +9,26 @@ import {
 } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import axios from "axios";
-import { AuthContextValue, UserProfile } from "@/type/types";
+
+type UserProfile = {
+  userId: string;
+  email: string;
+  avatar?: string;
+  username: string;
+  fullname?: string;
+  dob?: string;
+  region?: string;
+};
+
+type AuthContextValue = {
+  user: UserProfile | null;
+  isAuthenticated: boolean;
+  loadingAuth: boolean;
+  login: (email: string, password: string) => Promise<void | undefined>;
+  verify2fa: (otp: string) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<UserProfile>;
+};
 
 const NON_AUTHENTICATED_ROUTES = [
   "/",

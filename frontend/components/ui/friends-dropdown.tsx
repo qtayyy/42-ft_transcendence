@@ -18,21 +18,13 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChevronDown } from "lucide-react";
 
-export default function FriendsDropdown({ friends, onInvite, gameRoom }) {
+export default function FriendsDropdown({ friends, onInvite }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  const filtered = friends.filter((f) => {
-    const isAlreadyJoined = gameRoom?.joinedPlayers.some((j) => j.id === f.id);
-    const isAlreadyInvited = gameRoom?.invitedPlayers.some(
-      (i) => i.id === f.id
-    );
-    return (
-      f.username.toLowerCase().includes(search.toLowerCase()) &&
-      !isAlreadyJoined &&
-      !isAlreadyInvited
-    );
-  });
+  const filtered = friends.filter((f) =>
+    f.username.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -43,24 +35,21 @@ export default function FriendsDropdown({ friends, onInvite, gameRoom }) {
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent
-        className="w-(--radix-popover-trigger-width) p-0"
-        align="start"
-      >
+      <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
         <Command>
           <CommandInput
             placeholder="Search friends..."
             value={search}
             onValueChange={setSearch}
           />
-          <CommandEmpty>No online friends found.</CommandEmpty>
+          <CommandEmpty>No friends found.</CommandEmpty>
 
           <CommandList>
             <ScrollArea className="h-52">
               <CommandGroup>
-                {filtered.map((friend, index) => (
+                {filtered.map((friend) => (
                   <CommandItem
-                    key={`${friend.id}-${index}`}
+                    key={friend.id}
                     className="flex items-center justify-between pr-2"
                   >
                     <span>{friend.username}</span>

@@ -11,9 +11,6 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useCallback, useMemo } from "react";
-import { cn } from "@/lib/utils";
-import { useSocket } from "@/hooks/use-socket";
-import { useGame } from "@/hooks/use-game";
 
 // Routes where the profile icon should be hidden (non-authenticated pages)
 const NON_AUTHENTICATED_ROUTES = [
@@ -29,8 +26,6 @@ export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const { sendSocketMessage, isReady } = useSocket();
-  const { gameRoom } = useGame();
 
   // Check if current route is a non-authenticated page
   const isNonAuthenticatedPage = useMemo(() => {
@@ -41,38 +36,16 @@ export default function Header() {
   const shouldShowProfileIcon = user && !isNonAuthenticatedPage;
 
   const handleLogout = useCallback(async () => {
-    if (!user || !isReady) return;
-    sendSocketMessage({
-      event: "LEAVE_ROOM",
-      payload: {
-        roomId: gameRoom?.roomId,
-        userId: user.id,
-      },
-    });
     logout();
     router.push("/");
-  }, [router, logout, user, isReady, sendSocketMessage, gameRoom]);
-
-  function handleLogoClick() {
-    if (user) {
-      router.push("/dashboard");
-    }
-    else {
-      router.push("/");
-    }
-  }
+  }, [router, logout]);
 
   return (
-    <div className={cn(
-        "z-50 flex w-full items-center justify-between p-3",
-        isNonAuthenticatedPage
-          ? "fixed top-0 inset-x-0 bg-transparent" // Overlay on landing
-          : "sticky top-0 bg-background" // Sticky on other pages
-      )}>
+    <div className="z-50 flex w-full items-center justify-between p-3 sticky top-0 bg-background">
       <div>
         <button
           type="button"
-          onClick={handleLogoClick}
+          onClick={() => router.push("/dashboard")}
           className="p-0 border-0 bg-transparent cursor-pointer"
           aria-label="Go to dashboard"
           suppressHydrationWarning

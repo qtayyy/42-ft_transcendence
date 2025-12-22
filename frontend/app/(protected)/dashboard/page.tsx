@@ -15,15 +15,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useGame } from "@/hooks/use-game";
+import { useSocketContext } from "@/context/socket-context";
 
+type Friend = {
+  id: number; // Profile ID (but should be the same as user ID)
+  username: string;
+  avatar?: string;
+};
 
 export default function DashboardPage() {
   const router = useRouter();
   const [userFound, setUserFound] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { gameRoom, onlineFriends } = useGame();
+  // This placeholder represents all friends:
+  const { onlineFriends } = useSocketContext();
 
+  // hardcoded data - replace with API calls later
+  // const onlineFriends = [
+  //   { id: 1, username: "Alice" },
+  //   { id: 2, username: "Bob" },
+  // ];
   const offlineFriends = [
     { id: 3, username: "Charlie" },
     { id: 4, username: "Diana" },
@@ -44,6 +55,22 @@ export default function DashboardPage() {
       winner: "Bob",
     },
   ];
+
+  // const fetchFriends = async () => {
+  //   try {
+  //     const res = await axios.get("/api/friends");
+  //     setOnlineFriends(res.data);
+  //   } catch (error) {
+  //     throw error;
+  //   }
+  // };
+
+  // useEffect(() => {
+  //   async function loadFriends() {
+  //     await fetchFriends();
+  //   }
+  //   loadFriends();
+  // }, []);
 
   async function handleSearchUser(query) {
     try {
@@ -70,26 +97,16 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleNewGame() {
-    if (gameRoom) router.push(`/game/room/${gameRoom.roomId}`);
-    else {
-      try {
-        const res = await axios.get("/api/game/room/create");
-        const roomId = res.data.roomId;
-        router.push(`/game/room/${roomId}`);
-      } catch (error: any) {
-        const backendError = error.response?.data?.error;
-        alert(backendError || "Something went wrong. Please try again later.");
-      }
-    }
-  }
-
   return (
     <div className="min-h-screen bg-background p-4">
       {/* New Game Button - Centered at top */}
       <div className="flex justify-center mb-6">
-        <Button size="lg" className="px-8 py-6 text-lg" onClick={handleNewGame}>
-          {gameRoom ? "Back to Game Room" : "New Game"}
+        <Button
+          size="lg"
+          className="px-8 py-6 text-lg"
+          onClick={() => router.push("/game/create")}
+        >
+          New Game
         </Button>
       </div>
       {/* Main Content Area */}

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Change to 'npx prisma migrate deploy' and remove npm run seed later
-if [ ! -f ../data/dev.db ]; then
+if [ ! -f /data/dev.db ]; then
   echo "Database not found. Running migrations and seeding..."
   npx prisma migrate dev --name init
   # npm run seed
@@ -10,3 +10,21 @@ else
 fi
 
 npm run dev
+#!/bin/sh
+# set -e  # Exit on error
+
+# echo "Starting database initialization..."
+
+# # Use absolute path matching DATABASE_URL
+# if [ ! -f ../data/dev.db ]; then
+#   echo "Database not found. Running migrations and seeding..."
+#   npx prisma migrate dev --name init
+#   # npm run seed
+# else
+#   echo "Database already exists. Generating Prisma Client..."
+#   npx prisma generate 
+#   echo "Database already exists. Skipping migrations and seeding."
+# fi
+
+# echo "Starting Fastify server..."
+# exec npm run dev

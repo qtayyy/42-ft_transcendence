@@ -2,29 +2,16 @@
 
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useMemo } from "react";
-
-const NON_AUTHENTICATED_ROUTES = [
-  "/",
-  "/login",
-  "/signup",
-  "/reset-password",
-  "/reset-pwd",
-  "/2fa/verify",
-];
 
 export default function Footer() {
   const pathname = usePathname();
-  
-  const isNonAuthenticatedPage = useMemo(() => {
-    return NON_AUTHENTICATED_ROUTES.includes(pathname);
-  }, [pathname]);
+  const isLanding = pathname === "/";
 
   return (
     <div
       className={cn(
         "z-40 w-full p-3 text-gray-100",
-        isNonAuthenticatedPage
+        isLanding
           ? "fixed inset-x-0 bottom-0 bg-background/60 backdrop-blur"
           : "sticky bottom-0 bg-background"
       )}
