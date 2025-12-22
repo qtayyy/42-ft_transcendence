@@ -19,11 +19,11 @@ logs:
 	@docker compose -f ./compose.yaml logs -f
 
 clean:
-	@docker stop $$(docker ps -qa) 2>/dev/null; \
-	docker rm $$(docker ps -qa) 2>/dev/null; \
-	docker rmi -f $$(docker images -qa) 2>/dev/null; \
-	docker volume rm $$(docker volume ls -q) 2>/dev/null; \
-	docker network rm $$(docker network ls -q) 2>/dev/null
+	@docker stop $$(docker ps -qa) 2>/dev/null || true; \
+	docker rm -f $$(docker ps -qa) 2>/dev/null || true; \
+	docker rmi -f $$(docker images -qa) 2>/dev/null || true; \
+	docker volume rm $$(docker volume ls -q) 2>/dev/null || true; \
+	docker network rm $$(docker network ls -q) 2>/dev/null || true
 
 prune:
 	@docker system prune -af --volumes
