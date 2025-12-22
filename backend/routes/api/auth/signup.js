@@ -7,9 +7,6 @@ export default async function (fastify, opts) {
   fastify.post("/signup", async (request, reply) => {
     try {
       const { email, password, fullName } = request.body;
-      
-      const pepper = process.env.SECURITY_PEPPER;
-      const saltRounds = parseInt(process.env.SALT_ROUNDS);
 
       if (!email || !password || !fullName)
         return reply.code(400).send({ error: "Missing fields" });
@@ -18,10 +15,7 @@ export default async function (fastify, opts) {
       if (existing)
         return reply.code(400).send({ error: "Email already used" });
 
-      // Combine Password with Pepper
-      const passwordWithPepper = password + pepper;
-      // Hash with Salt Rounds
-      const passwordHash = await bcrypt.hash(passwordWithPepper, saltRounds);
+      const passwordHash = await bcrypt.hash(password, 10);
       await prisma.user.create({
         data: {
           password: passwordHash,

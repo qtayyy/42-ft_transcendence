@@ -35,7 +35,7 @@ export default async function (fastify, opts) {
       );
 
       const profile = await prisma.profile.findUnique({
-        where: { id: user.id },
+        where: { userId: user.id },
       });
 
       return reply

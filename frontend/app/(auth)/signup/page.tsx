@@ -6,10 +6,19 @@ import axios from "axios";
 import { AlertCircleIcon, Eye, EyeOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
+<<<<<<< HEAD
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/context/languageContext";
+=======
+
+const fields = [
+  { name: "fullName", label: "Full Name", type: "text" },
+  { name: "email", label: "Email", type: "email" },
+  { name: "password", label: "Password", type: "password" },
+];
+>>>>>>> 3b7dd28 (merge: merge main branch)
 
 export default function SignUpPage() {
   const [errorMessage, setErrorMessage] = useState("");
@@ -72,6 +81,7 @@ export default function SignUpPage() {
         handleSubmit={handleSubmit}
         fields={fields}
         link="/login"
+<<<<<<< HEAD
         linkText={t?.["Login & Sign up"]?.["Back to login"] || "Back to login"}
       // submitText="Sign Up"
       >
@@ -110,6 +120,11 @@ export default function SignUpPage() {
           </Button>
         </div>
 
+=======
+        linkText="Back to login"
+        submitText="Sign Up"
+      >
+>>>>>>> 3b7dd28 (merge: merge main branch)
         {successMessage && (
           <Alert className="bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400">
             <AlertCircleIcon className="h-4 w-4" />

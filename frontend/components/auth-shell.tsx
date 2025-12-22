@@ -21,6 +21,7 @@ export function AuthShell({
   link,
   linkText,
   submitText
+<<<<<<< HEAD
 }: {
   title: string;
   description: string;
@@ -30,6 +31,8 @@ export function AuthShell({
   link?: string;
   linkText?: string;
   submitText?: string;
+=======
+>>>>>>> 3b7dd28 (merge: merge main branch)
 }) {
   return (
     <div className="grid h-screen place-items-center">
@@ -57,15 +60,21 @@ export function AuthShell({
               ))}
             </div>
             {children}
+<<<<<<< HEAD
 
             {/* Only render this footer button if submitText is provided */}
             {submitText && (
+=======
+>>>>>>> 3b7dd28 (merge: merge main branch)
             <CardFooter className="flex-col gap-2">
               <Button className="w-full" type="submit">
                 {submitText}
               </Button>
             </CardFooter>
+<<<<<<< HEAD
             )}
+=======
+>>>>>>> 3b7dd28 (merge: merge main branch)
           </form>
         </CardContent>
       </Card>

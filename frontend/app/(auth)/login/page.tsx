@@ -2,24 +2,37 @@
 import { AuthShell } from "@/components/auth-shell";
 import React from "react";
 import { useState } from "react";
+<<<<<<< HEAD
 import { AlertCircleIcon, Eye, EyeOff } from "lucide-react";
+=======
+import axios from "axios";
+import { AlertCircleIcon } from "lucide-react";
+>>>>>>> 3b7dd28 (merge: merge main branch)
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
+<<<<<<< HEAD
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/context/languageContext";
+=======
 
-const GOOGLE_AUTH_URL =
-  (process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "") +
-  "/api/auth/google/login";
+const fields = [
+  { name: "email", label: "Email", type: "email" },
+  { name: "password", label: "Password", type: "password" },
+];
+>>>>>>> 3b7dd28 (merge: merge main branch)
 
 export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
+<<<<<<< HEAD
   const [showPassword, setShowPassword] = useState(false);
+=======
+  // const router = useRouter();
+>>>>>>> 3b7dd28 (merge: merge main branch)
   const { login } = useAuth();
   const { t } = useLanguage();
 
@@ -60,6 +73,7 @@ export default function LoginPage() {
   return (
     <div>
       <AuthShell
+<<<<<<< HEAD
         title={t["Login & Sign up"].Login}
         description={t["Login & Sign up"]["Email and Password OR Login with Google"]}
         handleSubmit={handleSubmit}
@@ -140,8 +154,24 @@ export default function LoginPage() {
         </Button>
 
         {/* 5. Error Alerts */}
+=======
+        title="Login"
+        description="Enter your email and password OR login with Google"
+        handleSubmit={handleSubmit}
+        fields={fields}
+        link="/signup"
+        linkText="Don't have an account?"
+        submitText="Login"
+      >
+        <Link
+          href="/reset-pwd"
+          className="underline text-end text-gray-400 hover:text-gray-200"
+        >
+          Forgot password
+        </Link>
+>>>>>>> 3b7dd28 (merge: merge main branch)
         {errorMessage && (
-          <Alert variant="destructive" className="mt-4">
+          <Alert variant="destructive">
             <AlertCircleIcon className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>{errorMessage}</AlertDescription>

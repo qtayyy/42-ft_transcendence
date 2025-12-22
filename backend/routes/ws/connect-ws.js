@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /*
 ===============================================================================
 FILE PURPOSE
@@ -15,6 +16,8 @@ import { createWsEventHandlers } from "../../plugins/ws-utils/ws-events/handlers
 
 const prisma = new PrismaClient();
 
+=======
+>>>>>>> 3b7dd28 (merge: merge main branch)
 export default async function (fastify, opts) {
   fastify.get(
     "/",
@@ -75,6 +78,7 @@ export default async function (fastify, opts) {
       }
       fastify.onlineUsers.get(userId).add(connection);
 
+<<<<<<< HEAD
       fastify.notifyFriendStatus(userId, "online");
 
       const eventHandlers = createWsEventHandlers({
@@ -221,5 +225,15 @@ export default async function (fastify, opts) {
         }
       });
     },
+=======
+      fastify.onlineUsers.set(userId, connection);
+      fastify.notifyFriendStatus(userId, 'online')
+
+      connection.on('close', () => {
+        fastify.onlineUsers.delete(userId);
+        fastify.notifyFriendStatus(userId, 'offline')
+      })
+    }
+>>>>>>> 3b7dd28 (merge: merge main branch)
   );
 }

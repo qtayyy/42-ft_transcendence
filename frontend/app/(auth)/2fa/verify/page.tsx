@@ -2,6 +2,7 @@
 import { AuthShell } from "@/components/auth-shell";
 import React from "react";
 import { useState } from "react";
+import axios from "axios";
 import { AlertCircleIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
@@ -11,6 +12,7 @@ const fields = [{ name: "code", label: "2FA Code", type: "number" }];
 
 export default function Verify2FAPage() {
   const [errorMessage, setErrorMessage] = useState("");
+  const router = useRouter();
   const { verify2fa } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {

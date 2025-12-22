@@ -12,12 +12,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+<<<<<<< HEAD
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
 import { useLanguage } from "@/context/languageContext";
 import { LanguageSwitcher } from "@/components/language-switcher";
+=======
+import { useCallback, useMemo } from "react";
+>>>>>>> 3b7dd28 (merge: merge main branch)
 
 // Routes where the profile icon should be hidden (non-authenticated pages)
 const NON_AUTHENTICATED_ROUTES = [
@@ -33,6 +37,7 @@ export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
+<<<<<<< HEAD
   const { sendSocketMessage, isReady } = useSocket();
   const { gameRoom, gameState, setShowNavGuard, setPendingPath } = useGame();
   const { t } = useLanguage(); // change language to header
@@ -41,6 +46,8 @@ export default function Header() {
   useEffect(() => {
     setHasMounted(true);
   }, []);
+=======
+>>>>>>> 3b7dd28 (merge: merge main branch)
 
   // Check if current route is a non-authenticated page
   const isNonAuthenticatedPage = useMemo(() => {
@@ -62,16 +69,9 @@ export default function Header() {
   const shouldShowProfileIcon = hasMounted && user && !isNonAuthenticatedPage;
 
   const handleLogout = useCallback(async () => {
-    if (!user || !isReady) return;
-    sendSocketMessage({
-      event: "LEAVE_ROOM",
-      payload: {
-        roomId: gameRoom?.roomId,
-        userId: user.id,
-      },
-    });
     logout();
     router.push("/");
+<<<<<<< HEAD
   }, [router, logout, user, isReady, sendSocketMessage, gameRoom]);
 
   function handleLogoClick() {
@@ -87,6 +87,9 @@ export default function Header() {
       router.push("/");
     }
   }
+=======
+  }, [router, logout]);
+>>>>>>> 3b7dd28 (merge: merge main branch)
 
   const navigateTo = useCallback((path: string) => {
     if (isGameActive) {
@@ -98,6 +101,7 @@ export default function Header() {
   }, [isGameActive, router, setShowNavGuard, setPendingPath]);
 
   return (
+<<<<<<< HEAD
     <div className={cn(
       "z-50 flex w-full items-center justify-between p-3",
       "fixed top-0 inset-x-0 bg-transparent" // Overlay on all pages
@@ -107,6 +111,14 @@ export default function Header() {
           type="button"
           onClick={handleLogoClick}
           className="p-0 border-0 bg-transparent cursor-pointer hover:opacity-80 transition-opacity"
+=======
+    <div className="z-50 flex w-full items-center justify-between p-3 sticky top-0 bg-background">
+      <div>
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard")}
+          className="p-0 border-0 bg-transparent cursor-pointer"
+>>>>>>> 3b7dd28 (merge: merge main branch)
           aria-label="Go to dashboard"
           suppressHydrationWarning
         >

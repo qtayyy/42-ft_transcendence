@@ -3,8 +3,23 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
+<<<<<<< HEAD
 import { FriendRequest } from "@/types/types";
 import { useLanguage } from "@/context/languageContext";
+=======
+
+type FriendRequest = {
+  id: number;
+  requesterId: number;
+  addresseeId: number;
+  status: "PENDING" | "ACCEPTED" | "DECLINED";
+  createdAt: string;
+  requester: {
+    id: number;
+    username: string;
+  };
+};
+>>>>>>> 3b7dd28 (merge: merge main branch)
 
 export default function FriendRequestsPage() {
   const [requests, setRequests] = useState<FriendRequest[]>([]);
@@ -28,7 +43,7 @@ export default function FriendRequestsPage() {
   };
 
   const decline = async (id: number) => {
-    await axios.put(`/api/friends/request/${id}/decline`);
+    await axios.post(`/api/friends/request/${id}/decline`);
     fetchRequests();
   };
 
