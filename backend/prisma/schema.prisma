@@ -42,6 +42,11 @@ model Profile {
   requester Friendship[] @relation("RequesterRelations")
   // user received these requests
   addressee Friendship[] @relation("AddresseeRelations")
+
+  // Messages sent by this user
+  sentMessages Message[] @relation("MessageSender")
+  // Messages received by this user
+  receivedMessages Message[] @relation("MessageReceiver")
 }
 
 enum FriendshipStatus {
@@ -102,4 +107,20 @@ model Match {
   tournamentId Int?
 
   createdAt DateTime @default(now())
+}
+
+model Message {
+  id Int @id @default(autoincrement())
+
+  sender   Profile @relation("MessageSender", fields: [senderId], references: [id])
+  senderId Int
+
+  recipient   Profile @relation("MessageReceiver", fields: [recipientId], references: [id])
+  recipientId Int
+
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([senderId, recipientId])
+  @@index([recipientId, senderId])
 }
