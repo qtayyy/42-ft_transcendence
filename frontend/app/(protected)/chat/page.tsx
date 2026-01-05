@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useSocketContext } from "@/context/socket-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useFriends } from '@/hooks/use-friends';
+import { useGame } from '@/hooks/use-game';
 import { useLanguage } from '@/context/languageContext';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ export default function ChatPage() {
   const { sendSocketMessage, isReady } = useSocketContext();
   const { user } = useAuth();
   const { friends, pending, loading: friendsLoading, error: friendsError } = useFriends();
+  const { onlineFriends } = useGame();
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -117,6 +119,7 @@ export default function ChatPage() {
     const messageContent = inputValue.trim();
     const tempMessage: Message = {
       username: user?.username || t.chat.You,
+      senderId: user?.id ? parseInt(user.id) : undefined,
       message: messageContent,
       timestamp: new Date().toISOString(),
     };
@@ -244,7 +247,16 @@ export default function ChatPage() {
                 <div>
                   <h1 className="font-semibold text-lg">{selectedFriend.username}</h1>
                   {isReady ? (
-                    <p className="text-xs text-muted-foreground">Online</p>
+                    <div className="flex items-center gap-1.5">
+                      {onlineFriends.some(f => Number(f.id) === Number(selectedFriend.id)) ? (
+                        <>
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                          <p className="text-xs text-muted-foreground">Online</p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Offline</p>
+                      )}
+                    </div>
                   ) : (
                     <p className="text-xs text-muted-foreground">{t.chat["Connecting to chat..."]}</p>
                   )}
