@@ -278,7 +278,20 @@ export default function GamePage() {
 										Rematch
 									</Button>
 									<Button
-										onClick={() => router.push("/game/new")}
+										onClick={() => {
+											// Notify opponent that we're leaving
+											const opponentId = gameOverResult.leftPlayer?.id === user?.id 
+												? gameOverResult.rightPlayer?.id 
+												: gameOverResult.leftPlayer?.id;
+											sendSocketMessage({
+												event: "LEAVE_GAME",
+												payload: { 
+													opponentId,
+													matchId: gameOverResult.matchId 
+												},
+											});
+											router.push("/game/new");
+										}}
 										variant="outline"
 										size="lg"
 										className="text-lg h-14 px-8 border-white/20 text-white hover:bg-white/10"
