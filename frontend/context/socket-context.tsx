@@ -153,8 +153,21 @@ useEffect(() => {
               break;
 
             case "GAME_STATE":
-            setGameState({...payload});  
-            break;
+              setGameState({...payload});  
+              break;
+
+            case "GAME_OVER":
+              // Dispatch custom event for game page to show results
+              window.dispatchEvent(
+                new CustomEvent("gameOver", { detail: payload })
+              );
+              // Reset state after a delay to allow results screen
+              setTimeout(() => {
+                setGameState(null);
+                setGameRoom(null);
+                hasActiveGame.current = false;
+              }, 100);
+              break;
 
             case "CHAT_MESSAGE":
               console.log("Received CHAT_MESSAGE via WebSocket:", payload);
