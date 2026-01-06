@@ -156,14 +156,14 @@ export default function PongGame({
 				)}
 
 				{/* Canvas */}
-				<div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group">
+				<div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group max-w-full">
 					<div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
 					<canvas
 						ref={canvasRef}
 						width={canvasDimensions.width}
 						height={canvasDimensions.height}
-						className="block bg-[#020817]"
-						style={{ touchAction: 'none' }}
+						className="block bg-[#020817] max-w-full h-auto"
+						style={{ touchAction: 'none', width: '100%', height: 'auto' }}
 					/>
 				</div>
 			</div>
