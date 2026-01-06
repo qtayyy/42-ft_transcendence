@@ -1,5 +1,8 @@
 import fp from "fastify-plugin";
 import { safeSend } from "../../utils/ws-utils.js";
+import { PrismaClient } from "/app/generated/prisma/index.js";
+
+const prisma = new PrismaClient();
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 350;
@@ -8,9 +11,11 @@ const PADDLE_HEIGHT = 80;
 const PADDLE_SPEED = 10;
 const FPS = 60;
 const TICK_MS = 1000 / FPS;
-let running = false;
-let loopHandle = null;
 const BALL_SIZE = 12;
+const WIN_SCORE = 5; // First to 5 wins
+
+// Track running game loops per match
+const gameLoops = new Map(); // matchId -> intervalHandle
 
 function updatePaddles(gameState, player) {
   let currentPlayer = gameState.rightPlayer;
@@ -119,16 +124,98 @@ function broadcastState(gameState, fastify) {
   );
 }
 
+// Check if game should end (first to WIN_SCORE)
+function checkGameOver(gameState) {
+  if (gameState.leftPlayer.score >= WIN_SCORE) {
+    return { winner: "LEFT", winnerId: gameState.leftPlayer.id };
+  }
+  if (gameState.rightPlayer.score >= WIN_SCORE) {
+    return { winner: "RIGHT", winnerId: gameState.rightPlayer.id };
+  }
+  return null;
+}
+
+// End game, save to DB, cleanup
+async function endGame(gameState, fastify) {
+  const matchId = gameState.matchId;
+
+  // Stop the game loop
+  const loopHandle = gameLoops.get(matchId);
+  if (loopHandle) {
+    clearInterval(loopHandle);
+    gameLoops.delete(matchId);
+  }
+
+  const result = checkGameOver(gameState);
+  const left = gameState.leftPlayer;
+  const right = gameState.rightPlayer;
+
+  // Save match to database
+  try {
+    await prisma.match.create({
+      data: {
+        player1Id: left.id,
+        player2Id: right.id,
+        score1: left.score,
+        score2: right.score,
+        winnerId: result?.winnerId || null,
+        mode: "REMOTE",
+      },
+    });
+    console.log(`Match ${matchId} saved to database`);
+  } catch (error) {
+    console.error("Failed to save match:", error);
+  }
+
+  // Send GAME_OVER to both players
+  const gameOverPayload = {
+    matchId: matchId,
+    leftPlayer: { id: left.id, username: left.username, score: left.score },
+    rightPlayer: { id: right.id, username: right.username, score: right.score },
+    winner: result?.winner || "DRAW",
+    winnerId: result?.winnerId || null,
+  };
+
+  const leftSocket = fastify.onlineUsers.get(left.id);
+  const rightSocket = fastify.onlineUsers.get(right.id);
+
+  safeSend(leftSocket, { event: "GAME_OVER", payload: gameOverPayload }, left.id);
+  safeSend(rightSocket, { event: "GAME_OVER", payload: gameOverPayload }, right.id);
+
+  // Cleanup room if this was a remote room game
+  if (gameState.roomId) {
+    fastify.gameRooms.delete(gameState.roomId);
+    fastify.currentRoom.delete(left.id);
+    fastify.currentRoom.delete(right.id);
+  }
+
+  // Remove game state
+  fastify.gameStates.delete(matchId);
+
+  console.log(`Game ${matchId} ended. Winner: ${result?.winner || 'DRAW'}`);
+}
+
 function startGameLoop(gameState, fastify) {
-  if (running) return;
-  running = true;
-  loopHandle = setInterval(() => {
+  const matchId = gameState.matchId;
+
+  // Don't start if already running
+  if (gameLoops.has(matchId)) return;
+
+  const loopHandle = setInterval(() => {
     updatePaddles(gameState, "LEFT");
     updatePaddles(gameState, "RIGHT");
     updateBall(gameState);
     checkCollisionsAndScore(gameState);
     broadcastState(gameState, fastify);
+
+    // Check for game over
+    const result = checkGameOver(gameState);
+    if (result) {
+      endGame(gameState, fastify);
+    }
   }, TICK_MS);
+
+  gameLoops.set(matchId, loopHandle);
 }
 
 export default fp((fastify) => {

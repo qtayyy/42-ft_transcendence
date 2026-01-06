@@ -25,12 +25,25 @@ export default function GamePage() {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const matchId = params.matchId as string;
 	const [matchData, setMatchData] = useState<any>(null);
+	const [gameOverResult, setGameOverResult] = useState<any>(null);
 
 	// Determine if this is a remote game (RS-* prefix)
 	const isRemoteGame = matchId.startsWith("RS-");
 	
 	// For remote games, check if both players are ready
 	const gameStart = gameState && !gameState.leftPlayer?.gamePaused && !gameState.rightPlayer?.gamePaused;
+
+	// Listen for game over event
+	useEffect(() => {
+		const handleGameOver = (event: CustomEvent) => {
+			setGameOverResult(event.detail);
+		};
+
+		window.addEventListener("gameOver", handleGameOver as EventListener);
+		return () => {
+			window.removeEventListener("gameOver", handleGameOver as EventListener);
+		};
+	}, []);
 
 	// Load match data for local games
 	useEffect(() => {
@@ -212,7 +225,7 @@ export default function GamePage() {
 						/>
 						
 						{/* Press Enter overlay */}
-						{!gameStart && (
+						{!gameStart && !gameOverResult && (
 							<div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
 								<div className="text-center">
 									<p className="text-white text-3xl font-bold mb-2">Press ENTER to Ready</p>
@@ -220,6 +233,37 @@ export default function GamePage() {
 										{gameState?.me === "LEFT" ? "You are Player 1 (Left)" : "You are Player 2 (Right)"}
 									</p>
 									<p className="text-white/50 text-sm mt-2">Use W/S to move your paddle</p>
+								</div>
+							</div>
+						)}
+
+						{/* Game Over overlay */}
+						{gameOverResult && (
+							<div className="absolute inset-0 bg-black/80 flex items-center justify-center backdrop-blur-md">
+								<div className="text-center space-y-6">
+									<h2 className="text-5xl font-bold text-white">GAME OVER</h2>
+									
+									<div className="flex items-center justify-center gap-8">
+										<div className={`text-center p-4 rounded-xl ${gameOverResult.winner === "LEFT" ? "bg-green-500/20 ring-2 ring-green-500" : "bg-muted/20"}`}>
+											<p className="text-lg font-semibold text-white">{gameOverResult.leftPlayer?.username}</p>
+											<p className="text-4xl font-bold text-white">{gameOverResult.leftPlayer?.score}</p>
+											{gameOverResult.winner === "LEFT" && <p className="text-green-400 font-bold mt-2">WINNER!</p>}
+										</div>
+										<span className="text-3xl text-white/50">vs</span>
+										<div className={`text-center p-4 rounded-xl ${gameOverResult.winner === "RIGHT" ? "bg-green-500/20 ring-2 ring-green-500" : "bg-muted/20"}`}>
+											<p className="text-lg font-semibold text-white">{gameOverResult.rightPlayer?.username}</p>
+											<p className="text-4xl font-bold text-white">{gameOverResult.rightPlayer?.score}</p>
+											{gameOverResult.winner === "RIGHT" && <p className="text-green-400 font-bold mt-2">WINNER!</p>}
+										</div>
+									</div>
+									
+									<Button
+										onClick={() => router.push("/game/new")}
+										size="lg"
+										className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700 text-lg h-14 px-8"
+									>
+										Play Again
+									</Button>
 								</div>
 							</div>
 						)}
