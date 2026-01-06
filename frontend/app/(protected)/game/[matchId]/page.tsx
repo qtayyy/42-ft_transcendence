@@ -275,7 +275,7 @@ export default function GamePage() {
 										size="lg"
 										className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg h-14 px-8"
 									>
-										Play Again
+										Rematch
 									</Button>
 									<Button
 										onClick={() => router.push("/game/new")}

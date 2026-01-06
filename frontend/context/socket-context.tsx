@@ -169,6 +169,14 @@ useEffect(() => {
               }, 100);
               break;
 
+            case "REMATCH_FAILED":
+              toast.error(payload.reason || "Rematch failed");
+              setGameState(null);
+              setGameRoom(null);
+              hasActiveGame.current = false;
+              router.push("/game/new");
+              break;
+
             case "CHAT_MESSAGE":
               console.log("Received CHAT_MESSAGE via WebSocket:", payload);
               window.dispatchEvent(

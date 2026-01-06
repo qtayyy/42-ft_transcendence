@@ -369,6 +369,27 @@ export default fp((fastify) => {
    * Start a rematch with the same players (no room needed)
    */
   fastify.decorate("startRematch", (player1Id, player1Username, player2Id, player2Username) => {
+    // Check if both players are still online
+    const player1Socket = fastify.onlineUsers.get(player1Id);
+    const player2Socket = fastify.onlineUsers.get(player2Id);
+
+    if (!player1Socket || !player2Socket) {
+      // One or both players left - notify the remaining player
+      if (player1Socket) {
+        safeSend(player1Socket, {
+          event: "REMATCH_FAILED",
+          payload: { reason: "Opponent has left the game" }
+        }, player1Id);
+      }
+      if (player2Socket) {
+        safeSend(player2Socket, {
+          event: "REMATCH_FAILED",
+          payload: { reason: "Opponent has left the game" }
+        }, player2Id);
+      }
+      return null;
+    }
+
     const roomId = crypto.randomUUID();
     const matchId = `RS-${roomId}`;
 
@@ -400,8 +421,7 @@ export default fp((fastify) => {
 
     fastify.gameStates.set(matchId, initialGameState);
 
-    // Notify player 1 (left)
-    const player1Socket = fastify.onlineUsers.get(player1Id);
+    // Notify player 1 (left) - reuse socket from online check
     safeSend(
       player1Socket,
       {
@@ -411,8 +431,7 @@ export default fp((fastify) => {
       player1Id
     );
 
-    // Notify player 2 (right)
-    const player2Socket = fastify.onlineUsers.get(player2Id);
+    // Notify player 2 (right) - reuse socket from online check
     safeSend(
       player2Socket,
       {
