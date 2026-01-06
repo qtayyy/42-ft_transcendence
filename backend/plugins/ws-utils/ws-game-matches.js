@@ -86,10 +86,15 @@ function checkCollisionsAndScore(gameState) {
     ball.dy = offset * 0.08;
   }
 
+  // Ball goes past left paddle - right player scores
   if (ball.posX <= 0) {
-    resetBall(gameState);
-  } else if (ball.posX + BALL_SIZE >= CANVAS_WIDTH + 10) {
-    resetBall(gameState);
+    gameState.rightPlayer.score += 1;
+    resetBall(gameState, true); // Ball goes to right
+  }
+  // Ball goes past right paddle - left player scores
+  else if (ball.posX + BALL_SIZE >= CANVAS_WIDTH) {
+    gameState.leftPlayer.score += 1;
+    resetBall(gameState, false); // Ball goes to left
   }
 }
 
