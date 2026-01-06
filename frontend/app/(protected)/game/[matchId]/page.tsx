@@ -255,16 +255,38 @@ export default function GamePage() {
 											<p className="text-4xl font-bold text-white">{gameOverResult.rightPlayer?.score}</p>
 											{gameOverResult.winner === "RIGHT" && <p className="text-green-400 font-bold mt-2">WINNER!</p>}
 										</div>
-									</div>
-									
+										</div>
+								
+								<div className="flex gap-4">
 									<Button
-										onClick={() => router.push("/game/new")}
+										onClick={() => {
+											// Send rematch request with both players' info
+											sendSocketMessage({
+												event: "REMATCH",
+												payload: {
+													player1Id: gameOverResult.leftPlayer?.id,
+													player1Username: gameOverResult.leftPlayer?.username,
+													player2Id: gameOverResult.rightPlayer?.id,
+													player2Username: gameOverResult.rightPlayer?.username,
+												},
+											});
+											setGameOverResult(null);
+										}}
 										size="lg"
-										className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700 text-lg h-14 px-8"
+										className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg h-14 px-8"
 									>
 										Play Again
 									</Button>
+									<Button
+										onClick={() => router.push("/game/new")}
+										variant="outline"
+										size="lg"
+										className="text-lg h-14 px-8 border-white/20 text-white hover:bg-white/10"
+									>
+										Leave
+									</Button>
 								</div>
+							</div>
 							</div>
 						)}
 					</div>

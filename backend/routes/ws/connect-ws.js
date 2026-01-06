@@ -97,6 +97,15 @@ export default async function (fastify, opts) {
               fastify.startRoomGame(payload.roomId);
               break;
 
+            case "REMATCH":
+              fastify.startRematch(
+                payload.player1Id,
+                payload.player1Username,
+                payload.player2Id,
+                payload.player2Username
+              );
+              break;
+
             default:
               safeSend(
                 connection.socket,
