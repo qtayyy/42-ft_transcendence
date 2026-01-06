@@ -177,6 +177,14 @@ useEffect(() => {
               router.push("/game/new");
               break;
 
+            case "OPPONENT_LEFT":
+              toast.info("Your opponent has left the game");
+              setGameState(null);
+              setGameRoom(null);
+              hasActiveGame.current = false;
+              router.push("/game/new");
+              break;
+
             case "CHAT_MESSAGE":
               window.dispatchEvent(
                 new CustomEvent("chatMessage", { detail: payload })
