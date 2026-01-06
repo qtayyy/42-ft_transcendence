@@ -1,4 +1,5 @@
 import fp from "fastify-plugin";
+import crypto from "crypto";
 import { safeSend } from "../../utils/ws-utils.js";
 import { PrismaClient } from "/app/generated/prisma/index.js";
 
@@ -363,5 +364,65 @@ export default fp((fastify) => {
     console.log(`Remote game started: ${matchId} with ${player1.username} vs ${player2.username}`);
     return matchId;
   });
-});
 
+  /**
+   * Start a rematch with the same players (no room needed)
+   */
+  fastify.decorate("startRematch", (player1Id, player1Username, player2Id, player2Username) => {
+    const roomId = crypto.randomUUID();
+    const matchId = `RS-${roomId}`;
+
+    const initialGameState = {
+      matchId: matchId,
+      roomId: null, // No room for rematch
+      isRemote: true,
+      isRematch: true,
+      ball: { posX: CANVAS_WIDTH / 2, posY: CANVAS_HEIGHT / 2, dx: 4, dy: 3 },
+      leftPlayer: {
+        id: player1Id,
+        username: player1Username,
+        gamePaused: true,
+        score: 0,
+        paddleX: 0,
+        paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
+        moving: "",
+      },
+      rightPlayer: {
+        id: player2Id,
+        username: player2Username,
+        gamePaused: true,
+        score: 0,
+        paddleX: CANVAS_WIDTH - PADDLE_WIDTH,
+        paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
+        moving: "",
+      },
+    };
+
+    fastify.gameStates.set(matchId, initialGameState);
+
+    // Notify player 1 (left)
+    const player1Socket = fastify.onlineUsers.get(player1Id);
+    safeSend(
+      player1Socket,
+      {
+        event: "GAME_MATCH_START",
+        payload: { ...initialGameState, me: "LEFT" },
+      },
+      player1Id
+    );
+
+    // Notify player 2 (right)
+    const player2Socket = fastify.onlineUsers.get(player2Id);
+    safeSend(
+      player2Socket,
+      {
+        event: "GAME_MATCH_START",
+        payload: { ...initialGameState, me: "RIGHT" },
+      },
+      player2Id
+    );
+
+    console.log(`Rematch started: ${matchId} with ${player1Username} vs ${player2Username}`);
+    return matchId;
+  });
+});
