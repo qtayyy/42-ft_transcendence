@@ -177,6 +177,14 @@ useEffect(() => {
               router.push("/game/new");
               break;
 
+            case "OPPONENT_LEFT":
+              toast.info("Your opponent has left the game");
+              setGameState(null);
+              setGameRoom(null);
+              hasActiveGame.current = false;
+              router.push("/game/new");
+              break;
+
             case "CHAT_MESSAGE":
               console.log("Received CHAT_MESSAGE via WebSocket:", payload);
               window.dispatchEvent(

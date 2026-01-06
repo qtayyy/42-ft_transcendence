@@ -183,6 +183,21 @@ export default async function (fastify, opts) {
               );
               break;
 
+            case "LEAVE_GAME":
+              // Notify opponent that this player left
+              const opponentSocket = fastify.onlineUsers.get(payload.opponentId);
+              if (opponentSocket) {
+                safeSend(
+                  opponentSocket,
+                  {
+                    event: "OPPONENT_LEFT",
+                    payload: { matchId: payload.matchId }
+                  },
+                  payload.opponentId
+                );
+              }
+              break;
+
             default:
               safeSend(
                 connection.socket,
