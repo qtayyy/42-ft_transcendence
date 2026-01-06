@@ -26,7 +26,7 @@ export default function JoinRoomPage() {
 		try {
 			// Send join request via WebSocket
 			sendSocketMessage({
-				event: "JOIN_ROOM_REQUEST",
+				event: "JOIN_ROOM_BY_CODE",
 				payload: {
 					roomId: roomCode.trim(),
 					userId: user.id,
