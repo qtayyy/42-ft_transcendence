@@ -41,13 +41,25 @@ export default function CreateTournamentRoomPage() {
 		createRoom();
 	}, [user]);
 
-	// Poll for room updates
+	// Poll for room updates every 2 seconds
 	useEffect(() => {
 		if (!user || !isReady || !roomId) return;
+		
+		// Initial fetch
 		sendSocketMessage({
 			event: "GET_GAME_ROOM",
 			payload: { userId: user.id },
 		});
+		
+		// Poll every 2 seconds
+		const interval = setInterval(() => {
+			sendSocketMessage({
+				event: "GET_GAME_ROOM",
+				payload: { userId: user.id },
+			});
+		}, 2000);
+		
+		return () => clearInterval(interval);
 	}, [sendSocketMessage, user, isReady, roomId]);
 
 	const handleCopyCode = () => {
@@ -159,7 +171,7 @@ export default function CreateTournamentRoomPage() {
 
 											{/* Other Players */}
 											{gameRoom?.joinedPlayers
-												.filter(p => p.id !== user?.id)
+												.filter(p => p.id !== Number(user?.id))
 												.map((player, idx) => (
 													<div key={idx} className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-xl">
 														<User className="h-4 w-4 text-green-500" />

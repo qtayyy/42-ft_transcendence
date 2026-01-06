@@ -40,13 +40,25 @@ export default function CreateRoomPage() {
 		createRoom();
 	}, [user]);
 
-	// Poll for room updates
+	// Poll for room updates every 2 seconds
 	useEffect(() => {
 		if (!user || !isReady || !roomId) return;
+		
+		// Initial fetch
 		sendSocketMessage({
 			event: "GET_GAME_ROOM",
 			payload: { userId: user.id },
 		});
+		
+		// Poll every 2 seconds
+		const interval = setInterval(() => {
+			sendSocketMessage({
+				event: "GET_GAME_ROOM",
+				payload: { userId: user.id },
+			});
+		}, 2000);
+		
+		return () => clearInterval(interval);
 	}, [sendSocketMessage, user, isReady, roomId]);
 
 	const handleCopyCode = () => {
@@ -58,9 +70,12 @@ export default function CreateRoomPage() {
 	};
 
 	const handleStartGame = () => {
-		if (!gameRoom || gameRoom.joinedPlayers.length < 2) return;
-		// Navigate to game with room ID
-		router.push(`/game/RS-${roomId}`);
+		if (!gameRoom || gameRoom.joinedPlayers.length < 2 || !roomId || !isReady) return;
+		// Send start game event - both players will receive GAME_MATCH_START
+		sendSocketMessage({
+			event: "START_ROOM_GAME",
+			payload: { roomId },
+		});
 	};
 
 	const handleLeave = () => {
