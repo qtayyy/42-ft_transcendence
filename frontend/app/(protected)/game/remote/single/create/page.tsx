@@ -160,7 +160,7 @@ export default function CreateRoomPage() {
 
 											{/* Other Players */}
 											{gameRoom?.joinedPlayers
-												.filter(p => p.id !== user?.id)
+												.filter(p => p.id !== Number(user?.id))
 												.map((player, idx) => (
 													<div key={idx} className="flex items-center gap-3 p-3 bg-green-500/10 border border-green-500/20 rounded-xl">
 														<div className="p-2 bg-green-500/20 rounded-full">
