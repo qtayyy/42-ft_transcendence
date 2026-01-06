@@ -37,7 +37,18 @@ useEffect(() => {
 
   if (!hasActiveGame.current) {
     hasActiveGame.current = true;
-    router.push(`/game/tournament/${gameState.matchId}`);
+    // Navigate based on game type
+    const matchId = String(gameState.matchId);
+    if (matchId.startsWith("RS-")) {
+      // Remote single match
+      router.push(`/game/${matchId}`);
+    } else if (matchId.startsWith("RT-")) {
+      // Remote tournament
+      router.push(`/game/${matchId}`);
+    } else {
+      // Local tournament (existing behavior)
+      router.push(`/game/tournament/${matchId}`);
+    }
   }
 }, [gameState, router]);
 
@@ -126,8 +137,9 @@ useEffect(() => {
               break;
 
             case "JOIN_ROOM":
-              const roomId = payload.roomId;
-              router.push(`/game/room/${roomId}`);
+              // Room joined successfully - pages handle their own state
+              // No redirect needed as new pages stay in place
+              toast.success("Joined room successfully!");
               break;
 
             case "LEAVE_ROOM":
