@@ -170,6 +170,10 @@ export default async function (fastify, opts) {
               fastify.leaveMatchmaking(payload.userId);
               break;
 
+            case "START_ROOM_GAME":
+              fastify.startRoomGame(payload.roomId);
+              break;
+
             default:
               safeSend(
                 connection.socket,
