@@ -150,6 +150,26 @@ export default async function (fastify, opts) {
               })();
               break;
 
+            case "JOIN_ROOM_BY_CODE":
+              fastify.joinRoomByCode(
+                payload.roomId,
+                payload.userId,
+                payload.username
+              );
+              break;
+
+            case "JOIN_MATCHMAKING":
+              fastify.joinMatchmaking(
+                payload.userId,
+                payload.username,
+                payload.mode
+              );
+              break;
+
+            case "LEAVE_MATCHMAKING":
+              fastify.leaveMatchmaking(payload.userId);
+              break;
+
             default:
               safeSend(
                 connection.socket,
@@ -168,7 +188,7 @@ export default async function (fastify, opts) {
         /**
          * Do not remove players from their room in case of disconenction
          * issues to allow them to reconnect
-         *  */ 
+         *  */
         // const roomId = fastify.currentRoom.get(userId);
         // if (roomId)
         //   fastify.leaveRoom(roomId, userId);

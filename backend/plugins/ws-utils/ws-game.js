@@ -239,4 +239,176 @@ export default fp((fastify) => {
       );
     }
   });
+
+  // Join room by code (for remote play)
+  fastify.decorate("joinRoomByCode", (roomId, userId, username) => {
+    const room = fastify.gameRooms.get(roomId);
+    if (!room) throw new Error("Room not found");
+
+    // Check if already in another room
+    const existingRoom = fastify.currentRoom.get(userId);
+    if (existingRoom && existingRoom !== roomId) {
+      throw new Error("Already in another room");
+    }
+
+    // Check if already in this room
+    if (room.joinedPlayers.some((p) => p.id === userId)) {
+      // Already in room, just send room state
+      const socket = fastify.onlineUsers.get(userId);
+      safeSend(socket, {
+        event: "JOIN_ROOM",
+        payload: { roomId, success: true },
+      }, userId);
+      return;
+    }
+
+    // Check if room is full
+    if (room.joinedPlayers.length >= room.maxPlayers) {
+      throw new Error("Room is full");
+    }
+
+    // Add player to room
+    fastify.currentRoom.set(userId, roomId);
+    room.joinedPlayers.push({ id: userId, username });
+
+    // Notify the joining player
+    const joinerSocket = fastify.onlineUsers.get(userId);
+    safeSend(joinerSocket, {
+      event: "JOIN_ROOM",
+      payload: { roomId, success: true },
+    }, userId);
+
+    // Build room payload
+    const payload = {
+      roomId: roomId,
+      hostId: room.hostId,
+      invitedPlayers: room.invitedPlayers,
+      joinedPlayers: room.joinedPlayers,
+      maxPlayers: room.maxPlayers,
+    };
+
+    // Notify all players in the room
+    room.joinedPlayers.forEach((player) => {
+      const socket = fastify.onlineUsers.get(player.id);
+      safeSend(socket, { event: "GAME_ROOM", payload }, player.id);
+    });
+  });
+
+  // Matchmaking queue
+  const matchmakingQueue = {
+    single: [],      // { userId, username, socket, joinedAt }
+    tournament: [],
+  };
+
+  fastify.decorate("joinMatchmaking", (userId, username, mode) => {
+    const queue = matchmakingQueue[mode];
+    if (!queue) throw new Error("Invalid matchmaking mode");
+
+    // Check if already in queue
+    if (queue.some((p) => p.userId === userId)) {
+      return; // Already in queue
+    }
+
+    // Check if already in a room
+    if (fastify.currentRoom.get(userId)) {
+      throw new Error("Already in a room");
+    }
+
+    const socket = fastify.onlineUsers.get(userId);
+    queue.push({ userId, username, socket, joinedAt: Date.now() });
+
+    // Send confirmation
+    safeSend(socket, {
+      event: "MATCHMAKING_JOINED",
+      payload: { mode, position: queue.length },
+    }, userId);
+
+    // Try to match players
+    fastify.tryMatchPlayers(mode);
+  });
+
+  fastify.decorate("leaveMatchmaking", (userId) => {
+    // Remove from both queues
+    matchmakingQueue.single = matchmakingQueue.single.filter((p) => p.userId !== userId);
+    matchmakingQueue.tournament = matchmakingQueue.tournament.filter((p) => p.userId !== userId);
+
+    const socket = fastify.onlineUsers.get(userId);
+    if (socket) {
+      safeSend(socket, { event: "MATCHMAKING_LEFT" }, userId);
+    }
+  });
+
+  fastify.decorate("tryMatchPlayers", (mode) => {
+    const queue = matchmakingQueue[mode];
+
+    if (mode === "single" && queue.length >= 2) {
+      // Match two players for single match
+      const player1 = queue.shift();
+      const player2 = queue.shift();
+
+      // Create a room for them
+      const roomId = crypto.randomUUID();
+      fastify.currentRoom.set(player1.userId, roomId);
+      fastify.currentRoom.set(player2.userId, roomId);
+
+      fastify.gameRooms.set(roomId, {
+        hostId: player1.userId,
+        invitedPlayers: [],
+        joinedPlayers: [
+          { id: player1.userId, username: player1.username },
+          { id: player2.userId, username: player2.username },
+        ],
+        maxPlayers: 2,
+        isMatchmade: true,
+      });
+
+      const payload = {
+        event: "MATCH_FOUND",
+        payload: {
+          roomId,
+          matchId: `RS-${roomId}`,
+          players: [
+            { id: player1.userId, username: player1.username },
+            { id: player2.userId, username: player2.username },
+          ],
+        },
+      };
+
+      safeSend(player1.socket, payload, player1.userId);
+      safeSend(player2.socket, payload, player2.userId);
+
+    } else if (mode === "tournament" && queue.length >= 3) {
+      // Match players for tournament (3-8 players, start with 4 for now)
+      const minPlayers = 3;
+      const maxPlayers = Math.min(queue.length, 8);
+
+      if (queue.length >= minPlayers) {
+        const players = queue.splice(0, maxPlayers);
+
+        const roomId = crypto.randomUUID();
+        players.forEach((p) => fastify.currentRoom.set(p.userId, roomId));
+
+        fastify.gameRooms.set(roomId, {
+          hostId: players[0].userId,
+          invitedPlayers: [],
+          joinedPlayers: players.map((p) => ({ id: p.userId, username: p.username })),
+          maxPlayers: 8,
+          isMatchmade: true,
+          isTournament: true,
+        });
+
+        const payload = {
+          event: "TOURNAMENT_FOUND",
+          payload: {
+            roomId,
+            tournamentId: `RT-${roomId}`,
+            players: players.map((p) => ({ id: p.userId, username: p.username })),
+          },
+        };
+
+        players.forEach((p) => safeSend(p.socket, payload, p.userId));
+      }
+    }
+  });
 });
+
