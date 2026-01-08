@@ -7,6 +7,34 @@ export default async function (fastify, opts) {
 	// Expose activeTournaments to fastify instance for other plugins (ws-game-matches)
 	fastify.decorate("activeTournaments", activeTournaments);
 
+	// Periodic cleanup for stale tournaments
+	const CLEANUP_INTERVAL = 60 * 60 * 1000; // 60 minutes
+	const TOURNAMENT_TTL = 24 * 60 * 60 * 1000; // 24 hours
+	const COMPLETED_TTL = 60 * 60 * 1000; // 1 hour
+
+	setInterval(() => {
+		const now = Date.now();
+		let cleanedCount = 0;
+
+		for (const [tournamentId, tournament] of activeTournaments.entries()) {
+			const shouldClean =
+				// Remove completed tournaments after 1 hour
+				(tournament.isComplete() && tournament.completedAt && (now - tournament.completedAt > COMPLETED_TTL)) ||
+				// Remove inactive tournaments after 24 hours
+				(tournament.createdAt && (now - tournament.createdAt > TOURNAMENT_TTL));
+
+			if (shouldClean) {
+				activeTournaments.delete(tournamentId);
+				cleanedCount++;
+				console.log(`[Cleanup] Removed stale tournament: ${tournamentId}`);
+			}
+		}
+
+		if (cleanedCount > 0) {
+			console.log(`[Cleanup] Removed ${cleanedCount} stale tournament(s)`);
+		}
+	}, CLEANUP_INTERVAL);
+
 	/**
 	 * Create a new tournament
 	 * POST /api/tournament/create
