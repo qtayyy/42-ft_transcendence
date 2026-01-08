@@ -171,6 +171,7 @@ async function endGame(gameState, fastify) {
   // Send GAME_OVER to both players
   const gameOverPayload = {
     matchId: matchId,
+    tournamentId: gameState.tournamentId,
     leftPlayer: { id: left.id, username: left.username, score: left.score },
     rightPlayer: { id: right.id, username: right.username, score: right.score },
     winner: result?.winner || "DRAW",
