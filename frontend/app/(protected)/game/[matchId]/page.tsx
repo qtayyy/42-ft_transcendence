@@ -231,15 +231,68 @@ export default function GamePage() {
 							height={CANVAS_HEIGHT}
 						/>
 						
-						{/* Press Enter overlay */}
-						{!gameStart && !gameOverResult && (
-							<div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
-								<div className="text-center">
-									<p className="text-white text-3xl font-bold mb-2">Press ENTER to Ready</p>
-									<p className="text-white/70 text-lg">
-										{gameState?.me === "LEFT" ? "You are Player 1 (Left)" : "You are Player 2 (Right)"}
-									</p>
-									<p className="text-white/50 text-sm mt-2">Use W/S to move your paddle</p>
+						{/* Ready Status UI */}
+						{!gameStart && !gameOverResult && gameState && (
+							<div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm p-8">
+								<div className="text-center space-y-6 max-w-lg w-full">
+									{/* Determine my status and opponent's status */}
+									{(() => {
+										const mySide = gameState.me;
+										const opponentSide = mySide === "LEFT" ? "RIGHT" : "LEFT";
+										
+										const me = mySide === "LEFT" ? gameState.leftPlayer : gameState.rightPlayer;
+										const opponent = mySide === "LEFT" ? gameState.rightPlayer : gameState.leftPlayer;
+										
+										const amIReady = !me?.gamePaused;
+										const isOpponentReady = !opponent?.gamePaused;
+										
+										if (amIReady && !isOpponentReady) {
+											return (
+												<div className="flex flex-col items-center justify-center space-y-4 animate-in fade-in zoom-in duration-300">
+													<div className="relative">
+														<div className="h-16 w-16 rounded-full border-4 border-yellow-500/30 border-t-yellow-500 animate-spin" />
+														<div className="absolute inset-0 flex items-center justify-center">
+															<span className="text-xl">⏳</span>
+														</div>
+													</div>
+													<div className="space-y-1">
+														<h3 className="text-2xl font-bold text-yellow-500">Waiting for Opponent</h3>
+														<p className="text-white/80">
+															Waiting for <span className="font-semibold text-white">{opponent?.username || "Opponent"}</span> to be ready...
+														</p>
+													</div>
+												</div>
+											);
+										} else if (!amIReady && isOpponentReady) {
+											return (
+												<div className="flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+													<div className="p-4 bg-green-500/10 rounded-full ring-1 ring-green-500/30 mb-2">
+														<span className="text-4xl">✨</span>
+													</div>
+													<div className="space-y-2">
+														<h3 className="text-3xl font-bold text-green-400">Opponent is Ready!</h3>
+														<p className="text-white/90 text-lg">
+															<span className="font-semibold text-white">{opponent?.username}</span> is waiting for you.
+														</p>
+													</div>
+													<div className="p-6 bg-white/5 rounded-xl border border-white/10 w-full">
+														<p className="text-lg font-medium text-white mb-2">Press <span className="px-2 py-1 bg-white/20 rounded font-mono font-bold">ENTER</span> to start!</p>
+														<p className="text-xs text-white/50">Only you can start the match now</p>
+													</div>
+												</div>
+											);
+										} else {
+											return (
+												<div className="flex flex-col items-center justify-center space-y-4 animate-in fade-in zoom-in duration-300">
+													<h3 className="text-3xl font-bold text-white">Are you ready?</h3>
+													<p className="text-white/70">Press <span className="px-2 py-1 bg-white/20 rounded font-mono font-bold text-white">ENTER</span> to mark yourself as ready</p>
+													<p className="text-sm text-white/50 pt-4">
+														{gameState.me === "LEFT" ? "You are Player 1 (Left)" : "You are Player 2 (Right)"}
+													</p>
+												</div>
+											);
+										}
+									})()}
 								</div>
 							</div>
 						)}

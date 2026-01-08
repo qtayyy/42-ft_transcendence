@@ -111,7 +111,7 @@ function broadcastState(gameState, fastify) {
     leftPlayerSocket,
     {
       event: "GAME_STATE",
-      payload: gameState,
+      payload: { ...gameState, me: "LEFT" },
     },
     gameState.leftPlayer.id
   );
@@ -119,7 +119,7 @@ function broadcastState(gameState, fastify) {
     rightPlayerSocket,
     {
       event: "GAME_STATE",
-      payload: gameState,
+      payload: { ...gameState, me: "RIGHT" },
     },
     gameState.rightPlayer.id
   );
@@ -296,6 +296,9 @@ export default fp((fastify) => {
     if (!gameState.leftPlayer.gamePaused && !gameState.rightPlayer.gamePaused) {
       console.log("Game started");
       startGameLoop(gameState, fastify);
+    } else {
+      // Broadcast state change (e.g. one player ready) so UI updates
+      broadcastState(gameState, fastify);
     }
   });
 
