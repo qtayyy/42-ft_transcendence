@@ -307,9 +307,12 @@ export default fp((fastify) => {
     };
 
     // Notify all players in the room (using numeric ID for lookup)
+    console.log(`[joinRoomByCode] Notifying ${room.joinedPlayers.length} players:`, room.joinedPlayers.map(p => p.id));
     room.joinedPlayers.forEach((player) => {
-      const socket = fastify.onlineUsers.get(Number(player.id));
-      safeSend(socket, { event: "GAME_ROOM", payload }, Number(player.id));
+      const playerNumId = Number(player.id);
+      const socket = fastify.onlineUsers.get(playerNumId);
+      console.log(`[joinRoomByCode] Player ${playerNumId} socket found: ${!!socket}`);
+      safeSend(socket, { event: "GAME_ROOM", payload }, playerNumId);
     });
   });
 

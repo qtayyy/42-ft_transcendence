@@ -152,22 +152,24 @@ export default function RemoteTournamentPage() {
 		return () => clearInterval(interval);
 	}, [tournament, fetchTournament]);
 
-	// Handle starting a match
+	// Handle starting a match - send WS event to both players
 	const handleStartMatch = () => {
-		if (!currentMatch || !user) return;
+		if (!currentMatch || !user || !isReady) return;
 
-		// Store match data for game page
-		const matchData = {
-			matchId: currentMatch.matchId,
-			tournamentId: tournamentId,
-			player1: currentMatch.player1,
-			player2: currentMatch.player2,
-			isTournamentMatch: true,
-			isRemote: true,
-		};
-
-		localStorage.setItem("current-match", JSON.stringify(matchData));
-		router.push(`/game/${currentMatch.matchId}`);
+		// Send WebSocket event to start the match for both players
+		sendSocketMessage({
+			event: "START_TOURNAMENT_MATCH",
+			payload: {
+				matchId: currentMatch.matchId,
+				tournamentId: tournamentId,
+				player1Id: currentMatch.player1.id,
+				player1Name: currentMatch.player1.name,
+				player2Id: currentMatch.player2?.id,
+				player2Name: currentMatch.player2?.name,
+			},
+		});
+		
+		// Navigation will happen when we receive GAME_MATCH_START event
 	};
 
 	// Handle bye processing
