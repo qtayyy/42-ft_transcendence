@@ -15,7 +15,7 @@ export default async function (fastify, opts) {
 		},
 		async (request, reply) => {
 			try {
-				const { players } = request.body; // Array of {id, name, isTemp}
+				const { players, tournamentId: customTournamentId } = request.body; // Array of {id, name, isTemp}
 
 				if (!players || players.length < 3 || players.length > 8) {
 					return reply.code(400).send({
@@ -23,8 +23,23 @@ export default async function (fastify, opts) {
 					});
 				}
 
-				// Generate tournament ID
-				const tournamentId = `tournament-${Date.now()}`;
+				// Use custom tournamentId if provided, otherwise generate one
+				const tournamentId = customTournamentId || `tournament-${Date.now()}`;
+
+				// Check if tournament already exists
+				if (activeTournaments.has(tournamentId)) {
+					// Return existing tournament data
+					const existingTournament = activeTournaments.get(tournamentId);
+					return reply.code(200).send({
+						success: true,
+						tournamentId: tournamentId,
+						format: existingTournament.format,
+						totalRounds: existingTournament.totalRounds,
+						matches: existingTournament.matches,
+						leaderboard: existingTournament.getLeaderboard(),
+						currentRound: existingTournament.currentRound
+					});
+				}
 
 				// Create tournament manager
 				const tournament = new TournamentManager(tournamentId, players);

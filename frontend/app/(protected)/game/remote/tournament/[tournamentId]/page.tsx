@@ -44,12 +44,21 @@ export default function RemoteTournamentPage() {
 	// Initialize tournament when page loads
 	useEffect(() => {
 		const initTournament = async () => {
-			if (!gameRoom || !user) return;
+			if (!user) return;
 
-			// Check if tournament already exists
+			// Try to get existing tournament first
 			try {
 				const response = await axios.get(`/api/tournament/${tournamentId}`);
-				setTournament(response.data);
+				setTournament({
+					tournamentId: response.data.tournamentId || tournamentId,
+					format: response.data.format,
+					playerCount: response.data.leaderboard?.length || 0,
+					currentRound: response.data.currentRound || 1,
+					totalRounds: response.data.totalRounds,
+					matches: response.data.matches,
+					leaderboard: response.data.leaderboard,
+					isComplete: response.data.isComplete || false,
+				});
 				
 				// Find next pending match
 				const nextMatch = response.data.matches.find(
@@ -58,9 +67,13 @@ export default function RemoteTournamentPage() {
 				setCurrentMatch(nextMatch || null);
 				setLoading(false);
 			} catch (error: any) {
-				if (error.response?.status === 404) {
-					// Tournament doesn't exist, create it
+				if (error.response?.status === 404 && gameRoom) {
+					// Tournament doesn't exist and we have gameRoom info, create it
 					await createTournament();
+				} else if (error.response?.status === 404) {
+					// Tournament doesn't exist and no gameRoom - wait and retry
+					console.log("Tournament not found yet, waiting for creation...");
+					setTimeout(initTournament, 2000);
 				} else {
 					console.error("Failed to load tournament:", error);
 					setLoading(false);
@@ -84,21 +97,17 @@ export default function RemoteTournamentPage() {
 				isTemp: false,
 			}));
 
+			// Pass tournamentId to ensure all clients use the same ID
 			const response = await axios.post('/api/tournament/create', {
 				players,
+				tournamentId: tournamentId,  // Use the RT-{roomId} format
 			});
-
-			// Override the backend-generated tournamentId with our RT- prefixed one 
-			const tournamentData = {
-				...response.data,
-				tournamentId: tournamentId,
-			};
 
 			setTournament({
 				tournamentId: tournamentId,
 				format: response.data.format,
 				playerCount: players.length,
-				currentRound: 1,
+				currentRound: response.data.currentRound || 1,
 				totalRounds: response.data.totalRounds,
 				matches: response.data.matches,
 				leaderboard: response.data.leaderboard,
