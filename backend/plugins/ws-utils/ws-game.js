@@ -189,6 +189,51 @@ export default fp((fastify) => {
     room.invitedPlayers = room.invitedPlayers.filter((p) => Number(p.id) !== numericUserId);
     fastify.currentRoom.delete(numericUserId);
 
+    // Handle tournament forfeit if this is a tournament room
+    const tournamentId = room.code?.startsWith('RT-') ? `RT-${roomId}` : null;
+    if (tournamentId && fastify.activeTournaments) {
+      const tournament = fastify.activeTournaments.get(tournamentId);
+      if (tournament) {
+        // Find and forfeit all pending matches for this player
+        const userIdStr = String(numericUserId);
+        tournament.matches.forEach(match => {
+          if (match.status === 'pending') {
+            const isPlayer1 = String(match.player1.id) === userIdStr;
+            const isPlayer2 = match.player2 && String(match.player2.id) === userIdStr;
+
+            if (isPlayer1 || isPlayer2) {
+              // Mark match as completed with forfeit
+              match.status = 'completed';
+              match.result = {
+                outcome: 'forfeit',
+                forfeitedBy: numericUserId,
+                score: { p1: 0, p2: 0 }
+              };
+
+              // Award points to opponent (3 points for win by forfeit)
+              if (isPlayer1 && match.player2) {
+                tournament.updateStandings({
+                  player1Id: match.player1.id,
+                  player2Id: match.player2.id,
+                  score: { p1: 0, p2: 10 }, // 10-0 indicates forfeit win
+                  outcome: 'forfeit'
+                });
+              } else if (isPlayer2) {
+                tournament.updateStandings({
+                  player1Id: match.player1.id,
+                  player2Id: match.player2.id,
+                  score: { p1: 10, p2: 0 },
+                  outcome: 'forfeit'
+                });
+              }
+
+              console.log(`[Tournament] User ${numericUserId} forfeited match ${match.matchId}`);
+            }
+          }
+        });
+      }
+    }
+
     // If the user who left is the host, transfer host ownership if
     // there are any other players who've joined. Else destroy the room.
     if (Number(room.hostId) === numericUserId) {

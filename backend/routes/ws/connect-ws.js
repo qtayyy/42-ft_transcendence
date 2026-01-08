@@ -229,6 +229,49 @@ export default async function (fastify, opts) {
 
         // Handle leaving queue if in matchmaking
         fastify.leaveMatchmaking(userId);
+
+        // Check if user has an active game and implement disconnect timeout
+        const DISCONNECT_GRACE_PERIOD = 30000; // 30 seconds
+        let activeGameState = null;
+
+        // Find if user is in any active game
+        for (const [matchId, gameState] of fastify.gameStates.entries()) {
+          if (gameState.leftPlayer?.id === userId || gameState.rightPlayer?.id === userId) {
+            activeGameState = gameState;
+            console.log(`[Disconnect] User ${userId} disconnected from match ${matchId}, starting grace period`);
+
+            // Set a timeout for auto-forfeit
+            setTimeout(() => {
+              // Check if user reconnected
+              if (!fastify.onlineUsers.has(userId)) {
+                // User didn't reconnect - forfeit the match
+                console.log(`[Disconnect] User ${userId} did not reconnect, forfeiting match ${matchId}`);
+
+                // End the game with forfeit
+                const isLeftPlayer = gameState.leftPlayer?.id === userId;
+                const winner = isLeftPlayer ? "RIGHT" : "LEFT";
+                const winnerId = isLeftPlayer ? gameState.rightPlayer?.id : gameState.leftPlayer?.id;
+
+                // Update game state to show forfeit
+                gameState.gameOver = true;
+                gameState.winner = winner;
+                gameState.forfeit = true;
+
+                // End the game (this will clean up game loop, send GAME_OVER, etc)
+                if (fastify.endGame) {
+                  fastify.endGame(gameState, fastify).catch(console.error);
+                }
+              }
+            }, DISCONNECT_GRACE_PERIOD);
+            break;
+          }
+        }
+
+        // Clean up any room memberships
+        const currentRoomId = fastify.currentRoom.get(userId);
+        if (currentRoomId) {
+          fastify.leaveRoom(currentRoomId, userId);
+        }
       });
     }
   );
