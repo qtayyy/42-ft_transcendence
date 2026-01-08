@@ -152,6 +152,11 @@ useEffect(() => {
               setGameState(payload);
               break;
 
+            case "TOURNAMENT_START":
+              // Navigate all players to the remote tournament game page
+              router.push(`/game/remote/tournament/${payload.tournamentId}`);
+              break;
+
             case "GAME_STATE":
               setGameState({...payload});  
               break;
