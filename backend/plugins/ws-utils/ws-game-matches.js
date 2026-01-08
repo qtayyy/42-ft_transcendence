@@ -458,6 +458,18 @@ export default fp((fastify) => {
     const p1Id = Number(player1Id);
     const p2Id = Number(player2Id);
 
+    // Update match status in tournament to 'inprogress'
+    // This allows the lobby to show the *next* pending match for other players
+    if (fastify.activeTournaments && tournamentId) {
+      const tournament = fastify.activeTournaments.get(tournamentId);
+      if (tournament) {
+        const match = tournament.matches.find(m => m.matchId === matchId);
+        if (match) {
+          match.status = 'inprogress';
+        }
+      }
+    }
+
     const player1Socket = fastify.onlineUsers.get(p1Id);
     const player2Socket = fastify.onlineUsers.get(p2Id);
 
