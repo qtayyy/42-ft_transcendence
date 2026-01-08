@@ -4,6 +4,9 @@ import TournamentManager from "../../../game/TournamentManager.js";
 const activeTournaments = new Map();
 
 export default async function (fastify, opts) {
+	// Expose activeTournaments to fastify instance for other plugins (ws-game-matches)
+	fastify.decorate("activeTournaments", activeTournaments);
+
 	/**
 	 * Create a new tournament
 	 * POST /api/tournament/create
