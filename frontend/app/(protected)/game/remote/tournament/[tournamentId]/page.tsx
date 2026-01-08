@@ -156,11 +156,45 @@ export default function RemoteTournamentPage() {
 		return () => clearInterval(interval);
 	}, [tournament, fetchTournament]);
 
+	// Sync ready state from backend on mount/reconnect
+	useEffect(() => {
+		if (!user || !tournamentId || !isReady) return;
+
+		// Request current ready state from backend
+		sendSocketMessage({
+			event: "GET_PLAYER_READY",
+			payload: {
+				tournamentId,
+				userId: user.id
+			}
+		});
+
+		// Listen for ready state response
+		const handleReadyState = (event: any) => {
+			if (event.detail.userId === user.id) {
+				setIsWaitingForMatch(event.detail.isReady);
+			}
+		};
+
+		window.addEventListener("PLAYER_READY_STATE", handleReadyState);
+		return () => window.removeEventListener("PLAYER_READY_STATE", handleReadyState);
+	}, [user, tournamentId, isReady, sendSocketMessage]);
+
 	// Handle starting a match - send WS event to both players
 	const handleStartMatch = () => {
 		if (!currentMatch || !user || !isReady) return;
 
 		setIsWaitingForMatch(true);
+
+		// Persist ready state to backend
+		sendSocketMessage({
+			event: "SET_PLAYER_READY",
+			payload: {
+				tournamentId,
+				userId: user.id,
+				isReady: true
+			}
+		});
 
 		// Send WebSocket event to start the match for both players
 		sendSocketMessage({
@@ -194,6 +228,22 @@ export default function RemoteTournamentPage() {
 		} catch (error) {
 			console.error("Failed to process bye:", error);
 		}
+	};
+
+	const handleLeaveTournament = () => {
+		// Send LEAVE_ROOM event to backend for proper cleanup and forfeit
+		if (user && roomId) {
+			sendSocketMessage({
+				event: "LEAVE_ROOM",
+				payload: {
+					roomId,
+					userId: user.id
+				}
+			});
+		}
+		
+		// Redirect to dashboard
+		router.push("/dashboard");
 	};
 
 	const handleExit = () => {
@@ -423,7 +473,7 @@ export default function RemoteTournamentPage() {
 															</Button>
 														)}
 														<Button
-															onClick={() => router.push("/dashboard")}
+															onClick={handleLeaveTournament}
 															variant="outline"
 															className="flex-1 text-lg h-14 border-white/10 hover:bg-white/5"
 														>

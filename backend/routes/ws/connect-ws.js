@@ -215,6 +215,30 @@ export default async function (fastify, opts) {
               fastify.startRoomGame(payload.roomId);
               break;
 
+            case "SET_PLAYER_READY":
+              // Set player ready state in tournament
+              if (fastify.activeTournaments && payload.tournamentId) {
+                const tournament = fastify.activeTournaments.get(payload.tournamentId);
+                if (tournament) {
+                  tournament.playerReadyStates.set(payload.userId, payload.isReady);
+                  console.log(`[Tournament] Player ${payload.userId} ready state: ${payload.isReady}`);
+                }
+              }
+              break;
+
+            case "GET_PLAYER_READY":
+              // Get player ready state from tournament
+              if (fastify.activeTournaments && payload.tournamentId) {
+                const tournament = fastify.activeTournaments.get(payload.tournamentId);
+                const isReady = tournament?.playerReadyStates.get(payload.userId) || false;
+                const socket = fastify.onlineUsers.get(userId);
+                safeSend(socket, {
+                  event: "PLAYER_READY_STATE",
+                  payload: { userId: payload.userId, isReady }
+                }, userId);
+              }
+              break;
+
             default:
               console.log("Unknown event:", event);
           }

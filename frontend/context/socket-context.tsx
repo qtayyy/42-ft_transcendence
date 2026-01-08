@@ -201,6 +201,11 @@ useEffect(() => {
               );
               break;
 
+            case "PLAYER_READY_STATE":
+              // Dispatch custom event for ready state persistence
+              window.dispatchEvent(new CustomEvent("PLAYER_READY_STATE", { detail: payload }));
+              break;
+
             default:
               console.log("Unknown event:", msg.event);
               break;
