@@ -318,46 +318,60 @@ export default function GamePage() {
 										</div>
 								
 								<div className="flex gap-4">
-									<Button
-										onClick={() => {
-											// Send rematch request with both players' info
-											sendSocketMessage({
-												event: "REMATCH",
-												payload: {
-													player1Id: gameOverResult.leftPlayer?.id,
-													player1Username: gameOverResult.leftPlayer?.username,
-													player2Id: gameOverResult.rightPlayer?.id,
-													player2Username: gameOverResult.rightPlayer?.username,
-												},
-											});
-											setGameOverResult(null);
-										}}
-										size="lg"
-										className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg h-14 px-8"
-									>
-										Rematch
-									</Button>
-									<Button
-										onClick={() => {
-											// Notify opponent that we're leaving
-											const opponentId = gameOverResult.leftPlayer?.id === user?.id 
-												? gameOverResult.rightPlayer?.id 
-												: gameOverResult.leftPlayer?.id;
-											sendSocketMessage({
-												event: "LEAVE_GAME",
-												payload: { 
-													opponentId,
-													matchId: gameOverResult.matchId 
-												},
-											});
-											router.push("/game/new");
-										}}
-										variant="outline"
-										size="lg"
-										className="text-lg h-14 px-8 border-white/20 text-white hover:bg-white/10"
-									>
-										Leave
-									</Button>
+									{gameOverResult.tournamentId ? (
+										<Button
+											onClick={() => {
+												router.push(`/game/remote/tournament/${gameOverResult.tournamentId}`);
+											}}
+											size="lg"
+											className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-lg h-14 px-8"
+										>
+											Continue to Leaderboard
+										</Button>
+									) : (
+										<>
+											<Button
+												onClick={() => {
+													// Send rematch request with both players' info
+													sendSocketMessage({
+														event: "REMATCH",
+														payload: {
+															player1Id: gameOverResult.leftPlayer?.id,
+															player1Username: gameOverResult.leftPlayer?.username,
+															player2Id: gameOverResult.rightPlayer?.id,
+															player2Username: gameOverResult.rightPlayer?.username,
+														},
+													});
+													setGameOverResult(null);
+												}}
+												size="lg"
+												className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg h-14 px-8"
+											>
+												Rematch
+											</Button>
+											<Button
+												onClick={() => {
+													// Notify opponent that we're leaving
+													const opponentId = gameOverResult.leftPlayer?.id === user?.id 
+														? gameOverResult.rightPlayer?.id 
+														: gameOverResult.leftPlayer?.id;
+													sendSocketMessage({
+														event: "LEAVE_GAME",
+														payload: { 
+															opponentId,
+															matchId: gameOverResult.matchId 
+														},
+													});
+													router.push("/game/new");
+												}}
+												variant="outline"
+												size="lg"
+												className="text-lg h-14 px-8 border-white/20 text-white hover:bg-white/10"
+											>
+												Leave
+											</Button>
+										</>
+									)}
 								</div>
 							</div>
 							</div>

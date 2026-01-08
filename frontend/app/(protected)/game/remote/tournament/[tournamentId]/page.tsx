@@ -37,6 +37,7 @@ export default function RemoteTournamentPage() {
 	const [loading, setLoading] = useState(true);
 	const [currentMatch, setCurrentMatch] = useState<TournamentMatch | null>(null);
 	const [isCreatingTournament, setIsCreatingTournament] = useState(false);
+	const [isWaitingForMatch, setIsWaitingForMatch] = useState(false);
 
 	// Extract roomId from tournamentId (RT-{roomId})
 	const roomId = tournamentId.startsWith('RT-') ? tournamentId.slice(3) : tournamentId;
@@ -155,6 +156,8 @@ export default function RemoteTournamentPage() {
 	// Handle starting a match - send WS event to both players
 	const handleStartMatch = () => {
 		if (!currentMatch || !user || !isReady) return;
+
+		setIsWaitingForMatch(true);
 
 		// Send WebSocket event to start the match for both players
 		sendSocketMessage({
@@ -392,12 +395,31 @@ export default function RemoteTournamentPage() {
 												</Button>
 											</div>
 										) : (
-											<Button
-												onClick={handleStartMatch}
-												className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg h-14 shadow-lg shadow-blue-500/20 font-bold"
-											>
-												<Play className="mr-2 h-5 w-5 fill-current" /> Start Match
-											</Button>
+											<div className="flex flex-col gap-4 w-full">
+												{isWaitingForMatch ? (
+													<div className="flex flex-col items-center justify-center py-8 space-y-4 bg-muted/20 rounded-xl animate-in fade-in duration-300">
+														<Loader2 className="h-10 w-10 text-primary animate-spin" />
+														<p className="font-medium text-lg">You are ready for the next match</p>
+														<p className="text-sm text-muted-foreground">Waiting for game to start...</p>
+													</div>
+												) : (
+													<div className="flex gap-4">
+														<Button
+															onClick={handleStartMatch}
+															className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg h-14 shadow-lg shadow-blue-500/20 font-bold"
+														>
+															<Play className="mr-2 h-5 w-5 fill-current" /> Ready
+														</Button>
+														<Button
+															onClick={() => router.push("/dashboard")}
+															variant="outline"
+															className="flex-1 text-lg h-14 border-white/10 hover:bg-white/5"
+														>
+															Leave
+														</Button>
+													</div>
+												)}
+											</div>
 										)}
 									</CardContent>
 								</Card>
