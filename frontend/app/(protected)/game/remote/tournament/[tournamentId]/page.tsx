@@ -42,6 +42,15 @@ export default function RemoteTournamentPage() {
 	// Extract roomId from tournamentId (RT-{roomId})
 	const roomId = tournamentId.startsWith('RT-') ? tournamentId.slice(3) : tournamentId;
 
+	// Helper to find valid next match (prioritizing user's match)
+	const getNextMatch = useCallback((matches: TournamentMatch[]) => {
+		if (!user) return matches.find(m => m.status === 'pending') || null;
+		
+		const pendingMatches = matches.filter(m => m.status === 'pending');
+		const myMatch = pendingMatches.find(m => String(m.player1.id) === String(user.id) || String(m.player2?.id) === String(user.id));
+		return myMatch || pendingMatches[0] || null;
+	}, [user]);
+
 	// Initialize tournament when page loads
 	useEffect(() => {
 		const initTournament = async () => {
@@ -62,10 +71,8 @@ export default function RemoteTournamentPage() {
 				});
 				
 				// Find next pending match
-				const nextMatch = response.data.matches.find(
-					(m: TournamentMatch) => m.status === 'pending'
-				);
-				setCurrentMatch(nextMatch || null);
+				const nextMatch = getNextMatch(response.data.matches);
+				setCurrentMatch(nextMatch);
 				setLoading(false);
 			} catch (error: any) {
 				if (error.response?.status === 404 && gameRoom) {
@@ -116,10 +123,8 @@ export default function RemoteTournamentPage() {
 			});
 
 			// Find next pending match
-			const nextMatch = response.data.matches.find(
-				(m: TournamentMatch) => m.status === 'pending'
-			);
-			setCurrentMatch(nextMatch || null);
+			const nextMatch = getNextMatch(response.data.matches);
+			setCurrentMatch(nextMatch);
 			setLoading(false);
 		} catch (error) {
 			console.error("Failed to create tournament:", error);
@@ -136,10 +141,8 @@ export default function RemoteTournamentPage() {
 			setTournament(response.data);
 			
 			// Find next pending match
-			const nextMatch = response.data.matches.find(
-				(m: TournamentMatch) => m.status === 'pending'
-			);
-			setCurrentMatch(nextMatch || null);
+			const nextMatch = getNextMatch(response.data.matches);
+			setCurrentMatch(nextMatch);
 		} catch (error) {
 			console.error("Failed to refresh tournament:", error);
 		}
@@ -404,12 +407,21 @@ export default function RemoteTournamentPage() {
 													</div>
 												) : (
 													<div className="flex gap-4">
-														<Button
-															onClick={handleStartMatch}
-															className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg h-14 shadow-lg shadow-blue-500/20 font-bold"
-														>
-															<Play className="mr-2 h-5 w-5 fill-current" /> Ready
-														</Button>
+														{(String(currentMatch.player1.id) === String(user?.id) || String(currentMatch.player2?.id) === String(user?.id)) ? (
+															<Button
+																onClick={handleStartMatch}
+																className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg h-14 shadow-lg shadow-blue-500/20 font-bold"
+															>
+																<Play className="mr-2 h-5 w-5 fill-current" /> Ready
+															</Button>
+														) : (
+															<Button
+																disabled
+																className="flex-1 bg-muted text-muted-foreground text-lg h-14 font-medium"
+															>
+																Waiting for players...
+															</Button>
+														)}
 														<Button
 															onClick={() => router.push("/dashboard")}
 															variant="outline"
