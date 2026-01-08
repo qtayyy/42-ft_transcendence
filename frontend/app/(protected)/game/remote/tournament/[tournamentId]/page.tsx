@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Leaderboard from "@/components/game/Leaderboard";
 import { Tournament, TournamentMatch, PlayerStanding } from "@/lib/tournament";
-import { Play, Trophy, ArrowLeft, Crown, History, Medal, Star, Loader2, Users } from "lucide-react";
+import { Play, Trophy, ArrowLeft, Crown, History, Medal, Star, Loader2, Users, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -244,6 +244,14 @@ export default function RemoteTournamentPage() {
 		
 		// Redirect to dashboard
 		router.push("/dashboard");
+	};
+
+	const watchMatch = (matchId: string) => {
+		sendSocketMessage({
+			event: "VIEW_MATCH",
+			payload: { matchId }
+		});
+		router.push(`/game/${matchId}?spectator=true`);
 	};
 
 	const handleExit = () => {
@@ -486,6 +494,42 @@ export default function RemoteTournamentPage() {
 									</CardContent>
 								</Card>
 							</div>
+						)}
+
+						{/* Live Matches Section */}
+						{tournament.matches.filter(m => m.status === 'inprogress').length > 0 && (
+							<Card className="bg-card/50 backdrop-blur-sm border-red-500/20">
+								<CardHeader>
+									<CardTitle className="flex items-center gap-2 text-lg">
+										<div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+										Live Matches
+									</CardTitle>
+								</CardHeader>
+								<CardContent className="space-y-3">
+									{tournament.matches
+										.filter(m => m.status === 'inprogress')
+										.map(match => (
+											<div 
+												key={match.matchId} 
+												className="flex items-center justify-between p-4 bg-background/60 border rounded-xl hover:bg-background/80 transition-colors"
+											>
+												<div>
+													<div className="font-semibold">
+														{match.player1.name} <span className="text-muted-foreground">vs</span> {match.player2?.name}
+													</div>
+													<div className="text-xs text-muted-foreground">Round {match.round}</div>
+												</div>
+												<Button
+													onClick={() => watchMatch(match.matchId)}
+													size="sm"
+													className="bg-red-500 hover:bg-red-600"
+												>
+													<Eye className="mr-2 h-4 w-4" /> Watch Live
+												</Button>
+											</div>
+										))}
+								</CardContent>
+							</Card>
 						)}
 
 						{/* Match History */}

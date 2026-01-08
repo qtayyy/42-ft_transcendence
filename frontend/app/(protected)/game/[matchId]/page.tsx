@@ -1,7 +1,7 @@
 "use client";
 
 import PongGame from "@/components/game/PongGame";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useRef, useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
@@ -9,6 +9,8 @@ import { useGame } from "@/hooks/use-game";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Eye, ArrowLeft } from "lucide-react";
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 350;
@@ -19,6 +21,7 @@ const BALL_SIZE = 12;
 export default function GamePage() {
 	const params = useParams();
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
 	const { gameState } = useGame();
@@ -26,6 +29,9 @@ export default function GamePage() {
 	const matchId = params.matchId as string;
 	const [matchData, setMatchData] = useState<any>(null);
 	const [gameOverResult, setGameOverResult] = useState<any>(null);
+
+	// Detect spectator mode from query param or gameState
+	const isSpectator = searchParams.get('spectator') === 'true' || gameState?.spectatorMode === true;
 
 	// Determine if this is a remote game (RS-* prefix or RT-* prefix for tournaments)
 	const isRemoteGame = matchId.startsWith("RS-") || matchId.startsWith("RT-");
@@ -57,7 +63,7 @@ export default function GamePage() {
 
 	// Handle keyboard input for remote games
 	useEffect(() => {
-		if (!isRemoteGame || !isReady || !gameState) return;
+		if (!isRemoteGame || !isReady || !gameState || isSpectator) return;
 
 		const onKeyDown = (e: KeyboardEvent) => {
 			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown", "Enter"];
@@ -105,7 +111,26 @@ export default function GamePage() {
 			window.removeEventListener("keydown", onKeyDown);
 			window.removeEventListener("keyup", onKeyUp);
 		};
-	}, [isRemoteGame, isReady, sendSocketMessage, gameState, user]);
+	}, [isRemoteGame, isReady, sendSocketMessage, gameState, user, isSpectator]);
+
+	// Return to lobby handler for spectators
+	const returnToLobby = () => {
+		// Send UNVIEW_MATCH event
+		if (matchId) {
+			sendSocketMessage({
+				event: "UNVIEW_MATCH",
+				payload: { matchId }
+			});
+		}
+		
+		// Navigate back to tournament lobby or dashboard
+		const tournamentId = gameState?.tournamentId;
+		if (tournamentId) {
+			router.push(`/game/remote/tournament/${tournamentId}`);
+		} else {
+			router.push("/dashboard");
+		}
+	};
 
 	// Render remote game based on game state
 	useEffect(() => {
@@ -391,6 +416,23 @@ export default function GamePage() {
 	// Local game rendering (original behavior)
 	return (
 		<div className="relative">
+			{/* Spectator Overlay */}
+			{isSpectator && (
+				<div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
+					<Badge className="bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 text-sm font-medium">
+						<Eye className="mr-2 h-4 w-4" /> Spectating
+					</Badge>
+					<Button
+						onClick={returnToLobby}
+						variant="outline"
+						size="sm"
+						className="bg-background/80 backdrop-blur-sm"
+					>
+						<ArrowLeft className="mr-2 h-4 w-4" /> Return to Lobby
+					</Button>
+				</div>
+			)}
+
 			<PongGame
 				matchId={matchId}
 				mode="local"
