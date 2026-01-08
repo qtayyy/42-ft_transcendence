@@ -22,6 +22,8 @@ class TournamentManager {
 		this.currentRound = 1;
 		this.totalRounds = this.calculateTotalRounds();
 		this.standings = this.initializeStandings();
+		this.createdAt = Date.now();
+		this.completedAt = null;
 	}
 
 	/**
