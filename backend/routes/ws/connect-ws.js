@@ -239,6 +239,42 @@ export default async function (fastify, opts) {
               }
               break;
 
+            case "VIEW_MATCH":
+              // Subscribe user to match as spectator
+              if (payload.matchId && fastify.matchSpectators) {
+                const { matchId } = payload;
+                if (!fastify.matchSpectators.has(matchId)) {
+                  fastify.matchSpectators.set(matchId, new Set());
+                }
+                fastify.matchSpectators.get(matchId).add(userId);
+                console.log(`[Spectator] User ${userId} viewing match ${matchId}`);
+
+                // Send current game state immediately
+                const gameState = fastify.gameStates.get(matchId);
+                if (gameState) {
+                  const socket = fastify.onlineUsers.get(userId);
+                  safeSend(socket, {
+                    event: "GAME_STATE",
+                    payload: { ...gameState, spectatorMode: true }
+                  }, userId);
+                }
+              }
+              break;
+
+            case "UNVIEW_MATCH":
+              // Unsubscribe user from match
+              if (payload.matchId && fastify.matchSpectators) {
+                const spectators = fastify.matchSpectators.get(payload.matchId);
+                if (spectators) {
+                  spectators.delete(userId);
+                  if (spectators.size === 0) {
+                    fastify.matchSpectators.delete(payload.matchId);
+                  }
+                }
+                console.log(`[Spectator] User ${userId} stopped viewing ${payload.matchId}`);
+              }
+              break;
+
             default:
               console.log("Unknown event:", event);
           }

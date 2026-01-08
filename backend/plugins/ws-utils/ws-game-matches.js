@@ -18,6 +18,9 @@ const WIN_SCORE = 5; // First to 5 wins
 // Track running game loops per match
 const gameLoops = new Map(); // matchId -> intervalHandle
 
+// Track spectators per match
+const matchSpectators = new Map(); // matchId -> Set of spectatorIds
+
 function updatePaddles(gameState, player) {
   let currentPlayer = gameState.rightPlayer;
   if (player === "LEFT") currentPlayer = gameState.leftPlayer;
@@ -107,6 +110,8 @@ function checkCollisionsAndScore(gameState) {
 function broadcastState(gameState, fastify) {
   const leftPlayerSocket = fastify.onlineUsers.get(gameState.leftPlayer.id);
   const rightPlayerSocket = fastify.onlineUsers.get(gameState.rightPlayer.id);
+
+  // Send to players
   safeSend(
     leftPlayerSocket,
     {
@@ -123,6 +128,16 @@ function broadcastState(gameState, fastify) {
     },
     gameState.rightPlayer.id
   );
+
+  // Send to spectators
+  const spectators = matchSpectators.get(gameState.matchId);
+  if (spectators && spectators.size > 0) {
+    const spectatorPayload = { ...gameState, spectatorMode: true };
+    spectators.forEach(spectatorId => {
+      const spectatorSocket = fastify.onlineUsers.get(spectatorId);
+      safeSend(spectatorSocket, { event: "GAME_STATE", payload: spectatorPayload }, spectatorId);
+    });
+  }
 }
 
 // Check if game should end (first to WIN_SCORE)
@@ -191,6 +206,9 @@ async function endGame(gameState, fastify) {
     fastify.currentRoom.delete(right.id);
   }
 
+  // Remove spectators
+  matchSpectators.delete(matchId);
+
   // Remove game state
   fastify.gameStates.delete(matchId);
 
@@ -220,7 +238,11 @@ function startGameLoop(gameState, fastify) {
   gameLoops.set(matchId, loopHandle);
 }
 
-export default fp((fastify) => {
+// Fastify plugin
+export default fp(async (fastify, opts) => {
+  // Expose matchSpectators to fastify instance
+  fastify.decorate("matchSpectators", matchSpectators);
+
   /**
    * For each match in matches, send the event "GAME_MATCH_START to each player"
    * To-do: Change this to handle > 2 players.
