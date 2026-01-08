@@ -24,6 +24,7 @@ class TournamentManager {
 		this.standings = this.initializeStandings();
 		this.createdAt = Date.now();
 		this.completedAt = null;
+		this.playerReadyStates = new Map(); // Track which players are ready for their next match
 	}
 
 	/**
