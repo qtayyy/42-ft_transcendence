@@ -14,6 +14,8 @@ export default async function (fastify, opts) {
         const hostId = request.user.userId;
         const profile = await prisma.profile.findUnique({ where: { id: hostId } });
 
+        console.log(`[createGameRoom API] hostId: ${hostId} (type: ${typeof hostId})`);
+
         const existing = fastify.currentRoom.get(hostId);
         if (existing) {
           // User already has a room, return that room instead

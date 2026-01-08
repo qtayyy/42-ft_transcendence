@@ -444,4 +444,73 @@ export default fp((fastify) => {
     console.log(`Rematch started: ${matchId} with ${player1Username} vs ${player2Username}`);
     return matchId;
   });
+
+  /**
+   * Start a tournament match between two players
+   * This creates the game state and notifies both players to start playing
+   */
+  fastify.decorate("startTournamentMatch", (matchId, tournamentId, player1Id, player1Name, player2Id, player2Name) => {
+    // Ensure numeric IDs for socket lookup
+    const p1Id = Number(player1Id);
+    const p2Id = Number(player2Id);
+
+    const player1Socket = fastify.onlineUsers.get(p1Id);
+    const player2Socket = fastify.onlineUsers.get(p2Id);
+
+    if (!player1Socket || !player2Socket) {
+      console.error(`Cannot start tournament match - one or both players offline: ${p1Id}, ${p2Id}`);
+      return null;
+    }
+
+    const initialGameState = {
+      matchId: matchId,
+      tournamentId: tournamentId,
+      isRemote: true,
+      isTournamentMatch: true,
+      ball: { posX: CANVAS_WIDTH / 2, posY: CANVAS_HEIGHT / 2, dx: 4, dy: 3 },
+      leftPlayer: {
+        id: p1Id,
+        username: player1Name,
+        gamePaused: true,
+        score: 0,
+        paddleX: 0,
+        paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
+        moving: "",
+      },
+      rightPlayer: {
+        id: p2Id,
+        username: player2Name,
+        gamePaused: true,
+        score: 0,
+        paddleX: CANVAS_WIDTH - PADDLE_WIDTH,
+        paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
+        moving: "",
+      },
+    };
+
+    fastify.gameStates.set(matchId, initialGameState);
+
+    // Notify player 1 (left)
+    safeSend(
+      player1Socket,
+      {
+        event: "GAME_MATCH_START",
+        payload: { ...initialGameState, me: "LEFT" },
+      },
+      p1Id
+    );
+
+    // Notify player 2 (right)
+    safeSend(
+      player2Socket,
+      {
+        event: "GAME_MATCH_START",
+        payload: { ...initialGameState, me: "RIGHT" },
+      },
+      p2Id
+    );
+
+    console.log(`Tournament match started: ${matchId} (${tournamentId}) - ${player1Name} vs ${player2Name}`);
+    return matchId;
+  });
 });

@@ -27,8 +27,8 @@ export default function GamePage() {
 	const [matchData, setMatchData] = useState<any>(null);
 	const [gameOverResult, setGameOverResult] = useState<any>(null);
 
-	// Determine if this is a remote game (RS-* prefix)
-	const isRemoteGame = matchId.startsWith("RS-");
+	// Determine if this is a remote game (RS-* prefix or RT-* prefix for tournaments)
+	const isRemoteGame = matchId.startsWith("RS-") || matchId.startsWith("RT-");
 	
 	// For remote games, check if both players are ready
 	const gameStart = gameState && !gameState.leftPlayer?.gamePaused && !gameState.rightPlayer?.gamePaused;
@@ -60,12 +60,19 @@ export default function GamePage() {
 		if (!isRemoteGame || !isReady || !gameState) return;
 
 		const onKeyDown = (e: KeyboardEvent) => {
-			const KEYS = ["w", "W", "s", "S", "Enter"];
+			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown", "Enter"];
 			if (!KEYS.includes(e.key)) return;
 
+			// Prevent default scrolling for arrow keys
+			if (["ArrowUp", "ArrowDown"].includes(e.key)) {
+				e.preventDefault();
+			}
+
 			let keyEvent = "START";
-			if (e.key === "w" || e.key === "W") keyEvent = "UP";
-			else if (e.key === "s" || e.key === "S") keyEvent = "DOWN";
+			// Both WASD and Arrow keys send generic UP/DOWN for the current user
+			// The backend determines which paddle to move based on userId
+			if (e.key === "w" || e.key === "W" || e.key === "ArrowUp") keyEvent = "UP";
+			else if (e.key === "s" || e.key === "S" || e.key === "ArrowDown") keyEvent = "DOWN";
 			
 			sendSocketMessage({
 				event: "GAME_EVENTS",
@@ -78,7 +85,7 @@ export default function GamePage() {
 		};
 
 		const onKeyUp = (e: KeyboardEvent) => {
-			const KEYS = ["w", "W", "s", "S", "Enter"];
+			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown", "Enter"];
 			if (!KEYS.includes(e.key)) return;
 
 			sendSocketMessage({
