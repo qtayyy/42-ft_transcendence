@@ -71,8 +71,20 @@ export default function CreateTournamentRoomPage() {
 	};
 
 	const handleStartTournament = () => {
-		if (!gameRoom || gameRoom.joinedPlayers.length < 3) return;
-		router.push(`/game/RT-${roomId}`);
+		if (!gameRoom || gameRoom.joinedPlayers.length < 3 || !isReady || !roomId) return;
+		
+		const tournamentId = `RT-${roomId}`;
+		
+		// Send WebSocket event to notify all players
+		sendSocketMessage({
+			event: "START_TOURNAMENT",
+			payload: {
+				roomId,
+				tournamentId,
+			},
+		});
+		
+		// Host also navigates (but the event handler will do this for everyone)
 	};
 
 	const handleLeave = () => {

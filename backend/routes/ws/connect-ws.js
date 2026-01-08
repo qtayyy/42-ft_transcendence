@@ -174,6 +174,10 @@ export default async function (fastify, opts) {
               fastify.startRoomGame(payload.roomId);
               break;
 
+            case "START_TOURNAMENT":
+              fastify.startTournament(payload.roomId, payload.tournamentId);
+              break;
+
             case "REMATCH":
               fastify.startRematch(
                 payload.player1Id,
