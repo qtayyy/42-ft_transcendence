@@ -10,17 +10,19 @@ export default async function (fastify, opts) {
       onRequest: [fastify.authenticate],
       websocket: true,
     },
-    (connection, request) => {
-      // Ensure userId is a number for consistent Map lookups
-      const userId = parseInt(request.user.userId);
+    (connection, req) => {
+      // In fastify-websocket v4+, the first arg is the connection (SocketStream or WebSocket)
+      // The previous working code used connection.on("message"), so we'll stick to that.
+      // And we use req.user which is populated by fastify.authenticate.
 
-      // Set user online and notify friends
+      const userId = Number(req.user.userId);
+      console.log(`[WS Connect] User connected: ${userId} (type: ${typeof userId})`);
+
       fastify.onlineUsers.set(userId, connection);
       fastify.notifyFriendStatus(userId, "online");
 
-      // Parse and handle any messages from client
       connection.on("message", (message) => {
-        const data = JSON.parse(message.toString());
+        const data = JSON.parse(message);
         const { event, payload } = data;
         try {
           switch (event) {
@@ -29,6 +31,7 @@ export default async function (fastify, opts) {
               break;
 
             case "GET_GAME_ROOM":
+              console.log(`[WS GET_GAME_ROOM] Request from userId: ${payload.userId} (type: ${typeof payload.userId})`);
               fastify.sendGameRoom(payload.userId);
               break;
 
@@ -44,12 +47,58 @@ export default async function (fastify, opts) {
 
             case "RESPOND_INVITE":
               fastify.respondInvite(
-                payload.response,
                 payload.roomId,
                 payload.hostId,
                 payload.inviteeId,
-                payload.inviteeUsername
+                payload.inviteeUsername,
+                payload.response
               );
+              break;
+
+            case "JOIN_ROOM_BY_CODE":
+              fastify.joinRoomByCode(
+                payload.roomId,
+                payload.userId,
+                payload.username
+              );
+              break;
+
+            case "START_TOURNAMENT":
+              fastify.startTournament(payload.roomId, payload.tournamentId);
+              break;
+
+            case "START_TOURNAMENT_MATCH":
+              fastify.startTournamentMatch(
+                payload.matchId,
+                payload.tournamentId,
+                payload.player1Id,
+                payload.player1Name,
+                payload.player2Id,
+                payload.player2Name
+              );
+              break;
+
+            case "REMATCH":
+              fastify.startRematch(
+                payload.player1Id,
+                payload.player1Username,
+                payload.player2Id,
+                payload.player2Username
+              );
+              break;
+
+            case "LEAVE_GAME":
+              // Notify opponent that this player left
+              const opponentSocket = fastify.onlineUsers.get(payload.opponentId);
+              if (opponentSocket) {
+                safeSend(
+                  opponentSocket,
+                  {
+                    event: "OPPONENT_LEFT",
+                  },
+                  payload.opponentId
+                );
+              }
               break;
 
             case "LEAVE_ROOM":
@@ -57,7 +106,7 @@ export default async function (fastify, opts) {
               break;
 
             case "GAME_EVENTS":
-              console.log(payload);
+              // console.log(payload);
               fastify.updateGameState(payload.matchId, payload.userId, payload.keyEvent);
               break;
 
@@ -150,14 +199,6 @@ export default async function (fastify, opts) {
               })();
               break;
 
-            case "JOIN_ROOM_BY_CODE":
-              fastify.joinRoomByCode(
-                payload.roomId,
-                payload.userId,
-                payload.username
-              );
-              break;
-
             case "JOIN_MATCHMAKING":
               fastify.joinMatchmaking(
                 payload.userId,
@@ -174,58 +215,20 @@ export default async function (fastify, opts) {
               fastify.startRoomGame(payload.roomId);
               break;
 
-            case "START_TOURNAMENT":
-              fastify.startTournament(payload.roomId, payload.tournamentId);
-              break;
-
-            case "REMATCH":
-              fastify.startRematch(
-                payload.player1Id,
-                payload.player1Username,
-                payload.player2Id,
-                payload.player2Username
-              );
-              break;
-
-            case "LEAVE_GAME":
-              // Notify opponent that this player left
-              const opponentSocket = fastify.onlineUsers.get(payload.opponentId);
-              if (opponentSocket) {
-                safeSend(
-                  opponentSocket,
-                  {
-                    event: "OPPONENT_LEFT",
-                    payload: { matchId: payload.matchId }
-                  },
-                  payload.opponentId
-                );
-              }
-              break;
-
             default:
-              safeSend(
-                connection.socket,
-                { event, error: "Unknown event" },
-                userId
-              );
-              break;
+              console.log("Unknown event:", event);
           }
-        } catch (err) {
-          console.log("sending socket error:");
-          safeSend(connection, { event, error: err.message }, userId);
+        } catch (error) {
+          console.error("Error processing message:", error);
         }
       });
 
       connection.on("close", () => {
-        /**
-         * Do not remove players from their room in case of disconenction
-         * issues to allow them to reconnect
-         *  */
-        // const roomId = fastify.currentRoom.get(userId);
-        // if (roomId)
-        //   fastify.leaveRoom(roomId, userId);
         fastify.onlineUsers.delete(userId);
         fastify.notifyFriendStatus(userId, "offline");
+
+        // Handle leaving queue if in matchmaking
+        fastify.leaveMatchmaking(userId);
       });
     }
   );

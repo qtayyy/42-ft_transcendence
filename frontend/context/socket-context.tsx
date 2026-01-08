@@ -150,6 +150,10 @@ useEffect(() => {
 
             case "GAME_MATCH_START":
               setGameState(payload);
+              // Navigate to game page for the match
+              if (payload.matchId) {
+                router.push(`/game/${payload.matchId}`);
+              }
               break;
 
             case "TOURNAMENT_START":
