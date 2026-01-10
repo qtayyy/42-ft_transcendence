@@ -61,7 +61,7 @@ export default function LoginPage() {
     <div>
       <AuthShell
         title={t["Login & Sign up"].Login}
-        description={`${t["Login & Sign up"].Email} and ${t["Login & Sign up"].Password} OR ${t["Login & Sign up"].Login} with Google`}
+        description={t["Login & Sign up"]["Email and Password OR Login with Google"]}
         handleSubmit={handleSubmit}
         fields={fields}
         link="/signup"
