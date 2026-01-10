@@ -1,4 +1,7 @@
 import { safeSend } from "../../utils/ws-utils.js";
+import { PrismaClient } from "../../generated/prisma/index.js";
+
+const prisma = new PrismaClient();
 
 export default async function (fastify, opts) {
   fastify.get(
@@ -8,7 +11,8 @@ export default async function (fastify, opts) {
       websocket: true,
     },
     (connection, request) => {
-      const userId = request.user.userId;
+      // Ensure userId is a number for consistent Map lookups
+      const userId = parseInt(request.user.userId);
 
       // Set user online and notify friends
       fastify.onlineUsers.set(userId, connection);
@@ -58,19 +62,92 @@ export default async function (fastify, opts) {
               break;
 
             case "CHAT_MESSAGE":
-              // Broadcast message to all online users
-              fastify.onlineUsers.forEach((socket, recipientId) => {
-                if (recipientId !== userId) {
-                  safeSend(socket, {
+              // Handle chat message with specific recipient
+              (async () => {
+                try {
+                  const recipientId = parseInt(payload.recipientId);
+                  const messageContent = payload.message;
+
+                  if (!recipientId || isNaN(recipientId)) {
+                    safeSend(connection, {
+                      event: "CHAT_MESSAGE",
+                      error: "Invalid recipient ID"
+                    }, userId);
+                    return;
+                  }
+
+                  // Verify friendship exists
+                  const friendship = await prisma.friendship.findFirst({
+                    where: {
+                      status: "ACCEPTED",
+                      OR: [
+                        { requesterId: userId, addresseeId: recipientId },
+                        { requesterId: recipientId, addresseeId: userId },
+                      ],
+                    },
+                  });
+
+                  if (!friendship) {
+                    safeSend(connection, {
+                      event: "CHAT_MESSAGE",
+                      error: "Not friends with this user"
+                    }, userId);
+                    return;
+                  }
+
+                  // Save message to database
+                  const savedMessage = await prisma.message.create({
+                    data: {
+                      senderId: userId,
+                      recipientId: recipientId,
+                      content: messageContent,
+                    },
+                    include: {
+                      sender: {
+                        select: {
+                          id: true,
+                          username: true,
+                          avatar: true,
+                        },
+                      },
+                    },
+                  });
+
+                  const messagePayload = {
+                    id: savedMessage.id,
+                    username: savedMessage.sender.username,
+                    senderId: savedMessage.senderId,
+                    avatar: savedMessage.sender.avatar || null,
+                    message: savedMessage.content,
+                    timestamp: savedMessage.createdAt.toISOString(),
+                  };
+
+                  // Send message to recipient if online
+                  const recipientSocket = fastify.onlineUsers.get(recipientId);
+                  if (recipientSocket) {
+                    console.log(`Sending CHAT_MESSAGE to recipient ${recipientId}:`, messagePayload);
+                    safeSend(recipientSocket, {
+                      event: "CHAT_MESSAGE",
+                      payload: messagePayload,
+                    }, recipientId);
+                  } else {
+                    console.log(`Recipient ${recipientId} is not online. Message saved but not delivered.`);
+                  }
+
+                  // Send saved message back to sender (so they can update optimistic message with real DB data)
+                  console.log(`Sending CHAT_MESSAGE confirmation back to sender ${userId}:`, messagePayload);
+                  safeSend(connection, {
                     event: "CHAT_MESSAGE",
-                    payload: {
-                      username: request.user.username || "User",
-                      message: payload.message,
-                      timestamp: new Date().toISOString()
-                    }
-                  }, recipientId);
+                    payload: messagePayload,
+                  }, userId);
+                } catch (err) {
+                  console.error("Error handling chat message:", err);
+                  safeSend(connection, {
+                    event: "CHAT_MESSAGE",
+                    error: "Failed to send message"
+                  }, userId);
                 }
-              });
+              })();
               break;
 
             default:

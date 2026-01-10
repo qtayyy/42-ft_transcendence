@@ -17,8 +17,8 @@ export default async function (fastify, opts) {
             OR: [{ requesterId: myId }, { addresseeId: myId }],
           },
           include: {
-            requester: { select: { id: true, username: true } },
-            addressee: { select: { id: true, username: true } },
+            requester: { select: { id: true, username: true, avatar: true } },
+            addressee: { select: { id: true, username: true, avatar: true } },
           },
         });
         const cleanedFriends = friends.map((f) =>
