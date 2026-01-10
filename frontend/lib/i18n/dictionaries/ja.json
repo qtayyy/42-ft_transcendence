@@ -16,6 +16,12 @@
     "Full Name": "氏名"
   },
   "Dashboard": {
+    "Dashboard": "ダッシュボード",
+    "Track your progress. Connect with friends. Dominate the leaderboard.": "進捗を追跡。友達とつながる。リーダーボードを制覇。",
+    "Your Game Activity": "あなたのゲーム活動",
+    "Performance Stats": "パフォーマンス統計",
+    "Your Tournament Records": "あなたのトーナメント記録",
+    "Connect & Play Together": "つながって一緒にプレイ",
     "Friends": "友達",
     "Search": "検索",
     "Online": "オンライン",

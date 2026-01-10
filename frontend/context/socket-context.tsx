@@ -145,6 +145,7 @@ useEffect(() => {
             break;
 
             case "CHAT_MESSAGE":
+              console.log("Received CHAT_MESSAGE via WebSocket:", payload);
               window.dispatchEvent(
                 new CustomEvent("chatMessage", { detail: payload })
               );

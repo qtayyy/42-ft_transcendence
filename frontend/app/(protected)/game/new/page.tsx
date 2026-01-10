@@ -6,9 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useRouter } from "next/navigation";
 import { Users, Monitor, Gamepad2, Trophy, ArrowLeft, Swords, Globe, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/languageContext";
 
 export default function NewGamePage() {
 	const router = useRouter();
+	const { t } = useLanguage();
 	const [selectedMode, setSelectedMode] = useState<"local" | "remote" | null>(null);
 
 	const handleModeSelect = (mode: "local" | "remote") => {
@@ -29,10 +31,10 @@ export default function NewGamePage() {
 						<Zap className="h-6 w-6 text-primary animate-pulse" />
 					</div>
 					<h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-white via-primary/50 to-white bg-clip-text text-transparent pb-2">
-						Are You Ready?
+						{t.Game["Are You Ready?"]}
 					</h1>
 					<p className="text-xl text-muted-foreground font-medium max-w-2xl mx-auto">
-						Choose your arena. Dominate the court.
+						{t.Game["Choose your arena. Dominate the court."]}
 					</p>
 				</div>
 
@@ -53,20 +55,20 @@ export default function NewGamePage() {
 									<div className="mx-auto p-4 rounded-2xl bg-blue-500/10 mb-4 group-hover:bg-blue-500/20 transition-colors">
 										<Monitor className="h-10 w-10 text-blue-500" />
 									</div>
-									<CardTitle className="text-3xl font-bold">Local Play</CardTitle>
-									<CardDescription className="text-base">Same device multiplayer</CardDescription>
+									<CardTitle className="text-3xl font-bold">{t.Game["Local Play"]}</CardTitle>
+									<CardDescription className="text-base">{t.Game["Same device multiplayer"]}</CardDescription>
 								</CardHeader>
 								<CardContent className="text-center space-y-4">
 									<div className="space-y-2">
 										<div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-											<Swords className="h-4 w-4" /> 1v1 Matches
+											<Swords className="h-4 w-4" /> {t.Game["1v1 Matches"]}
 										</div>
 										<div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-											<Trophy className="h-4 w-4" /> Tournaments
+											<Trophy className="h-4 w-4" /> {t.Game.Tournament}
 										</div>
 									</div>
 									<Button variant="outline" className="w-full border-blue-500/20 hover:bg-blue-500/10 hover:text-blue-500">
-										Select Local
+										{t.Game["Select local"]}
 									</Button>
 								</CardContent>
 							</Card>
@@ -86,20 +88,20 @@ export default function NewGamePage() {
 									<div className="mx-auto p-4 rounded-2xl bg-green-500/10 mb-4 group-hover:bg-green-500/20 transition-colors">
 										<Users className="h-10 w-10 text-green-500" />
 									</div>
-									<CardTitle className="text-3xl font-bold">Remote Play</CardTitle>
-									<CardDescription className="text-base">Online multiplayer</CardDescription>
+									<CardTitle className="text-3xl font-bold">{t.Game["Remote Play"]}</CardTitle>
+									<CardDescription className="text-base">{t.Game["Online Multiplayer"]}</CardDescription>
 								</CardHeader>
 								<CardContent className="text-center space-y-4">
 									<div className="space-y-2">
 										<div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-											<Globe className="h-4 w-4" /> Online Matchmaking
+											<Globe className="h-4 w-4" /> {t.Game["Online Matchmaking"]}
 										</div>
 										<div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-											<Users className="h-4 w-4" /> Play with Friends
+											<Users className="h-4 w-4" /> {t.Game["Play with friends"]}
 										</div>
 									</div>
 									<Button variant="outline" className="w-full border-green-500/20 hover:bg-green-500/10 hover:text-green-500">
-										Select Remote
+										{t.Game["Select remote"]}
 									</Button>
 								</CardContent>
 							</Card>
@@ -115,7 +117,7 @@ export default function NewGamePage() {
 								className="gap-2 text-muted-foreground hover:text-foreground"
 							>
 								<ArrowLeft className="h-4 w-4" />
-								Return to Mode Selection
+								{t.Game["Back to Modes"]}
 							</Button>
 						</div>
 
@@ -131,12 +133,12 @@ export default function NewGamePage() {
 										<div className="mx-auto p-3 rounded-xl bg-purple-500/10 mb-3">
 											<Gamepad2 className="h-8 w-8 text-purple-500" />
 										</div>
-										<CardTitle className="text-2xl">Single Match</CardTitle>
-										<CardDescription>Classic 1v1 Duel</CardDescription>
+										<CardTitle className="text-2xl">{t.Game["Single Match"]}</CardTitle>
+										<CardDescription>{t.Game["Classic 1v1 Duel"]}</CardDescription>
 									</CardHeader>
 									<CardContent className="text-center pb-8">
 										<p className="text-sm text-muted-foreground">
-											Quick match
+											{t.Game["Quick Match"]}
 										</p>
 									</CardContent>
 								</Card>
@@ -153,12 +155,12 @@ export default function NewGamePage() {
 										<div className="mx-auto p-3 rounded-xl bg-yellow-500/10 mb-3">
 											<Trophy className="h-8 w-8 text-yellow-500" />
 										</div>
-										<CardTitle className="text-2xl">Tournament</CardTitle>
-										<CardDescription>Bracket Elimination</CardDescription>
+										<CardTitle className="text-2xl">{t.Game.Tournament}</CardTitle>
+										<CardDescription>{t.Game["Bracket Elimination"]}</CardDescription>
 									</CardHeader>
 									<CardContent className="text-center pb-8">
 										<p className="text-sm text-muted-foreground">
-											4-8 Players • Final Champion
+											{t.Game["4-8 Player"]} • {t.Game["Final Championship"]}
 										</p>
 									</CardContent>
 								</Card>
@@ -175,7 +177,7 @@ export default function NewGamePage() {
 								className="gap-2 text-muted-foreground hover:text-foreground"
 							>
 								<ArrowLeft className="h-4 w-4" />
-								Back
+								{t.Game["Back to Modes"]}
 							</Button>
 						</div>
 						
@@ -188,9 +190,9 @@ export default function NewGamePage() {
 										</div>
 									</div>
 									<div className="space-y-2">
-										<h3 className="text-2xl font-bold">Coming Soon</h3>
+										<h3 className="text-2xl font-bold">{t.Game["Coming Soon"]}</h3>
 										<p className="text-muted-foreground max-w-md mx-auto">
-											Our engineers are hard at work building the ultimate online arena. Stay tuned for the next update!
+											{t.Game["Our engineers are hard at work building the ultimate online arena. Stay tuned for the next update!"]}
 										</p>
 									</div>
 								</CardContent>

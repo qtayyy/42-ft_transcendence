@@ -16,6 +16,12 @@
     "Full Name": "全名"
   },
   "Dashboard": {
+    "Dashboard": "仪表板",
+    "Track your progress. Connect with friends. Dominate the leaderboard.": "追踪您的进度。与好友联系。称霸排行榜。",
+    "Your Game Activity": "您的游戏活动",
+    "Performance Stats": "表现统计",
+    "Your Tournament Records": "您的锦标赛记录",
+    "Connect & Play Together": "一起连接和游戏",
     "Friends": "好友",
     "Search": "搜索",
     "Online": "在线",
@@ -117,6 +123,8 @@
     "Start Match": "开始比赛",
     "Player 1": "玩家 1",
     "Player 2": "玩家 2",
-    "Back to Modes": "返回模式"
+    "Back to Modes": "返回模式",
+    "Coming Soon": "即将推出",
+    "Our engineers are hard at work building the ultimate online arena. Stay tuned for the next update!": "我们的工程师正在努力构建终极在线竞技场。请密切关注下一次更新！"
   }
 }
