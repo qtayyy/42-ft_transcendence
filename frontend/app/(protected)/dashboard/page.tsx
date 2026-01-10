@@ -114,10 +114,10 @@ export default function DashboardPage() {
             <Zap className="h-6 w-6 text-primary animate-pulse" />
           </div>
           <h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-white via-primary/50 to-white bg-clip-text text-transparent pb-2">
-            Dashboard
+            {t.Dashboard.Dashboard}
           </h1>
           <p className="text-xl text-muted-foreground font-medium max-w-2xl mx-auto">
-            Track your progress. Connect with friends. Dominate the leaderboard.
+            {t.Dashboard["Track your progress. Connect with friends. Dominate the leaderboard."]}
           </p>
         </div>
 
@@ -150,7 +150,7 @@ export default function DashboardPage() {
                   <Users className="h-10 w-10 text-blue-500" />
                 </div>
                 <CardTitle className="text-3xl font-bold">{t.Dashboard.Friends}</CardTitle>
-                <CardDescription className="text-base">Connect & Play Together</CardDescription>
+                <CardDescription className="text-base">{t.Dashboard["Connect & Play Together"]}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <SearchBar searchUser={handleSearchUser}></SearchBar>
@@ -218,7 +218,7 @@ export default function DashboardPage() {
                       <Activity className="h-8 w-8 text-purple-500" />
                     </div>
                     <CardTitle className="text-2xl">{t.Dashboard.Activity}</CardTitle>
-                    <CardDescription>Your Game Activity</CardDescription>
+                    <CardDescription>{t.Dashboard["Your Game Activity"]}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="h-48 flex items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg">
@@ -240,7 +240,7 @@ export default function DashboardPage() {
                       <PieChart className="h-8 w-8 text-green-500" />
                     </div>
                     <CardTitle className="text-2xl">{t.Dashboard["Win-Loss"]}</CardTitle>
-                    <CardDescription>Performance Stats</CardDescription>
+                    <CardDescription>{t.Dashboard["Performance Stats"]}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="h-48 flex items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg">
@@ -265,7 +265,7 @@ export default function DashboardPage() {
                     <Trophy className="h-8 w-8 text-yellow-500" />
                   </div>
                   <CardTitle className="text-2xl">{t.Dashboard["Tournament History"]}</CardTitle>
-                  <CardDescription>Your Tournament Records</CardDescription>
+                  <CardDescription>{t.Dashboard["Your Tournament Records"]}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">

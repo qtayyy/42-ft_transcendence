@@ -16,6 +16,12 @@
     "Full Name": "성명"
   },
   "Dashboard": {
+    "Dashboard": "대시보드",
+    "Track your progress. Connect with friends. Dominate the leaderboard.": "진행 상황을 추적하세요. 친구들과 연결하세요. 리더보드를 지배하세요.",
+    "Your Game Activity": "게임 활동",
+    "Performance Stats": "성능 통계",
+    "Your Tournament Records": "토너먼트 기록",
+    "Connect & Play Together": "함께 연결하고 플레이",
     "Friends": "친구",
     "Search": "검색",
     "Online": "온라인",

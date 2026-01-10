@@ -16,6 +16,12 @@
     "Full Name": "Full Name"
   },
   "Dashboard": {
+    "Dashboard": "Dashboard",
+    "Track your progress. Connect with friends. Dominate the leaderboard.": "Track your progress. Connect with friends. Dominate the leaderboard.",
+    "Your Game Activity": "Your Game Activity",
+    "Performance Stats": "Performance Stats",
+    "Your Tournament Records": "Your Tournament Records",
+    "Connect & Play Together": "Connect & Play Together",
     "Friends": "Friends",
     "Search": "Search",
     "Online": "Online",
@@ -26,7 +32,6 @@
     "New Game": "New Game",
     "Chart (placeholder)": "Chart (placeholder)",
     "Pie chart on Win-Loss (Incl. total games) - Placeholder": "Pie chart on Win-Loss (Incl. total games) - Placeholder",
-    "Tournament History": "Tournament History",
     "Tournament ID:": "Tournament ID:",
     "Date": "Date",
     "Time": "Time",
@@ -107,7 +112,6 @@
     "Single Match": "Single Match",
     "Classic 1v1 Duel": "Classic 1v1 Duel",
     "Quick Match": "Quick Match",
-    "Tournament": "Tournament",
     "Bracket Elimination": "Bracket Elimination",
     "4-8 Player": "4-8 Player",
     "Final Championship": "Final Championship",
@@ -119,6 +123,8 @@
     "Start Match": "Start Match",
     "Player 1": "Player 1",
     "Player 2": "Player 2",
-    "Back to Modes": "Back to Modes"
+    "Back to Modes": "Back to Modes",
+    "Coming Soon": "Coming Soon",
+    "Our engineers are hard at work building the ultimate online arena. Stay tuned for the next update!": "Our engineers are hard at work building the ultimate online arena. Stay tuned for the next update!"
   }
 }
