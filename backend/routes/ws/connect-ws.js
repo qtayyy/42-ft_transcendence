@@ -11,7 +11,8 @@ export default async function (fastify, opts) {
       websocket: true,
     },
     (connection, request) => {
-      const userId = request.user.userId;
+      // Ensure userId is a number for consistent Map lookups
+      const userId = parseInt(request.user.userId);
 
       // Set user online and notify friends
       fastify.onlineUsers.set(userId, connection);
@@ -122,15 +123,19 @@ export default async function (fastify, opts) {
                   // Send message to recipient if online
                   const recipientSocket = fastify.onlineUsers.get(recipientId);
                   if (recipientSocket) {
+                    console.log(`Sending CHAT_MESSAGE to recipient ${recipientId}:`, messagePayload);
                     safeSend(recipientSocket, {
                       event: "CHAT_MESSAGE",
                       payload: messagePayload,
                     }, recipientId);
+                  } else {
+                    console.log(`Recipient ${recipientId} is not online. Message saved but not delivered.`);
                   }
 
-                  // Send confirmation back to sender
+                  // Send saved message back to sender (so they can update optimistic message with real DB data)
+                  console.log(`Sending CHAT_MESSAGE confirmation back to sender ${userId}:`, messagePayload);
                   safeSend(connection, {
-                    event: "CHAT_MESSAGE_SENT",
+                    event: "CHAT_MESSAGE",
                     payload: messagePayload,
                   }, userId);
                 } catch (err) {

@@ -82,23 +82,57 @@ export default function ChatPage() {
   useEffect(() => {
     const handleNewMessage = (event: CustomEvent) => {
       const data: Message = event.detail;
+      console.log("Chat page received message event:", data, "selectedFriend:", selectedFriend?.id);
       
-      // Only add message if it's from the selected friend or sent by current user to selected friend
-      if (selectedFriend && data.senderId !== undefined) {
-        const senderIdStr = data.senderId.toString();
-        const currentUserIdStr = user?.id?.toString();
+      // Must have senderId to process
+      if (data.senderId === undefined) return;
+      
+      const senderIdStr = data.senderId.toString();
+      const currentUserIdStr = user?.id?.toString();
+      
+      // Only process messages if we have a selected friend (chat is open)
+      if (selectedFriend) {
+        const selectedFriendIdStr = selectedFriend.id.toString();
         
-        // Message is from selected friend OR from current user (to selected friend)
-        if (senderIdStr === selectedFriend.id || senderIdStr === currentUserIdStr) {
+        // Check if message is relevant to current conversation:
+        // 1. Message from selected friend (to current user) - always show
+        // 2. Message from current user (confirming our sent message) - show if for this conversation
+        const isFromSelectedFriend = senderIdStr === selectedFriendIdStr;
+        const isFromCurrentUser = senderIdStr === currentUserIdStr;
+        
+        // Only show messages in current conversation
+        if (isFromSelectedFriend || isFromCurrentUser) {
           setMessages((prev) => {
-            // Avoid duplicates
-            if (prev.some(msg => msg.id === data.id)) {
+            // Avoid duplicates by ID
+            if (data.id && prev.some(msg => msg.id === data.id)) {
               return prev;
             }
+            
+            // If this is a saved message from current user, replace optimistic message without ID
+            if (isFromCurrentUser && data.id) {
+              // Find and replace optimistic message (same content, no ID, recent timestamp)
+              const optimisticIndex = prev.findIndex(msg => 
+                !msg.id && 
+                msg.senderId === data.senderId && 
+                msg.message === data.message &&
+                Math.abs(new Date(msg.timestamp).getTime() - new Date(data.timestamp).getTime()) < 5000 // within 5 seconds
+              );
+              
+              if (optimisticIndex !== -1) {
+                // Replace optimistic message with saved one
+                const updated = [...prev];
+                updated[optimisticIndex] = data;
+                return updated;
+              }
+            }
+            
+            // Otherwise, add new message
             return [...prev, data];
           });
         }
       }
+      // If no friend is selected, we still receive the message but don't display it
+      // It will be loaded when the user selects that friend's chat
     };
 
     window.addEventListener("chatMessage", handleNewMessage as EventListener);
