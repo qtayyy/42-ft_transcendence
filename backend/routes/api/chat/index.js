@@ -43,12 +43,14 @@ export default async function (fastify, opts) {
               select: {
                 id: true,
                 username: true,
+                avatar: true,
               },
             },
             recipient: {
               select: {
                 id: true,
                 username: true,
+                avatar: true,
               },
             },
           },
@@ -62,6 +64,7 @@ export default async function (fastify, opts) {
           id: msg.id,
           username: msg.sender.username,
           senderId: msg.senderId,
+          avatar: msg.sender.avatar || null,
           message: msg.content,
           timestamp: msg.createdAt.toISOString(),
         }));

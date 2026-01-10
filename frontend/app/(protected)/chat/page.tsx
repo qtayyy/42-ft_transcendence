@@ -3,24 +3,21 @@
 import { useState, useEffect, useRef } from "react";
 import { useSocketContext } from "@/context/socket-context";
 import { useAuth } from "@/hooks/use-auth";
-import { useFriends } from '@/hooks/use-friends';
+import { useFriends, type Friend } from '@/hooks/use-friends';
 import { useGame } from '@/hooks/use-game';
 import { useLanguage } from '@/context/languageContext';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Send, Users, UserPlus } from "lucide-react";
 
 interface Message {
   id?: number;
   username: string;
   senderId?: number;
+  avatar?: string | null;
   message: string;
   timestamp: string;
-}
-
-interface Friend {
-  id: string;
-  username: string;
 }
 
 export default function ChatPage() {
@@ -34,22 +31,86 @@ export default function ChatPage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const { t } = useLanguage();
 
-  // Prevent body scroll when chat page is mounted
   useEffect(() => {
-    document.body.style.overflow = 'hidden';
+    const body = document.body;
+    const html = document.documentElement;
+    
+    // Store original overflow values
+    const originalBodyOverflow = body.style.overflow;
+    const originalHtmlOverflow = html.style.overflow;
+    
+    // Prevent scrolling on body and html
+    body.style.overflow = 'hidden';
+    html.style.overflow = 'hidden';
+    
+    // Calculate header height and position chat container below it
+    const updateChatPosition = () => {
+      if (chatContainerRef.current) {
+        // Find the header element by looking for fixed top-0 element
+        const allDivs = Array.from(document.querySelectorAll('div'));
+        const header = allDivs.find(
+          el => {
+            const classes = el.className || '';
+            return classes.includes('fixed') && 
+                   classes.includes('top-0') && 
+                   (classes.includes('z-50') || classes.includes('z-40'));
+          }
+        ) as HTMLElement | undefined;
+        
+        if (header) {
+          const headerHeight = header.offsetHeight;
+          // Add small buffer to prevent overlap
+          chatContainerRef.current.style.top = `${headerHeight + 4}px`;
+        } else {
+          // Fallback: use pt-28 value (112px) from protected layout plus small buffer
+          // Header logo (90px) + padding (12px top) ≈ 102px, but protected layout uses 112px
+          chatContainerRef.current.style.top = '116px';
+        }
+      }
+    };
+    
+    // Update position on mount and window resize
+    updateChatPosition();
+    window.addEventListener('resize', updateChatPosition);
+    
     return () => {
-      document.body.style.overflow = 'unset';
+      // Restore original overflow values
+      body.style.overflow = originalBodyOverflow;
+      html.style.overflow = originalHtmlOverflow;
+      window.removeEventListener('resize', updateChatPosition);
     };
   }, []);
 
-  // Scroll to bottom when messages change
+  // Auto-scroll to bottom when new messages arrive (only if user is near bottom)
   useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    if (messagesContainerRef.current && messages.length > 0) {
+      const container = messagesContainerRef.current;
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 200;
+      
+      // Only auto-scroll if user is already near the bottom
+      if (isNearBottom) {
+        // Use setTimeout to ensure DOM has updated
+        setTimeout(() => {
+          container.scrollTop = container.scrollHeight;
+        }, 0);
+      }
     }
   }, [messages]);
+
+  // Scroll to bottom when friend changes or history loads
+  useEffect(() => {
+    if (messagesContainerRef.current && selectedFriend && !loadingHistory) {
+      // Small delay to ensure messages are rendered
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [selectedFriend, loadingHistory]);
 
   // Load chat history when a friend is selected
   useEffect(() => {
@@ -59,17 +120,40 @@ export default function ChatPage() {
     }
 
     const loadChatHistory = async () => {
+      if (!selectedFriend?.id) {
+        console.error("No friend selected or friend ID is missing");
+        setMessages([]);
+        setLoadingHistory(false);
+        return;
+      }
+      
       setLoadingHistory(true);
       try {
-        const response = await fetch(`/api/chat/${selectedFriend.id}`);
+        const friendId = selectedFriend.id.toString();
+        console.log("Loading chat history for friend:", friendId);
+        const response = await fetch(`/api/chat/${friendId}`);
         if (!response.ok) {
-          throw new Error("Failed to load chat history");
+          // Try to get error message from response
+          let errorMessage = "Failed to load chat history";
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch {
+            // If response is not JSON, use status text
+            errorMessage = response.statusText || errorMessage;
+          }
+          console.error("Error loading chat history:", {
+            status: response.status,
+            statusText: response.statusText,
+            friendId: selectedFriend.id,
+            error: errorMessage
+          });
+          throw new Error(errorMessage);
         }
         const history = await response.json();
         setMessages(history || []);
       } catch (error) {
         console.error("Error loading chat history:", error);
-        setMessages([]);
       } finally {
         setLoadingHistory(false);
       }
@@ -171,6 +255,13 @@ export default function ChatPage() {
     });
 
     setInputValue("");
+    
+    // Always scroll to bottom when user sends a message
+    setTimeout(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    }, 0);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -180,9 +271,17 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div 
+      ref={chatContainerRef}
+      className="fixed left-0 right-0 flex bg-background overflow-hidden" 
+      style={{ 
+        top: '116px', // Default: Account for header (pt-28 = 112px) + small buffer, will be updated dynamically
+        bottom: '24px', // Add spacing from bottom of viewport to lift input bar
+        width: '100vw' 
+      }}
+    >
       {/* Sidebar */}
-      <aside className="w-72 border-r border-border bg-card flex flex-col shrink-0">
+      <aside className="w-72 border-r border-border bg-card flex flex-col shrink-0 overflow-hidden h-full">
         {/* Sidebar Header */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-2 mb-1">
@@ -193,7 +292,7 @@ export default function ChatPage() {
         </div>
 
         {/* Friends List - Scrollable */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0">
           {friendsLoading ? (
             <div className="p-4 text-center text-muted-foreground">{t.chat.loading}</div>
           ) : friendsError ? (
@@ -215,13 +314,18 @@ export default function ChatPage() {
                         : "hover:bg-muted/50"
                     }`}
                   >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 ${
-                      selectedFriend?.id === friend.id
-                        ? "bg-primary-foreground/20 text-primary-foreground"
-                        : "bg-primary/20 text-primary"
-                    }`}>
-                      {friend.username[0]?.toUpperCase()}
-                    </div>
+                    <Avatar className="w-10 h-10 shrink-0">
+                      {friend.avatar ? (
+                        <AvatarImage src={friend.avatar} alt={friend.username} />
+                      ) : null}
+                      <AvatarFallback className={`font-semibold text-sm ${
+                        selectedFriend?.id === friend.id
+                          ? "bg-primary-foreground/20 text-primary-foreground"
+                          : "bg-primary/20 text-primary"
+                      }`}>
+                        {friend.username[0]?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className={`font-medium truncate ${
                         selectedFriend?.id === friend.id ? "text-primary-foreground" : ""
@@ -269,15 +373,20 @@ export default function ChatPage() {
       </aside>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden" style={{ height: '100%' }}>
         {selectedFriend ? (
           <>
-            {/* Chat Header */}
-            <div className="h-16 border-b border-border bg-card flex items-center px-6 shrink-0">
+            {/* Chat Header - Fixed at top */}
+            <div className="h-16 border-b border-border bg-card flex items-center px-6 shrink-0 z-10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-semibold">
-                  {selectedFriend.username[0]?.toUpperCase()}
-                </div>
+                <Avatar className="w-10 h-10">
+                  {selectedFriend.avatar ? (
+                    <AvatarImage src={selectedFriend.avatar} alt={selectedFriend.username} />
+                  ) : null}
+                  <AvatarFallback className="bg-primary/20 text-primary font-semibold">
+                    {selectedFriend.username[0]?.toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
                 <div>
                   <h1 className="font-semibold text-lg">{selectedFriend.username}</h1>
                   {isReady ? (
@@ -298,10 +407,11 @@ export default function ChatPage() {
               </div>
             </div>
 
-            {/* Messages Display - Scrollable */}
+            {/* Messages Display - Scrollable container with fixed height */}
             <div
               ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto bg-muted/30 p-4 scrollbar-hide"
+              className="flex-1 overflow-y-auto bg-muted/30 p-4 scrollbar-hide min-h-0"
+              style={{ scrollBehavior: 'smooth' }}
             >
               {loadingHistory ? (
                 <div className="flex items-center justify-center h-full">
@@ -317,7 +427,7 @@ export default function ChatPage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4 max-w-4xl mx-auto">
+                <div className="space-y-4 max-w-4xl mx-auto pb-2">
                   {messages.map((msg, idx) => {
                     const isOwnMessage = msg.senderId?.toString() === user?.id?.toString();
                     const showAvatar = idx === 0 || messages[idx - 1]?.senderId !== msg.senderId;
@@ -336,9 +446,14 @@ export default function ChatPage() {
                         )}
                         <div className={`flex gap-3 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
                           {!isOwnMessage && (
-                            <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-semibold text-xs shrink-0">
-                              {showAvatar ? msg.username[0]?.toUpperCase() : ''}
-                            </div>
+                            <Avatar className="w-8 h-8 shrink-0">
+                              {msg.avatar ? (
+                                <AvatarImage src={msg.avatar} alt={msg.username} />
+                              ) : null}
+                              <AvatarFallback className="bg-primary/20 text-primary text-xs font-semibold">
+                                {msg.username[0]?.toUpperCase() || '?'}
+                              </AvatarFallback>
+                            </Avatar>
                           )}
                           <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-[70%]`}>
                             {showAvatar && !isOwnMessage && (
@@ -370,8 +485,8 @@ export default function ChatPage() {
               )}
             </div>
 
-            {/* Input Area - Fixed at bottom */}
-            <div className="border-t border-border bg-card p-4 shrink-0">
+            {/* Input Area - Fixed at bottom with spacing */}
+            <div className="border-t border-border bg-card px-4 py-4 shrink-0 z-10">
               <div className="flex gap-2 max-w-4xl mx-auto">
                 <Input
                   type="text"
@@ -395,7 +510,7 @@ export default function ChatPage() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center overflow-hidden">
             <div className="text-center">
               <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
                 <Users className="w-10 h-10 text-muted-foreground" />
