@@ -107,6 +107,7 @@ export default async function (fastify, opts) {
                         select: {
                           id: true,
                           username: true,
+                          avatar: true,
                         },
                       },
                     },
@@ -116,6 +117,7 @@ export default async function (fastify, opts) {
                     id: savedMessage.id,
                     username: savedMessage.sender.username,
                     senderId: savedMessage.senderId,
+                    avatar: savedMessage.sender.avatar || null,
                     message: savedMessage.content,
                     timestamp: savedMessage.createdAt.toISOString(),
                   };

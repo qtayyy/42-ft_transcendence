@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 export interface Friend {
   id: string;
   username: string;
-  avatarUrl?: string;
+  avatar?: string | null;
 }
 
 export interface PendingFriend {
