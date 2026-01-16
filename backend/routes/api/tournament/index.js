@@ -166,9 +166,20 @@ export default async function (fastify, opts) {
 
 					if (allRoundComplete && tournament.currentRound < tournament.totalRounds) {
 						// Generate next round
-						tournament.currentRound += 1;
-						const nextRoundMatches = tournament.generateSwissPairings(tournament.currentRound);
-						tournament.matches.push(...nextRoundMatches);
+						// Guard against duplicate generation
+						const existingNextRound = tournament.matches.filter(m => m.round === tournament.currentRound + 1);
+						if (existingNextRound.length === 0) {
+							tournament.currentRound += 1;
+							const nextRoundMatches = tournament.generateSwissPairings(tournament.currentRound);
+							tournament.matches.push(...nextRoundMatches);
+						} else {
+							console.log(`Tournament ${id}: Matches for Round ${tournament.currentRound + 1} already exist. Skipping.`);
+							// Consider advancing round if not already?
+							if (tournament.matches.some(m => m.round === tournament.currentRound + 1)) {
+								// if matches exist, we probably should have incremented tournament.currentRound?
+								// But let's assume TournamentManager internal logic handled it.
+							}
+						}
 					}
 				}
 

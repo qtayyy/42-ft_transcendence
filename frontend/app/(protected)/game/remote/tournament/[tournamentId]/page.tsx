@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
@@ -37,7 +37,13 @@ export default function RemoteTournamentPage() {
 	const [loading, setLoading] = useState(true);
 	const [currentMatch, setCurrentMatch] = useState<TournamentMatch | null>(null);
 	const [isCreatingTournament, setIsCreatingTournament] = useState(false);
-	const [isWaitingForMatch, setIsWaitingForMatch] = useState(false);
+	// Calculate readiness derived from current match state
+	const isMeReady = useMemo(() => {
+		if (!currentMatch || !user) return false;
+		const isP1 = String(currentMatch.player1.id) === String(user.id) || currentMatch.player1.name === user.username;
+		const isP2 = currentMatch.player2 && (String(currentMatch.player2.id) === String(user.id) || currentMatch.player2.name === user.username);
+		return (isP1 && (currentMatch as any).p1Ready) || (isP2 && (currentMatch as any).p2Ready);
+	}, [currentMatch, user]);
 
 	// Extract roomId from tournamentId (RT-{roomId})
 	const roomId = tournamentId.startsWith('RT-') ? tournamentId.slice(3) : tournamentId;
@@ -49,17 +55,21 @@ export default function RemoteTournamentPage() {
 		// Filter for matches in the current round
 		const currentRoundMatches = matches.filter(m => m.round === currentRound);
 
+		const isMyMatch = (m: TournamentMatch) => {
+			const p1Match = String(m.player1.id) === String(user.id) || m.player1.name === user.username;
+			const p2Match = m.player2 && (String(m.player2.id) === String(user.id) || m.player2.name === user.username);
+			return p1Match || p2Match;
+		};
+
 		// 1. Look for active (inprogress) match for the user
 		const myActiveMatch = currentRoundMatches.find(m => 
-			(String(m.player1.id) === String(user.id) || String(m.player2?.id) === String(user.id)) &&
-			m.status === 'inprogress'
+			isMyMatch(m) && m.status === 'inprogress'
 		);
 		if (myActiveMatch) return myActiveMatch;
 
 		// 2. Look for pending match for the user
 		const myPendingMatch = currentRoundMatches.find(m => 
-			(String(m.player1.id) === String(user.id) || String(m.player2?.id) === String(user.id)) &&
-			m.status === 'pending'
+			isMyMatch(m) && m.status === 'pending'
 		);
 		if (myPendingMatch) return myPendingMatch;
 
@@ -182,7 +192,7 @@ export default function RemoteTournamentPage() {
 	// Refresh tournament data
 	const fetchTournament = useCallback(async () => {
 		try {
-			const response = await axios.get(`/api/tournament/${tournamentId}`);
+			const response = await axios.get(`/api/tournament/${tournamentId}`, { withCredentials: true });
 			setTournament(response.data);
 			
 			// Find next pending match
@@ -201,56 +211,17 @@ export default function RemoteTournamentPage() {
 		return () => clearInterval(interval);
 	}, [tournament, fetchTournament]);
 
-	// Sync ready state from backend on mount/reconnect
-	useEffect(() => {
-		if (!user || !tournamentId || !isReady) return;
-
-		// Request current ready state from backend
-		sendSocketMessage({
-			event: "GET_PLAYER_READY",
-			payload: {
-				tournamentId,
-				userId: user.id
-			}
-		});
-
-		// Listen for ready state response
-		const handleReadyState = (event: any) => {
-			if (event.detail.userId === user.id) {
-				setIsWaitingForMatch(event.detail.isReady);
-			}
-		};
-
-		window.addEventListener("PLAYER_READY_STATE", handleReadyState);
-		return () => window.removeEventListener("PLAYER_READY_STATE", handleReadyState);
-	}, [user, tournamentId, isReady, sendSocketMessage]);
-
 	// Handle starting a match - send WS event to both players
 	const handleStartMatch = () => {
 		if (!currentMatch || !user || !isReady) return;
 
-		setIsWaitingForMatch(true);
-
-		// Persist ready state to backend
+		// Send WebSocket event to signal I am ready in the lobby
 		sendSocketMessage({
-			event: "SET_PLAYER_READY",
-			payload: {
-				tournamentId,
-				userId: user.id,
-				isReady: true
-			}
-		});
-
-		// Send WebSocket event to start the match for both players
-		sendSocketMessage({
-			event: "START_TOURNAMENT_MATCH",
+			event: "PLAYER_LOBBY_READY",
 			payload: {
 				matchId: currentMatch.matchId,
 				tournamentId: tournamentId,
-				player1Id: currentMatch.player1.id,
-				player1Name: currentMatch.player1.name,
-				player2Id: currentMatch.player2?.id,
-				player2Name: currentMatch.player2?.name,
+				userId: user.id
 			},
 		});
 		
@@ -287,8 +258,8 @@ export default function RemoteTournamentPage() {
 			});
 		}
 		
-		// Redirect to dashboard
-		router.push("/dashboard");
+		// Redirect to tournament list
+		router.push("/game/remote/tournament");
 	};
 
 	const watchMatch = (matchId: string) => {
@@ -300,7 +271,8 @@ export default function RemoteTournamentPage() {
 	};
 
 	const handleExit = () => {
-		router.push("/game/new");
+		// Same cleanup as leaving
+		handleLeaveTournament();
 	};
 
 	if (loading) {
@@ -549,7 +521,7 @@ export default function RemoteTournamentPage() {
 											</div>
 										) : (
 											<div className="flex flex-col gap-4 w-full">
-												{isWaitingForMatch ? (
+												{isMeReady ? (
 													<div className="flex flex-col items-center justify-center py-8 space-y-4 bg-muted/20 rounded-xl animate-in fade-in duration-300">
 														<Loader2 className="h-10 w-10 text-primary animate-spin" />
 														<p className="font-medium text-lg">You are ready for the next match</p>
@@ -557,7 +529,10 @@ export default function RemoteTournamentPage() {
 													</div>
 												) : (
 													<div className="flex gap-4">
-														{(String(currentMatch.player1.id) === String(user?.id) || String(currentMatch.player2?.id) === String(user?.id)) ? (
+														{(
+															(String(currentMatch.player1.id) === String(user?.id) || currentMatch.player1.name === user?.username) || 
+															(currentMatch.player2 && (String(currentMatch.player2.id) === String(user?.id) || currentMatch.player2.name === user?.username))
+														) ? (
 															<Button
 																onClick={handleStartMatch}
 																className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg h-14 shadow-lg shadow-blue-500/20 font-bold"

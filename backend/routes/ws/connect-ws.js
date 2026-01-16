@@ -78,6 +78,14 @@ export default async function (fastify, opts) {
               );
               break;
 
+            case "PLAYER_LOBBY_READY":
+              fastify.handleLobbyReady(
+                payload.tournamentId,
+                payload.matchId,
+                payload.userId
+              );
+              break;
+
             case "REMATCH":
               fastify.startRematch(
                 payload.player1Id,

@@ -1,7 +1,7 @@
 import { PrismaClient } from "/app/generated/prisma/index.js";
 
 const prisma = new PrismaClient();
-const MAX_PLAYERS = 4;
+const MAX_PLAYERS = 8;
 
 export default async function (fastify, opts) {
   fastify.get(
