@@ -42,13 +42,29 @@ export default function RemoteTournamentPage() {
 	// Extract roomId from tournamentId (RT-{roomId})
 	const roomId = tournamentId.startsWith('RT-') ? tournamentId.slice(3) : tournamentId;
 
-	// Helper to find valid next match (prioritizing user's match)
-	const getNextMatch = useCallback((matches: TournamentMatch[]) => {
-		if (!user) return matches.find(m => m.status === 'pending') || null;
+	// Helper to find valid next match (prioritizing user's match in current round)
+	const getNextMatch = useCallback((matches: TournamentMatch[], currentRound: number) => {
+		if (!user) return matches.find(m => m.status === 'pending' && m.round === currentRound) || null;
 		
-		const pendingMatches = matches.filter(m => m.status === 'pending');
-		const myMatch = pendingMatches.find(m => String(m.player1.id) === String(user.id) || String(m.player2?.id) === String(user.id));
-		return myMatch || pendingMatches[0] || null;
+		// Filter for matches in the current round
+		const currentRoundMatches = matches.filter(m => m.round === currentRound);
+
+		// 1. Look for active (inprogress) match for the user
+		const myActiveMatch = currentRoundMatches.find(m => 
+			(String(m.player1.id) === String(user.id) || String(m.player2?.id) === String(user.id)) &&
+			m.status === 'inprogress'
+		);
+		if (myActiveMatch) return myActiveMatch;
+
+		// 2. Look for pending match for the user
+		const myPendingMatch = currentRoundMatches.find(m => 
+			(String(m.player1.id) === String(user.id) || String(m.player2?.id) === String(user.id)) &&
+			m.status === 'pending'
+		);
+		if (myPendingMatch) return myPendingMatch;
+
+		// 3. Fallback: Return any available match in current round (for spectators)
+		return currentRoundMatches.find(m => m.status === 'inprogress' || m.status === 'pending') || null;
 	}, [user]);
 
 	// Initialize tournament when page loads
@@ -71,7 +87,7 @@ export default function RemoteTournamentPage() {
 				});
 				
 				// Find next pending match
-				const nextMatch = getNextMatch(response.data.matches);
+				const nextMatch = getNextMatch(response.data.matches, response.data.currentRound || 1);
 				setCurrentMatch(nextMatch);
 				setLoading(false);
 			} catch (error: any) {
@@ -123,7 +139,7 @@ export default function RemoteTournamentPage() {
 			});
 
 			// Find next pending match
-			const nextMatch = getNextMatch(response.data.matches);
+			const nextMatch = getNextMatch(response.data.matches, response.data.currentRound || 1);
 			setCurrentMatch(nextMatch);
 			setLoading(false);
 		} catch (error) {
@@ -134,6 +150,35 @@ export default function RemoteTournamentPage() {
 		}
 	};
 
+    // Listen for real-time tournament updates
+    useEffect(() => {
+        const handleTournamentUpdate = (event: CustomEvent) => {
+            console.log("Received TOURNAMENT_UPDATE:", event.detail);
+            const data = event.detail;
+            setTournament({
+                tournamentId: data.tournamentId,
+                format: data.format,
+                playerCount: data.playerCount,
+                currentRound: data.currentRound,
+                totalRounds: data.totalRounds,
+                matches: data.matches,
+                leaderboard: data.leaderboard,
+                isComplete: data.isComplete,
+            });
+            
+            // Update current match based on new state
+            if (user) {
+                const nextMatch = getNextMatch(data.matches, data.currentRound);
+                setCurrentMatch(nextMatch);
+            }
+        };
+
+        window.addEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
+        return () => {
+            window.removeEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
+        };
+    }, [user, getNextMatch]);
+
 	// Refresh tournament data
 	const fetchTournament = useCallback(async () => {
 		try {
@@ -141,7 +186,7 @@ export default function RemoteTournamentPage() {
 			setTournament(response.data);
 			
 			// Find next pending match
-			const nextMatch = getNextMatch(response.data.matches);
+			const nextMatch = getNextMatch(response.data.matches, response.data.currentRound || 1);
 			setCurrentMatch(nextMatch);
 		} catch (error) {
 			console.error("Failed to refresh tournament:", error);
@@ -442,18 +487,65 @@ export default function RemoteTournamentPage() {
 										</div>
 
 										{!currentMatch.player2 ? (
-											<div className="flex flex-col items-center gap-4">
-												<div className="text-center">
-													<p className="font-medium text-yellow-500">Automatic Bye</p>
-													<p className="text-sm text-muted-foreground">{currentMatch.player1.name} advances automatically with 3 points.</p>
+											<div className="flex flex-col items-center gap-6 w-full">
+												<div className="text-center space-y-2">
+													<Badge variant="outline" className="text-yellow-500 border-yellow-500/50 bg-yellow-500/10 px-4 py-1 text-base">
+														<Crown className="w-4 h-4 mr-2 inline-block" />
+														Automatic Bye
+													</Badge>
+													<p className="text-muted-foreground max-w-md mx-auto">
+														You have a bye for this round! You automatically advance with 3 points.
+														While you wait for the next round, you can spectate other ongoing matches.
+													</p>
 												</div>
-												<Button
-													onClick={handleProcessBye}
-													className="w-full md:w-auto bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-black font-semibold shadow-lg shadow-orange-500/20"
-													size="lg"
-												>
-													Process Bye & Advance
-												</Button>
+
+												{/* Spectator Options for Bye Player */}
+												<div className="w-full space-y-4">
+													<h4 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wider">
+														<Eye className="w-4 h-4" /> Available Matches to Watch
+													</h4>
+													
+													{tournament.matches.filter(m => m.status === 'inprogress').length > 0 ? (
+														<div className="grid gap-3">
+															{tournament.matches
+																.filter(m => m.status === 'inprogress')
+																.map(match => (
+																	<div 
+																		key={match.matchId} 
+																		className="flex items-center justify-between p-4 bg-background/40 border border-white/10 rounded-xl hover:bg-background/60 transition-all group/match"
+																	>
+																		<div className="flex items-center gap-4">
+																			<div className="flex flex-col">
+																				<span className="font-bold text-lg">{match.player1.name}</span>
+																				<span className="text-xs text-muted-foreground">Player 1</span>
+																			</div>
+																			<span className="text-muted-foreground font-black italic">VS</span>
+																			<div className="flex flex-col text-right">
+																				<span className="font-bold text-lg">{match.player2?.name}</span>
+																				<span className="text-xs text-muted-foreground">Player 2</span>
+																			</div>
+																		</div>
+																		<Button
+																			onClick={() => watchMatch(match.matchId)}
+																			className="bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/20 opacity-0 group-hover/match:opacity-100 transition-opacity"
+																		>
+																			<Eye className="mr-2 h-4 w-4" /> Watch
+																		</Button>
+																	</div>
+																))}
+														</div>
+													) : (
+														<div className="p-6 text-center border border-dashed rounded-xl bg-muted/10 text-muted-foreground">
+															No matches currently in progress.
+														</div>
+													)}
+												</div>
+
+												<div className="flex gap-4 w-full md:w-auto pt-4 border-t border-white/5">
+													<div className="w-full text-center text-muted-foreground italic">
+														Waiting for other matches in this round to complete...
+													</div>
+												</div>
 											</div>
 										) : (
 											<div className="flex flex-col gap-4 w-full">

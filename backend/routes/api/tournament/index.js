@@ -1,11 +1,9 @@
-import TournamentManager from "../../../game/TournamentManager.js";
-
-// Store active tournaments in memory
-const activeTournaments = new Map();
+import TournamentManager, { activeTournaments } from "../../../game/TournamentManager.js";
 
 export default async function (fastify, opts) {
+
 	// Expose activeTournaments to fastify instance for other plugins (ws-game-matches)
-	fastify.decorate("activeTournaments", activeTournaments);
+	// fastify.decorate("activeTournaments", activeTournaments); // Already decorated in websockets.js
 
 	// Periodic cleanup for stale tournaments
 	const CLEANUP_INTERVAL = 60 * 60 * 1000; // 60 minutes
@@ -55,7 +53,7 @@ export default async function (fastify, opts) {
 				}
 
 				// Use custom tournamentId if provided, otherwise generate one
-				const tournamentId = customTournamentId || `tournament-${Date.now()}`;
+				const tournamentId = customTournamentId || `RT-${Date.now()}`;
 
 				// Check if tournament already exists
 				if (activeTournaments.has(tournamentId)) {

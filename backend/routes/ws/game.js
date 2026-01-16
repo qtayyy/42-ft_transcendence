@@ -21,8 +21,22 @@ export default async function (fastify, opts) {
 
 			let game = gameManager.getGame(matchId);
 			if (!game) {
-				console.log(`[GAME WS] Creating game: ${matchId}`);
-				game = gameManager.createGame(matchId, 'local');
+				let mode = 'local';
+				let tournamentId = null;
+
+				if (matchId.startsWith('RS-')) {
+					mode = 'remote';
+				} else if (matchId.startsWith('RT-')) {
+					mode = 'remote';
+					// Extract tournamentId (RT-{uuid}) from matchId (RT-{uuid}-m{id})
+					const lastDashIndex = matchId.lastIndexOf("-m");
+					if (lastDashIndex !== -1) {
+						tournamentId = matchId.substring(0, lastDashIndex);
+					}
+				}
+
+				console.log(`[GAME WS] Creating game: ${matchId} (Mode: ${mode}, Tournament: ${tournamentId})`);
+				game = gameManager.createGame(matchId, mode, tournamentId);
 			}
 
 			const role = game.join(connection, userId);

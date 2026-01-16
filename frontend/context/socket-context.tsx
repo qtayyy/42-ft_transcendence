@@ -142,6 +142,20 @@ useEffect(() => {
               toast.success("Joined room successfully!");
               break;
 
+            case "JOIN_ROOM_ERROR":
+              toast.error(payload.message || "Failed to join room");
+              window.dispatchEvent(
+                new CustomEvent("JOIN_ROOM_ERROR", { detail: payload })
+              );
+              break;
+
+            case "TOURNAMENT_UPDATE":
+              console.log("Socket Context: Dispatching TOURNAMENT_UPDATE", payload);
+              window.dispatchEvent(
+                  new CustomEvent("tournamentUpdate", { detail: payload })
+              );
+              break;
+
             case "LEAVE_ROOM":
               setGameRoom(null);
               toast.info("You're removed from the game room");

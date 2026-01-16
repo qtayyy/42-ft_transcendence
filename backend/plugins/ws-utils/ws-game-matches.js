@@ -151,6 +151,8 @@ function checkGameOver(gameState) {
   return null;
 }
 
+import { activeTournaments } from "../../game/TournamentManager.js";
+
 // End game, save to DB, cleanup
 async function endGame(gameState, fastify) {
   const matchId = gameState.matchId;
@@ -183,6 +185,34 @@ async function endGame(gameState, fastify) {
     console.error("Failed to save match:", error);
   }
 
+  // Handle Tournament Updates
+  if (gameState.tournamentId) {
+    const tournament = activeTournaments.get(gameState.tournamentId);
+    if (tournament) {
+      console.log(`Updating result for tournament match ${matchId} (Winner: ${result?.winner})`);
+      const updateResult = tournament.updateMatchResult(matchId, {
+        p1: left.score,
+        p2: right.score
+      }, result ? 'win' : 'draw'); // Assuming 'win' or 'draw'
+
+      // Broadcast TOURNAMENT_UPDATE to all players in the tournament
+      // This ensures everyone (including those with Byes) sees the new state
+      if (updateResult.success) {
+        const tournamentData = tournament.getSummary();
+        tournament.players.forEach(player => {
+          const socket = fastify.onlineUsers.get(Number(player.id));
+          if (socket) {
+            safeSend(socket, {
+              event: "TOURNAMENT_UPDATE",
+              payload: tournamentData
+            }, player.id);
+          }
+        });
+        console.log(`Broadcasted TOURNAMENT_UPDATE for tournament ${gameState.tournamentId}`);
+      }
+    }
+  }
+
   // Send GAME_OVER to both players
   const gameOverPayload = {
     matchId: matchId,
@@ -198,6 +228,15 @@ async function endGame(gameState, fastify) {
 
   safeSend(leftSocket, { event: "GAME_OVER", payload: gameOverPayload }, left.id);
   safeSend(rightSocket, { event: "GAME_OVER", payload: gameOverPayload }, right.id);
+
+  // Send GAME_OVER to active spectators
+  const spectators = matchSpectators.get(matchId);
+  if (spectators) {
+    spectators.forEach(spectatorId => {
+      const socket = fastify.onlineUsers.get(spectatorId);
+      safeSend(socket, { event: "GAME_OVER", payload: gameOverPayload }, spectatorId);
+    });
+  }
 
   // Cleanup room if this was a remote room game
   if (gameState.roomId) {
@@ -480,24 +519,32 @@ export default fp(async (fastify, opts) => {
     const p1Id = Number(player1Id);
     const p2Id = Number(player2Id);
 
-    // Update match status in tournament to 'inprogress'
-    // This allows the lobby to show the *next* pending match for other players
-    if (fastify.activeTournaments && tournamentId) {
-      const tournament = fastify.activeTournaments.get(tournamentId);
-      if (tournament) {
-        const match = tournament.matches.find(m => m.matchId === matchId);
-        if (match) {
-          match.status = 'inprogress';
-        }
-      }
-    }
+    console.log(`[startTournamentMatch] Attempting to start match ${matchId} (${player1Name} vs ${player2Name})`);
 
     const player1Socket = fastify.onlineUsers.get(p1Id);
     const player2Socket = fastify.onlineUsers.get(p2Id);
 
     if (!player1Socket || !player2Socket) {
-      console.error(`Cannot start tournament match - one or both players offline: ${p1Id}, ${p2Id}`);
+      console.error(`Cannot start tournament match - one or both players offline: P1:${p1Id}(${!!player1Socket}) P2:${p2Id}(${!!player2Socket})`);
+
+      // Notify the player who tried to start it (we don't know who triggered it here easily without passing userId, 
+      // but usually the active player triggers it. We'll try to notify both if online).
+      const errorPayload = { message: "Cannot start match: Opponent is offline or disconnected." };
+      if (player1Socket) safeSend(player1Socket, { event: "TOURNAMENT_ERROR", payload: errorPayload }, p1Id);
+      if (player2Socket) safeSend(player2Socket, { event: "TOURNAMENT_ERROR", payload: errorPayload }, p2Id);
+
       return null;
+    }
+
+    // Update match status in tournament to 'inprogress' safely
+    if (fastify.activeTournaments && tournamentId) {
+      const tournament = fastify.activeTournaments.get(tournamentId);
+      if (tournament) {
+        const marked = tournament.markMatchInProgress(matchId);
+        console.log(`[startTournamentMatch] Marked match ${matchId} in progress: ${marked}`);
+      } else {
+        console.error(`[startTournamentMatch] Tournament ${tournamentId} not found!`);
+      }
     }
 
     const initialGameState = {

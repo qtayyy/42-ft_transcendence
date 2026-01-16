@@ -10,7 +10,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, ArrowLeft } from "lucide-react";
+import { Eye, ArrowLeft, Loader2 } from "lucide-react";
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 350;
@@ -31,13 +31,23 @@ export default function GamePage() {
 	const [gameOverResult, setGameOverResult] = useState<any>(null);
 
 	// Detect spectator mode from query param or gameState
-	const isSpectator = searchParams.get('spectator') === 'true' || gameState?.spectatorMode === true;
+	const isSpectator = searchParams.get('spectator') === 'true' || (gameState as any)?.spectatorMode === true;
 
 	// Determine if this is a remote game (RS-* prefix or RT-* prefix for tournaments)
 	const isRemoteGame = matchId.startsWith("RS-") || matchId.startsWith("RT-");
 	
 	// For remote games, check if both players are ready
 	const gameStart = gameState && !gameState.leftPlayer?.gamePaused && !gameState.rightPlayer?.gamePaused;
+
+	// Auto-redirect for tournament matches
+	useEffect(() => {
+		if (gameOverResult?.tournamentId) {
+			const timer = setTimeout(() => {
+				router.push(`/game/remote/tournament/${gameOverResult.tournamentId}`);
+			}, 5000);
+			return () => clearTimeout(timer);
+		}
+	}, [gameOverResult, router]);
 
 	// Listen for game over event
 	useEffect(() => {
@@ -124,7 +134,18 @@ export default function GamePage() {
 		}
 		
 		// Navigate back to tournament lobby or dashboard
-		const tournamentId = gameState?.tournamentId;
+		let tournamentId: string | number | undefined = gameState?.tournamentId;
+		
+		// Fallback: Try to extract tournamentId from matchId (format: RT-{roomId}-m{id})
+		if (!tournamentId && matchId.startsWith("RT-")) {
+            // Extract everything before the last -m part
+            // Example: RT-123-m1 -> RT-123
+            const parts = matchId.split("-m");
+            if (parts.length > 1) {
+                tournamentId = parts[0];
+            }
+		}
+
 		if (tournamentId) {
 			router.push(`/game/remote/tournament/${tournamentId}`);
 		} else {
@@ -224,7 +245,24 @@ export default function GamePage() {
 	// Remote game rendering
 	if (isRemoteGame) {
 		return (
-			<div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
+			<div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20 relative">
+				{/* Spectator Overlay */}
+				{isSpectator && (
+					<div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
+						<Badge className="bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 text-sm font-medium animate-pulse">
+							<Eye className="mr-2 h-4 w-4" /> Spectating Live
+						</Badge>
+						<Button
+							onClick={returnToLobby}
+							variant="secondary"
+							size="sm"
+							className="bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background/90"
+						>
+							<ArrowLeft className="mr-2 h-4 w-4" /> Return to Lobby
+						</Button>
+					</div>
+				)}
+
 				<div className="w-full max-w-4xl space-y-6">
 					{/* Header */}
 					<div className="flex justify-between items-center">
@@ -262,6 +300,17 @@ export default function GamePage() {
 								<div className="text-center space-y-6 max-w-lg w-full">
 									{/* Determine my status and opponent's status */}
 									{(() => {
+										// If spectator, show waiting status only
+										if (isSpectator) {
+											return (
+												<div className="flex flex-col items-center justify-center space-y-4">
+													<Loader2 className="h-12 w-12 text-primary animate-spin" />
+													<h3 className="text-2xl font-bold text-white">Match Starting Soon</h3>
+													<p className="text-white/80">Waiting for players to get ready...</p>
+												</div>
+											)
+										}
+
 										const mySide = gameState.me;
 										const opponentSide = mySide === "LEFT" ? "RIGHT" : "LEFT";
 										
@@ -325,34 +374,43 @@ export default function GamePage() {
 						{/* Game Over overlay */}
 						{gameOverResult && (
 							<div className="absolute inset-0 bg-black/80 flex items-center justify-center backdrop-blur-md">
-								<div className="text-center space-y-6">
-									<h2 className="text-5xl font-bold text-white">GAME OVER</h2>
+								<div className="text-center space-y-6 animate-in fade-in zoom-in duration-500">
+									<h2 className="text-5xl font-black text-white tracking-tight">GAME OVER</h2>
 									
-									<div className="flex items-center justify-center gap-8">
-										<div className={`text-center p-4 rounded-xl ${gameOverResult.winner === "LEFT" ? "bg-green-500/20 ring-2 ring-green-500" : "bg-muted/20"}`}>
-											<p className="text-lg font-semibold text-white">{gameOverResult.leftPlayer?.username}</p>
-											<p className="text-4xl font-bold text-white">{gameOverResult.leftPlayer?.score}</p>
-											{gameOverResult.winner === "LEFT" && <p className="text-green-400 font-bold mt-2">WINNER!</p>}
+									<div className="flex items-center justify-center gap-8 py-8">
+										<div className={`text-center p-6 rounded-2xl transition-all duration-500 ${gameOverResult.winner === "LEFT" ? "bg-green-500/20 ring-4 ring-green-500 scale-110 shadow-2xl shadow-green-500/20" : "bg-white/5 grayscale opacity-70"}`}>
+											<p className="text-lg font-semibold text-white mb-1">{gameOverResult.leftPlayer?.username}</p>
+											<p className="text-6xl font-black text-white">{gameOverResult.leftPlayer?.score}</p>
+											{gameOverResult.winner === "LEFT" && (
+												<Badge className="mt-4 bg-green-500 hover:bg-green-600 text-white border-0 text-sm px-3 py-1">WINNER</Badge>
+											)}
 										</div>
-										<span className="text-3xl text-white/50">vs</span>
-										<div className={`text-center p-4 rounded-xl ${gameOverResult.winner === "RIGHT" ? "bg-green-500/20 ring-2 ring-green-500" : "bg-muted/20"}`}>
-											<p className="text-lg font-semibold text-white">{gameOverResult.rightPlayer?.username}</p>
-											<p className="text-4xl font-bold text-white">{gameOverResult.rightPlayer?.score}</p>
-											{gameOverResult.winner === "RIGHT" && <p className="text-green-400 font-bold mt-2">WINNER!</p>}
+										<span className="text-4xl text-white/30 font-thin">vs</span>
+										<div className={`text-center p-6 rounded-2xl transition-all duration-500 ${gameOverResult.winner === "RIGHT" ? "bg-green-500/20 ring-4 ring-green-500 scale-110 shadow-2xl shadow-green-500/20" : "bg-white/5 grayscale opacity-70"}`}>
+											<p className="text-lg font-semibold text-white mb-1">{gameOverResult.rightPlayer?.username}</p>
+											<p className="text-6xl font-black text-white">{gameOverResult.rightPlayer?.score}</p>
+											{gameOverResult.winner === "RIGHT" && (
+												<Badge className="mt-4 bg-green-500 hover:bg-green-600 text-white border-0 text-sm px-3 py-1">WINNER</Badge>
+											)}
 										</div>
-										</div>
+									</div>
 								
-								<div className="flex gap-4">
+								<div className="flex gap-4 justify-center">
 									{gameOverResult.tournamentId ? (
-										<Button
-											onClick={() => {
-												router.push(`/game/remote/tournament/${gameOverResult.tournamentId}`);
-											}}
-											size="lg"
-											className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-lg h-14 px-8"
-										>
-											Continue to Leaderboard
-										</Button>
+										<div className="space-y-4">
+											<p className="text-white/80 animate-pulse">
+												Returning to tournament lobby in 5 seconds...
+											</p>
+											<Button
+												onClick={() => {
+													router.push(`/game/remote/tournament/${gameOverResult.tournamentId}`);
+												}}
+												size="lg"
+												className="bg-white/10 hover:bg-white/20 text-white border-0"
+											>
+												Return Now <ArrowLeft className="ml-2 h-4 w-4" />
+											</Button>
+										</div>
 									) : (
 										<>
 											<Button
@@ -370,7 +428,7 @@ export default function GamePage() {
 													setGameOverResult(null);
 												}}
 												size="lg"
-												className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg h-14 px-8"
+												className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg h-14 px-8 shadow-lg shadow-green-500/20"
 											>
 												Rematch
 											</Button>
