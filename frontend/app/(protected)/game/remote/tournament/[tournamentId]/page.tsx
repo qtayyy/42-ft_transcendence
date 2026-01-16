@@ -356,14 +356,20 @@ export default function RemoteTournamentPage() {
 							{/* Actions */}
 							<div className="grid grid-cols-2 gap-4 max-w-lg mx-auto pt-4">
 								<Button
-									onClick={() => router.push("/game/new")}
+									onClick={() => {
+										handleLeaveTournament();
+										router.push("/game/remote/tournament");
+									}}
 									size="lg"
 									className="h-14 text-lg bg-primary hover:bg-primary/90"
 								>
 									New Game
 								</Button>
 								<Button
-									onClick={() => router.push("/dashboard")}
+									onClick={() => {
+										handleLeaveTournament();
+										router.push("/dashboard");
+									}}
 									variant="outline"
 									size="lg"
 									className="h-14 text-lg"
