@@ -357,10 +357,34 @@ export default function GamePage() {
 											);
 										} else {
 											return (
-												<div className="flex flex-col items-center justify-center space-y-4 animate-in fade-in zoom-in duration-300">
+												<div className="flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
 													<h3 className="text-3xl font-bold text-white">Are you ready?</h3>
-													<p className="text-white/70">Press <span className="px-2 py-1 bg-white/20 rounded font-mono font-bold text-white">ENTER</span> to mark yourself as ready</p>
-													<p className="text-sm text-white/50 pt-4">
+													<p className="text-white/70 text-center max-w-sm">
+														Both players must click Ready to start the match.
+													</p>
+													
+													<Button 
+														size="lg" 
+														className="bg-green-600 hover:bg-green-700 text-white font-bold text-xl px-12 py-6 shadow-lg shadow-green-900/20 scale-100 hover:scale-105 transition-all"
+														onClick={() => {
+															// Send START event manually via socket
+															sendSocketMessage({
+																event: "GAME_EVENTS",
+																payload: {
+																	matchId: gameState.matchId,
+																	userId: user?.id,
+																	keyEvent: "START",
+																},
+															});
+														}}
+													>
+														I AM READY
+													</Button>
+
+													<p className="text-xs text-white/40 pt-4">
+														(Or press ENTER)
+													</p>
+													<p className="text-sm text-white/50">
 														{gameState.me === "LEFT" ? "You are Player 1 (Left)" : "You are Player 2 (Right)"}
 													</p>
 												</div>

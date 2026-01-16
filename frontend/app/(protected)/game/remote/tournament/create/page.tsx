@@ -21,7 +21,7 @@ export default function CreateTournamentRoomPage() {
 	const [copied, setCopied] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [maxPlayers, setMaxPlayers] = useState(4);
+	const [maxPlayers, setMaxPlayers] = useState(8);
 
 	// Create room on mount
 	useEffect(() => {

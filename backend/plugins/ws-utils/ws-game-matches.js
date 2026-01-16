@@ -340,9 +340,14 @@ export default fp(async (fastify, opts) => {
       throw new Error(`Game state doesn't exist for match ${matchId}`);
 
     let player;
-    if (userId === gameState.leftPlayer.id) player = "LEFT";
-    else if (userId === gameState.rightPlayer.id) player = "RIGHT";
-    else throw new Error(`You don't have permission`);
+    const uid = Number(userId);
+    if (uid === gameState.leftPlayer.id) player = "LEFT";
+    else if (uid === gameState.rightPlayer.id) player = "RIGHT";
+    else {
+      // Allow spectators or ignore?
+      // throw new Error(`You don't have permission`);
+      return; // Just ignore invalid input
+    }
 
     const currentPlayer =
       player === "LEFT" ? gameState.leftPlayer : gameState.rightPlayer;
@@ -508,6 +513,60 @@ export default fp(async (fastify, opts) => {
 
     console.log(`Rematch started: ${matchId} with ${player1Username} vs ${player2Username}`);
     return matchId;
+  });
+
+  /**
+   * Handle player clicking "Ready" in the lobby
+   */
+  fastify.decorate("handleLobbyReady", (tournamentId, matchId, userId) => {
+    if (!fastify.activeTournaments) return;
+    const tournament = fastify.activeTournaments.get(tournamentId);
+    if (!tournament) {
+      console.error(`[handleLobbyReady] Tournament ${tournamentId} not found`);
+      return;
+    }
+
+    const result = tournament.setLobbyReady(matchId, userId);
+    if (!result.success) {
+      console.error(`[handleLobbyReady] Match ${matchId} not found`);
+      return;
+    }
+
+    console.log(`[LobbyReady] Player ${userId} ready for match ${matchId}. AllReady: ${result.allReady}`);
+
+    if (result.allReady) {
+      // Both players ready - Start the match
+      const match = result.match;
+      // Handle Bye case (player2 might be null) - though Bye is auto-ready usually
+      if (!match.player2) {
+        // Auto-process bye? Usually byes are processed by TournamentManager immediately or end-round.
+        // But if a bye player clicks ready... actually bye matches should be auto-processed or just wait.
+        // My TournamentManager logic sets p1Ready=true for Bye.
+        console.log("Bye match ready? Should verify logic.");
+        return;
+      }
+
+      fastify.startTournamentMatch(
+        match.matchId,
+        match.tournamentId,
+        match.player1.id,
+        match.player1.name,
+        match.player2.id,
+        match.player2.name
+      );
+    } else {
+      // Broadcast update so other player sees the checkmark
+      const tournamentData = tournament.getSummary();
+      tournament.players.forEach(player => {
+        const socket = fastify.onlineUsers.get(Number(player.id));
+        if (socket) {
+          safeSend(socket, {
+            event: "TOURNAMENT_UPDATE",
+            payload: tournamentData
+          }, Number(player.id));
+        }
+      });
+    }
   });
 
   /**

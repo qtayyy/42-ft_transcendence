@@ -174,6 +174,8 @@ class TournamentManager {
 					player1: shuffled[i],
 					player2: shuffled[i + 1],
 					status: 'pending',
+					p1Ready: false,
+					p2Ready: false,
 					result: null,
 				});
 				matchId++;
@@ -185,7 +187,9 @@ class TournamentManager {
 					round: 1,
 					player1: shuffled[i],
 					player2: null, // Bye
-					status: 'bye',
+					status: 'pending', // Pending until processed at end of round
+					p1Ready: true, // Bye is always ready
+					p2Ready: true,
 					result: {
 						winner: shuffled[i].id,
 						outcome: 'bye',
@@ -225,7 +229,9 @@ class TournamentManager {
 						round: roundNumber,
 						player1: this.getPlayerById(byePlayer.playerId),
 						player2: null,
-						status: 'bye',
+						status: 'pending', // Pending until processed at end of round
+						p1Ready: true,
+						p2Ready: true,
 						result: {
 							winner: byePlayer.playerId,
 							outcome: 'bye',
@@ -260,6 +266,8 @@ class TournamentManager {
 						player1: p1,
 						player2: p2,
 						status: 'pending',
+						p1Ready: false,
+						p2Ready: false,
 						result: null,
 					});
 
@@ -272,6 +280,22 @@ class TournamentManager {
 		}
 
 		return matches;
+	}
+
+	setLobbyReady(matchId, userId) {
+		const match = this.matches.find(m => m.matchId === matchId);
+		if (!match) return { success: false };
+
+		// Ensure userId is number for comparison
+		const uid = Number(userId);
+
+		if (Number(match.player1.id) === uid) match.p1Ready = true;
+		else if (match.player2 && Number(match.player2.id) === uid) match.p2Ready = true;
+
+		// Check if both are ready (or if bye)
+		const allReady = match.p1Ready && (match.player2 ? match.p2Ready : true);
+
+		return { success: true, match, allReady };
 	}
 
 	/**
@@ -421,10 +445,32 @@ class TournamentManager {
 			.filter(m => m.round === round)
 			.every(m => m.status === 'completed');
 
-		if (roundComplete && round === this.currentRound && round < this.totalRounds) {
+		if (roundComplete && round === this.currentRound) {
 			this.currentRound++;
 			roundChanged = true;
 			console.log(`Tournament ${this.tournamentId}: Round ${round} complete. Advancing to Round ${this.currentRound}`);
+
+			// If tournament is now complete (currentRound > totalRounds), seal it
+			if (this.currentRound > this.totalRounds) {
+				console.log(`Tournament ${this.tournamentId}: All rounds complete. Tournament finished.`);
+				this.completedAt = Date.now();
+			}
+			// Otherwise generate next round pairings (Swiss only)
+			else if (this.format === 'swiss') {
+				// Safety check: ensure we haven't already generated matches for this round
+				const existingMatches = this.matches.filter(m => m.round === this.currentRound);
+				if (existingMatches.length > 0) {
+					console.log(`Tournament ${this.tournamentId}: Matches for Round ${this.currentRound} already exist. Skipping generation.`);
+				} else {
+					try {
+						console.log(`Tournament ${this.tournamentId}: Generating Swiss pairings for Round ${this.currentRound}`);
+						const newMatches = this.generateSwissPairings(this.currentRound);
+						this.matches.push(...newMatches);
+					} catch (err) {
+						console.error(`Tournament ${this.tournamentId}: Failed to generate Swiss pairings:`, err);
+					}
+				}
+			}
 		}
 
 		return { roundChanged };
