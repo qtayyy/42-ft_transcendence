@@ -11,7 +11,7 @@ export interface TournamentMatch {
 	round: number;
 	player1: Player;
 	player2: Player | null; // null for bye
-	status: 'pending' | 'in-progress' | 'completed' | 'bye';
+	status: 'pending' | 'inprogress' | 'completed' | 'bye';
 	result: {
 		player1Id: string;
 		player2Id: string | null;

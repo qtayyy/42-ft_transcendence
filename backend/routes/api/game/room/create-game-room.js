@@ -11,7 +11,7 @@ export default async function (fastify, opts) {
     },
     async (request, reply) => {
       try {
-        const hostId = request.user.userId;
+        const hostId = Number(request.user.userId);
         const profile = await prisma.profile.findUnique({ where: { id: hostId } });
 
         console.log(`[createGameRoom API] hostId: ${hostId} (type: ${typeof hostId})`);

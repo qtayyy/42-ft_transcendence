@@ -280,6 +280,11 @@ export default async function (fastify, opts) {
           }
         } catch (error) {
           console.error("Error processing message:", error);
+          // Send error back to client so they don't hang
+          safeSend(connection, {
+            event: "JOIN_ROOM_ERROR",
+            payload: { message: error.message || "Unknown error occurred" }
+          }, userId);
         }
       });
 

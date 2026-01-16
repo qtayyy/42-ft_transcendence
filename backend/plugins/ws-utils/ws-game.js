@@ -25,7 +25,22 @@ export default fp((fastify) => {
     // Ensure userId is a number for consistent lookup
     const numericUserId = Number(userId);
 
-    const roomId = fastify.currentRoom.get(numericUserId);
+    let roomId = fastify.currentRoom.get(numericUserId);
+
+    // Fallback: If not in currentRoom, check if user is in any active game room
+    // This handles cases where socket disconnected but user is still logically in the room
+    if (!roomId) {
+      for (const [id, room] of fastify.gameRooms.entries()) {
+        const isJoined = room.joinedPlayers.some(p => Number(p.id) === numericUserId);
+        if (isJoined) {
+          roomId = id;
+          fastify.currentRoom.set(numericUserId, roomId);
+          console.log(`[sendGameRoom] Recovered room ${roomId} for user ${numericUserId}`);
+          break;
+        }
+      }
+    }
+
     if (!roomId) return;
     const room = fastify.gameRooms.get(roomId);
     if (!room) {
@@ -302,7 +317,8 @@ export default fp((fastify) => {
   });
 
   // Join room by code (for remote play)
-  fastify.decorate("joinRoomByCode", (roomId, userId, username) => {
+  fastify.decorate("joinRoomByCode", (roomIdInput, userId, username) => {
+    const roomId = roomIdInput.trim();
     const room = fastify.gameRooms.get(roomId);
     if (!room) throw new Error("Room not found");
 

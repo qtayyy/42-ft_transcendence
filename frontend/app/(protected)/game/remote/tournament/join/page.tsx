@@ -49,6 +49,18 @@ export default function JoinTournamentPage() {
 		}
 	}, [gameRoom, joined]);
 
+	// Listen for join errors
+	useEffect(() => {
+		const handleError = (e: CustomEvent) => {
+			setError(e.detail.message || "Failed to join room");
+			setJoining(false);
+			setJoined(false);
+		};
+
+		window.addEventListener("JOIN_ROOM_ERROR", handleError as EventListener);
+		return () => window.removeEventListener("JOIN_ROOM_ERROR", handleError as EventListener);
+	}, []);
+
 	const handleJoin = () => {
 		if (!roomCode.trim() || !user || !isReady) return;
 		

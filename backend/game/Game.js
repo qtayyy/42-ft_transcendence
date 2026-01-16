@@ -1,4 +1,5 @@
 import { PrismaClient } from "/app/generated/prisma/index.js"
+import { activeTournaments } from "./TournamentManager.js";
 const prisma = new PrismaClient();
 
 // Game Constants
@@ -36,6 +37,7 @@ class Game {
 				id: null
 			}
 		};
+		this.spectators = []; // Array of { socket, id }
 		this.gameState = this.createInitialState();
 		// Game loop control
 		this.running = false
@@ -134,6 +136,19 @@ class Game {
 				return ('p2');
 			}
 		}
+
+		// If neither p1 nor p2 (or both filled), it matches as spectator
+		this.spectators.push({
+			socket: socket,
+			id: userId
+		});
+		console.log(`Spectator joined (ID: ${userId})`);
+
+		// If game is already running, send current state immediately
+		if (this.running) {
+			socket.send(JSON.stringify(this.gameState));
+		}
+
 		return ('spectator');
 	}
 
@@ -164,6 +179,15 @@ class Game {
 	startGameLoop() {
 		if (this.running)
 			return;
+
+		// If part of a tournament, mark match as in-progress
+		if (this.tournamentId && this.mode === 'remote') {
+			const tournament = activeTournaments.get(this.tournamentId);
+			if (tournament) {
+				tournament.markMatchInProgress(this.matchId);
+			}
+		}
+
 		console.log(`Starting Game Loop for Match ${this.matchId}`);
 		this.running = true;
 		this.gameState.status = 'playing';
@@ -418,6 +442,17 @@ class Game {
 		if (this.players.p2.socket && this.players.p2.socket.readyState === 1) {
 			this.players.p2.socket.send(payload);
 		}
+
+		// Broadcast to spectators
+		for (let i = this.spectators.length - 1; i >= 0; i--) {
+			const spec = this.spectators[i];
+			if (spec.socket.readyState === 1) {
+				spec.socket.send(payload);
+			} else {
+				// Remove disconnected spectators
+				this.spectators.splice(i, 1);
+			}
+		}
 	}
 
 	_broadcastState() {
@@ -484,6 +519,17 @@ class Game {
 		}
 		// else: it's a draw (winner stays null)
 
+		// If part of a tournament, report result
+		if (this.tournamentId && this.mode === 'remote') {
+			const tournament = activeTournaments.get(this.tournamentId);
+			if (tournament) {
+				tournament.updateMatchResult(this.matchId, {
+					p1: p1Score,
+					p2: p2Score
+				}, result);
+			}
+		}
+
 		this.gameState.status = 'finished';
 		this.gameState.winner = winner;
 		this.gameState.result = result;
@@ -492,7 +538,8 @@ class Game {
 			type: 'GAME_OVER',
 			winner: winner, // null for draw
 			result: result, // 'win' or 'draw'
-			score: this.gameState.score
+			score: this.gameState.score,
+			tournamentId: this.tournamentId // Trigger auto-redirect on frontend
 		});
 
 		if (winner)

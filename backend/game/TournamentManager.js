@@ -13,6 +13,9 @@
  * - Bye = 3 points (no score differential or total points)
  */
 
+// Shared storage for active tournaments
+export const activeTournaments = new Map();
+
 class TournamentManager {
 	constructor(tournamentId, players) {
 		this.tournamentId = tournamentId;
@@ -45,8 +48,9 @@ class TournamentManager {
 	 */
 	calculateTotalRounds() {
 		if (this.format === 'round-robin') {
-			// Everyone plays everyone once
-			return this.players.length - 1;
+			// If odd number of players, everyone plays N rounds (including 1 bye)
+			// If even number of players, everyone plays N-1 rounds
+			return this.players.length % 2 === 0 ? this.players.length - 1 : this.players.length;
 		} else if (this.format === 'swiss') {
 			// Always 3 rounds for Swiss
 			return 3;
@@ -81,20 +85,57 @@ class TournamentManager {
 		const matches = [];
 		let matchId = 1;
 
-		// Generate all possible pairings
-		for (let i = 0; i < this.players.length; i++) {
-			for (let j = i + 1; j < this.players.length; j++) {
-				matches.push({
-					matchId: `${this.tournamentId}-m${matchId}`,
-					tournamentId: this.tournamentId,
-					round: Math.ceil(matchId / (this.players.length / 2)), // Distribute across rounds
-					player1: this.players[i],
-					player2: this.players[j],
-					status: 'pending', // pending, in-progress, completed
-					result: null, // Will be: {winner, score: {p1, p2}, outcome: 'win'|'draw'}
-				});
-				matchId++;
+		// Clone players array
+		let roundPlayers = [...this.players];
+
+		// If odd number of players, add a dummy player for Byes
+		// The dummy is represented as null inside the algorithm
+		if (roundPlayers.length % 2 !== 0) {
+			roundPlayers.push(null);
+		}
+
+		const numPlayers = roundPlayers.length;
+		const numRounds = numPlayers - 1;
+		const half = numPlayers / 2;
+
+		// Generate pairings for each round
+		for (let round = 1; round <= numRounds; round++) {
+			for (let i = 0; i < half; i++) {
+				const p1 = roundPlayers[i];
+				const p2 = roundPlayers[numPlayers - 1 - i];
+
+				// If one player is the dummy, the other gets a Bye
+				if (p1 === null || p2 === null) {
+					const actualPlayer = p1 || p2;
+					// Create a Bye Match
+					matches.push({
+						matchId: `${this.tournamentId}-r${round}-bye`,
+						tournamentId: this.tournamentId,
+						round: round,
+						player1: actualPlayer,
+						player2: null,
+						status: 'pending', // Pending so user can "Confirm" it
+						result: null,
+					});
+				} else {
+					// Normal Match
+					matches.push({
+						matchId: `${this.tournamentId}-m${matchId}`,
+						tournamentId: this.tournamentId,
+						round: round,
+						player1: p1,
+						player2: p2,
+						status: 'pending',
+						result: null,
+					});
+					matchId++;
+				}
 			}
+
+			// Rotate players for next round (Circle Method)
+			// Keep the first player fixed, rotate the rest clockwise
+			// [0, 1, 2, 3] -> [0, 3, 1, 2] -> [0, 2, 3, 1]
+			roundPlayers.splice(1, 0, roundPlayers.pop());
 		}
 
 		return matches;
@@ -296,6 +337,97 @@ class TournamentManager {
 				p1Standing.losses += 1;
 			}
 		}
+	}
+
+	/**
+	 * Mark match as in progress
+	 */
+	markMatchInProgress(matchId) {
+		const match = this.matches.find(m => m.matchId === matchId);
+		if (!match) return false;
+
+		if (match.status === 'pending') {
+			match.status = 'inprogress';
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Update match result
+	 */
+	updateMatchResult(matchId, score, outcome) {
+		const match = this.matches.find(m => m.matchId === matchId);
+		if (!match) {
+			console.error(`Tournament match not found: ${matchId}`);
+			return { success: false };
+		}
+
+		// Prevent double updates
+		if (match.status === 'completed') return { success: true };
+
+		match.status = 'completed';
+		match.result = {
+			winner: outcome === 'win' ? (score.p1 > score.p2 ? match.player1.id : match.player2.id) : null,
+			outcome,
+			score
+		};
+
+		// Update standings
+		this.updateStandings({
+			player1Id: match.player1.id,
+			player2Id: match.player2 ? match.player2.id : null,
+			score,
+			outcome
+		});
+
+		console.log(`Tournament ${this.tournamentId}: Match ${matchId} completed.`);
+
+		// Check if all *other* matches in this round are complete
+		// If so, and there's a pending Bye match, auto-complete it
+		const byeResult = this.checkAndProcessRoundBye(match.round);
+
+		return {
+			success: true,
+			roundChanged: byeResult.roundChanged,
+			tournamentId: this.tournamentId
+		};
+	}
+
+	/**
+	 * Check if round is effectively complete (only bye remaining)
+	 * and process the bye if so.
+	 */
+	checkAndProcessRoundBye(round) {
+		let roundChanged = false;
+		const roundMatches = this.matches.filter(m => m.round === round);
+
+		// Get all "real" matches (non-bye)
+		const realMatches = roundMatches.filter(m => m.player2 !== null);
+		const allRealMatchesComplete = realMatches.every(m => m.status === 'completed');
+
+		if (allRealMatchesComplete) {
+			// Find pending bye match
+			const byeMatch = roundMatches.find(m => m.player2 === null && m.status === 'pending');
+
+			if (byeMatch) {
+				console.log(`Tournament ${this.tournamentId}: All matches in round ${round} complete. Auto-processing bye for ${byeMatch.player1.name}`);
+				this.updateMatchResult(byeMatch.matchId, { p1: 0, p2: 0 }, 'bye');
+			}
+		}
+
+		// Check if round is fully complete (all matches including byes)
+		const roundComplete = this.matches
+			.filter(m => m.round === round)
+			.every(m => m.status === 'completed');
+
+		if (roundComplete && round === this.currentRound && round < this.totalRounds) {
+			this.currentRound++;
+			roundChanged = true;
+			console.log(`Tournament ${this.tournamentId}: Round ${round} complete. Advancing to Round ${this.currentRound}`);
+		}
+
+		return { roundChanged };
 	}
 
 	/**
