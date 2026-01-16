@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSocketContext } from "@/context/socket-context";
+import { useAuth } from "@/hooks/use-auth";
 import axios from "axios";
 
 export interface Notification {
@@ -17,9 +18,17 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loaded, setLoaded] = useState(false);
   const { sendSocketMessage, isReady } = useSocketContext();
+  const { user, loadingAuth } = useAuth();
 
   // Load existing friend requests on mount
   useEffect(() => {
+    // Wait for authentication to complete before fetching
+    if (loadingAuth) return;
+    if (!user) {
+      setLoaded(true);
+      return; // Not authenticated, no notifications to load
+    }
+
     async function loadFriendRequests() {
       try {
         const res = await axios.get("/api/friends/pending");
@@ -34,9 +43,13 @@ export function useNotifications() {
         }));
         setNotifications(existingNotifications);
         setLoaded(true);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to load friend requests:", error);
-        setLoaded(true);
+        // Only set loaded to true if it's not a 401 (auth error)
+        // For 401, we'll wait and retry when auth completes
+        if (error.response?.status !== 401) {
+          setLoaded(true);
+        }
       }
     }
     loadFriendRequests();
@@ -50,7 +63,7 @@ export function useNotifications() {
     return () => {
       window.removeEventListener("refreshNotifications", handleRefresh);
     };
-  }, []);
+  }, [user, loadingAuth]);
 
   // Listen for friend request events
   useEffect(() => {
