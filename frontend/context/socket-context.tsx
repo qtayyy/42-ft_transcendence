@@ -73,6 +73,11 @@ useEffect(() => {
               break;
 
             case "FRIEND_REQUEST":
+              // Dispatch custom event for notifications
+              window.dispatchEvent(
+                new CustomEvent("friendRequest", { detail: payload })
+              );
+              // Also show toast
               toast.info(
                 `${payload.requesterUsername} sent you a friend request!`
               );

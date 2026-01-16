@@ -101,7 +101,8 @@ export default function DashboardPage() {
       <Button
         onClick={() => router.push('/chat')}
         aria-label="Go to Chat"
-        className="fixed bottom-8 right-8 z-50 rounded-full text-2xl"
+        variant="ghost"
+        className="fixed bottom-8 right-8 z-50 rounded-full text-5xl p-0 h-auto w-auto bg-transparent hover:bg-transparent"
       >
         💬
       </Button>

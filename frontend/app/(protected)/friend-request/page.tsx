@@ -25,11 +25,15 @@ export default function FriendRequestsPage() {
   const accept = async (id: number) => {
     await axios.put(`/api/friends/request/${id}/accept`);
     fetchRequests();
+    // Refresh notifications in header
+    window.dispatchEvent(new CustomEvent("refreshNotifications"));
   };
 
   const decline = async (id: number) => {
     await axios.put(`/api/friends/request/${id}/decline`);
     fetchRequests();
+    // Refresh notifications in header
+    window.dispatchEvent(new CustomEvent("refreshNotifications"));
   };
 
   return (
