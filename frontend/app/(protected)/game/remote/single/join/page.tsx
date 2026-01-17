@@ -51,29 +51,53 @@ export default function JoinRoomPage() {
 
 	const handleJoin = () => {
 		if (!roomCode.trim() || !user || !isReady) return;
+
+		// Issue #26: Basic UUID validation for room code
+		const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+		if (!uuidRegex.test(roomCode.trim())) {
+			setError("Invalid room code format (must be a valid UUID)");
+			return;
+		}
 		
 		setJoining(true);
 		setError(null);
 
-		try {
-			// Send join request via WebSocket
-			sendSocketMessage({
-				event: "JOIN_ROOM_BY_CODE",
-				payload: {
-					roomId: roomCode.trim(),
-					userId: user.id,
-					username: user.username,
-				},
-			});
-			setJoined(true);
-		} catch (err: any) {
-			setError(err.message || "Failed to join room");
-			setJoining(false);
-		}
+		
+		// Send join request via WebSocket calls
+		sendSocketMessage({
+			event: "JOIN_ROOM_BY_CODE",
+			payload: {
+				roomId: roomCode.trim(),
+				userId: user.id,
+				username: user.username,
+			},
+		});
+		// Do not setJoined(true) here immediately. Wait for JOIN_ROOM event.
 	};
 
+	useEffect(() => {
+		const handleJoinSuccess = () => {
+			setJoined(true);
+			setJoining(false);
+		};
+
+		const handleJoinError = (e: CustomEvent) => {
+			// e.detail is the payload
+			setError(e.detail?.message || "Failed to join room");
+			setJoining(false);
+		};
+
+		window.addEventListener("JOIN_ROOM", handleJoinSuccess);
+		window.addEventListener("JOIN_ROOM_ERROR", handleJoinError as EventListener);
+
+		return () => {
+			window.removeEventListener("JOIN_ROOM", handleJoinSuccess);
+			window.removeEventListener("JOIN_ROOM_ERROR", handleJoinError as EventListener);
+		};
+	}, []);
+
 	const handleStartGame = () => {
-		if (!gameRoom) return;
+		if (!gameRoom || gameRoom.joinedPlayers.length < 2) return;
 		router.push(`/game/RS-${roomCode.trim()}`);
 	};
 

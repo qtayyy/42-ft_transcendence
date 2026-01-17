@@ -246,8 +246,8 @@ export default function RemoteTournamentPage() {
 		}
 	};
 
-	const handleLeaveTournament = () => {
-		// Send LEAVE_ROOM event to backend for proper cleanup and forfeit
+	const leaveRoom = () => {
+		// Send LEAVE_ROOM event to backend for proper cleanup
 		if (user && roomId) {
 			sendSocketMessage({
 				event: "LEAVE_ROOM",
@@ -257,8 +257,11 @@ export default function RemoteTournamentPage() {
 				}
 			});
 		}
-		
-		// Redirect to tournament list
+	};
+
+	const handleLeaveTournament = () => {
+		leaveRoom();
+		// Default redirect to tournament list
 		router.push("/game/remote/tournament");
 	};
 
@@ -357,8 +360,9 @@ export default function RemoteTournamentPage() {
 							<div className="grid grid-cols-2 gap-4 max-w-lg mx-auto pt-4">
 								<Button
 									onClick={() => {
-										handleLeaveTournament();
-										router.push("/game/remote/tournament");
+										console.log("Navigating to new game list");
+										leaveRoom();
+										router.push("/game/remote/tournament"); // Redirect to remote tournament list
 									}}
 									size="lg"
 									className="h-14 text-lg bg-primary hover:bg-primary/90"
@@ -367,8 +371,8 @@ export default function RemoteTournamentPage() {
 								</Button>
 								<Button
 									onClick={() => {
-										handleLeaveTournament();
-										router.push("/dashboard");
+										leaveRoom();
+										router.push("/dashboard"); // Redirect to dashboard
 									}}
 									variant="outline"
 									size="lg"

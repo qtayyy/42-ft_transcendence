@@ -48,9 +48,10 @@ class TournamentManager {
 	 */
 	calculateTotalRounds() {
 		if (this.format === 'round-robin') {
-			// If odd number of players, everyone plays N rounds (including 1 bye)
-			// If even number of players, everyone plays N-1 rounds
-			return this.players.length % 2 === 0 ? this.players.length - 1 : this.players.length;
+			// Everyone must play everyone once
+			// With bye handling, this is always (padded player count) - 1
+			const paddedCount = this.players.length % 2 === 0 ? this.players.length : this.players.length + 1;
+			return paddedCount - 1;
 		} else if (this.format === 'swiss') {
 			// Always 3 rounds for Swiss
 			return 3;
@@ -190,11 +191,7 @@ class TournamentManager {
 					status: 'pending', // Pending until processed at end of round
 					p1Ready: true, // Bye is always ready
 					p2Ready: true,
-					result: {
-						winner: shuffled[i].id,
-						outcome: 'bye',
-						score: { p1: 0, p2: 0 }
-					}
+					result: null // Will be set by checkAndProcessRoundBye
 				});
 			}
 		}
@@ -232,11 +229,7 @@ class TournamentManager {
 						status: 'pending', // Pending until processed at end of round
 						p1Ready: true,
 						p2Ready: true,
-						result: {
-							winner: byePlayer.playerId,
-							outcome: 'bye',
-							score: { p1: 0, p2: 0 }
-						}
+						result: null // Will be set by checkAndProcessRoundBye
 					});
 					break;
 				}
@@ -247,35 +240,46 @@ class TournamentManager {
 		for (let i = 0; i < sorted.length; i++) {
 			if (paired.has(sorted[i].playerId)) continue;
 
-			// Find best opponent
+			let opponentIndex = -1;
+
+			// Try to find opponent who hasn't played
 			for (let j = i + 1; j < sorted.length; j++) {
 				if (paired.has(sorted[j].playerId)) continue;
-
-				// Check if they haven't played before
-				const hasPlayed = sorted[i].opponents.includes(sorted[j].playerId);
-
-				if (!hasPlayed) {
-					// Pair them
-					const p1 = this.getPlayerById(sorted[i].playerId);
-					const p2 = this.getPlayerById(sorted[j].playerId);
-
-					matches.push({
-						matchId: `${this.tournamentId}-r${roundNumber}-m${matchId}`,
-						tournamentId: this.tournamentId,
-						round: roundNumber,
-						player1: p1,
-						player2: p2,
-						status: 'pending',
-						p1Ready: false,
-						p2Ready: false,
-						result: null,
-					});
-
-					paired.add(sorted[i].playerId);
-					paired.add(sorted[j].playerId);
-					matchId++;
+				if (!sorted[i].opponents.includes(sorted[j].playerId)) {
+					opponentIndex = j;
 					break;
 				}
+			}
+
+			// Fallback: Pair with next available player (rematch)
+			if (opponentIndex === -1) {
+				for (let j = i + 1; j < sorted.length; j++) {
+					if (paired.has(sorted[j].playerId)) continue;
+					opponentIndex = j;
+					break;
+				}
+			}
+
+			if (opponentIndex !== -1) {
+				// Pair them
+				const p1 = this.getPlayerById(sorted[i].playerId);
+				const p2 = this.getPlayerById(sorted[opponentIndex].playerId);
+
+				matches.push({
+					matchId: `${this.tournamentId}-r${roundNumber}-m${matchId}`,
+					tournamentId: this.tournamentId,
+					round: roundNumber,
+					player1: p1,
+					player2: p2,
+					status: 'pending',
+					p1Ready: false,
+					p2Ready: false,
+					result: null,
+				});
+
+				paired.add(sorted[i].playerId);
+				paired.add(sorted[opponentIndex].playerId);
+				matchId++;
 			}
 		}
 
@@ -318,6 +322,33 @@ class TournamentManager {
 			// Bye: 3 points, no score differential
 			p1Standing.matchPoints += 3;
 			p1Standing.byes += 1;
+			return;
+		}
+
+		if (outcome === 'forfeit') {
+			// Determine winner (the one who didn't forfeit)
+			// Let's deduce winner/loser based on score (5-0)
+			const winnerId = score.p1 > score.p2 ? player1Id : player2Id;
+			const loserId = score.p1 > score.p2 ? player2Id : player1Id;
+
+			const winnerStanding = this.standings.find(s => s.playerId === winnerId);
+			const loserStanding = this.standings.find(s => s.playerId === loserId);
+
+			if (winnerStanding) {
+				winnerStanding.matchPoints += 3;
+				winnerStanding.wins += 1;
+				winnerStanding.matchesPlayed += 1;
+				winnerStanding.totalPointsScored += (score.p1 > score.p2 ? score.p1 : score.p2);
+				winnerStanding.scoreDifferential += Math.abs(score.p1 - score.p2);
+				winnerStanding.opponents.push(loserId);
+			}
+			if (loserStanding) {
+				loserStanding.losses += 1;
+				loserStanding.matchesPlayed += 1;
+				loserStanding.totalPointsScored += (score.p1 > score.p2 ? score.p2 : score.p1);
+				loserStanding.scoreDifferential -= Math.abs(score.p1 - score.p2);
+				loserStanding.opponents.push(winnerId);
+			}
 			return;
 		}
 

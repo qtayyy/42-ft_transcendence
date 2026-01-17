@@ -52,6 +52,12 @@ export default async function (fastify, opts) {
 					});
 				}
 
+				if (customTournamentId && (customTournamentId.length < 3 || customTournamentId.length > 64)) {
+					return reply.code(400).send({
+						error: "Tournament name/ID must be between 3 and 64 characters"
+					});
+				}
+
 				// Use custom tournamentId if provided, otherwise generate one
 				const tournamentId = customTournamentId || `RT-${Date.now()}`;
 

@@ -230,14 +230,14 @@ export default fp((fastify) => {
                 tournament.updateStandings({
                   player1Id: match.player1.id,
                   player2Id: match.player2.id,
-                  score: { p1: 0, p2: 10 }, // 10-0 indicates forfeit win
+                  score: { p1: 0, p2: 5 }, // 5 indicates forfeit win (WIN_SCORE)
                   outcome: 'forfeit'
                 });
               } else if (isPlayer2) {
                 tournament.updateStandings({
                   player1Id: match.player1.id,
                   player2Id: match.player2.id,
-                  score: { p1: 10, p2: 0 },
+                  score: { p1: 5, p2: 0 },
                   outcome: 'forfeit'
                 });
               }

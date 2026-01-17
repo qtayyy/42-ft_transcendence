@@ -57,13 +57,21 @@ useEffect(() => {
     if (!user) return;
 
     if (!wsRef.current) {
-      const websocket = new WebSocket("wss://localhost:8443/ws");
-      // Heartbeat
-      const interval = setInterval(
-        () => websocket.send(JSON.stringify({ event: "PING" })),
-        30000
-      );
-      wsRef.current = websocket;
+      const connect = () => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+        const websocket = new WebSocket(process.env.NEXT_PUBLIC_WS_URL || "wss://localhost:8443/ws");
+        wsRef.current = websocket;
+
+        // Heartbeat
+        const interval = setInterval(
+          () => {
+            if (websocket.readyState === WebSocket.OPEN) {
+              websocket.send(JSON.stringify({ event: "PING" }));
+            }
+          },
+          30000
+        );
 
       websocket.onopen = () => {
         console.log("WebSocket connected");
@@ -140,6 +148,9 @@ useEffect(() => {
               // Room joined successfully - pages handle their own state
               // No redirect needed as new pages stay in place
               toast.success("Joined room successfully!");
+              window.dispatchEvent(
+                new CustomEvent("JOIN_ROOM", { detail: payload })
+              );
               break;
 
             case "JOIN_ROOM_ERROR":
@@ -147,6 +158,26 @@ useEffect(() => {
               window.dispatchEvent(
                 new CustomEvent("JOIN_ROOM_ERROR", { detail: payload })
               );
+              break;
+
+
+            case "MATCH_FOUND":
+              // Navigate to the matched game room
+              router.push(`/game/${payload.matchId}`);
+              break;
+
+            case "TOURNAMENT_FOUND":
+              // Navigate to the tournament
+              router.push(`/game/remote/tournament/${payload.tournamentId}`);
+              break;
+
+            case "MATCHMAKING_JOINED":
+              // Optionally show queue position
+              console.log("Joined matchmaking queue, position:", payload.position);
+              break;
+
+            case "MATCHMAKING_LEFT":
+              // Confirm left queue
               break;
 
             case "TOURNAMENT_UPDATE":
@@ -226,21 +257,34 @@ useEffect(() => {
           }
         } catch (err) {
           // think about how to handle errors
-          console.warn("Non-JSON WebSocket message:", event.data);
-          throw err;
+          console.warn("Non-JSON WebSocket message or error handling message:", event.data, err);
         }
       };
 
-      websocket.onclose = (event) => {
-        setIsReady(false);
-        console.log("WebSocket closed", event.code, event.reason);
-        clearInterval(interval);
+        websocket.onerror = (err) => {
+          console.error("WebSocket error:", err);
+        };
+
+        websocket.onclose = (event) => {
+          setIsReady(false);
+          console.log("WebSocket closed", event.code, event.reason);
+          clearInterval(interval);
+          wsRef.current = null;
+
+          // Attempt reconnection with exponential backoff if not closed intentionally
+          if (event.code !== 1000) {
+            const timeoutId = setTimeout(() => {
+                console.log("Attempting to reconnect...");
+                connect();
+            }, 3000); // Simple 3s delay for now, or use exponential backoff
+            
+            // Clean up timeout if component unmounts - handled by effect cleanup? 
+            // Actually, we are inside a function scope. 
+          }
+        };
       };
 
-      websocket.onerror = (err) => {
-        setIsReady(false);
-        console.error("WebSocket error:", err);
-      };
+      connect();
     }
 
     return () => {
@@ -251,13 +295,12 @@ useEffect(() => {
     };
   }, [
     user,
-    // setInvitesReceived,
-    // setOnlineFriends,
-    // setGameRoom,
-    // router,
-    // setGameRoomLoaded,
-    // gameState,
-    // setGameState,
+    setInvitesReceived,
+    setOnlineFriends,
+    setGameRoom,
+    router,
+    setGameRoomLoaded,
+    setGameState,
   ]);
 
   const sendSocketMessage = useCallback((payload) => {
