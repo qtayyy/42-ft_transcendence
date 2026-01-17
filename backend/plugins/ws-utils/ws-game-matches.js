@@ -261,6 +261,9 @@ function startGameLoop(gameState, fastify) {
   if (gameLoops.has(matchId)) return;
 
   const loopHandle = setInterval(() => {
+    // Check if game is paused (e.g. player disconnected)
+    if (gameState.paused) return;
+
     updatePaddles(gameState, "LEFT");
     updatePaddles(gameState, "RIGHT");
     updateBall(gameState);
@@ -523,12 +526,16 @@ export default fp(async (fastify, opts) => {
     const tournament = fastify.activeTournaments.get(tournamentId);
     if (!tournament) {
       console.error(`[handleLobbyReady] Tournament ${tournamentId} not found`);
+      const socket = fastify.onlineUsers.get(Number(userId));
+      if (socket) safeSend(socket, { event: "TOURNAMENT_ERROR", payload: { message: "Tournament not found" } }, userId);
       return;
     }
 
     const result = tournament.setLobbyReady(matchId, userId);
     if (!result.success) {
       console.error(`[handleLobbyReady] Match ${matchId} not found`);
+      const socket = fastify.onlineUsers.get(Number(userId));
+      if (socket) safeSend(socket, { event: "TOURNAMENT_ERROR", payload: { message: "Match not found" } }, userId);
       return;
     }
 

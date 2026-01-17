@@ -11,6 +11,7 @@ const PADDLE_SPEED = 10;
 const BALL_SIZE = 12;
 const FPS = 60;
 const TICK_MS = 1000 / FPS;
+const WIN_SCORE = 5;
 
 // Timer-Based Match System (2-minute matches)
 const MATCH_DURATION_MS = 120000; // 2 minutes in milliseconds
@@ -179,6 +180,8 @@ class Game {
 	startGameLoop() {
 		if (this.running)
 			return;
+		this.running = true;
+
 
 		// If part of a tournament, mark match as in-progress
 		if (this.tournamentId && this.mode === 'remote') {
@@ -189,7 +192,6 @@ class Game {
 		}
 
 		console.log(`Starting Game Loop for Match ${this.matchId}`);
-		this.running = true;
 		this.gameState.status = 'playing';
 
 		// Initialize timer
@@ -494,13 +496,20 @@ class Game {
 		if (this.timeRemaining <= 0) {
 			this._stopGame();
 		}
+		// Score-based win condition
+		if (this.gameState.score.p1 >= WIN_SCORE || this.gameState.score.p2 >= WIN_SCORE) {
+			this._stopGame();
+		}
 	}
 
 	_stopGame() {
 		if (this.running === false)
 			return;
 		this.running = false;
-		clearInterval(this.loopHandle);
+		if (this.loopHandle) {
+			clearInterval(this.loopHandle);
+			this.loopHandle = null;
+		}
 		this.saveMatch();
 
 		// Determine winner based on scores (or draw)
@@ -546,6 +555,21 @@ class Game {
 			console.log(`Game ${this.matchId} ended. Winner: Player ${winner}`);
 		else
 			console.log(`Game ${this.matchId} ended in a DRAW`);
+	}
+	pause() {
+		if (!this.running) return;
+		console.log(`Pausing Game Match ${this.matchId}`);
+		this.running = false;
+		if (this.loopHandle) {
+			clearInterval(this.loopHandle);
+			this.loopHandle = null;
+		}
+	}
+
+	resume() {
+		if (this.running) return;
+		console.log(`Resuming Game Match ${this.matchId}`);
+		this.startGameLoop();
 	}
 }
 

@@ -59,7 +59,7 @@ export default function CreateRoomPage() {
 		}, 2000);
 		
 		return () => clearInterval(interval);
-	}, [sendSocketMessage, user, isReady, roomId]);
+	}, [user, isReady, roomId]);
 
 	const handleCopyCode = () => {
 		if (roomId) {

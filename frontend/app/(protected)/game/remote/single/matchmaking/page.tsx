@@ -26,14 +26,7 @@ export default function MatchmakingPage() {
 		return () => clearInterval(timer);
 	}, [searching]);
 
-	// Simulated queue updates
-	useEffect(() => {
-		if (!searching) return;
-		const interval = setInterval(() => {
-			setPlayersInQueue(prev => Math.min(prev + Math.floor(Math.random() * 2), 10));
-		}, 3000);
-		return () => clearInterval(interval);
-	}, [searching]);
+
 
 	// Join matchmaking queue on mount
 	useEffect(() => {

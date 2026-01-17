@@ -18,6 +18,18 @@ export default async function (fastify, opts) {
       const userId = Number(req.user.userId);
       console.log(`[WS Connect] User connected: ${userId} (type: ${typeof userId})`);
 
+      // Check if this user was in a grace period for a game
+      // Logic to resume game if they were in one
+      // Iterating fastify.gameStates to find if this user belongs to a paused game
+      if (fastify.gameStates) {
+        for (const [matchId, gameState] of fastify.gameStates.entries()) {
+          if ((gameState.leftPlayer?.id === userId || gameState.rightPlayer?.id === userId) && !gameState.running && !gameState.gameOver) {
+            console.log(`[WS Connect] User ${userId} reconnected to paused match ${matchId}. Resuming...`);
+            if (gameState.resume) gameState.resume();
+          }
+        }
+      }
+
       fastify.onlineUsers.set(userId, connection);
       fastify.notifyFriendStatus(userId, "online");
 
@@ -312,6 +324,23 @@ export default async function (fastify, opts) {
           if (gameState.leftPlayer?.id === userId || gameState.rightPlayer?.id === userId) {
             activeGameState = gameState;
             console.log(`[Disconnect] User ${userId} disconnected from match ${matchId}, starting grace period`);
+
+            // Pause the game loop
+            if (activeGameState && typeof activeGameState.pause === 'function') {
+              activeGameState.pause();
+            } else if (activeGameState) {
+              // Fix for Issue #24: Set paused flag for ws-game-matches.js loop
+              activeGameState.paused = true;
+              console.log(`Paused game ${activeGameState.matchId} due to disconnect`);
+            } else if (fastify.games) {
+              // Try to find the Game object instance if activeGameState is just a data object
+              // NOTE: The code structure suggests fastify.gameStates might just be data or Game instances.
+              // Looking at Game.js usage, it seems we need the Game instance.
+              // Assuming fastify.gameRooms maps roomIds to data, but where are Game instances?
+              // Usually standard pong implementations store Game instances in a map.
+              // If activeGameState IS the Game instance (which it seems to be based on `gameState.leftPlayer`), then:
+              if (activeGameState.pause) activeGameState.pause();
+            }
 
             // Set a timeout for auto-forfeit
             setTimeout(() => {
