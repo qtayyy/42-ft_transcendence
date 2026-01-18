@@ -167,8 +167,10 @@ useEffect(() => {
               break;
 
             case "TOURNAMENT_FOUND":
-              // Navigate to the tournament
-              router.push(`/game/remote/tournament/${payload.tournamentId}`);
+              // Dispatch event so matchmaking page can handle it (show lobby)
+              window.dispatchEvent(
+                new CustomEvent("TOURNAMENT_FOUND", { detail: payload })
+              );
               break;
 
             case "MATCHMAKING_JOINED":
@@ -190,7 +192,8 @@ useEffect(() => {
             case "LEAVE_ROOM":
               setGameRoom(null);
               toast.info("You're removed from the game room");
-              router.push("/dashboard");
+              // Don't force redirect here - let the caller handle navigation
+              // This prevents overriding intentional redirects (e.g., "New Game" -> tournament list)
               break;
 
             case "GAME_MATCH_START":

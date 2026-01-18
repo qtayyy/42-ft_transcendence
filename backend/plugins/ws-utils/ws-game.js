@@ -387,24 +387,113 @@ export default fp((fastify) => {
     const queue = matchmakingQueue[mode];
     if (!queue) throw new Error("Invalid matchmaking mode");
 
+    // Ensure userId is a number for consistent lookup
+    const numericUserId = Number(userId);
+
     // Check if already in queue
-    if (queue.some((p) => p.userId === userId)) {
+    if (queue.some((p) => p.userId === numericUserId)) {
       return; // Already in queue
     }
 
     // Check if already in a room
-    if (fastify.currentRoom.get(userId)) {
+    if (fastify.currentRoom.get(numericUserId)) {
       throw new Error("Already in a room");
     }
 
-    const socket = fastify.onlineUsers.get(userId);
-    queue.push({ userId, username, socket, joinedAt: Date.now() });
+    const socket = fastify.onlineUsers.get(numericUserId);
+
+    // For tournament mode: first try to find an existing available tournament room
+    if (mode === "tournament") {
+      // Find an available tournament room (not started, has space, is matchmade tournament)
+      let availableRoom = null;
+      let availableRoomId = null;
+
+      for (const [roomId, room] of fastify.gameRooms.entries()) {
+        // Check if it's a tournament room waiting for players
+        if (
+          room.isTournament &&
+          room.isMatchmade &&
+          !room.tournamentStarted &&
+          room.joinedPlayers.length < room.maxPlayers
+        ) {
+          availableRoom = room;
+          availableRoomId = roomId;
+          break;
+        }
+      }
+
+      if (availableRoom) {
+        // Join the existing tournament room
+        fastify.currentRoom.set(numericUserId, availableRoomId);
+        availableRoom.joinedPlayers.push({ id: numericUserId, username });
+
+        console.log(`[Matchmaking] User ${numericUserId} joined existing tournament room ${availableRoomId}`);
+
+        // Send TOURNAMENT_FOUND to the new player
+        safeSend(socket, {
+          event: "TOURNAMENT_FOUND",
+          payload: {
+            roomId: availableRoomId,
+            tournamentId: `RT-${availableRoomId}`,
+            players: availableRoom.joinedPlayers,
+          },
+        }, numericUserId);
+
+        // Notify all existing players about the new player
+        const payload = {
+          roomId: availableRoomId,
+          hostId: availableRoom.hostId,
+          invitedPlayers: availableRoom.invitedPlayers,
+          joinedPlayers: availableRoom.joinedPlayers,
+          maxPlayers: availableRoom.maxPlayers,
+        };
+
+        availableRoom.joinedPlayers.forEach((player) => {
+          const playerSocket = fastify.onlineUsers.get(Number(player.id));
+          safeSend(playerSocket, { event: "GAME_ROOM", payload }, Number(player.id));
+        });
+
+        return; // Don't add to queue since we joined a room
+      }
+
+      // No available room found, create a new one and become the host
+      const roomId = crypto.randomUUID();
+      fastify.currentRoom.set(numericUserId, roomId);
+
+      fastify.gameRooms.set(roomId, {
+        hostId: numericUserId,
+        invitedPlayers: [],
+        joinedPlayers: [{ id: numericUserId, username }],
+        maxPlayers: 8,
+        isMatchmade: true,
+        isTournament: true,
+        tournamentStarted: false,
+      });
+
+      console.log(`[Matchmaking] User ${numericUserId} created new tournament room ${roomId}`);
+
+      // Send TOURNAMENT_FOUND to the host
+      safeSend(socket, {
+        event: "TOURNAMENT_FOUND",
+        payload: {
+          roomId,
+          tournamentId: `RT-${roomId}`,
+          players: [{ id: numericUserId, username }],
+          isHost: true,
+        },
+      }, numericUserId);
+
+      return; // Don't add to queue since we created a room
+    }
+
+    // For single mode (or other modes): use the queue-based system
+    queue.push({ userId: numericUserId, username, socket, joinedAt: Date.now() });
 
     // Send confirmation
     safeSend(socket, {
       event: "MATCHMAKING_JOINED",
       payload: { mode, position: queue.length },
-    }, userId);
+    }, numericUserId);
 
     // Try to match players
     fastify.tryMatchPlayers(mode);
@@ -502,6 +591,9 @@ export default fp((fastify) => {
     const room = fastify.gameRooms.get(roomId);
     if (!room) throw new Error("Room not found");
     if (room.joinedPlayers.length < 3) throw new Error("Need at least 3 players for a tournament");
+
+    // Mark tournament as started so new players can't join via matchmaking
+    room.tournamentStarted = true;
 
     const payload = {
       event: "TOURNAMENT_START",
