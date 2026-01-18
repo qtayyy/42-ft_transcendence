@@ -10,13 +10,20 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, ArrowLeft, Loader2 } from "lucide-react";
+import { Eye, ArrowLeft, Loader2, Timer, Keyboard, Gamepad2, Hash } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { getPowerUpColor, getEffectColor, getPowerUpSymbol, formatTime } from "@/utils/gameHelpers";
 
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 350;
-const PADDLE_WIDTH = 12;
-const PADDLE_HEIGHT = 80;
-const BALL_SIZE = 12;
+// Default canvas dimensions (will use gameState.constant if available)
+// These are the logical/game dimensions - display size is controlled separately
+const DEFAULT_CANVAS_WIDTH = 800;
+const DEFAULT_CANVAS_HEIGHT = 350;
+
+// Display scale factor for remote games (multiplied by logical dimensions)
+const REMOTE_DISPLAY_SCALE = 1.4;
+const DEFAULT_PADDLE_WIDTH = 12;
+const DEFAULT_PADDLE_HEIGHT = 80;
+const DEFAULT_BALL_SIZE = 12;
 
 export default function GamePage() {
 	const params = useParams();
@@ -29,6 +36,11 @@ export default function GamePage() {
 	const matchId = params.matchId as string;
 	const [matchData, setMatchData] = useState<any>(null);
 	const [gameOverResult, setGameOverResult] = useState<any>(null);
+	const [disconnectInfo, setDisconnectInfo] = useState<{
+		disconnectedPlayer: string;
+		gracePeriodEndsAt: number;
+		countdown: number;
+	} | null>(null);
 
 	// Detect spectator mode from query param or gameState
 	const isSpectator = searchParams.get('spectator') === 'true' || (gameState as any)?.spectatorMode === true;
@@ -61,6 +73,57 @@ export default function GamePage() {
 		};
 	}, []);
 
+	// Listen for opponent disconnect/reconnect events
+	const [opponentConnected, setOpponentConnected] = useState(true);
+
+	useEffect(() => {
+		const handleDisconnect = (event: CustomEvent) => {
+			const { disconnectedPlayer, gracePeriodEndsAt } = event.detail;
+			const countdown = Math.ceil((gracePeriodEndsAt - Date.now()) / 1000);
+			setDisconnectInfo({ disconnectedPlayer, gracePeriodEndsAt, countdown });
+			toast.warning("Opponent disconnected! Waiting for reconnection...");
+			setOpponentConnected(false);
+		};
+
+		const handleReconnect = (_event: CustomEvent) => {
+			setDisconnectInfo(null);
+			toast.success("Opponent reconnected!");
+			setOpponentConnected(true);
+		};
+		
+		const handleOpponentLeft = () => {
+			setOpponentConnected(false);
+			// We don't need to toast here as SocketContext already does, or we can add specific UI feedback
+		};
+
+		window.addEventListener("opponentDisconnected", handleDisconnect as EventListener);
+		window.addEventListener("opponentReconnected", handleReconnect as EventListener);
+		window.addEventListener("opponentLeft", handleOpponentLeft as EventListener);
+		
+		return () => {
+			window.removeEventListener("opponentDisconnected", handleDisconnect as EventListener);
+			window.removeEventListener("opponentReconnected", handleReconnect as EventListener);
+			window.removeEventListener("opponentLeft", handleOpponentLeft as EventListener);
+		};
+	}, []);
+
+	// Countdown timer for disconnect grace period
+	useEffect(() => {
+		if (!disconnectInfo) return;
+
+		const interval = setInterval(() => {
+			const remaining = Math.ceil((disconnectInfo.gracePeriodEndsAt - Date.now()) / 1000);
+			if (remaining <= 0) {
+				clearInterval(interval);
+				setDisconnectInfo(null);
+			} else {
+				setDisconnectInfo(prev => prev ? { ...prev, countdown: remaining } : null);
+			}
+		}, 1000);
+
+		return () => clearInterval(interval);
+	}, [disconnectInfo?.gracePeriodEndsAt]);
+
 	// Load match data for local games
 	useEffect(() => {
 		if (!isRemoteGame) {
@@ -76,11 +139,11 @@ export default function GamePage() {
 		if (!isRemoteGame || !isReady || !gameState || isSpectator) return;
 
 		const onKeyDown = (e: KeyboardEvent) => {
-			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown", "Enter"];
+			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown", "Enter", " "];
 			if (!KEYS.includes(e.key)) return;
 
-			// Prevent default scrolling for arrow keys
-			if (["ArrowUp", "ArrowDown"].includes(e.key)) {
+			// Prevent default scrolling for arrow keys and space
+			if (["ArrowUp", "ArrowDown", " "].includes(e.key)) {
 				e.preventDefault();
 			}
 
@@ -89,7 +152,8 @@ export default function GamePage() {
 			// The backend determines which paddle to move based on userId
 			if (e.key === "w" || e.key === "W" || e.key === "ArrowUp") keyEvent = "UP";
 			else if (e.key === "s" || e.key === "S" || e.key === "ArrowDown") keyEvent = "DOWN";
-			
+			else if (e.key === " ") keyEvent = "PAUSE"; // Space = pause/resume game
+
 			sendSocketMessage({
 				event: "GAME_EVENTS",
 				payload: {
@@ -156,48 +220,101 @@ export default function GamePage() {
 	// Render remote game based on game state
 	useEffect(() => {
 		if (!isRemoteGame || !gameState) return;
-		
+
 		const canvas = canvasRef.current;
 		const ctx = canvas?.getContext("2d");
 		if (!ctx) return;
 
 		function drawGame() {
 			if (!ctx || !gameState) return;
-			
+
+			// Get dimensions from game state or use defaults
+			const CANVAS_WIDTH = gameState.constant?.canvasWidth || DEFAULT_CANVAS_WIDTH;
+			const CANVAS_HEIGHT = gameState.constant?.canvasHeight || DEFAULT_CANVAS_HEIGHT;
+			const PADDLE_WIDTH = gameState.constant?.paddleWidth || DEFAULT_PADDLE_WIDTH;
+			const BALL_SIZE = gameState.constant?.ballSize || DEFAULT_BALL_SIZE;
+
 			const ball = gameState.ball;
 			const left = gameState.leftPlayer;
 			const right = gameState.rightPlayer;
 
-			// Clear canvas
-			ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-			
+			// Clear canvas with black background
+			ctx.fillStyle = "#000000";
+			ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
 			// Draw center line
-			ctx.setLineDash([5, 10]);
+			ctx.setLineDash([10, 10]);
 			ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+			ctx.lineWidth = 2;
 			ctx.beginPath();
 			ctx.moveTo(CANVAS_WIDTH / 2, 0);
 			ctx.lineTo(CANVAS_WIDTH / 2, CANVAS_HEIGHT);
 			ctx.stroke();
 			ctx.setLineDash([]);
 
-			// Draw ball
+			// Draw power-ups
+			if (gameState.powerUps && gameState.powerUps.length > 0) {
+				gameState.powerUps.forEach((pu: any) => {
+					ctx.beginPath();
+					const puRadius = 10;
+					ctx.arc(pu.x, pu.y, puRadius, 0, Math.PI * 2);
+					ctx.fillStyle = getPowerUpColor(pu.type);
+					ctx.fill();
+
+					// White border
+					ctx.strokeStyle = "#fff";
+					ctx.lineWidth = 1;
+					ctx.stroke();
+					ctx.closePath();
+
+					// Symbol
+					ctx.fillStyle = "#000";
+					ctx.font = "bold 10px Arial";
+					ctx.textAlign = "center";
+					ctx.textBaseline = "middle";
+					ctx.fillText(getPowerUpSymbol(pu.type), pu.x, pu.y);
+				});
+			}
+
+			// Draw ball with effect color if active
 			if (ball) {
 				ctx.beginPath();
-				ctx.arc(ball.posX, ball.posY, BALL_SIZE / 2, 0, 2 * Math.PI);
-				ctx.fillStyle = "#FFD700";
+				ctx.arc(ball.posX + BALL_SIZE / 2, ball.posY + BALL_SIZE / 2, BALL_SIZE / 2, 0, 2 * Math.PI);
+				ctx.fillStyle = gameState.activeEffect
+					? getEffectColor(gameState.activeEffect.type)
+					: "#FFFFFF";
 				ctx.fill();
 			}
 
-			// Draw paddles
-			ctx.fillStyle = gameState.me === "LEFT" ? "#22c55e" : "#3b82f6";
+			// Draw paddles with color coding:
+			// Green = your paddle (movable), Blue = opponent paddle
+			// Use dynamic paddle height from game state
+			const leftPaddleHeight = left?.paddleHeight || DEFAULT_PADDLE_HEIGHT;
+			const rightPaddleHeight = right?.paddleHeight || DEFAULT_PADDLE_HEIGHT;
+
 			if (left) {
-				ctx.fillRect(left.paddleX, left.paddleY, PADDLE_WIDTH, PADDLE_HEIGHT);
+				ctx.fillStyle = gameState.me === "LEFT" ? "#22c55e" : "#3b82f6";
+				ctx.fillRect(left.paddleX, left.paddleY, PADDLE_WIDTH, leftPaddleHeight);
 			}
-			
-			ctx.fillStyle = gameState.me === "RIGHT" ? "#22c55e" : "#3b82f6";
+
 			if (right) {
-				ctx.fillRect(right.paddleX, right.paddleY, PADDLE_WIDTH, PADDLE_HEIGHT);
+				ctx.fillStyle = gameState.me === "RIGHT" ? "#22c55e" : "#3b82f6";
+				ctx.fillRect(right.paddleX, right.paddleY, PADDLE_WIDTH, rightPaddleHeight);
 			}
+
+			// Draw scores on canvas
+			const fontSize = 48;
+			ctx.font = `bold ${fontSize}px Arial`;
+			ctx.fillStyle = "white";
+			const centerX = CANVAS_WIDTH / 2;
+
+			// Left player score
+			ctx.textAlign = "right";
+			ctx.fillText(`${left?.score || 0}`, centerX - 30, 60);
+
+			// Right player score
+			ctx.textAlign = "left";
+			ctx.fillText(`${right?.score || 0}`, centerX + 30, 60);
 		}
 
 		function loop() {
@@ -242,13 +359,50 @@ export default function GamePage() {
 		router.push("/game/new");
 	};
 
+	// Get canvas dimensions from game state
+	const CANVAS_WIDTH = gameState?.constant?.canvasWidth || DEFAULT_CANVAS_WIDTH;
+	const CANVAS_HEIGHT = gameState?.constant?.canvasHeight || DEFAULT_CANVAS_HEIGHT;
+
 	// Remote game rendering
 	if (isRemoteGame) {
+		// Show loading state while waiting for game state to be restored via WebSocket
+		if (!gameState && !gameOverResult) {
+			return (
+				<div className="h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted/20">
+					<div className="flex flex-col items-center gap-4">
+						<Loader2 className="h-12 w-12 animate-spin text-primary" />
+						<h2 className="text-2xl font-bold">Connecting to game...</h2>
+						<p className="text-muted-foreground">Restoring your game session</p>
+						<Button
+							variant="outline"
+							onClick={async () => {
+								try {
+									await axios.post("/api/game/leave", { matchId });
+								} catch (e) {
+									console.error("Failed to leave game:", e);
+								}
+								router.push("/game/new");
+							}}
+							className="mt-4"
+						>
+							<ArrowLeft className="mr-2 h-4 w-4" /> Back to Game Menu
+						</Button>
+					</div>
+				</div>
+			);
+		}
+
 		return (
-			<div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20 relative">
-				{/* Spectator Overlay */}
+			<div className="h-screen pt-32 pb-4 flex flex-col overflow-hidden bg-gradient-to-b from-background to-muted/20 relative">
+				{/* Decorative Background Elements */}
+				<div className="absolute inset-0 overflow-hidden pointer-events-none">
+					<div className="absolute top-[20%] left-[10%] w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
+					<div className="absolute bottom-[20%] right-[10%] w-72 h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+				</div>
+
+				{/* Spectator Badge */}
 				{isSpectator && (
-					<div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
+					<div className="absolute top-36 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
 						<Badge className="bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 text-sm font-medium animate-pulse">
 							<Eye className="mr-2 h-4 w-4" /> Spectating Live
 						</Badge>
@@ -263,43 +417,128 @@ export default function GamePage() {
 					</div>
 				)}
 
-				<div className="w-full max-w-4xl space-y-6">
-					{/* Header */}
-					<div className="flex justify-between items-center">
-						<div>
-							<h1 className="text-2xl font-bold text-primary">REMOTE MATCH</h1>
-							<p className="text-sm text-muted-foreground font-mono">{matchId}</p>
-						</div>
-						<div className="flex items-center gap-4">
-							<div className="text-right">
-								<p className="font-semibold">{gameState?.leftPlayer?.username}</p>
-								<p className="text-xs text-muted-foreground">Player 1</p>
-							</div>
-							<div className="text-3xl font-bold px-4">
-								{gameState?.leftPlayer?.score || 0} - {gameState?.rightPlayer?.score || 0}
-							</div>
-							<div className="text-left">
-								<p className="font-semibold">{gameState?.rightPlayer?.username}</p>
-								<p className="text-xs text-muted-foreground">Player 2</p>
-							</div>
+				{/* Header (Fixed Height) - Similar to local play */}
+				<div className="shrink-0 h-24 w-full max-w-7xl mx-auto grid grid-cols-3 items-center px-8 border-b border-white/5 bg-background/40 backdrop-blur-md z-10 transition-all duration-300">
+					{/* Left: Match Info */}
+					<div className="flex flex-col items-start gap-1.5">
+						<h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 drop-shadow-sm">
+							REMOTE MATCH
+						</h1>
+						<div className="flex items-center gap-2">
+							<Badge variant="outline" className="inline-flex items-center justify-center gap-1 font-mono text-[10px] tracking-widest text-muted-foreground border-white/10 bg-black/20 px-3 py-1 rounded-full leading-normal">
+								<Hash className="h-3 w-3 opacity-50" />
+								{matchId}
+							</Badge>
 						</div>
 					</div>
 
-					{/* Game Canvas */}
-					<div className="relative rounded-xl overflow-hidden border border-primary/20 shadow-xl shadow-primary/10">
+					{/* Center: Timer */}
+					<div className="flex justify-center">
+						{gameState?.timer && (
+							<div className="relative group">
+								<div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-500"></div>
+								<div className="relative px-8 py-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg flex flex-col items-center shadow-2xl">
+									<div className={cn(
+										"text-4xl font-mono font-bold tabular-nums tracking-widest leading-none drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]",
+										gameState.timer.timeRemaining < 30000
+											? 'text-red-500 animate-pulse drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+											: 'bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70'
+									)}>
+										{formatTime(gameState.timer.timeRemaining)}
+									</div>
+									<div className="flex items-center gap-1.5 text-[9px] uppercase font-bold text-muted-foreground/80 tracking-[0.2em] mt-1">
+										<Timer className="h-2.5 w-2.5" /> Time Remaining
+									</div>
+								</div>
+							</div>
+						)}
+					</div>
+
+					{/* Right: Status Indicators */}
+					<div className="flex items-center justify-end gap-3">
+						<div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/5 border border-green-500/20 rounded-full">
+							<div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+							<span className="text-xs font-bold text-green-500 tracking-wider">LIVE</span>
+						</div>
+					</div>
+				</div>
+
+				{/* Main Game Area (Flexible) */}
+				<div className="flex-1 w-full relative flex items-center justify-center p-4 overflow-hidden z-0">
+					{/* Canvas Container - scaled up for better visibility */}
+					<div
+						className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group"
+						style={{
+							width: `${CANVAS_WIDTH * REMOTE_DISPLAY_SCALE}px`,
+							maxWidth: '95vw'
+						}}
+					>
+						<div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
 						<canvas
 							ref={canvasRef}
-							className="bg-slate-900 w-full"
+							className="block bg-[#020817] w-full h-auto"
 							width={CANVAS_WIDTH}
 							height={CANVAS_HEIGHT}
+							style={{ touchAction: 'none' }}
 						/>
 						
-						{/* Ready Status UI */}
-						{!gameStart && !gameOverResult && gameState && (
+						{/* Ready Status / Paused UI */}
+						{((gameState as any)?.paused || !gameStart) && !gameOverResult && gameState && (
 							<div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm p-8">
 								<div className="text-center space-y-6 max-w-lg w-full">
-									{/* Determine my status and opponent's status */}
-									{(() => {
+									{/* Paused UI - With Disconnect Countdown */}
+									{(gameState as any)?.paused && (
+										<div className="flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+											{disconnectInfo ? (
+												<>
+													<div className="p-4 bg-red-500/10 rounded-full ring-1 ring-red-500/30 mb-2">
+														<span className="text-4xl">📡</span>
+													</div>
+													<h3 className="text-3xl font-bold text-red-500">Opponent Disconnected</h3>
+													<p className="text-white/80">
+														Waiting for {disconnectInfo.disconnectedPlayer === "LEFT"
+															? gameState.leftPlayer?.username
+															: gameState.rightPlayer?.username} to reconnect...
+													</p>
+													<div className="p-6 bg-white/5 rounded-xl border border-red-500/30 w-full">
+														<div className="text-center">
+															<p className="text-sm text-white/60 mb-2">Auto-forfeit in</p>
+															<p className={cn(
+																"text-5xl font-mono font-bold tabular-nums",
+																disconnectInfo.countdown <= 10 ? "text-red-500 animate-pulse" : "text-yellow-500"
+															)}>
+																{disconnectInfo.countdown}s
+															</p>
+														</div>
+													</div>
+													{!isSpectator && (
+														<p className="text-sm text-white/50">
+															You can press <span className="px-2 py-1 bg-white/20 rounded font-mono font-bold">SPACE</span> to resume when they reconnect
+														</p>
+													)}
+												</>
+											) : (
+												<>
+													<div className="p-4 bg-yellow-500/10 rounded-full ring-1 ring-yellow-500/30 mb-2">
+														<span className="text-4xl">⏸️</span>
+													</div>
+													<h3 className="text-3xl font-bold text-yellow-500">Game Paused</h3>
+													<p className="text-white/80">
+														The game has been paused.
+													</p>
+													{!isSpectator && (
+														<div className="p-6 bg-white/5 rounded-xl border border-white/10 w-full">
+															<p className="text-lg font-medium text-white mb-2">Press <span className="px-2 py-1 bg-white/20 rounded font-mono font-bold">SPACE</span> to resume!</p>
+														</div>
+													)}
+												</>
+											)}
+										</div>
+									)}
+
+									{/* Ready Status UI */}
+									{!(gameState as any)?.paused && (() => {
+										// Determine my status and opponent's status
 										// If spectator, show waiting status only
 										if (isSpectator) {
 											return (
@@ -311,9 +550,9 @@ export default function GamePage() {
 											)
 										}
 
+
 										const mySide = gameState.me;
-										const opponentSide = mySide === "LEFT" ? "RIGHT" : "LEFT";
-										
+
 										const me = mySide === "LEFT" ? gameState.leftPlayer : gameState.rightPlayer;
 										const opponent = mySide === "LEFT" ? gameState.rightPlayer : gameState.leftPlayer;
 										
@@ -451,15 +690,20 @@ export default function GamePage() {
 													});
 													setGameOverResult(null);
 												}}
+												disabled={!opponentConnected}
 												size="lg"
-												className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg h-14 px-8 shadow-lg shadow-green-500/20"
+												className={cn(
+													"bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg h-14 px-8 shadow-lg shadow-green-500/20",
+													!opponentConnected && "opacity-50 cursor-not-allowed grayscale"
+												)}
 											>
-												Rematch
+												{!opponentConnected ? "Opponent Left" : "Rematch"}
 											</Button>
 											<Button
 												onClick={() => {
 													// Notify opponent that we're leaving
-													const opponentId = gameOverResult.leftPlayer?.id === user?.id 
+													// Use loose equality or explicit conversion as user.id might be string while gameState has numbers
+													const opponentId = Number(gameOverResult.leftPlayer?.id) === Number(user?.id)
 														? gameOverResult.rightPlayer?.id 
 														: gameOverResult.leftPlayer?.id;
 													sendSocketMessage({
@@ -484,11 +728,32 @@ export default function GamePage() {
 							</div>
 						)}
 					</div>
+				</div>
 
-					{/* Controls hint */}
-					<div className="flex justify-center gap-8 text-sm text-muted-foreground">
-						<span>W/S - Move paddle</span>
-						<span>ENTER - Ready</span>
+				{/* Footer Commands (Fixed Height) - Similar to local play */}
+				<div className="shrink-0 h-16 flex items-center justify-center pb-4 z-10">
+					<div className="flex items-center justify-between w-full max-w-3xl px-8 py-3 bg-card/60 rounded-full border border-border/50 backdrop-blur-md shadow-lg">
+						<div className="flex items-center gap-3">
+							<div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 ring-1 ring-green-500/20">
+								<Keyboard className="h-4 w-4" />
+							</div>
+							<div className="flex flex-col">
+								<span className="text-xs font-bold text-foreground">Your Paddle</span>
+								<span className="text-[10px] text-muted-foreground font-mono">W / S or Arrow Keys</span>
+							</div>
+						</div>
+
+						<div className="h-6 w-px bg-border/50" />
+
+						<div className="flex items-center gap-3 text-right">
+							<div className="flex flex-col items-end">
+								<span className="text-xs font-bold text-foreground">Ready</span>
+								<span className="text-[10px] text-muted-foreground font-mono">ENTER</span>
+							</div>
+							<div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 ring-1 ring-purple-500/20">
+								<Gamepad2 className="h-4 w-4" />
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>

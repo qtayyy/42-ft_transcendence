@@ -217,6 +217,13 @@ export default fp((fastify) => {
             const isPlayer2 = match.player2 && String(match.player2.id) === userIdStr;
 
             if (isPlayer1 || isPlayer2) {
+              // Double-update protection: Check if match is already being processed
+              if (match._forfeitProcessing) {
+                console.log(`[Tournament] Match ${match.matchId} forfeit already being processed, skipping`);
+                return;
+              }
+              match._forfeitProcessing = true;
+
               // Mark match as completed with forfeit
               match.status = 'completed';
               match.result = {

@@ -13,7 +13,13 @@ const PADDLE_SPEED = 10;
 const FPS = 60;
 const TICK_MS = 1000 / FPS;
 const BALL_SIZE = 12;
-const WIN_SCORE = 5; // First to 5 wins
+const MATCH_DURATION = 120000; // 2 minutes in milliseconds
+const POWERUP_SPAWN_INTERVAL = 10000; // Spawn power-up every 10 seconds
+const POWERUP_EFFECT_DURATION = 5000; // Effects last 5 seconds
+const POWERUP_SIZE = 20; // Power-up hitbox size
+
+// Power-up types
+const POWERUP_TYPES = ['SPEED_UP', 'SPEED_DOWN', 'SIZE_UP', 'SIZE_DOWN'];
 
 // Track running game loops per match
 const gameLoops = new Map(); // matchId -> intervalHandle
@@ -26,11 +32,14 @@ function updatePaddles(gameState, player) {
   if (player === "LEFT") currentPlayer = gameState.leftPlayer;
   if (currentPlayer.moving === "") return;
 
+  // Use dynamic paddle height (may be modified by power-ups)
+  const paddleHeight = currentPlayer.paddleHeight || PADDLE_HEIGHT;
+
   if (currentPlayer.moving === "UP")
     currentPlayer.paddleY = Math.max(0, currentPlayer.paddleY - PADDLE_SPEED);
   else
     currentPlayer.paddleY = Math.min(
-      CANVAS_HEIGHT - PADDLE_HEIGHT,
+      CANVAS_HEIGHT - paddleHeight,
       currentPlayer.paddleY + PADDLE_SPEED
     );
 }
@@ -44,8 +53,116 @@ function updateBall(gameState) {
 function resetBall(gameState, toRight = true) {
   gameState.ball.posX = (CANVAS_WIDTH - BALL_SIZE) / 2;
   gameState.ball.posY = (CANVAS_HEIGHT - BALL_SIZE) / 2;
-  gameState.ball.dx = toRight ? 4 : -4;
+  // Apply speed modifier if active effect is SPEED_UP or SPEED_DOWN
+  let baseSpeed = 4;
+  if (gameState.activeEffect) {
+    if (gameState.activeEffect.type === 'SPEED_UP') baseSpeed = 6;
+    else if (gameState.activeEffect.type === 'SPEED_DOWN') baseSpeed = 2;
+  }
+  gameState.ball.dx = toRight ? baseSpeed : -baseSpeed;
   gameState.ball.dy = 3 * (Math.random() > 0.5 ? 1 : -1);
+}
+
+// Spawn a random power-up on the field
+function spawnPowerUp(gameState) {
+  // Don't spawn if there's already a power-up or if game hasn't started
+  if (gameState.powerUps.length > 0) return;
+
+  const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+  const id = crypto.randomUUID();
+
+  // Spawn in middle third of the field (avoid paddles)
+  const minX = CANVAS_WIDTH * 0.25;
+  const maxX = CANVAS_WIDTH * 0.75;
+  const x = minX + Math.random() * (maxX - minX);
+  const y = POWERUP_SIZE + Math.random() * (CANVAS_HEIGHT - POWERUP_SIZE * 2);
+
+  gameState.powerUps.push({ id, x, y, type });
+}
+
+// Check if ball collides with a power-up
+function checkPowerUpCollision(gameState) {
+  const ball = gameState.ball;
+  const ballCenterX = ball.posX + BALL_SIZE / 2;
+  const ballCenterY = ball.posY + BALL_SIZE / 2;
+
+  for (let i = gameState.powerUps.length - 1; i >= 0; i--) {
+    const pu = gameState.powerUps[i];
+    const distanceSq = Math.pow(ballCenterX - pu.x, 2) + Math.pow(ballCenterY - pu.y, 2);
+    const radiusSum = (BALL_SIZE / 2) + (POWERUP_SIZE / 2);
+
+    if (distanceSq < radiusSum * radiusSum) {
+      // Collision! Apply effect
+      gameState.powerUps.splice(i, 1);
+      applyPowerUpEffect(gameState, pu.type);
+      return;
+    }
+  }
+}
+
+// Apply power-up effect
+function applyPowerUpEffect(gameState, type) {
+  const now = Date.now();
+  gameState.activeEffect = {
+    type: type,
+    expiresAt: now + POWERUP_EFFECT_DURATION
+  };
+
+  // Apply immediate effects
+  if (type === 'SPEED_UP') {
+    // Increase ball speed
+    const speedMultiplier = 1.5;
+    gameState.ball.dx = gameState.ball.dx > 0
+      ? Math.abs(gameState.ball.dx) * speedMultiplier
+      : -Math.abs(gameState.ball.dx) * speedMultiplier;
+  } else if (type === 'SPEED_DOWN') {
+    // Decrease ball speed
+    const speedMultiplier = 0.5;
+    gameState.ball.dx = gameState.ball.dx > 0
+      ? Math.abs(gameState.ball.dx) * speedMultiplier
+      : -Math.abs(gameState.ball.dx) * speedMultiplier;
+  } else if (type === 'SIZE_UP') {
+    // Increase paddle size for both players
+    gameState.leftPlayer.paddleHeight = PADDLE_HEIGHT * 1.5;
+    gameState.rightPlayer.paddleHeight = PADDLE_HEIGHT * 1.5;
+  } else if (type === 'SIZE_DOWN') {
+    // Decrease paddle size for both players
+    gameState.leftPlayer.paddleHeight = PADDLE_HEIGHT * 0.6;
+    gameState.rightPlayer.paddleHeight = PADDLE_HEIGHT * 0.6;
+  }
+}
+
+// Check and expire active effects
+function updateActiveEffect(gameState) {
+  if (!gameState.activeEffect) return;
+
+  const now = Date.now();
+  if (now >= gameState.activeEffect.expiresAt) {
+    // Reset effects based on type
+    const type = gameState.activeEffect.type;
+
+    if (type === 'SPEED_UP' || type === 'SPEED_DOWN') {
+      // Reset ball speed to normal (preserve direction)
+      const direction = gameState.ball.dx > 0 ? 1 : -1;
+      gameState.ball.dx = 4 * direction;
+    } else if (type === 'SIZE_UP' || type === 'SIZE_DOWN') {
+      // Reset paddle sizes
+      gameState.leftPlayer.paddleHeight = PADDLE_HEIGHT;
+      gameState.rightPlayer.paddleHeight = PADDLE_HEIGHT;
+    }
+
+    gameState.activeEffect = null;
+  }
+}
+
+// Update timer
+function updateTimer(gameState) {
+  if (!gameState.timer) return;
+
+  const now = Date.now();
+  const elapsed = now - gameState.timer.startTime;
+  gameState.timer.timeElapsed = elapsed;
+  gameState.timer.timeRemaining = Math.max(0, MATCH_DURATION - elapsed);
 }
 
 function checkCollisionsAndScore(gameState) {
@@ -65,6 +182,10 @@ function checkCollisionsAndScore(gameState) {
   const leftPlayer = gameState.leftPlayer;
   const rightPlayer = gameState.rightPlayer;
 
+  // Use dynamic paddle height (may be modified by power-ups)
+  const leftPaddleHeight = leftPlayer.paddleHeight || PADDLE_HEIGHT;
+  const rightPaddleHeight = rightPlayer.paddleHeight || PADDLE_HEIGHT;
+
   // Hit left paddle
   // First two conidtions give you a vertical slice
   // Last two give you a horizontal slice
@@ -72,13 +193,13 @@ function checkCollisionsAndScore(gameState) {
     ball.posX <= leftPlayer.paddleX + PADDLE_WIDTH &&
     ball.posX + BALL_SIZE >= leftPlayer.paddleX &&
     ball.posY + BALL_SIZE >= leftPlayer.paddleY &&
-    ball.posY <= leftPlayer.paddleY + PADDLE_HEIGHT
+    ball.posY <= leftPlayer.paddleY + leftPaddleHeight
   ) {
     ball.posX = leftPlayer.paddleX + PADDLE_WIDTH; // prevent sticking
     ball.dx = Math.abs(ball.dx); // Change x direction to RHS
     // Bounce down/up more if hit edges of the paddle
     const offset =
-      ball.posY + BALL_SIZE / 2 - (leftPlayer.paddleY + PADDLE_HEIGHT / 2);
+      ball.posY + BALL_SIZE / 2 - (leftPlayer.paddleY + leftPaddleHeight / 2);
     ball.dy = offset * 0.08;
   }
 
@@ -86,12 +207,12 @@ function checkCollisionsAndScore(gameState) {
     ball.posX + BALL_SIZE >= rightPlayer.paddleX &&
     ball.posX <= rightPlayer.paddleX + PADDLE_WIDTH &&
     ball.posY + BALL_SIZE >= rightPlayer.paddleY &&
-    ball.posY <= rightPlayer.paddleY + PADDLE_HEIGHT
+    ball.posY <= rightPlayer.paddleY + rightPaddleHeight
   ) {
     ball.posX = rightPlayer.paddleX - BALL_SIZE;
     ball.dx = -Math.abs(ball.dx);
     const offset =
-      ball.posY + BALL_SIZE / 2 - (rightPlayer.paddleY + PADDLE_HEIGHT / 2);
+      ball.posY + BALL_SIZE / 2 - (rightPlayer.paddleY + rightPaddleHeight / 2);
     ball.dy = offset * 0.08;
   }
 
@@ -140,13 +261,21 @@ function broadcastState(gameState, fastify) {
   }
 }
 
-// Check if game should end (first to WIN_SCORE)
+// Check if game should end (timer expired - highest score wins)
 function checkGameOver(gameState) {
-  if (gameState.leftPlayer.score >= WIN_SCORE) {
-    return { winner: "LEFT", winnerId: gameState.leftPlayer.id };
-  }
-  if (gameState.rightPlayer.score >= WIN_SCORE) {
-    return { winner: "RIGHT", winnerId: gameState.rightPlayer.id };
+  // Check if timer has expired
+  if (gameState.timer && gameState.timer.timeRemaining <= 0) {
+    const leftScore = gameState.leftPlayer.score;
+    const rightScore = gameState.rightPlayer.score;
+
+    if (leftScore > rightScore) {
+      return { winner: "LEFT", winnerId: gameState.leftPlayer.id, result: "win" };
+    } else if (rightScore > leftScore) {
+      return { winner: "RIGHT", winnerId: gameState.rightPlayer.id, result: "win" };
+    } else {
+      // Draw - scores are equal
+      return { winner: null, winnerId: null, result: "draw" };
+    }
   }
   return null;
 }
@@ -164,7 +293,12 @@ async function endGame(gameState, fastify) {
     gameLoops.delete(matchId);
   }
 
-  const result = checkGameOver(gameState);
+  let result;
+  if (gameState.forfeit && gameState.winner) {
+    result = { winner: gameState.winner, winnerId: gameState.winnerId, result: 'win' };
+  } else {
+    result = checkGameOver(gameState);
+  }
   const left = gameState.leftPlayer;
   const right = gameState.rightPlayer;
 
@@ -189,11 +323,19 @@ async function endGame(gameState, fastify) {
   if (gameState.tournamentId) {
     const tournament = activeTournaments.get(gameState.tournamentId);
     if (tournament) {
-      console.log(`Updating result for tournament match ${matchId} (Winner: ${result?.winner})`);
-      const updateResult = tournament.updateMatchResult(matchId, {
-        p1: left.score,
-        p2: right.score
-      }, result ? 'win' : 'draw'); // Assuming 'win' or 'draw'
+      let outcome = 'draw';
+      if (result) {
+        if (gameState.forfeit) outcome = 'forfeit';
+        else outcome = 'win';
+      }
+
+      console.log(`Updating result for tournament match ${matchId} (Winner: ${result?.winner}, Outcome: ${outcome})`);
+      const updateResult = tournament.updateMatchResult(
+        matchId,
+        { p1: left.score, p2: right.score },
+        outcome,
+        result?.winnerId // Explicitly pass winnerId
+      );
 
       // Broadcast TOURNAMENT_UPDATE to all players in the tournament
       // This ensures everyone (including those with Byes) sees the new state
@@ -260,17 +402,52 @@ function startGameLoop(gameState, fastify) {
   // Don't start if already running
   if (gameLoops.has(matchId)) return;
 
+  // Initialize timer when game starts
+  const now = Date.now();
+  gameState.timer = {
+    startTime: now,
+    timeElapsed: 0,
+    timeRemaining: MATCH_DURATION
+  };
+
+  // Track last power-up spawn time
+  let lastPowerUpSpawn = now;
+
   const loopHandle = setInterval(() => {
     // Check if game is paused (e.g. player disconnected)
     if (gameState.paused) return;
+
+    // Update timer
+    updateTimer(gameState);
+
+    // Spawn power-ups periodically
+    const currentTime = Date.now();
+    if (currentTime - lastPowerUpSpawn >= POWERUP_SPAWN_INTERVAL) {
+      spawnPowerUp(gameState);
+      lastPowerUpSpawn = currentTime;
+    }
+
+    // Update active effects (expire them if needed)
+    updateActiveEffect(gameState);
 
     updatePaddles(gameState, "LEFT");
     updatePaddles(gameState, "RIGHT");
     updateBall(gameState);
     checkCollisionsAndScore(gameState);
-    broadcastState(gameState, fastify);
 
-    // Check for game over
+    // Check power-up collisions
+    checkPowerUpCollision(gameState);
+
+    // Broadcast state throttled (every 3 ticks = 20 FPS)
+    // Initialize active tick counter if not present
+    if (typeof gameState.tickCount === 'undefined') gameState.tickCount = 0;
+    gameState.tickCount++;
+
+    if (gameState.tickCount % 3 === 0) {
+      broadcastState(gameState, fastify);
+    }
+
+    // Check for game over (timer expired)
     const result = checkGameOver(gameState);
     if (result) {
       endGame(gameState, fastify);
@@ -294,6 +471,8 @@ export default fp(async (fastify, opts) => {
       const initialGameState = {
         tournamentId: match.tournamentId,
         matchId: match.id,
+        isRemote: true,
+        isTournamentMatch: true,
         ball: { posX: CANVAS_WIDTH / 2, posY: CANVAS_HEIGHT / 2, dx: 4, dy: 3 },
         leftPlayer: {
           id: match.player1Id,
@@ -302,6 +481,7 @@ export default fp(async (fastify, opts) => {
           score: match.score1,
           paddleX: 0,
           paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
+          paddleHeight: PADDLE_HEIGHT,
           moving: "",
         },
         rightPlayer: {
@@ -311,7 +491,22 @@ export default fp(async (fastify, opts) => {
           score: match.score2,
           paddleX: CANVAS_WIDTH - PADDLE_WIDTH,
           paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
+          paddleHeight: PADDLE_HEIGHT,
           moving: "",
+        },
+        // Timer will be initialized when game loop starts
+        timer: null,
+        // Power-ups and effects
+        powerUps: [],
+        activeEffect: null,
+        // Game constants for frontend rendering
+        constant: {
+          canvasWidth: CANVAS_WIDTH,
+          canvasHeight: CANVAS_HEIGHT,
+          paddleWidth: PADDLE_WIDTH,
+          paddleHeight: PADDLE_HEIGHT,
+          ballSize: BALL_SIZE,
+          matchDuration: MATCH_DURATION,
         },
       };
       fastify.gameStates.set(match.id, initialGameState);
@@ -355,21 +550,107 @@ export default fp(async (fastify, opts) => {
     const currentPlayer =
       player === "LEFT" ? gameState.leftPlayer : gameState.rightPlayer;
 
-    // ENTER = Ready toggle
-    if (keyEvent === "START") {
-      currentPlayer.gamePaused = !currentPlayer.gamePaused;
-    } else {
+    // SPACE = Pause/Resume game (global pause)
+    if (keyEvent === "PAUSE") {
+      // Only allow pause when game is actually running (both players ready)
+      const gameRunning = !gameState.leftPlayer.gamePaused && !gameState.rightPlayer.gamePaused;
+
+      if (gameState.paused) {
+        // Resume from pause - adjust timer and power-up effect expiry
+        if (gameState.pausedAt) {
+          const pauseDuration = Date.now() - gameState.pausedAt;
+
+          // Adjust timer start time to effectively "freeze" the timer during pause
+          if (gameState.timer && gameState.timer.startTime) {
+            gameState.timer.startTime += pauseDuration;
+            console.log(`[Game] Timer adjusted by ${pauseDuration}ms for pause duration`);
+          }
+
+          // Adjust active effect expiry time
+          if (gameState.activeEffect && gameState.activeEffect.expiresAt) {
+            gameState.activeEffect.expiresAt += pauseDuration;
+            console.log(`[Game] Active effect expiry adjusted by ${pauseDuration}ms`);
+          }
+
+          gameState.pausedAt = null;
+        }
+
+        gameState.paused = false;
+        gameState.disconnectedPlayer = null;
+        console.log(`[Game] Resumed by user ${userId} via SPACE`);
+      } else if (gameRunning) {
+        // Pause the game
+        gameState.paused = true;
+        gameState.pausedAt = Date.now();
+        console.log(`[Game] Paused by user ${userId} via SPACE`);
+      }
+    }
+    // ENTER = Ready toggle (pre-game only)
+    else if (keyEvent === "START") {
+      // Only allow ready toggle if game hasn't started yet
+      // Once gameStarted is true, ENTER should not toggle ready state
+      if (!gameState.gameStarted) {
+        currentPlayer.gamePaused = !currentPlayer.gamePaused;
+      }
+      // Note: ENTER no longer resumes from pause - use SPACE instead
+    } else if (keyEvent !== "PAUSE") {
       currentPlayer.moving = keyEvent;
     }
 
     // Start game ONLY when both unpaused (= ready)
-    if (!gameState.leftPlayer.gamePaused && !gameState.rightPlayer.gamePaused) {
-      console.log("Game started");
+    if (!gameState.leftPlayer.gamePaused && !gameState.rightPlayer.gamePaused && !gameState.paused) {
+      // Mark game as started - prevents ENTER from toggling ready state again
+      if (!gameState.gameStarted) {
+        gameState.gameStarted = true;
+        console.log("Game started for the first time");
+      } else {
+        console.log("Game resumed");
+      }
       startGameLoop(gameState, fastify);
     } else {
       // Broadcast state change (e.g. one player ready) so UI updates
       broadcastState(gameState, fastify);
     }
+  });
+
+  fastify.decorate("forfeitMatch", (matchId, userId) => {
+    const gameState = fastify.gameStates.get(matchId);
+    if (!gameState) throw new Error("Match not found");
+
+    const uid = Number(userId);
+    let loser = null;
+    let winner = null;
+    let winnerId = null;
+
+    if (uid === gameState.leftPlayer.id) {
+      loser = "LEFT";
+      winner = "RIGHT";
+      winnerId = gameState.rightPlayer.id;
+    } else if (uid === gameState.rightPlayer.id) {
+      loser = "RIGHT";
+      winner = "LEFT";
+      winnerId = gameState.leftPlayer.id;
+    } else {
+      throw new Error("User not in this match");
+    }
+
+    gameState.gameOver = true;
+    gameState.winner = winner;
+    gameState.forfeit = true;
+    gameState.winnerId = winnerId; // Custom prop to pass to endGame
+
+    // Notify the winner that the opponent has left (surrendered)
+    // This ensures their UI updates to disable "Rematch" even if they haven't disconnected yet
+    const winnerSocket = fastify.onlineUsers.get(winnerId);
+    if (winnerSocket) {
+      safeSend(winnerSocket, {
+        event: "OPPONENT_LEFT",
+        payload: { matchId }
+      }, winnerId);
+    }
+
+    console.log(`[forfeitMatch] Match ${matchId} forfeited by ${userId}. Winner: ${winner}`);
+    endGame(gameState, fastify);
   });
 
   /**
@@ -397,6 +678,7 @@ export default fp(async (fastify, opts) => {
         score: 0,
         paddleX: 0,
         paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
+        paddleHeight: PADDLE_HEIGHT,
         moving: "",
       },
       rightPlayer: {
@@ -406,7 +688,22 @@ export default fp(async (fastify, opts) => {
         score: 0,
         paddleX: CANVAS_WIDTH - PADDLE_WIDTH,
         paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
+        paddleHeight: PADDLE_HEIGHT,
         moving: "",
+      },
+      // Timer will be initialized when game loop starts
+      timer: null,
+      // Power-ups and effects
+      powerUps: [],
+      activeEffect: null,
+      // Game constants for frontend rendering
+      constant: {
+        canvasWidth: CANVAS_WIDTH,
+        canvasHeight: CANVAS_HEIGHT,
+        paddleWidth: PADDLE_WIDTH,
+        paddleHeight: PADDLE_HEIGHT,
+        ballSize: BALL_SIZE,
+        matchDuration: MATCH_DURATION,
       },
     };
 
@@ -479,6 +776,7 @@ export default fp(async (fastify, opts) => {
         score: 0,
         paddleX: 0,
         paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
+        paddleHeight: PADDLE_HEIGHT,
         moving: "",
       },
       rightPlayer: {
@@ -488,7 +786,22 @@ export default fp(async (fastify, opts) => {
         score: 0,
         paddleX: CANVAS_WIDTH - PADDLE_WIDTH,
         paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
+        paddleHeight: PADDLE_HEIGHT,
         moving: "",
+      },
+      // Timer will be initialized when game loop starts
+      timer: null,
+      // Power-ups and effects
+      powerUps: [],
+      activeEffect: null,
+      // Game constants for frontend rendering
+      constant: {
+        canvasWidth: CANVAS_WIDTH,
+        canvasHeight: CANVAS_HEIGHT,
+        paddleWidth: PADDLE_WIDTH,
+        paddleHeight: PADDLE_HEIGHT,
+        ballSize: BALL_SIZE,
+        matchDuration: MATCH_DURATION,
       },
     };
 
@@ -626,6 +939,7 @@ export default fp(async (fastify, opts) => {
         score: 0,
         paddleX: 0,
         paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
+        paddleHeight: PADDLE_HEIGHT,
         moving: "",
       },
       rightPlayer: {
@@ -635,7 +949,22 @@ export default fp(async (fastify, opts) => {
         score: 0,
         paddleX: CANVAS_WIDTH - PADDLE_WIDTH,
         paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
+        paddleHeight: PADDLE_HEIGHT,
         moving: "",
+      },
+      // Timer will be initialized when game loop starts
+      timer: null,
+      // Power-ups and effects
+      powerUps: [],
+      activeEffect: null,
+      // Game constants for frontend rendering
+      constant: {
+        canvasWidth: CANVAS_WIDTH,
+        canvasHeight: CANVAS_HEIGHT,
+        paddleWidth: PADDLE_WIDTH,
+        paddleHeight: PADDLE_HEIGHT,
+        ballSize: BALL_SIZE,
+        matchDuration: MATCH_DURATION,
       },
     };
 

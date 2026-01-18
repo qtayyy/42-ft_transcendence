@@ -502,6 +502,54 @@ class Game {
 		}
 	}
 
+	forfeit(loserId) {
+		if (this.running) {
+			this.running = false;
+			if (this.loopHandle) {
+				clearInterval(this.loopHandle);
+				this.loopHandle = null;
+			}
+		}
+
+		// Map loserId to player 1 or 2
+		const isP1 = String(this.players.p1.id) === String(loserId);
+		const winnerKey = isP1 ? 'p2' : 'p1';
+		const loserKey = isP1 ? 'p1' : 'p2';
+		const winnerId = isP1 ? 2 : 1;
+
+		// Max out score for winner (optional, but good for visual)
+		this.gameState.score[winnerKey] = WIN_SCORE;
+		this.gameState.score[loserKey] = 0;
+
+		this.saveMatch();
+
+		// If part of a tournament, report result
+		if (this.tournamentId && this.mode === 'remote') {
+			const tournament = activeTournaments.get(this.tournamentId);
+			if (tournament) {
+				tournament.updateMatchResult(this.matchId, {
+					p1: this.gameState.score.p1,
+					p2: this.gameState.score.p2
+				}, 'forfeit');
+			}
+		}
+
+		this.gameState.status = 'finished';
+		this.gameState.winner = winnerId;
+		this.gameState.result = 'win'; // Technically a win by forfeit
+
+		this._broadcast({
+			type: 'GAME_OVER',
+			winner: winnerId,
+			result: 'win',
+			score: this.gameState.score,
+			reason: 'forfeit',
+			tournamentId: this.tournamentId
+		});
+
+		console.log(`Game ${this.matchId} forfeited by Player ${isP1 ? 1 : 2}`);
+	}
+
 	_stopGame() {
 		if (this.running === false)
 			return;

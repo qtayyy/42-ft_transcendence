@@ -223,7 +223,7 @@ useEffect(() => {
                 setGameState(null);
                 setGameRoom(null);
                 hasActiveGame.current = false;
-              }, 100);
+              }, 5000);
               break;
 
             case "REMATCH_FAILED":
@@ -235,11 +235,24 @@ useEffect(() => {
               break;
 
             case "OPPONENT_LEFT":
+              // Dispatch event for game page to handle (disable rematch)
+              // We do NOT redirect here, allowing the user to stay on the results screen
+              window.dispatchEvent(new CustomEvent("opponentLeft"));
               toast.info("Your opponent has left the game");
-              setGameState(null);
-              setGameRoom(null);
-              hasActiveGame.current = false;
-              router.push("/game/new");
+              break;
+
+            case "OPPONENT_DISCONNECTED":
+              // Dispatch event for game page to show disconnect UI with countdown
+              window.dispatchEvent(
+                new CustomEvent("opponentDisconnected", { detail: payload })
+              );
+              break;
+
+            case "OPPONENT_RECONNECTED":
+              // Dispatch event for game page to clear disconnect UI
+              window.dispatchEvent(
+                new CustomEvent("opponentReconnected", { detail: payload })
+              );
               break;
 
             case "CHAT_MESSAGE":

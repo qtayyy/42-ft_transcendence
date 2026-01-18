@@ -9,7 +9,7 @@ interface UsePongGameProps {
 	onGameOver?: (winner: number | null, score: { p1: number; p2: number }, result: string) => void;
 }
 
-export function usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver }: UsePongGameProps) {
+export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: UsePongGameProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const socketRef = useRef<WebSocket | null>(null);
@@ -84,7 +84,7 @@ export function usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOve
 
 	// Input Handling
 	useEffect(() => {
-		const sendInput = (payload: any) => {
+		const sendInput = (payload: object) => {
 			if (socketRef.current?.readyState === WebSocket.OPEN) {
 				socketRef.current.send(JSON.stringify(payload));
 			}
