@@ -135,7 +135,7 @@ export default function TournamentMatchmakingPage() {
 	};
 
 	const playerCount = gameRoom?.joinedPlayers.length || tournamentRoom?.players.length || 1;
-	const isHost = gameRoom ? gameRoom.hostId === user?.id : tournamentRoom?.isHost;
+	const isHost = gameRoom ? gameRoom.hostId === Number(user?.id) : tournamentRoom?.isHost;
 	const canStart = playerCount >= 3;
 
 	// Show lobby if we have a tournament room
@@ -201,7 +201,7 @@ export default function TournamentMatchmakingPage() {
 									<div className="grid grid-cols-2 gap-2 max-h-[250px] overflow-y-auto pr-2">
 										{(gameRoom?.joinedPlayers || tournamentRoom.players).map((player, idx) => {
 											const isPlayerHost = gameRoom ? Number(player.id) === gameRoom.hostId : idx === 0;
-											const isCurrentUser = Number(player.id) === user?.id;
+											const isCurrentUser = Number(player.id) === Number(user?.id);
 											return (
 												<div
 													key={player.id}

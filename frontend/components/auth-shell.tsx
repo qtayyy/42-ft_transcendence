@@ -20,7 +20,16 @@ export function AuthShell({
   handleSubmit,
   link,
   linkText,
-  // submitText
+  submitText
+}: {
+  title: string;
+  description: string;
+  children?: React.ReactNode;
+  fields: any[];
+  handleSubmit: (e: any) => void;
+  link?: string;
+  linkText?: string;
+  submitText?: string;
 }) {
   return (
     <div className="grid h-screen place-items-center">
@@ -30,7 +39,7 @@ export function AuthShell({
             {title}
           </CardTitle>
           <CardDescription className="mb-3">{description}</CardDescription>
-          <Link className="underline text-gray-400 hover:text-gray-200" href={link}>{linkText}</Link>
+          <Link className="underline text-gray-400 hover:text-gray-200" href={link || "#"}>{linkText}</Link>
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
@@ -50,13 +59,13 @@ export function AuthShell({
             {children}
 
             {/* Only render this footer button if submitText is provided */}
-            {/* {submitText && (
+            {submitText && (
             <CardFooter className="flex-col gap-2">
               <Button className="w-full" type="submit">
                 {submitText}
               </Button>
             </CardFooter>
-            )} */}
+            )}
           </form>
         </CardContent>
       </Card>

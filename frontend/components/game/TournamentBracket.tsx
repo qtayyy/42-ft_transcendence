@@ -1,4 +1,4 @@
-import { Match, Player } from "@/lib/tournament";
+import { TournamentMatch as Match, Player } from "@/lib/tournament";
 import { Card } from "@/components/ui/card";
 import { Trophy, User } from "lucide-react";
 
@@ -64,42 +64,46 @@ export default function TournamentBracket({ matches, currentMatchId }: Tournamen
 								{getRoundName(round)}
 							</h3>
 							
-							{roundMatches.map((match) => (
+							{roundMatches.map((match, index) => {
+                                const isWinnerP1 = match.result?.outcome === 'win' && match.result.player1Id === match.player1.id;
+                                const isWinnerP2 = match.result?.outcome === 'win' && match.result.player2Id === match.player2?.id;
+
+                                return (
 								<Card
-									key={match.id}
+									key={match.matchId}
 									className={`p-3 space-y-2 transition-all ${
-										match.id === currentMatchId
+										match.matchId === currentMatchId
 											? "border-4 border-yellow-500 bg-yellow-900/20"
 											: match.status === "completed"
 											? "border-2 border-green-500/50 bg-gray-800/50"
-											: match.status === "ready"
+											: match.status === "pending" // Changed from 'ready' to 'pending' as per type
 											? "border-2 border-blue-500/50 bg-gray-800/50"
 											: "border-2 border-gray-600 bg-gray-800/30"
 									}`}
 								>
 									<div className="text-xs text-gray-400 text-center mb-1">
-										Match #{match.matchNumber}
+										Match #{index + 1}
 									</div>
 									
 									{renderPlayer(
 										match.player1,
-										match.winner?.id === match.player1?.id
+										isWinnerP1
 									)}
 									
 									<div className="text-center text-xs text-gray-500">vs</div>
 									
 									{renderPlayer(
 										match.player2,
-										match.winner?.id === match.player2?.id
+										isWinnerP2
 									)}
 									
-									{match.score && (
+									{match.result?.score && (
 										<div className="text-center text-sm text-gray-400 mt-2 pt-2 border-t border-gray-600">
-											Score: {match.score.player1} - {match.score.player2}
+											Score: {match.result.score.p1} - {match.result.score.p2}
 										</div>
 									)}
 									
-									{match.id === currentMatchId && (
+									{match.matchId === currentMatchId && (
 										<div className="text-center">
 											<span className="inline-block px-2 py-1 bg-yellow-600 text-black text-xs font-bold rounded mt-2 animate-pulse">
 												ACTIVE
@@ -107,7 +111,8 @@ export default function TournamentBracket({ matches, currentMatchId }: Tournamen
 										</div>
 									)}
 								</Card>
-							))}
+                                );
+                            })}
 						</div>
 					);
 				})}

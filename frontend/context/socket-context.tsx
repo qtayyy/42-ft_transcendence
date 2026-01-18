@@ -10,7 +10,7 @@ import {
 } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-import { SocketContextValue } from "@/type/types";
+import { SocketContextValue } from "@/types/types";
 import { useGame } from "@/hooks/use-game";
 import { usePathname, useRouter } from "next/navigation";
 
