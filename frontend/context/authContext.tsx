@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import axios from "axios";
-import { AuthContextValue, UserProfile } from "@/type/types";
+import { AuthContextValue, UserProfile } from "@/types/types";
 
 const NON_AUTHENTICATED_ROUTES = [
   "/",
