@@ -232,12 +232,29 @@ function broadcastState(gameState, fastify) {
   const leftPlayerSocket = fastify.onlineUsers.get(gameState.leftPlayer.id);
   const rightPlayerSocket = fastify.onlineUsers.get(gameState.rightPlayer.id);
 
+  // Compute disconnect countdown if game is paused due to disconnect
+  let disconnectCountdown = null;
+  if (gameState.paused && gameState.disconnectedPlayer && gameState.pausedAt) {
+    const gracePeriodEndsAt = gameState.pausedAt + 30000; // 30 second grace period
+    disconnectCountdown = {
+      disconnectedPlayer: gameState.disconnectedPlayer,
+      gracePeriodEndsAt,
+      countdown: Math.max(0, Math.ceil((gracePeriodEndsAt - Date.now()) / 1000))
+    };
+  }
+
+  // Build base payload
+  const basePayload = {
+    ...gameState,
+    disconnectCountdown
+  };
+
   // Send to players
   safeSend(
     leftPlayerSocket,
     {
       event: "GAME_STATE",
-      payload: { ...gameState, me: "LEFT" },
+      payload: { ...basePayload, me: "LEFT" },
     },
     gameState.leftPlayer.id
   );
@@ -245,7 +262,7 @@ function broadcastState(gameState, fastify) {
     rightPlayerSocket,
     {
       event: "GAME_STATE",
-      payload: { ...gameState, me: "RIGHT" },
+      payload: { ...basePayload, me: "RIGHT" },
     },
     gameState.rightPlayer.id
   );
@@ -253,7 +270,7 @@ function broadcastState(gameState, fastify) {
   // Send to spectators
   const spectators = matchSpectators.get(gameState.matchId);
   if (spectators && spectators.size > 0) {
-    const spectatorPayload = { ...gameState, spectatorMode: true };
+    const spectatorPayload = { ...basePayload, spectatorMode: true };
     spectators.forEach(spectatorId => {
       const spectatorSocket = fastify.onlineUsers.get(spectatorId);
       safeSend(spectatorSocket, { event: "GAME_STATE", payload: spectatorPayload }, spectatorId);
@@ -294,7 +311,10 @@ async function endGame(gameState, fastify) {
   }
 
   let result;
-  if (gameState.forfeit && gameState.winner) {
+  if (gameState.doubleForfeit) {
+    // Both players forfeited - no winner
+    result = { winner: null, winnerId: null, result: 'double_forfeit' };
+  } else if (gameState.forfeit && gameState.winner) {
     result = { winner: gameState.winner, winnerId: gameState.winnerId, result: 'win' };
   } else {
     result = checkGameOver(gameState);
@@ -325,8 +345,9 @@ async function endGame(gameState, fastify) {
     if (tournament) {
       let outcome = 'draw';
       if (result) {
-        if (gameState.forfeit) outcome = 'forfeit';
-        else outcome = 'win';
+        if (gameState.doubleForfeit) outcome = 'double_forfeit';
+        else if (gameState.forfeit) outcome = 'forfeit';
+        else if (result.result === 'win') outcome = 'win';
       }
 
       console.log(`Updating result for tournament match ${matchId} (Winner: ${result?.winner}, Outcome: ${outcome})`);
@@ -414,8 +435,19 @@ function startGameLoop(gameState, fastify) {
   let lastPowerUpSpawn = now;
 
   const loopHandle = setInterval(() => {
-    // Check if game is paused (e.g. player disconnected)
-    if (gameState.paused) return;
+    // Initialize active tick counter if not present
+    if (typeof gameState.tickCount === 'undefined') gameState.tickCount = 0;
+    gameState.tickCount++;
+
+    // Check if game is paused (e.g. player disconnected or manual pause)
+    if (gameState.paused) {
+      // Still broadcast paused state periodically so clients stay in sync
+      // but at a lower rate (every 30 ticks = ~2 FPS for paused state)
+      if (gameState.tickCount % 30 === 0) {
+        broadcastState(gameState, fastify);
+      }
+      return;
+    }
 
     // Update timer
     updateTimer(gameState);
@@ -439,10 +471,6 @@ function startGameLoop(gameState, fastify) {
     checkPowerUpCollision(gameState);
 
     // Broadcast state throttled (every 3 ticks = 20 FPS)
-    // Initialize active tick counter if not present
-    if (typeof gameState.tickCount === 'undefined') gameState.tickCount = 0;
-    gameState.tickCount++;
-
     if (gameState.tickCount % 3 === 0) {
       broadcastState(gameState, fastify);
     }
@@ -549,40 +577,110 @@ export default fp(async (fastify, opts) => {
 
     const currentPlayer =
       player === "LEFT" ? gameState.leftPlayer : gameState.rightPlayer;
+    const otherPlayer =
+      player === "LEFT" ? gameState.rightPlayer : gameState.leftPlayer;
 
-    // SPACE = Pause/Resume game (global pause)
+    // SPACE = Pause/Resume game (requires mutual agreement for resume)
     if (keyEvent === "PAUSE") {
-      // Only allow pause when game is actually running (both players ready)
-      const gameRunning = !gameState.leftPlayer.gamePaused && !gameState.rightPlayer.gamePaused;
+      // Only allow pause when game is actually running (both players ready and game started)
+      const gameRunning = gameState.gameStarted && !gameState.paused;
 
       if (gameState.paused) {
-        // Resume from pause - adjust timer and power-up effect expiry
-        if (gameState.pausedAt) {
-          const pauseDuration = Date.now() - gameState.pausedAt;
-
-          // Adjust timer start time to effectively "freeze" the timer during pause
-          if (gameState.timer && gameState.timer.startTime) {
-            gameState.timer.startTime += pauseDuration;
-            console.log(`[Game] Timer adjusted by ${pauseDuration}ms for pause duration`);
-          }
-
-          // Adjust active effect expiry time
-          if (gameState.activeEffect && gameState.activeEffect.expiresAt) {
-            gameState.activeEffect.expiresAt += pauseDuration;
-            console.log(`[Game] Active effect expiry adjusted by ${pauseDuration}ms`);
-          }
-
-          gameState.pausedAt = null;
+        // Mark this player as ready to resume
+        if (!gameState.resumeReady) {
+          gameState.resumeReady = { LEFT: false, RIGHT: false };
         }
+        gameState.resumeReady[player] = true;
 
-        gameState.paused = false;
-        gameState.disconnectedPlayer = null;
-        console.log(`[Game] Resumed by user ${userId} via SPACE`);
+        console.log(`[Game] Player ${player} (${userId}) is ready to resume. Resume states: LEFT=${gameState.resumeReady.LEFT}, RIGHT=${gameState.resumeReady.RIGHT}`);
+
+        // Check if BOTH players are ready to resume
+        if (gameState.resumeReady.LEFT && gameState.resumeReady.RIGHT) {
+          // Both players agreed to resume - actually resume the game
+          if (gameState.pausedAt) {
+            const pauseDuration = Date.now() - gameState.pausedAt;
+
+            // Adjust timer start time to effectively "freeze" the timer during pause
+            if (gameState.timer && gameState.timer.startTime) {
+              gameState.timer.startTime += pauseDuration;
+              console.log(`[Game] Timer adjusted by ${pauseDuration}ms for pause duration`);
+            }
+
+            // Adjust active effect expiry time
+            if (gameState.activeEffect && gameState.activeEffect.expiresAt) {
+              gameState.activeEffect.expiresAt += pauseDuration;
+              console.log(`[Game] Active effect expiry adjusted by ${pauseDuration}ms`);
+            }
+
+            gameState.pausedAt = null;
+          }
+
+          gameState.paused = false;
+          gameState.disconnectedPlayer = null;
+          gameState.resumeReady = null; // Clear resume states
+          console.log(`[Game] Both players agreed. Game resumed!`);
+
+          // Notify both players that game is resuming
+          const leftSocket = fastify.onlineUsers.get(gameState.leftPlayer.id);
+          const rightSocket = fastify.onlineUsers.get(gameState.rightPlayer.id);
+          safeSend(leftSocket, { event: "GAME_RESUMED", payload: { matchId } }, gameState.leftPlayer.id);
+          safeSend(rightSocket, { event: "GAME_RESUMED", payload: { matchId } }, gameState.rightPlayer.id);
+        } else {
+          // One player ready, notify the other
+          const otherPlayerId = player === "LEFT" ? gameState.rightPlayer.id : gameState.leftPlayer.id;
+          const otherSocket = fastify.onlineUsers.get(otherPlayerId);
+          safeSend(otherSocket, {
+            event: "OPPONENT_READY_TO_RESUME",
+            payload: {
+              matchId,
+              readyPlayer: player,
+              waitingFor: player === "LEFT" ? "RIGHT" : "LEFT"
+            }
+          }, otherPlayerId);
+
+          // Also notify the player who pressed space that they're waiting
+          const currentSocket = fastify.onlineUsers.get(uid);
+          safeSend(currentSocket, {
+            event: "WAITING_FOR_RESUME",
+            payload: {
+              matchId,
+              yourReady: true,
+              waitingFor: player === "LEFT" ? "RIGHT" : "LEFT"
+            }
+          }, uid);
+        }
       } else if (gameRunning) {
-        // Pause the game
+        // Pause the game - any player can pause
         gameState.paused = true;
         gameState.pausedAt = Date.now();
-        console.log(`[Game] Paused by user ${userId} via SPACE`);
+        gameState.pausedBy = player;
+        gameState.resumeReady = { LEFT: false, RIGHT: false }; // Reset resume states
+        console.log(`[Game] Paused by user ${userId} (${player}) via SPACE`);
+
+        // Notify both players about pause
+        const leftSocket = fastify.onlineUsers.get(gameState.leftPlayer.id);
+        const rightSocket = fastify.onlineUsers.get(gameState.rightPlayer.id);
+        const pausePayload = {
+          event: "GAME_PAUSED",
+          payload: {
+            matchId,
+            pausedBy: player,
+            pausedByName: currentPlayer.username
+          }
+        };
+        safeSend(leftSocket, pausePayload, gameState.leftPlayer.id);
+        safeSend(rightSocket, pausePayload, gameState.rightPlayer.id);
+
+        // Also notify spectators
+        if (fastify.matchSpectators) {
+          const spectators = fastify.matchSpectators.get(matchId);
+          if (spectators) {
+            spectators.forEach(spectatorId => {
+              const spectatorSocket = fastify.onlineUsers.get(spectatorId);
+              safeSend(spectatorSocket, pausePayload, spectatorId);
+            });
+          }
+        }
       }
     }
     // ENTER = Ready toggle (pre-game only)
@@ -844,11 +942,55 @@ export default fp(async (fastify, opts) => {
       return;
     }
 
-    const result = tournament.setLobbyReady(matchId, userId);
-    if (!result.success) {
+    const match = tournament.matches.find(m => m.matchId === matchId);
+    if (!match) {
       console.error(`[handleLobbyReady] Match ${matchId} not found`);
       const socket = fastify.onlineUsers.get(Number(userId));
       if (socket) safeSend(socket, { event: "TOURNAMENT_ERROR", payload: { message: "Match not found" } }, userId);
+      return;
+    }
+
+    // Check if opponent is withdrawn (left the tournament)
+    const uid = Number(userId);
+    const isP1 = Number(match.player1.id) === uid;
+    const opponentId = isP1 ? (match.player2 ? Number(match.player2.id) : null) : Number(match.player1.id);
+
+    if (opponentId && tournament.isPlayerWithdrawn(opponentId)) {
+      // Opponent has withdrawn - auto-win for the ready player
+      console.log(`[handleLobbyReady] Opponent ${opponentId} is withdrawn, auto-winning match ${matchId} for ${userId}`);
+
+      tournament.updateMatchResult(matchId, { p1: 0, p2: 0 }, 'walkover', uid);
+
+      // Broadcast tournament update
+      const tournamentData = tournament.getSummary();
+      tournament.players.forEach(player => {
+        const socket = fastify.onlineUsers.get(Number(player.id));
+        if (socket) {
+          safeSend(socket, {
+            event: "TOURNAMENT_UPDATE",
+            payload: tournamentData
+          }, Number(player.id));
+        }
+      });
+
+      // Notify the ready player about the walkover
+      const socket = fastify.onlineUsers.get(uid);
+      if (socket) {
+        safeSend(socket, {
+          event: "MATCH_WALKOVER",
+          payload: {
+            matchId,
+            winnerId: uid,
+            reason: "Opponent left the tournament"
+          }
+        }, uid);
+      }
+      return;
+    }
+
+    const result = tournament.setLobbyReady(matchId, userId);
+    if (!result.success) {
+      console.error(`[handleLobbyReady] Failed to set ready state for match ${matchId}`);
       return;
     }
 
@@ -856,7 +998,6 @@ export default fp(async (fastify, opts) => {
 
     if (result.allReady) {
       // Both players ready - Start the match
-      const match = result.match;
       // Handle Bye case (player2 might be null) - though Bye is auto-ready usually
       if (!match.player2) {
         // Auto-process bye? Usually byes are processed by TournamentManager immediately or end-round.

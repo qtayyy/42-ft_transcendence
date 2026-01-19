@@ -327,13 +327,39 @@ class TournamentManager {
 			return;
 		}
 
-		if (outcome === 'forfeit') {
-			// Determine winner (the one who didn't forfeit)
+		if (outcome === 'double_forfeit') {
+			// Both players forfeited - both get a loss, no points awarded
+			const p1Standing = this.standings.find(s => Number(s.playerId) === Number(player1Id));
+			const p2Standing = player2Id ? this.standings.find(s => Number(s.playerId) === Number(player2Id)) : null;
+
+			if (p1Standing) {
+				p1Standing.losses += 1;
+				p1Standing.matchesPlayed += 1;
+				p1Standing.isWithdrawn = true;
+				if (player2Id) p1Standing.opponents.push(player2Id);
+			}
+			if (p2Standing) {
+				p2Standing.losses += 1;
+				p2Standing.matchesPlayed += 1;
+				p2Standing.isWithdrawn = true;
+				p2Standing.opponents.push(player1Id);
+			}
+
+			console.log(`Tournament ${this.tournamentId}: Double forfeit - both players lose`);
+
+			// Auto-resolve future matches for both withdrawn players
+			if (p1Standing) this.resolveFutureMatchesForWithdrawn(player1Id);
+			if (p2Standing) this.resolveFutureMatchesForWithdrawn(player2Id);
+			return;
+		}
+
+		if (outcome === 'forfeit' || outcome === 'walkover') {
+			// Determine winner (the one who didn't forfeit/leave)
 			// Use explicit winnerId if available, otherwise fallback (unsafe for 0-0)
 			let winnerId = matchResult.winnerId;
 			if (!winnerId) {
 				// Fallback (shouldn't happen with new backend logic)
-				console.warn(`Tournament ${this.tournamentId}: Forfeit without explicit winnerId. Falling back to score.`);
+				console.warn(`Tournament ${this.tournamentId}: Forfeit/walkover without explicit winnerId. Falling back to score.`);
 				winnerId = score.p1 > score.p2 ? player1Id : player2Id;
 			}
 			// Ensure ID type consistency
@@ -347,19 +373,28 @@ class TournamentManager {
 				winnerStanding.matchPoints += 3;
 				winnerStanding.wins += 1;
 				winnerStanding.matchesPlayed += 1;
-				winnerStanding.totalPointsScored += (score.p1 > score.p2 ? score.p1 : score.p2);
-				winnerStanding.scoreDifferential += Math.abs(score.p1 - score.p2);
+				// For walkover, no score differential change (0-0 score)
+				if (outcome === 'forfeit') {
+					winnerStanding.totalPointsScored += (score.p1 > score.p2 ? score.p1 : score.p2);
+					winnerStanding.scoreDifferential += Math.abs(score.p1 - score.p2);
+				}
 				winnerStanding.opponents.push(loserId);
 			}
 			if (loserStanding) {
 				loserStanding.losses += 1;
 				loserStanding.matchesPlayed += 1;
-				loserStanding.totalPointsScored += (score.p1 > score.p2 ? score.p2 : score.p1);
-				loserStanding.scoreDifferential -= Math.abs(score.p1 - score.p2);
+				// For walkover, no score differential change (0-0 score)
+				if (outcome === 'forfeit') {
+					loserStanding.totalPointsScored += (score.p1 > score.p2 ? score.p2 : score.p1);
+					loserStanding.scoreDifferential -= Math.abs(score.p1 - score.p2);
+				}
 				loserStanding.opponents.push(winnerId);
-				loserStanding.isWithdrawn = true;
-				// Auto-resolve future matches for this withdrawn player
-				this.resolveFutureMatchesForWithdrawn(loserId);
+				// Only mark as withdrawn on forfeit (player left during game), not walkover (auto-resolved future match)
+				if (outcome === 'forfeit') {
+					loserStanding.isWithdrawn = true;
+					// Auto-resolve future matches for this withdrawn player
+					this.resolveFutureMatchesForWithdrawn(loserId);
+				}
 			}
 			return;
 		}
@@ -407,78 +442,34 @@ class TournamentManager {
 	}
 
 	/**
-	 * Auto-resolve future matches (Round Robin) for a withdrawn player
+	 * Auto-resolve future matches for a withdrawn player
+	 * The player remains in the bracket but auto-loses all their remaining matches.
+	 * No rescheduling - the tournament structure remains fixed.
 	 */
 	resolveFutureMatchesForWithdrawn(withdrawnPlayerId) {
-		// 1. RESCHEDULING PHASE
-		// Attempt to move future "Active vs Active" matches to earlier rounds 
-		// if the current slots are occupied by "Dead" matches (vs Withdrawn/Bye).
-
-		const activeMatches = this.matches.filter(m => {
-			if (m.status === 'completed' || m.round <= this.currentRound) return false;
-			// Check if it's Active vs Active
-			const p1Active = m.player1 && !this.isPlayerWithdrawn(m.player1.id);
-			const p2Active = m.player2 && !this.isPlayerWithdrawn(m.player2.id);
-			return p1Active && p2Active;
-		});
-
-		// Sort by round ascending
-		activeMatches.sort((a, b) => a.round - b.round);
-
-		for (const activeMatch of activeMatches) {
-			const originalRound = activeMatch.round;
-			// Try to find an earlier round to move to
-			for (let r = this.currentRound + 1; r < originalRound; r++) {
-				// Check if involved players have 'Swappable/Dead' matches in this target round
-				const p1Match = this.findMatchForPlayerInRound(activeMatch.player1.id, r);
-				const p2Match = this.findMatchForPlayerInRound(activeMatch.player2.id, r);
-
-				if (this.isMatchSwappable(p1Match) && this.isMatchSwappable(p2Match)) {
-					// Perform Swap
-					console.log(`Tournament ${this.tournamentId}: Rescheduling Match ${activeMatch.matchId} (R${originalRound}) to Round ${r}`);
-
-					activeMatch.round = r; // Move active match to earlier round
-
-					// Move the dead matches to the later round (to be auto-resolved later)
-					if (p1Match) p1Match.round = originalRound;
-					if (p2Match && p2Match !== p1Match) p2Match.round = originalRound;
-
-					break; // Moved successfully, process next active match
-				}
-			}
-		}
-
-		// 2. RESOLUTION PHASE
-		// Find pending matches in future rounds involving this player
-		// (Or even current round if not started?)
-		// We iterate all matches.
+		// Mark all pending/inprogress matches for this player as walkover wins for the opponent
 		this.matches.forEach(match => {
-			if (match.status !== 'completed' && match.round >= this.currentRound) {
-				// If this match involves withdrawal
-				let opponentId = null;
-				let isP1 = false;
+			if (match.status === 'completed') return;
 
-				if (match.player1 && match.player1.id === withdrawnPlayerId) {
-					isP1 = true;
-					opponentId = match.player2 ? match.player2.id : null;
-				} else if (match.player2 && match.player2.id === withdrawnPlayerId) {
-					isP1 = false;
-					opponentId = match.player1.id; // p1 is opponent
+			const isP1Withdrawn = match.player1 && Number(match.player1.id) === Number(withdrawnPlayerId);
+			const isP2Withdrawn = match.player2 && Number(match.player2.id) === Number(withdrawnPlayerId);
+
+			if (isP1Withdrawn || isP2Withdrawn) {
+				// Determine the winner (the non-withdrawn player)
+				let winnerId = null;
+				if (isP1Withdrawn && match.player2) {
+					winnerId = match.player2.id;
+				} else if (isP2Withdrawn && match.player1) {
+					winnerId = match.player1.id;
 				}
 
-				if (opponentId !== null || (isP1 && match.player2 === null)) {
-					// Opponent gets a Bye/Walkover
-					console.log(`Tournament ${this.tournamentId}: Auto-resolving Match ${match.matchId} due to withdrawal of ${withdrawnPlayerId}`);
-
-					// If it's a bye match (Withdrawn vs Bye), result is 0-0 bye.
-					// If it's Withdrawn vs Opponent, Opponent gets win? Or Bye?
-					// Using 'bye' outcome gives 3 points to opponent without affecting score diff.
-					// This is safer for "Walkover".
-
-					// Determine scores:
-					// If P1 withdrawn, P2 gets win.
-					// If using 'bye', score is usually ignored or 0-0.
-
+				if (winnerId) {
+					console.log(`Tournament ${this.tournamentId}: Auto-resolving Match ${match.matchId} - Player ${withdrawnPlayerId} surrendered, ${winnerId} wins by walkover`);
+					// Use 'walkover' outcome - the remaining player wins with 3 points
+					this.updateMatchResult(match.matchId, { p1: 0, p2: 0 }, 'walkover', winnerId);
+				} else if (match.player2 === null) {
+					// Withdrawn player vs Bye - just complete the bye
+					console.log(`Tournament ${this.tournamentId}: Auto-resolving bye match ${match.matchId} for withdrawn player ${withdrawnPlayerId}`);
 					this.updateMatchResult(match.matchId, { p1: 0, p2: 0 }, 'bye');
 				}
 			}
@@ -553,35 +544,14 @@ class TournamentManager {
 	}
 
 	/**
-	 * Check if only one active player remains, awarding them remaining points
-	 * and ending the tournament early.
+	 * Check if all players have withdrawn except one.
+	 * Tournament continues with walkovers - doesn't end early.
+	 * The remaining player just gets walkover wins for all their matches.
 	 */
 	checkForSurvivor() {
-		// Identify active players (not withdrawn)
-		const activePlayers = this.standings.filter(s => !s.isWithdrawn);
-
-		if (activePlayers.length === 1) {
-			const survivor = activePlayers[0];
-			const roundsLeft = this.totalRounds - this.currentRound;
-			// Note: currentRound is still the one currently completing.
-			// If we are in R1, roundsLeft should cover R2, R3... 
-			// If R1 is finishing, currentRound might increment soon. 
-			// But checkAndProcessRoundBye calls increment later.
-			// Let's assume points needed for FUTURE rounds.
-
-			if (roundsLeft > 0) {
-				const extraPoints = roundsLeft * 3;
-				survivor.matchPoints += extraPoints;
-				// Also credit 'wins' for leaderboard stats?
-				survivor.wins += roundsLeft;
-				console.log(`Tournament ${this.tournamentId}: Only 1 player left (${survivor.playerName}). End Early. Awarding ${extraPoints} pts.`);
-			}
-
-			// Force End Tournament
-			this.currentRound = this.totalRounds + 1;
-			this.completedAt = Date.now();
-			return true;
-		}
+		// We no longer end the tournament early.
+		// The tournament structure remains fixed and walkovers are given.
+		// This method is kept for compatibility but no longer ends tournament early.
 		return false;
 	}
 
@@ -651,40 +621,29 @@ class TournamentManager {
 	}
 
 	/**
-	 * Helper: Find match for player in specific round
-	 */
-	findMatchForPlayerInRound(playerId, round) {
-		const targetId = Number(playerId);
-		return this.matches.find(m =>
-			m.round === round &&
-			((m.player1 && Number(m.player1.id) === targetId) || (m.player2 && Number(m.player2.id) === targetId))
-		);
-	}
-
-	/**
-	 * Helper: Check if a match is "Swappable" (Dead/Bye/Withdrawn)
-	 */
-	isMatchSwappable(match) {
-		if (!match) return true; // No match scheduled? Swappable.
-		if (match.status === 'completed') return false; // Can't move completed matches
-
-		// Check if it's a Bye match
-		if (match.player2 === null) return true;
-
-		// Check if either player is withdrawn
-		if (this.isPlayerWithdrawn(match.player1.id)) return true;
-		if (match.player2 && this.isPlayerWithdrawn(match.player2.id)) return true;
-
-		return false;
-	}
-
-	/**
 	 * Helper: Check if player is withdrawn
 	 */
 	isPlayerWithdrawn(playerId) {
 		const targetId = Number(playerId);
 		const s = this.standings.find(st => Number(st.playerId) === targetId);
 		return s ? s.isWithdrawn : false;
+	}
+
+	/**
+	 * Mark a player as withdrawn from the tournament
+	 * This is called when a player leaves during the lobby or game
+	 */
+	markPlayerWithdrawn(playerId) {
+		const targetId = Number(playerId);
+		const standing = this.standings.find(s => Number(s.playerId) === targetId);
+		if (standing && !standing.isWithdrawn) {
+			standing.isWithdrawn = true;
+			console.log(`Tournament ${this.tournamentId}: Player ${playerId} marked as withdrawn`);
+			// Auto-resolve all future matches for this player
+			this.resolveFutureMatchesForWithdrawn(targetId);
+			return true;
+		}
+		return false;
 	}
 
 	/**

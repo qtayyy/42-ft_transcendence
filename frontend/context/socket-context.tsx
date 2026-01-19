@@ -261,6 +261,50 @@ useEffect(() => {
               );
               break;
 
+            case "GAME_PAUSED":
+              // Dispatch event for game page to show pause UI
+              window.dispatchEvent(
+                new CustomEvent("gamePaused", { detail: payload })
+              );
+              toast.info(`Game paused by ${payload.pausedByName}`);
+              break;
+
+            case "GAME_RESUMED":
+              // Dispatch event for game page to resume game
+              window.dispatchEvent(
+                new CustomEvent("gameResumed", { detail: payload })
+              );
+              toast.success("Game resumed!");
+              break;
+
+            case "OPPONENT_READY_TO_RESUME":
+              // Dispatch event showing opponent is ready to resume
+              window.dispatchEvent(
+                new CustomEvent("opponentReadyToResume", { detail: payload })
+              );
+              toast.info("Opponent is ready to resume. Press SPACE to continue.");
+              break;
+
+            case "WAITING_FOR_RESUME":
+              // Dispatch event showing we're waiting for opponent
+              window.dispatchEvent(
+                new CustomEvent("waitingForResume", { detail: payload })
+              );
+              break;
+
+            case "MATCH_WALKOVER":
+              // Dispatch event for walkover win (opponent left)
+              window.dispatchEvent(
+                new CustomEvent("matchWalkover", { detail: payload })
+              );
+              toast.success(payload.reason || "You win by walkover!");
+              break;
+
+            case "TOURNAMENT_PLAYER_LEFT":
+              // A player left the tournament
+              toast.warning("A player has left the tournament");
+              break;
+
             case "CHAT_MESSAGE":
               console.log("Received CHAT_MESSAGE via WebSocket:", payload);
               window.dispatchEvent(

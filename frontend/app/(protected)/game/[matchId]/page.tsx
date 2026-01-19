@@ -41,6 +41,12 @@ export default function GamePage() {
 		gracePeriodEndsAt: number;
 		countdown: number;
 	} | null>(null);
+	const [pauseInfo, setPauseInfo] = useState<{
+		pausedBy: string;
+		pausedByName: string;
+		myReadyToResume: boolean;
+		opponentReadyToResume: boolean;
+	} | null>(null);
 
 	// Detect spectator mode from query param or gameState
 	const isSpectator = searchParams.get('spectator') === 'true' || (gameState as any)?.spectatorMode === true;
@@ -90,22 +96,96 @@ export default function GamePage() {
 			toast.success("Opponent reconnected!");
 			setOpponentConnected(true);
 		};
-		
+
 		const handleOpponentLeft = () => {
 			setOpponentConnected(false);
 			// We don't need to toast here as SocketContext already does, or we can add specific UI feedback
 		};
 
+		// Pause/Resume events
+		const handleGamePaused = (event: CustomEvent) => {
+			const { pausedBy, pausedByName } = event.detail;
+			setPauseInfo({
+				pausedBy,
+				pausedByName,
+				myReadyToResume: false,
+				opponentReadyToResume: false
+			});
+		};
+
+		const handleGameResumed = () => {
+			setPauseInfo(null);
+		};
+
+		const handleOpponentReadyToResume = () => {
+			setPauseInfo(prev => prev ? { ...prev, opponentReadyToResume: true } : null);
+		};
+
+		const handleWaitingForResume = () => {
+			setPauseInfo(prev => prev ? { ...prev, myReadyToResume: true } : null);
+		};
+
 		window.addEventListener("opponentDisconnected", handleDisconnect as EventListener);
 		window.addEventListener("opponentReconnected", handleReconnect as EventListener);
 		window.addEventListener("opponentLeft", handleOpponentLeft as EventListener);
-		
+		window.addEventListener("gamePaused", handleGamePaused as EventListener);
+		window.addEventListener("gameResumed", handleGameResumed as EventListener);
+		window.addEventListener("opponentReadyToResume", handleOpponentReadyToResume as EventListener);
+		window.addEventListener("waitingForResume", handleWaitingForResume as EventListener);
+
 		return () => {
 			window.removeEventListener("opponentDisconnected", handleDisconnect as EventListener);
 			window.removeEventListener("opponentReconnected", handleReconnect as EventListener);
 			window.removeEventListener("opponentLeft", handleOpponentLeft as EventListener);
+			window.removeEventListener("gamePaused", handleGamePaused as EventListener);
+			window.removeEventListener("gameResumed", handleGameResumed as EventListener);
+			window.removeEventListener("opponentReadyToResume", handleOpponentReadyToResume as EventListener);
+			window.removeEventListener("waitingForResume", handleWaitingForResume as EventListener);
 		};
 	}, []);
+
+	// Sync disconnect info from game state (for reconnection scenarios or late state updates)
+	useEffect(() => {
+		if (!gameState) return;
+
+		// Check if gameState has disconnect countdown info
+		const disconnectCountdown = (gameState as any)?.disconnectCountdown;
+		if (disconnectCountdown && disconnectCountdown.gracePeriodEndsAt) {
+			const countdown = Math.ceil((disconnectCountdown.gracePeriodEndsAt - Date.now()) / 1000);
+			if (countdown > 0 && !disconnectInfo) {
+				setDisconnectInfo({
+					disconnectedPlayer: disconnectCountdown.disconnectedPlayer || (gameState as any)?.disconnectedPlayer,
+					gracePeriodEndsAt: disconnectCountdown.gracePeriodEndsAt,
+					countdown
+				});
+				setOpponentConnected(false);
+			}
+		}
+
+		// Also check if game is paused due to disconnect (from disconnectedPlayer field)
+		if ((gameState as any)?.paused && (gameState as any)?.disconnectedPlayer && !disconnectInfo) {
+			// Calculate remaining time based on pausedAt (30 second grace period)
+			const pausedAt = (gameState as any)?.pausedAt;
+			if (pausedAt) {
+				const gracePeriodEndsAt = pausedAt + 30000;
+				const countdown = Math.ceil((gracePeriodEndsAt - Date.now()) / 1000);
+				if (countdown > 0) {
+					setDisconnectInfo({
+						disconnectedPlayer: (gameState as any).disconnectedPlayer,
+						gracePeriodEndsAt,
+						countdown
+					});
+					setOpponentConnected(false);
+				}
+			}
+		}
+
+		// Clear disconnect info if game is no longer paused or no disconnected player
+		if (gameState && !(gameState as any)?.paused && disconnectInfo) {
+			setDisconnectInfo(null);
+			setOpponentConnected(true);
+		}
+	}, [gameState, disconnectInfo]);
 
 	// Countdown timer for disconnect grace period
 	useEffect(() => {
@@ -486,7 +566,7 @@ export default function GamePage() {
 						{((gameState as any)?.paused || !gameStart) && !gameOverResult && gameState && (
 							<div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm p-8">
 								<div className="text-center space-y-6 max-w-lg w-full">
-									{/* Paused UI - With Disconnect Countdown */}
+									{/* Paused UI - With Disconnect Countdown or Mutual Resume */}
 									{(gameState as any)?.paused && (
 										<div className="flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
 											{disconnectInfo ? (
@@ -513,7 +593,7 @@ export default function GamePage() {
 													</div>
 													{!isSpectator && (
 														<p className="text-sm text-white/50">
-															You can press <span className="px-2 py-1 bg-white/20 rounded font-mono font-bold">SPACE</span> to resume when they reconnect
+															Game will resume automatically when they reconnect
 														</p>
 													)}
 												</>
@@ -523,13 +603,52 @@ export default function GamePage() {
 														<span className="text-4xl">⏸️</span>
 													</div>
 													<h3 className="text-3xl font-bold text-yellow-500">Game Paused</h3>
-													<p className="text-white/80">
-														The game has been paused.
-													</p>
+													{pauseInfo?.pausedByName && (
+														<p className="text-white/60">
+															Paused by {pauseInfo.pausedByName}
+														</p>
+													)}
 													{!isSpectator && (
-														<div className="p-6 bg-white/5 rounded-xl border border-white/10 w-full">
-															<p className="text-lg font-medium text-white mb-2">Press <span className="px-2 py-1 bg-white/20 rounded font-mono font-bold">SPACE</span> to resume!</p>
+														<div className="p-6 bg-white/5 rounded-xl border border-white/10 w-full space-y-4">
+															<p className="text-lg font-medium text-white text-center">
+																Both players must press <span className="px-2 py-1 bg-white/20 rounded font-mono font-bold">SPACE</span> to resume
+															</p>
+															<div className="flex justify-center gap-8">
+																<div className="flex flex-col items-center">
+																	<div className={cn(
+																		"h-12 w-12 rounded-full flex items-center justify-center text-2xl",
+																		pauseInfo?.myReadyToResume ? "bg-green-500/20 ring-2 ring-green-500" : "bg-white/10"
+																	)}>
+																		{pauseInfo?.myReadyToResume ? "✓" : "⏳"}
+																	</div>
+																	<span className="text-sm mt-2 text-white/70">You</span>
+																</div>
+																<div className="flex flex-col items-center">
+																	<div className={cn(
+																		"h-12 w-12 rounded-full flex items-center justify-center text-2xl",
+																		pauseInfo?.opponentReadyToResume ? "bg-green-500/20 ring-2 ring-green-500" : "bg-white/10"
+																	)}>
+																		{pauseInfo?.opponentReadyToResume ? "✓" : "⏳"}
+																	</div>
+																	<span className="text-sm mt-2 text-white/70">Opponent</span>
+																</div>
+															</div>
+															{pauseInfo?.myReadyToResume && !pauseInfo?.opponentReadyToResume && (
+																<p className="text-sm text-yellow-500 text-center animate-pulse">
+																	Waiting for opponent to press SPACE...
+																</p>
+															)}
+															{!pauseInfo?.myReadyToResume && pauseInfo?.opponentReadyToResume && (
+																<p className="text-sm text-green-500 text-center">
+																	Opponent is ready! Press SPACE to resume.
+																</p>
+															)}
 														</div>
+													)}
+													{isSpectator && (
+														<p className="text-white/80">
+															Waiting for both players to resume...
+														</p>
 													)}
 												</>
 											)}
@@ -732,7 +851,7 @@ export default function GamePage() {
 
 				{/* Footer Commands (Fixed Height) - Similar to local play */}
 				<div className="shrink-0 h-16 flex items-center justify-center pb-4 z-10">
-					<div className="flex items-center justify-between w-full max-w-3xl px-8 py-3 bg-card/60 rounded-full border border-border/50 backdrop-blur-md shadow-lg">
+					<div className="flex items-center justify-between w-full max-w-4xl px-8 py-3 bg-card/60 rounded-full border border-border/50 backdrop-blur-md shadow-lg">
 						<div className="flex items-center gap-3">
 							<div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 ring-1 ring-green-500/20">
 								<Keyboard className="h-4 w-4" />
@@ -745,10 +864,19 @@ export default function GamePage() {
 
 						<div className="h-6 w-px bg-border/50" />
 
-						<div className="flex items-center gap-3 text-right">
-							<div className="flex flex-col items-end">
+						<div className="flex items-center gap-3">
+							<div className="flex flex-col items-center">
 								<span className="text-xs font-bold text-foreground">Ready</span>
 								<span className="text-[10px] text-muted-foreground font-mono">ENTER</span>
+							</div>
+						</div>
+
+						<div className="h-6 w-px bg-border/50" />
+
+						<div className="flex items-center gap-3 text-right">
+							<div className="flex flex-col items-end">
+								<span className="text-xs font-bold text-foreground">Pause / Resume</span>
+								<span className="text-[10px] text-muted-foreground font-mono">SPACE</span>
 							</div>
 							<div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 ring-1 ring-purple-500/20">
 								<Gamepad2 className="h-4 w-4" />

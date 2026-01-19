@@ -204,55 +204,45 @@ export default fp((fastify) => {
     room.invitedPlayers = room.invitedPlayers.filter((p) => Number(p.id) !== numericUserId);
     fastify.currentRoom.delete(numericUserId);
 
-    // Handle tournament forfeit if this is a tournament room
-    const tournamentId = room.code?.startsWith('RT-') ? `RT-${roomId}` : null;
-    if (tournamentId && fastify.activeTournaments) {
+    // Handle tournament player withdrawal if tournament has started
+    const tournamentId = `RT-${roomId}`;
+    if (fastify.activeTournaments) {
       const tournament = fastify.activeTournaments.get(tournamentId);
       if (tournament) {
-        // Find and forfeit all pending matches for this player
-        const userIdStr = String(numericUserId);
-        tournament.matches.forEach(match => {
-          if (match.status === 'pending') {
-            const isPlayer1 = String(match.player1.id) === userIdStr;
-            const isPlayer2 = match.player2 && String(match.player2.id) === userIdStr;
+        console.log(`[Tournament] User ${numericUserId} leaving tournament ${tournamentId}`);
 
-            if (isPlayer1 || isPlayer2) {
-              // Double-update protection: Check if match is already being processed
-              if (match._forfeitProcessing) {
-                console.log(`[Tournament] Match ${match.matchId} forfeit already being processed, skipping`);
-                return;
-              }
-              match._forfeitProcessing = true;
+        // Mark player as withdrawn - this will auto-resolve all their future matches
+        const wasWithdrawn = tournament.markPlayerWithdrawn(numericUserId);
 
-              // Mark match as completed with forfeit
-              match.status = 'completed';
-              match.result = {
-                outcome: 'forfeit',
-                forfeitedBy: numericUserId,
-                score: { p1: 0, p2: 0 }
-              };
-
-              // Award points to opponent (3 points for win by forfeit)
-              if (isPlayer1 && match.player2) {
-                tournament.updateStandings({
-                  player1Id: match.player1.id,
-                  player2Id: match.player2.id,
-                  score: { p1: 0, p2: 5 }, // 5 indicates forfeit win (WIN_SCORE)
-                  outcome: 'forfeit'
-                });
-              } else if (isPlayer2) {
-                tournament.updateStandings({
-                  player1Id: match.player1.id,
-                  player2Id: match.player2.id,
-                  score: { p1: 5, p2: 0 },
-                  outcome: 'forfeit'
-                });
-              }
-
-              console.log(`[Tournament] User ${numericUserId} forfeited match ${match.matchId}`);
+        if (wasWithdrawn) {
+          // Broadcast tournament update to all remaining players
+          const tournamentData = tournament.getSummary();
+          tournament.players.forEach(player => {
+            const socket = fastify.onlineUsers.get(Number(player.id));
+            if (socket) {
+              safeSend(socket, {
+                event: "TOURNAMENT_UPDATE",
+                payload: tournamentData
+              }, Number(player.id));
             }
-          }
-        });
+          });
+
+          // Notify remaining players that someone left
+          tournament.players.forEach(player => {
+            if (Number(player.id) !== numericUserId) {
+              const socket = fastify.onlineUsers.get(Number(player.id));
+              if (socket) {
+                safeSend(socket, {
+                  event: "TOURNAMENT_PLAYER_LEFT",
+                  payload: {
+                    playerId: numericUserId,
+                    tournamentId: tournamentId
+                  }
+                }, Number(player.id));
+              }
+            }
+          });
+        }
       }
     }
 
