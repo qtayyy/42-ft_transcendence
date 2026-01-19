@@ -25,6 +25,12 @@ export default function CreateRoomPage() {
 	// Create room on mount
 	useEffect(() => {
 		const createRoom = async () => {
+			// If we already have a gameRoom (e.g. from matchmaking host redirect), uses that
+			if (gameRoom && gameRoom.hostId === Number(user?.id)) {
+				setRoomId(gameRoom.roomId);
+				return;
+			}
+
 			if (!user || creating || roomId) return;
 			setCreating(true);
 			try {
@@ -38,7 +44,7 @@ export default function CreateRoomPage() {
 			}
 		};
 		createRoom();
-	}, [user]);
+	}, [user, gameRoom]);
 
 	// Poll for room updates every 2 seconds
 	useEffect(() => {
