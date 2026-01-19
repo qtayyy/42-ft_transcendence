@@ -493,7 +493,94 @@ export default fp((fastify) => {
       return; // Don't add to queue since we created a room
     }
 
-    // For single mode (or other modes): use the queue-based system
+    // For single mode: Search for available room, or create one
+    if (mode === "single") {
+      // Search for an available matchmade room (host waiting)
+      let availableRoom = null;
+      let availableRoomId = null;
+
+      for (const [roomId, room] of fastify.gameRooms.entries()) {
+        if (
+          !room.isTournament &&
+          room.isMatchmade &&
+          room.joinedPlayers.length < room.maxPlayers
+        ) {
+          availableRoom = room;
+          availableRoomId = roomId;
+          break;
+        }
+      }
+
+      if (availableRoom) {
+        // Join the existing room
+        fastify.currentRoom.set(numericUserId, availableRoomId);
+        availableRoom.joinedPlayers.push({ id: numericUserId, username });
+
+        console.log(`[Matchmaking] User ${numericUserId} matched into room ${availableRoomId}`);
+
+        // Start the game immediately
+        // This initializes game state and sends GAME_MATCH_START to both players
+        // which triggers the redirect to the game page.
+        if (fastify.startRoomGame) {
+          fastify.startRoomGame(availableRoomId);
+        } else {
+          console.error("[Matchmaking] fastify.startRoomGame is not defined!");
+          // Fallback: Send MATCH_FOUND as before (though it might hang if no state)
+          const payload = {
+            event: "MATCH_FOUND",
+            payload: {
+              roomId: availableRoomId,
+              matchId: `RS-${availableRoomId}`,
+              players: availableRoom.joinedPlayers
+            }
+          };
+          availableRoom.joinedPlayers.forEach(p => {
+            const s = fastify.onlineUsers.get(Number(p.id));
+            if (s) safeSend(s, payload, Number(p.id));
+          });
+        }
+        return;
+      }
+
+      // No room found, create one and be the host
+      const roomId = crypto.randomUUID();
+      fastify.currentRoom.set(numericUserId, roomId);
+
+      fastify.gameRooms.set(roomId, {
+        hostId: numericUserId,
+        invitedPlayers: [],
+        joinedPlayers: [{ id: numericUserId, username }],
+        maxPlayers: 2,
+        isMatchmade: true,
+        isTournament: false
+      });
+
+      console.log(`[Matchmaking] User ${numericUserId} created single room ${roomId}`);
+
+      // Send GAME_ROOM so their context updates
+      const roomPayload = {
+        roomId: roomId,
+        hostId: numericUserId,
+        invitedPlayers: [],
+        joinedPlayers: [{ id: numericUserId, username }],
+        maxPlayers: 2
+      };
+
+      safeSend(socket, {
+        event: "GAME_ROOM",
+        payload: roomPayload
+      }, numericUserId);
+
+      // Tell them they are the host so they redirect to lobby
+      safeSend(socket, {
+        event: "MATCHMAKING_HOST",
+        payload: { roomId }
+      }, numericUserId);
+
+      return;
+    }
+
+    // For tournament mode (queue fallback if needed, though joinMatchmaking handles it above):
     queue.push({ userId: numericUserId, username, socket, joinedAt: Date.now() });
 
     // Send confirmation

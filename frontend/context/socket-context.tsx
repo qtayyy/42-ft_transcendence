@@ -178,6 +178,12 @@ useEffect(() => {
               console.log("Joined matchmaking queue, position:", payload.position);
               break;
 
+            case "MATCHMAKING_HOST":
+              // User has been designated as host for a new matchmade room
+              // Redirect to the create page which acts as the lobby
+              router.push("/game/remote/single/create");
+              break;
+
             case "MATCHMAKING_LEFT":
               // Confirm left queue
               break;
