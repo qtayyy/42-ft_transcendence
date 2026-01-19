@@ -37,7 +37,7 @@ export default function Header() {
   const { user, logout } = useAuth();
   const { sendSocketMessage, isReady } = useSocket();
   const { gameRoom } = useGame();
-  const { t } = useLanguage(); // change language to header
+  const { t } = useLanguage(); 
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
   // Check if current route is a non-authenticated page
@@ -73,7 +73,7 @@ export default function Header() {
   return (
     <div className={cn(
       "z-50 flex w-full items-center justify-between p-3",
-      "fixed top-0 inset-x-0 bg-transparent" // Overlay on all pages
+      "fixed top-0 inset-x-0 bg-transparent" 
     )}>
       <div>
         <button

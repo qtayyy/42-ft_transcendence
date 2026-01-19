@@ -20,6 +20,27 @@ export function useNotifications() {
   const { sendSocketMessage, isReady } = useSocketContext();
   const { user, loadingAuth } = useAuth();
 
+  // Load read status from localStorage
+  const getReadStatus = useCallback(() => {
+    if (typeof window === "undefined" || !user) return {};
+    try {
+      const stored = localStorage.getItem(`notifications_read_${user.id}`);
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  }, [user]);
+
+  // Save read status to localStorage
+  const saveReadStatus = useCallback((readStatus: Record<string, boolean>) => {
+    if (typeof window === "undefined" || !user) return;
+    try {
+      localStorage.setItem(`notifications_read_${user.id}`, JSON.stringify(readStatus));
+    } catch (error) {
+      console.error("Failed to save read status:", error);
+    }
+  }, [user]);
+
   // Load existing friend requests on mount
   useEffect(() => {
     // Wait for authentication to complete before fetching
@@ -33,13 +54,15 @@ export function useNotifications() {
       try {
         const res = await axios.get("/api/friends/pending");
         const requests = res.data || [];
+        const readStatus = getReadStatus();
+        
         const existingNotifications: Notification[] = requests.map((req: any) => ({
           id: `friend_request_${req.requester.id}_${req.id}`,
           type: "friend_request" as const,
           message: `${req.requester.username} has sent you a friend request, check it out`,
           username: req.requester.username,
           timestamp: new Date(req.createdAt),
-          read: false,
+          read: readStatus[`friend_request_${req.requester.id}_${req.id}`] || false,
         }));
         setNotifications(existingNotifications);
         setLoaded(true);
@@ -99,18 +122,34 @@ export function useNotifications() {
   }, [isReady]);
 
   const markAsRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((notif) =>
+    setNotifications((prev) => {
+      const updated = prev.map((notif) =>
         notif.id === id ? { ...notif, read: true } : notif
-      )
-    );
-  }, []);
+      );
+      
+      // Save read status to localStorage
+      const readStatus = getReadStatus();
+      readStatus[id] = true;
+      saveReadStatus(readStatus);
+      
+      return updated;
+    });
+  }, [getReadStatus, saveReadStatus]);
 
   const markAllAsRead = useCallback(() => {
-    setNotifications((prev) =>
-      prev.map((notif) => ({ ...notif, read: true }))
-    );
-  }, []);
+    setNotifications((prev) => {
+      const updated = prev.map((notif) => ({ ...notif, read: true }));
+      
+      // Save all read statuses to localStorage
+      const readStatus = getReadStatus();
+      prev.forEach((notif) => {
+        readStatus[notif.id] = true;
+      });
+      saveReadStatus(readStatus);
+      
+      return updated;
+    });
+  }, [getReadStatus, saveReadStatus]);
 
   const removeNotification = useCallback((id: string) => {
     setNotifications((prev) => prev.filter((notif) => notif.id !== id));
