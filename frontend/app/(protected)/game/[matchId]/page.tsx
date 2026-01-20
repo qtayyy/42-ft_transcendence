@@ -57,6 +57,33 @@ export default function GamePage() {
 	// For remote games, check if both players are ready
 	const gameStart = gameState && !gameState.leftPlayer?.gamePaused && !gameState.rightPlayer?.gamePaused;
 
+	// Track if we've already sent reconnection notification for this session
+	const hasNotifiedReconnection = useRef(false);
+
+	// Notify server when player returns to game page (reconnection)
+	// Only send this if the game state shows we were disconnected, not on initial load
+	useEffect(() => {
+		if (!isRemoteGame || !isReady || !matchId || isSpectator) return;
+		// Only send reconnection if game is paused due to disconnect
+		// This prevents false positives on initial game load
+		if (!gameState) return;
+
+		const isPausedDueToDisconnect = (gameState as any)?.paused &&
+			((gameState as any)?.disconnectedPlayer || (gameState as any)?.disconnectCountdown);
+
+		// Only notify once per session and only if actually reconnecting from disconnect
+		if (isPausedDueToDisconnect && !hasNotifiedReconnection.current) {
+			hasNotifiedReconnection.current = true;
+			sendSocketMessage({
+				event: "PLAYER_RECONNECTING",
+				payload: {
+					matchId,
+					userId: user?.id
+				}
+			});
+		}
+	}, [isRemoteGame, isReady, matchId, user, isSpectator, sendSocketMessage, gameState]);
+
 	// Auto-redirect for tournament matches
 	useEffect(() => {
 		if (gameOverResult?.tournamentId) {
@@ -266,6 +293,61 @@ export default function GamePage() {
 			window.removeEventListener("keyup", onKeyUp);
 		};
 	}, [isRemoteGame, isReady, sendSocketMessage, gameState, user, isSpectator]);
+
+	// Refs for cleanup function to access latest state without re-running effect
+	const gameStateRef = useRef(gameState);
+	const userRef = useRef(user);
+	const gameOverResultRef = useRef(gameOverResult);
+
+	useEffect(() => {
+		gameStateRef.current = gameState;
+		userRef.current = user;
+		gameOverResultRef.current = gameOverResult;
+	}, [gameState, user, gameOverResult]);
+
+	// Notify server when player is leaving the game page (for disconnect detection)
+	useEffect(() => {
+		if (!isRemoteGame || isSpectator) return;
+
+		const handleBeforeUnload = () => {
+			const currentGameState = gameStateRef.current;
+			const currentUser = userRef.current;
+
+			// Send notification that player is leaving
+			if (currentGameState?.matchId && currentUser?.id) {
+				sendSocketMessage({
+					event: "PLAYER_NAVIGATING_AWAY",
+					payload: {
+						matchId: currentGameState.matchId,
+						userId: currentUser.id
+					}
+				});
+			}
+		};
+
+		// Handle browser close/refresh
+		window.addEventListener("beforeunload", handleBeforeUnload);
+
+		// Cleanup function - called when component unmounts (navigation away)
+		return () => {
+			window.removeEventListener("beforeunload", handleBeforeUnload);
+			
+			// Also send when component unmounts (user navigates to another page)
+			const currentGameState = gameStateRef.current;
+			const currentUser = userRef.current;
+			const currentGameOverResult = gameOverResultRef.current;
+
+			if (currentGameState?.matchId && !currentGameOverResult && currentUser?.id) {
+				sendSocketMessage({
+					event: "PLAYER_NAVIGATING_AWAY",
+					payload: {
+						matchId: currentGameState.matchId,
+						userId: currentUser.id
+					}
+				});
+			}
+		};
+	}, [isRemoteGame, isSpectator, sendSocketMessage]); // Removed dependencies that change frequently
 
 	// Return to lobby handler for spectators
 	const returnToLobby = () => {
