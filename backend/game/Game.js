@@ -1,4 +1,5 @@
 import { PrismaClient } from "/app/generated/prisma/index.js"
+import { activeTournaments } from "./TournamentManager.js";
 const prisma = new PrismaClient();
 
 // Game Constants
@@ -10,6 +11,7 @@ const PADDLE_SPEED = 10;
 const BALL_SIZE = 12;
 const FPS = 60;
 const TICK_MS = 1000 / FPS;
+const WIN_SCORE = 5;
 
 // Timer-Based Match System (2-minute matches)
 const MATCH_DURATION_MS = 120000; // 2 minutes in milliseconds
@@ -36,6 +38,7 @@ class Game {
 				id: null
 			}
 		};
+		this.spectators = []; // Array of { socket, id }
 		this.gameState = this.createInitialState();
 		// Game loop control
 		this.running = false
@@ -134,6 +137,19 @@ class Game {
 				return ('p2');
 			}
 		}
+
+		// If neither p1 nor p2 (or both filled), it matches as spectator
+		this.spectators.push({
+			socket: socket,
+			id: userId
+		});
+		console.log(`Spectator joined (ID: ${userId})`);
+
+		// If game is already running, send current state immediately
+		if (this.running) {
+			socket.send(JSON.stringify(this.gameState));
+		}
+
 		return ('spectator');
 	}
 
@@ -164,8 +180,18 @@ class Game {
 	startGameLoop() {
 		if (this.running)
 			return;
-		console.log(`Starting Game Loop for Match ${this.matchId}`);
 		this.running = true;
+
+
+		// If part of a tournament, mark match as in-progress
+		if (this.tournamentId && this.mode === 'remote') {
+			const tournament = activeTournaments.get(this.tournamentId);
+			if (tournament) {
+				tournament.markMatchInProgress(this.matchId);
+			}
+		}
+
+		console.log(`Starting Game Loop for Match ${this.matchId}`);
 		this.gameState.status = 'playing';
 
 		// Initialize timer
@@ -418,6 +444,17 @@ class Game {
 		if (this.players.p2.socket && this.players.p2.socket.readyState === 1) {
 			this.players.p2.socket.send(payload);
 		}
+
+		// Broadcast to spectators
+		for (let i = this.spectators.length - 1; i >= 0; i--) {
+			const spec = this.spectators[i];
+			if (spec.socket.readyState === 1) {
+				spec.socket.send(payload);
+			} else {
+				// Remove disconnected spectators
+				this.spectators.splice(i, 1);
+			}
+		}
 	}
 
 	_broadcastState() {
@@ -459,13 +496,68 @@ class Game {
 		if (this.timeRemaining <= 0) {
 			this._stopGame();
 		}
+		// Score-based win condition
+		if (this.gameState.score.p1 >= WIN_SCORE || this.gameState.score.p2 >= WIN_SCORE) {
+			this._stopGame();
+		}
+	}
+
+	forfeit(loserId) {
+		if (this.running) {
+			this.running = false;
+			if (this.loopHandle) {
+				clearInterval(this.loopHandle);
+				this.loopHandle = null;
+			}
+		}
+
+		// Map loserId to player 1 or 2
+		const isP1 = String(this.players.p1.id) === String(loserId);
+		const winnerKey = isP1 ? 'p2' : 'p1';
+		const loserKey = isP1 ? 'p1' : 'p2';
+		const winnerId = isP1 ? 2 : 1;
+
+		// Max out score for winner (optional, but good for visual)
+		this.gameState.score[winnerKey] = WIN_SCORE;
+		this.gameState.score[loserKey] = 0;
+
+		this.saveMatch();
+
+		// If part of a tournament, report result
+		if (this.tournamentId && this.mode === 'remote') {
+			const tournament = activeTournaments.get(this.tournamentId);
+			if (tournament) {
+				tournament.updateMatchResult(this.matchId, {
+					p1: this.gameState.score.p1,
+					p2: this.gameState.score.p2
+				}, 'forfeit');
+			}
+		}
+
+		this.gameState.status = 'finished';
+		this.gameState.winner = winnerId;
+		this.gameState.result = 'win'; // Technically a win by forfeit
+
+		this._broadcast({
+			type: 'GAME_OVER',
+			winner: winnerId,
+			result: 'win',
+			score: this.gameState.score,
+			reason: 'forfeit',
+			tournamentId: this.tournamentId
+		});
+
+		console.log(`Game ${this.matchId} forfeited by Player ${isP1 ? 1 : 2}`);
 	}
 
 	_stopGame() {
 		if (this.running === false)
 			return;
 		this.running = false;
-		clearInterval(this.loopHandle);
+		if (this.loopHandle) {
+			clearInterval(this.loopHandle);
+			this.loopHandle = null;
+		}
 		this.saveMatch();
 
 		// Determine winner based on scores (or draw)
@@ -484,6 +576,17 @@ class Game {
 		}
 		// else: it's a draw (winner stays null)
 
+		// If part of a tournament, report result
+		if (this.tournamentId && this.mode === 'remote') {
+			const tournament = activeTournaments.get(this.tournamentId);
+			if (tournament) {
+				tournament.updateMatchResult(this.matchId, {
+					p1: p1Score,
+					p2: p2Score
+				}, result);
+			}
+		}
+
 		this.gameState.status = 'finished';
 		this.gameState.winner = winner;
 		this.gameState.result = result;
@@ -492,13 +595,29 @@ class Game {
 			type: 'GAME_OVER',
 			winner: winner, // null for draw
 			result: result, // 'win' or 'draw'
-			score: this.gameState.score
+			score: this.gameState.score,
+			tournamentId: this.tournamentId // Trigger auto-redirect on frontend
 		});
 
 		if (winner)
 			console.log(`Game ${this.matchId} ended. Winner: Player ${winner}`);
 		else
 			console.log(`Game ${this.matchId} ended in a DRAW`);
+	}
+	pause() {
+		if (!this.running) return;
+		console.log(`Pausing Game Match ${this.matchId}`);
+		this.running = false;
+		if (this.loopHandle) {
+			clearInterval(this.loopHandle);
+			this.loopHandle = null;
+		}
+	}
+
+	resume() {
+		if (this.running) return;
+		console.log(`Resuming Game Match ${this.matchId}`);
+		this.startGameLoop();
 	}
 }
 

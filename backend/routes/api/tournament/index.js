@@ -1,9 +1,38 @@
-import TournamentManager from "../../../game/TournamentManager.js";
-
-// Store active tournaments in memory
-const activeTournaments = new Map();
+import TournamentManager, { activeTournaments } from "../../../game/TournamentManager.js";
 
 export default async function (fastify, opts) {
+
+	// Expose activeTournaments to fastify instance for other plugins (ws-game-matches)
+	// fastify.decorate("activeTournaments", activeTournaments); // Already decorated in websockets.js
+
+	// Periodic cleanup for stale tournaments
+	const CLEANUP_INTERVAL = 60 * 60 * 1000; // 60 minutes
+	const TOURNAMENT_TTL = 24 * 60 * 60 * 1000; // 24 hours
+	const COMPLETED_TTL = 60 * 60 * 1000; // 1 hour
+
+	setInterval(() => {
+		const now = Date.now();
+		let cleanedCount = 0;
+
+		for (const [tournamentId, tournament] of activeTournaments.entries()) {
+			const shouldClean =
+				// Remove completed tournaments after 1 hour
+				(tournament.isComplete() && tournament.completedAt && (now - tournament.completedAt > COMPLETED_TTL)) ||
+				// Remove inactive tournaments after 24 hours
+				(tournament.createdAt && (now - tournament.createdAt > TOURNAMENT_TTL));
+
+			if (shouldClean) {
+				activeTournaments.delete(tournamentId);
+				cleanedCount++;
+				console.log(`[Cleanup] Removed stale tournament: ${tournamentId}`);
+			}
+		}
+
+		if (cleanedCount > 0) {
+			console.log(`[Cleanup] Removed ${cleanedCount} stale tournament(s)`);
+		}
+	}, CLEANUP_INTERVAL);
+
 	/**
 	 * Create a new tournament
 	 * POST /api/tournament/create
@@ -15,7 +44,7 @@ export default async function (fastify, opts) {
 		},
 		async (request, reply) => {
 			try {
-				const { players } = request.body; // Array of {id, name, isTemp}
+				const { players, tournamentId: customTournamentId } = request.body; // Array of {id, name, isTemp}
 
 				if (!players || players.length < 3 || players.length > 8) {
 					return reply.code(400).send({
@@ -23,8 +52,29 @@ export default async function (fastify, opts) {
 					});
 				}
 
-				// Generate tournament ID
-				const tournamentId = `tournament-${Date.now()}`;
+				if (customTournamentId && (customTournamentId.length < 3 || customTournamentId.length > 64)) {
+					return reply.code(400).send({
+						error: "Tournament name/ID must be between 3 and 64 characters"
+					});
+				}
+
+				// Use custom tournamentId if provided, otherwise generate one
+				const tournamentId = customTournamentId || `RT-${Date.now()}`;
+
+				// Check if tournament already exists
+				if (activeTournaments.has(tournamentId)) {
+					// Return existing tournament data
+					const existingTournament = activeTournaments.get(tournamentId);
+					return reply.code(200).send({
+						success: true,
+						tournamentId: tournamentId,
+						format: existingTournament.format,
+						totalRounds: existingTournament.totalRounds,
+						matches: existingTournament.matches,
+						leaderboard: existingTournament.getLeaderboard(),
+						currentRound: existingTournament.currentRound
+					});
+				}
 
 				// Create tournament manager
 				const tournament = new TournamentManager(tournamentId, players);
@@ -122,9 +172,20 @@ export default async function (fastify, opts) {
 
 					if (allRoundComplete && tournament.currentRound < tournament.totalRounds) {
 						// Generate next round
-						tournament.currentRound += 1;
-						const nextRoundMatches = tournament.generateSwissPairings(tournament.currentRound);
-						tournament.matches.push(...nextRoundMatches);
+						// Guard against duplicate generation
+						const existingNextRound = tournament.matches.filter(m => m.round === tournament.currentRound + 1);
+						if (existingNextRound.length === 0) {
+							tournament.currentRound += 1;
+							const nextRoundMatches = tournament.generateSwissPairings(tournament.currentRound);
+							tournament.matches.push(...nextRoundMatches);
+						} else {
+							console.log(`Tournament ${id}: Matches for Round ${tournament.currentRound + 1} already exist. Skipping.`);
+							// Consider advancing round if not already?
+							if (tournament.matches.some(m => m.round === tournament.currentRound + 1)) {
+								// if matches exist, we probably should have incremented tournament.currentRound?
+								// But let's assume TournamentManager internal logic handled it.
+							}
+						}
 					}
 				}
 

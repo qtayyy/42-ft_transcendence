@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { Friend, GameContextValue, GameRoomValue, Invites, GameStateValue } from "@/type/types";
+import { Friend, GameContextValue, GameRoomValue, Invites, GameStateValue } from "@/types/types";
 import axios from "axios";
 
 const GameContext = createContext<GameContextValue | null>(null);

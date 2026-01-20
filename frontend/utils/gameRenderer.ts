@@ -26,18 +26,23 @@ export const renderGame = (
 
 	// Draw Paddles (white)
 	context.fillStyle = "white";
-	context.fillRect(
-		gameState.paddles.p1.x * scaleX,
-		gameState.paddles.p1.y * scaleY,
-		gameState.constant.paddleWidth * scaleX,
-		gameState.constant.paddleHeight * scaleY
-	);
-	context.fillRect(
-		gameState.paddles.p2.x * scaleX,
-		gameState.paddles.p2.y * scaleY,
-		gameState.constant.paddleWidth * scaleX,
-		gameState.constant.paddleHeight * scaleY
-	);
+
+	// P1 paddle (left)
+	const p1X = gameState.paddles.p1.x * scaleX;
+	const p1Y = gameState.paddles.p1.y * scaleY;
+	const paddleW = gameState.constant.paddleWidth * scaleX;
+	const paddleH = gameState.constant.paddleHeight * scaleY;
+
+	context.fillRect(p1X, p1Y, paddleW, paddleH);
+
+	// P2 paddle (right) - ensure it's drawn within canvas bounds
+	const p2X = gameState.paddles.p2.x * scaleX;
+	const p2Y = gameState.paddles.p2.y * scaleY;
+
+	// Clamp P2's X position to ensure paddle is fully visible
+	const p2XClamped = Math.min(p2X, canvasDimensions.width - paddleW);
+
+	context.fillRect(p2XClamped, p2Y, paddleW, paddleH);
 
 	// Draw Ball
 	context.beginPath();
