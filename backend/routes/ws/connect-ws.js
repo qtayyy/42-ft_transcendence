@@ -18,9 +18,8 @@ export default async function (fastify, opts) {
       const userId = Number(req.user.userId);
       console.log(`[WS Connect] User connected: ${userId} (type: ${typeof userId})`);
 
-      // Check if this user was in a grace period for a game
-      // Logic to resume game if they were in one
-      // Iterating fastify.gameStates to find if this user belongs to a paused game
+      // Check if this user was in a grace period for a game (was disconnected)
+      // Only process if the player was actually marked as disconnected
       if (fastify.gameStates) {
         for (const [matchId, gameState] of fastify.gameStates.entries()) {
           const leftId = String(gameState.leftPlayer?.id);
@@ -33,7 +32,15 @@ export default async function (fastify, opts) {
             const reconnectedPlayer = isLeftPlayer ? "LEFT" : "RIGHT";
             const opponentId = isLeftPlayer ? gameState.rightPlayer?.id : gameState.leftPlayer?.id;
 
-            console.log(`[WS Connect] User ${userId} reconnected to match ${matchId}. Game is paused.`);
+            // IMPORTANT: Only process reconnection if this player was actually marked as disconnected
+            // This prevents false positives on initial game join
+            const wasDisconnected = gameState.disconnectedPlayers && gameState.disconnectedPlayers.has(reconnectedPlayer);
+            if (!wasDisconnected) {
+              console.log(`[WS Connect] User ${userId} connected to match ${matchId} (not a reconnection - not in disconnectedPlayers set)`);
+              continue; // Skip reconnection logic for this player
+            }
+
+            console.log(`[WS Connect] User ${userId} RECONNECTED to match ${matchId}. Was disconnected.`);
 
             // Clear any pending forfeit timeout for this specific player
             const timeoutKey = isLeftPlayer ? 'leftDisconnectTimeout' : 'rightDisconnectTimeout';
@@ -44,14 +51,15 @@ export default async function (fastify, opts) {
             }
 
             // Remove player from disconnectedPlayers set
-            if (gameState.disconnectedPlayers) {
-              gameState.disconnectedPlayers.delete(reconnectedPlayer);
-              console.log(`[WS Connect] Remaining disconnected players: ${[...gameState.disconnectedPlayers].join(', ') || 'none'}`);
-            }
+            gameState.disconnectedPlayers.delete(reconnectedPlayer);
+            console.log(`[WS Connect] Remaining disconnected players: ${[...gameState.disconnectedPlayers].join(', ') || 'none'}`);
 
             // Clear legacy disconnect info if this was the last disconnected player
-            if (!gameState.disconnectedPlayers || gameState.disconnectedPlayers.size === 0) {
+            if (gameState.disconnectedPlayers.size === 0) {
               gameState.disconnectedPlayer = null;
+              // Resume game if both players are now connected
+              gameState.paused = false;
+              gameState.pausedAt = null;
             }
 
             // Notify opponent about reconnection
@@ -85,8 +93,7 @@ export default async function (fastify, opts) {
               }
             }
 
-            // DO NOT call gameState.resume(). Wait for client to send START.
-            // Send the current (paused) state so the client knows to show the "Resume" UI.
+            // Send the current state so the client knows to show the appropriate UI
             if (connection.readyState === 1) {
               safeSend(connection, {
                 event: "GAME_STATE",
@@ -203,6 +210,18 @@ export default async function (fastify, opts) {
             case "GAME_EVENTS":
               // console.log(payload);
               fastify.updateGameState(payload.matchId, payload.userId, payload.keyEvent);
+              break;
+
+            case "PLAYER_NAVIGATING_AWAY":
+              // Player is navigating away from game page - treat as disconnect
+              console.log(`[Navigate Away] User ${payload.userId} navigating away from match ${payload.matchId}`);
+              fastify.handlePlayerNavigatingAway(payload.matchId, payload.userId);
+              break;
+
+            case "PLAYER_RECONNECTING":
+              // Player returned to game page - handle reconnection
+              console.log(`[Reconnect] User ${payload.userId} reconnecting to match ${payload.matchId}`);
+              fastify.handlePlayerReconnecting(payload.matchId, payload.userId);
               break;
 
             case "CHAT_MESSAGE":
@@ -348,9 +367,16 @@ export default async function (fastify, opts) {
                 const gameState = fastify.gameStates.get(matchId);
                 if (gameState) {
                   const socket = fastify.onlineUsers.get(userId);
+                  // Convert Set to array for JSON serialization
+                  const serializedState = {
+                    ...gameState,
+                    disconnectedPlayers: gameState.disconnectedPlayers instanceof Set
+                      ? [...gameState.disconnectedPlayers]
+                      : (gameState.disconnectedPlayers || [])
+                  };
                   safeSend(socket, {
                     event: "GAME_STATE",
-                    payload: { ...gameState, spectatorMode: true }
+                    payload: { ...serializedState, spectatorMode: true }
                   }, userId);
                 }
               }
@@ -384,6 +410,7 @@ export default async function (fastify, opts) {
       });
 
       connection.on("close", () => {
+        console.log(`[WS Close] User ${userId} connection closed`);
         fastify.onlineUsers.delete(userId);
         fastify.notifyFriendStatus(userId, "offline");
 
@@ -394,13 +421,23 @@ export default async function (fastify, opts) {
         const DISCONNECT_GRACE_PERIOD = 30000; // 30 seconds
         let activeGameState = null;
 
+        console.log(`[WS Close] Checking gameStates for user ${userId}. Total games: ${fastify.gameStates?.size || 0}`);
+
         // Find if user is in any active game
         for (const [matchId, gameState] of fastify.gameStates.entries()) {
           const leftId = String(gameState.leftPlayer?.id);
           const rightId = String(gameState.rightPlayer?.id);
           const uId = String(userId);
+          console.log(`[WS Close] Checking match ${matchId}: leftId=${leftId}, rightId=${rightId}, userId=${uId}`);
 
           if (leftId === uId || rightId === uId) {
+            // Skip disconnect handling if game hasn't started or is already over
+            // This prevents false positive disconnects during the "Are you ready?" phase
+            if (!gameState.gameStarted || gameState.gameOver) {
+              console.log(`[WS Close] Skipping disconnect for match ${matchId}: gameStarted=${gameState.gameStarted}, gameOver=${gameState.gameOver}`);
+              continue;
+            }
+
             activeGameState = gameState;
             const isLeftPlayer = leftId === uId;
             const disconnectedPlayer = isLeftPlayer ? "LEFT" : "RIGHT";
@@ -433,6 +470,7 @@ export default async function (fastify, opts) {
 
             // Notify opponent about disconnect with countdown info (if online)
             if (opponentSocket && !opponentDisconnected) {
+              console.log(`[Disconnect] Sending OPPONENT_DISCONNECTED and GAME_STATE to opponent ${opponentId}`);
               safeSend(opponentSocket, {
                 event: "OPPONENT_DISCONNECTED",
                 payload: {
@@ -445,17 +483,23 @@ export default async function (fastify, opts) {
 
               // Also send updated game state with paused flag so UI shows pause overlay
               const opponentSide = isLeftPlayer ? "RIGHT" : "LEFT";
+              const gameStatePayload = {
+                ...activeGameState,
+                // Convert Set to array for JSON serialization
+                disconnectedPlayers: activeGameState.disconnectedPlayers ? [...activeGameState.disconnectedPlayers] : [],
+                me: opponentSide,
+                disconnectCountdown: {
+                  disconnectedPlayer,
+                  gracePeriodEndsAt: Date.now() + DISCONNECT_GRACE_PERIOD
+                }
+              };
+              console.log(`[Disconnect] Sending GAME_STATE with paused=${gameStatePayload.paused}, disconnectedPlayer=${gameStatePayload.disconnectedPlayer}`);
               safeSend(opponentSocket, {
                 event: "GAME_STATE",
-                payload: {
-                  ...activeGameState,
-                  me: opponentSide,
-                  disconnectCountdown: {
-                    disconnectedPlayer,
-                    gracePeriodEndsAt: Date.now() + DISCONNECT_GRACE_PERIOD
-                  }
-                }
+                payload: gameStatePayload
               }, opponentId);
+            } else {
+              console.log(`[Disconnect] Cannot notify opponent: socket=${!!opponentSocket}, disconnected=${opponentDisconnected}`);
             }
 
             // Also notify spectators

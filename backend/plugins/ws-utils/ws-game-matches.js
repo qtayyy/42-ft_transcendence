@@ -27,6 +27,16 @@ const gameLoops = new Map(); // matchId -> intervalHandle
 // Track spectators per match
 const matchSpectators = new Map(); // matchId -> Set of spectatorIds
 
+// Helper to serialize game state for JSON (converts Set to array)
+function serializeGameState(gameState) {
+  return {
+    ...gameState,
+    disconnectedPlayers: gameState.disconnectedPlayers instanceof Set
+      ? [...gameState.disconnectedPlayers]
+      : (gameState.disconnectedPlayers || [])
+  };
+}
+
 function updatePaddles(gameState, player) {
   let currentPlayer = gameState.rightPlayer;
   if (player === "LEFT") currentPlayer = gameState.leftPlayer;
@@ -243,9 +253,9 @@ function broadcastState(gameState, fastify) {
     };
   }
 
-  // Build base payload
+  // Build base payload - use helper to convert Set to array for JSON serialization
   const basePayload = {
-    ...gameState,
+    ...serializeGameState(gameState),
     disconnectCountdown
   };
 
@@ -527,6 +537,13 @@ export default fp(async (fastify, opts) => {
         // Power-ups and effects
         powerUps: [],
         activeEffect: null,
+        // Explicitly initialize disconnect/pause fields to prevent false positives
+        paused: false,
+        pausedAt: null,
+        disconnectedPlayer: null,
+        disconnectedPlayers: new Set(),
+        gameStarted: false,
+        gameOver: false,
         // Game constants for frontend rendering
         constant: {
           canvasWidth: CANVAS_WIDTH,
@@ -544,7 +561,7 @@ export default fp(async (fastify, opts) => {
         player1Socket,
         {
           event: "GAME_MATCH_START",
-          payload: { ...initialGameState, me: "LEFT" },
+          payload: { ...serializeGameState(initialGameState), me: "LEFT" },
         },
         match.player1Id
       );
@@ -553,7 +570,7 @@ export default fp(async (fastify, opts) => {
         player2Socket,
         {
           event: "GAME_MATCH_START",
-          payload: { ...initialGameState, me: "RIGHT" },
+          payload: { ...serializeGameState(initialGameState), me: "RIGHT" },
         },
         match.player2Id
       );
@@ -752,6 +769,183 @@ export default fp(async (fastify, opts) => {
   });
 
   /**
+   * Handle player navigating away from game page
+   * Pauses the game and starts disconnect timer
+   */
+  const DISCONNECT_GRACE_PERIOD = 30000; // 30 seconds
+
+  fastify.decorate("handlePlayerNavigatingAway", (matchId, userId) => {
+    const gameState = fastify.gameStates.get(matchId);
+    if (!gameState) {
+      console.log(`[Navigate Away] No game state found for match ${matchId}`);
+      return;
+    }
+
+    const uid = Number(userId);
+    let disconnectedPlayer = null;
+    let opponentId = null;
+
+    if (uid === gameState.leftPlayer?.id) {
+      disconnectedPlayer = "LEFT";
+      opponentId = gameState.rightPlayer?.id;
+    } else if (uid === gameState.rightPlayer?.id) {
+      disconnectedPlayer = "RIGHT";
+      opponentId = gameState.leftPlayer?.id;
+    } else {
+      console.log(`[Navigate Away] User ${userId} not in match ${matchId}`);
+      return;
+    }
+
+    // Don't pause if game is already over or hasn't started yet
+    if (gameState.gameOver || !gameState.gameStarted) {
+      console.log(`[Navigate Away] Game ${matchId} not in progress (gameOver=${gameState.gameOver}, gameStarted=${gameState.gameStarted}), ignoring`);
+      return;
+    }
+
+    console.log(`[Navigate Away] User ${userId} (${disconnectedPlayer}) left match ${matchId}`);
+
+    // Pause the game
+    if (!gameState.paused) {
+      gameState.paused = true;
+      gameState.pausedAt = Date.now();
+    }
+
+    // Track disconnected player
+    if (!gameState.disconnectedPlayers) {
+      gameState.disconnectedPlayers = new Set();
+    }
+    gameState.disconnectedPlayers.add(disconnectedPlayer);
+    gameState.disconnectedPlayer = disconnectedPlayer;
+
+    // Notify opponent
+    const opponentSocket = fastify.onlineUsers.get(Number(opponentId));
+    if (opponentSocket) {
+      console.log(`[Navigate Away] Notifying opponent ${opponentId}`);
+      safeSend(opponentSocket, {
+        event: "OPPONENT_DISCONNECTED",
+        payload: {
+          matchId,
+          disconnectedPlayer,
+          gracePeriod: DISCONNECT_GRACE_PERIOD,
+          gracePeriodEndsAt: Date.now() + DISCONNECT_GRACE_PERIOD
+        }
+      }, opponentId);
+
+      // Also send game state with pause info
+      const opponentSide = disconnectedPlayer === "LEFT" ? "RIGHT" : "LEFT";
+      safeSend(opponentSocket, {
+        event: "GAME_STATE",
+        payload: {
+          ...gameState,
+          disconnectedPlayers: gameState.disconnectedPlayers ? [...gameState.disconnectedPlayers] : [],
+          me: opponentSide,
+          disconnectCountdown: {
+            disconnectedPlayer,
+            gracePeriodEndsAt: Date.now() + DISCONNECT_GRACE_PERIOD
+          }
+        }
+      }, opponentId);
+    }
+
+    // Set timeout for auto-forfeit
+    const timeoutKey = disconnectedPlayer === "LEFT" ? 'leftDisconnectTimeout' : 'rightDisconnectTimeout';
+    if (!gameState[timeoutKey]) {
+      gameState[timeoutKey] = setTimeout(() => {
+        console.log(`[Navigate Away] Grace period expired for ${disconnectedPlayer} in match ${matchId}`);
+
+        // Check if both disconnected
+        const bothDisconnected = gameState.disconnectedPlayers?.size >= 2;
+
+        if (bothDisconnected) {
+          console.log(`[Navigate Away] Both players forfeited - double forfeit`);
+          gameState.gameOver = true;
+          gameState.winner = null;
+          gameState.winnerId = null;
+          gameState.doubleForfeit = true;
+          gameState.forfeit = true;
+        } else {
+          // Only this player forfeited
+          const winner = disconnectedPlayer === "LEFT" ? "RIGHT" : "LEFT";
+          const winnerId = disconnectedPlayer === "LEFT" ? gameState.rightPlayer?.id : gameState.leftPlayer?.id;
+
+          gameState.gameOver = true;
+          gameState.winner = winner;
+          gameState.winnerId = winnerId;
+          gameState.forfeit = true;
+        }
+
+        endGame(gameState, fastify);
+        gameState[timeoutKey] = null;
+      }, DISCONNECT_GRACE_PERIOD);
+    }
+  });
+
+  /**
+   * Handle player returning to game (reconnecting)
+   * Only processes if the player was actually marked as disconnected
+   */
+  fastify.decorate("handlePlayerReconnecting", (matchId, userId) => {
+    const gameState = fastify.gameStates.get(matchId);
+    if (!gameState) return;
+
+    const uid = Number(userId);
+    let reconnectedPlayer = null;
+    let opponentId = null;
+
+    if (uid === gameState.leftPlayer?.id) {
+      reconnectedPlayer = "LEFT";
+      opponentId = gameState.rightPlayer?.id;
+    } else if (uid === gameState.rightPlayer?.id) {
+      reconnectedPlayer = "RIGHT";
+      opponentId = gameState.leftPlayer?.id;
+    } else {
+      return;
+    }
+
+    // Only process reconnection if this player was actually disconnected
+    // This prevents false positives on initial game load
+    if (!gameState.disconnectedPlayers || !gameState.disconnectedPlayers.has(reconnectedPlayer)) {
+      console.log(`[Reconnect] User ${userId} (${reconnectedPlayer}) not in disconnected set, ignoring`);
+      return;
+    }
+
+    console.log(`[Reconnect] User ${userId} (${reconnectedPlayer}) returned to match ${matchId}`);
+
+    // Clear disconnect timeout
+    const timeoutKey = reconnectedPlayer === "LEFT" ? 'leftDisconnectTimeout' : 'rightDisconnectTimeout';
+    if (gameState[timeoutKey]) {
+      clearTimeout(gameState[timeoutKey]);
+      gameState[timeoutKey] = null;
+    }
+
+    // Remove from disconnected players
+    gameState.disconnectedPlayers.delete(reconnectedPlayer);
+
+    // If no more disconnected players, resume game
+    if (gameState.disconnectedPlayers.size === 0) {
+      gameState.paused = false;
+      gameState.pausedAt = null;
+      gameState.disconnectedPlayer = null;
+
+      // Notify both players
+      const leftSocket = fastify.onlineUsers.get(gameState.leftPlayer?.id);
+      const rightSocket = fastify.onlineUsers.get(gameState.rightPlayer?.id);
+
+      safeSend(leftSocket, { event: "OPPONENT_RECONNECTED", payload: { matchId } }, gameState.leftPlayer?.id);
+      safeSend(rightSocket, { event: "OPPONENT_RECONNECTED", payload: { matchId } }, gameState.rightPlayer?.id);
+    }
+
+    // Notify opponent about reconnection
+    const opponentSocket = fastify.onlineUsers.get(Number(opponentId));
+    if (opponentSocket) {
+      safeSend(opponentSocket, {
+        event: "OPPONENT_RECONNECTED",
+        payload: { matchId, reconnectedPlayer }
+      }, opponentId);
+    }
+  });
+
+  /**
    * Start a game from a remote room
    * Called when host clicks "Start Game" in the room lobby
    */
@@ -794,6 +988,13 @@ export default fp(async (fastify, opts) => {
       // Power-ups and effects
       powerUps: [],
       activeEffect: null,
+      // Explicitly initialize disconnect/pause fields to prevent false positives
+      paused: false,
+      pausedAt: null,
+      disconnectedPlayer: null,
+      disconnectedPlayers: new Set(),
+      gameStarted: false,
+      gameOver: false,
       // Game constants for frontend rendering
       constant: {
         canvasWidth: CANVAS_WIDTH,
@@ -813,7 +1014,7 @@ export default fp(async (fastify, opts) => {
       player1Socket,
       {
         event: "GAME_MATCH_START",
-        payload: { ...initialGameState, me: "LEFT" },
+        payload: { ...serializeGameState(initialGameState), me: "LEFT" },
       },
       player1.id
     );
@@ -824,7 +1025,7 @@ export default fp(async (fastify, opts) => {
       player2Socket,
       {
         event: "GAME_MATCH_START",
-        payload: { ...initialGameState, me: "RIGHT" },
+        payload: { ...serializeGameState(initialGameState), me: "RIGHT" },
       },
       player2.id
     );
@@ -892,6 +1093,13 @@ export default fp(async (fastify, opts) => {
       // Power-ups and effects
       powerUps: [],
       activeEffect: null,
+      // Explicitly initialize disconnect/pause fields to prevent false positives
+      paused: false,
+      pausedAt: null,
+      disconnectedPlayer: null,
+      disconnectedPlayers: new Set(),
+      gameStarted: false,
+      gameOver: false,
       // Game constants for frontend rendering
       constant: {
         canvasWidth: CANVAS_WIDTH,
@@ -910,7 +1118,7 @@ export default fp(async (fastify, opts) => {
       player1Socket,
       {
         event: "GAME_MATCH_START",
-        payload: { ...initialGameState, me: "LEFT" },
+        payload: { ...serializeGameState(initialGameState), me: "LEFT" },
       },
       player1Id
     );
@@ -920,7 +1128,7 @@ export default fp(async (fastify, opts) => {
       player2Socket,
       {
         event: "GAME_MATCH_START",
-        payload: { ...initialGameState, me: "RIGHT" },
+        payload: { ...serializeGameState(initialGameState), me: "RIGHT" },
       },
       player2Id
     );
@@ -1098,6 +1306,13 @@ export default fp(async (fastify, opts) => {
       // Power-ups and effects
       powerUps: [],
       activeEffect: null,
+      // Explicitly initialize disconnect/pause fields to prevent false positives
+      paused: false,
+      pausedAt: null,
+      disconnectedPlayer: null,
+      disconnectedPlayers: new Set(),
+      gameStarted: false,
+      gameOver: false,
       // Game constants for frontend rendering
       constant: {
         canvasWidth: CANVAS_WIDTH,
@@ -1116,7 +1331,7 @@ export default fp(async (fastify, opts) => {
       player1Socket,
       {
         event: "GAME_MATCH_START",
-        payload: { ...initialGameState, me: "LEFT" },
+        payload: { ...serializeGameState(initialGameState), me: "LEFT" },
       },
       p1Id
     );
@@ -1126,7 +1341,7 @@ export default fp(async (fastify, opts) => {
       player2Socket,
       {
         event: "GAME_MATCH_START",
-        payload: { ...initialGameState, me: "RIGHT" },
+        payload: { ...serializeGameState(initialGameState), me: "RIGHT" },
       },
       p2Id
     );
