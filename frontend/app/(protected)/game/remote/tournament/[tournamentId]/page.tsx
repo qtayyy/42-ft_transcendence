@@ -118,6 +118,31 @@ export default function RemoteTournamentPage() {
 		initTournament();
 	}, [tournamentId, gameRoom, user]);
 
+	// Cleanup when leaving the page (if tournament is complete)
+	useEffect(() => {
+		return () => {
+			// If we are navigating away and the tournament is finished, ensure we leave the room
+			// This prevents "Zombie" players in the lobby view for others
+			if (tournament?.isComplete && user && roomId) {
+				console.log("Leaving tournament room on unmount (tournament complete)");
+				// Attempt to send LEAVE_ROOM to backend to clean up server state
+				try {
+					if (sendSocketMessage) {
+						sendSocketMessage({ 
+							event: "LEAVE_ROOM",
+							payload: {
+								roomId,
+								userId: user.id
+							}
+						});
+					}
+				} catch (err) {
+					console.error("Failed to send LEAVE_ROOM on unmount:", err);
+				}
+			}
+		};
+	}, [tournament?.isComplete, sendSocketMessage, user, roomId]);
+
 	// Create tournament from room players
 	const createTournament = async () => {
 		if (!gameRoom || isCreatingTournament) return;
@@ -388,7 +413,8 @@ export default function RemoteTournamentPage() {
 		);
 	}
 
-	// Tournament in progress
+
+
 	return (
 		<div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b from-background to-muted/20">
 			<div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -543,12 +569,21 @@ export default function RemoteTournamentPage() {
 															(String(currentMatch.player1.id) === String(user?.id) || currentMatch.player1.name === user?.username) || 
 															(currentMatch.player2 && (String(currentMatch.player2.id) === String(user?.id) || currentMatch.player2.name === user?.username))
 														) ? (
-															<Button
-																onClick={handleStartMatch}
-																className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg h-14 shadow-lg shadow-blue-500/20 font-bold"
-															>
-																<Play className="mr-2 h-5 w-5 fill-current" /> Ready
-															</Button>
+															currentMatch.status === 'inprogress' ? (
+																<Button
+																	onClick={() => router.push(`/game/${currentMatch.matchId}`)}
+																	className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-lg h-14 shadow-lg shadow-emerald-500/20 font-bold animate-pulse"
+																>
+																	<Play className="mr-2 h-5 w-5 fill-current" /> Rejoin Game
+																</Button>
+															) : (
+																<Button
+																	onClick={handleStartMatch}
+																	className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg h-14 shadow-lg shadow-blue-500/20 font-bold"
+																>
+																	<Play className="mr-2 h-5 w-5 fill-current" /> Ready
+																</Button>
+															)
 														) : (
 															<Button
 																disabled
@@ -557,13 +592,15 @@ export default function RemoteTournamentPage() {
 																Waiting for players...
 															</Button>
 														)}
-														<Button
-															onClick={handleLeaveTournament}
-															variant="outline"
-															className="flex-1 text-lg h-14 border-white/10 hover:bg-white/5"
-														>
-															Leave
-														</Button>
+														{currentMatch.status !== 'inprogress' && (
+															<Button
+																onClick={handleLeaveTournament}
+																variant="outline"
+																className="flex-1 text-lg h-14 border-white/10 hover:bg-white/5"
+															>
+																Leave
+															</Button>
+														)}
 													</div>
 												)}
 											</div>

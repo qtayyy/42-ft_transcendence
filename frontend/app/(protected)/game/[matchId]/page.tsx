@@ -84,6 +84,17 @@ export default function GamePage() {
 		}
 	}, [isRemoteGame, isReady, matchId, user, isSpectator, sendSocketMessage, gameState]);
 
+	// Request initial game state if missing (e.g. on page reload)
+	useEffect(() => {
+		if (!isRemoteGame || !isReady || !matchId || gameState) return;
+		
+		console.log("Requesting initial game state for match:", matchId);
+		sendSocketMessage({
+			event: "GET_GAME_STATE",
+			payload: { matchId }
+		});
+	}, [isRemoteGame, isReady, matchId, gameState, sendSocketMessage]);
+
 	// Auto-redirect for tournament matches
 	useEffect(() => {
 		if (gameOverResult?.tournamentId) {
@@ -97,6 +108,11 @@ export default function GamePage() {
 	// Listen for game over event
 	useEffect(() => {
 		const handleGameOver = (event: CustomEvent) => {
+			// Validate that this game over event belongs to the current match
+			if (event.detail?.matchId && event.detail.matchId !== matchId) {
+				console.log(`Ignoring Game Over event for different match: ${event.detail.matchId} (current: ${matchId})`);
+				return;
+			}
 			setGameOverResult(event.detail);
 		};
 
@@ -104,7 +120,7 @@ export default function GamePage() {
 		return () => {
 			window.removeEventListener("gameOver", handleGameOver as EventListener);
 		};
-	}, []);
+	}, [matchId]);
 
 	// Listen for opponent disconnect/reconnect events
 	const [opponentConnected, setOpponentConnected] = useState(true);
@@ -528,13 +544,20 @@ export default function GamePage() {
 	// Remote game rendering
 	if (isRemoteGame) {
 		// Show loading state while waiting for game state to be restored via WebSocket
-		if (!gameState && !gameOverResult) {
+		// Also verify that valid gameState matches the current matchId from URL to prevent showing stale state
+		const isGameStateValid = gameState && gameState.matchId === matchId;
+		
+		if ((!gameState || !isGameStateValid) && !gameOverResult) {
 			return (
 				<div className="h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted/20">
 					<div className="flex flex-col items-center gap-4">
 						<Loader2 className="h-12 w-12 animate-spin text-primary" />
 						<h2 className="text-2xl font-bold">Connecting to game...</h2>
-						<p className="text-muted-foreground">Restoring your game session</p>
+						<p className="text-muted-foreground">
+							{gameState && gameState.matchId !== matchId 
+								? "Syncing game state..." 
+								: "Restoring your game session"}
+						</p>
 						<Button
 							variant="outline"
 							onClick={async () => {
