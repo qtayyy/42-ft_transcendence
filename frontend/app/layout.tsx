@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -9,6 +10,7 @@ import Footer from "@/components/footer";
 import Header from "@/components/header";
 import { Toaster } from "@/components/ui/sonner";
 import GameInviteDialog from "@/components/game-invite-dialog";
+import { ReconnectionManager } from "@/components/game/reconnection-manager";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({
@@ -38,17 +40,20 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <LanguageProvider>
-            <AuthProvider>
-              <GameProvider>
-                <SocketProvider>
-                  <Toaster position="top-center" />
-                  <Header />
-                  <GameInviteDialog />
-                  <main className="min-h-screen w-full">{children}</main>
-                  <Footer />
-                </SocketProvider>
-              </GameProvider>
-            </AuthProvider>
+            <Suspense fallback={null}>
+              <AuthProvider>
+                <GameProvider>
+                  <SocketProvider>
+                    <Toaster position="top-center" />
+                    <Header />
+                    <GameInviteDialog />
+                    <ReconnectionManager />
+                    <main className="min-h-screen w-full">{children}</main>
+                    <Footer />
+                  </SocketProvider>
+                </GameProvider>
+              </AuthProvider>
+            </Suspense>
           </LanguageProvider>
         </ThemeProvider>
       </body>

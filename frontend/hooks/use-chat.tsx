@@ -21,8 +21,12 @@ export function useChat() {
         if (!res.ok) throw new Error('Failed to fetch friends');
         const data = await res.json();
         setFriends(data || []);
-      } catch (err: any) {
-        setError(err.message || 'Unknown error');
+      } catch (err) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('Unknown error');
+        }
       } finally {
         setLoading(false);
       }
