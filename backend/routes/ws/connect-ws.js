@@ -313,6 +313,10 @@ export default async function (fastify, opts) {
               })();
               break;
 
+            case "GET_GAME_STATE":
+              fastify.getGameState(payload.matchId, userId);
+              break;
+
             case "JOIN_MATCHMAKING":
               fastify.joinMatchmaking(
                 payload.userId,
@@ -581,9 +585,23 @@ export default async function (fastify, opts) {
         // Clean up any room memberships ONLY if not in an active game (grace period)
         // If in grace period, we want to keep them in the room so they can resume
         if (!activeGameState) {
-          const currentRoomId = fastify.currentRoom.get(userId);
-          if (currentRoomId) {
-            fastify.leaveRoom(currentRoomId, userId);
+          // Additional check: If user is in a tournament and has a pending match (even if game hasn't started yet),
+          // DO NOT leave the room. Leaving triggers markPlayerWithdrawn which auto-forfeits them.
+          let hasPendingMatch = false;
+          // Check if they are part of any pending match in gameStates (even if not started)
+          for (const [mid, gs] of fastify.gameStates.entries()) {
+            if ((String(gs.leftPlayer?.id) === String(userId) || String(gs.rightPlayer?.id) === String(userId)) && !gs.gameOver) {
+              hasPendingMatch = true;
+              console.log(`[WS Close] User ${userId} has pending match ${mid}, NOT leaving room/tournament.`);
+              break;
+            }
+          }
+
+          if (!hasPendingMatch) {
+            const currentRoomId = fastify.currentRoom.get(userId);
+            if (currentRoomId) {
+              fastify.leaveRoom(currentRoomId, userId);
+            }
           }
         }
       });

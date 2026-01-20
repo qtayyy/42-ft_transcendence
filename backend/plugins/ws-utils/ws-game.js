@@ -62,6 +62,8 @@ export default fp((fastify) => {
       invitedPlayers: room.invitedPlayers,
       joinedPlayers: room.joinedPlayers,
       maxPlayers: room.maxPlayers,
+      isTournament: room.isTournament || false,
+      tournamentStarted: room.tournamentStarted || false,
     };
 
     const socket = fastify.onlineUsers.get(numericUserId);
@@ -259,6 +261,8 @@ export default fp((fastify) => {
           invitedPlayers: room.invitedPlayers,
           joinedPlayers: room.joinedPlayers,
           maxPlayers: room.maxPlayers,
+          isTournament: room.isTournament || false,
+          tournamentStarted: room.tournamentStarted || false,
         };
         safeSend(
           newHostSocket,
@@ -290,10 +294,13 @@ export default fp((fastify) => {
       const hostSocket = fastify.onlineUsers.get(Number(room.hostId));
       const userSocket = fastify.onlineUsers.get(numericUserId);
       const payload = {
+        roomId: roomId,
         hostId: room.hostId,
         invitedPlayers: room.invitedPlayers,
         joinedPlayers: room.joinedPlayers,
         maxPlayers: room.maxPlayers,
+        isTournament: room.isTournament || false,
+        tournamentStarted: room.tournamentStarted || false,
       };
       safeSend(
         hostSocket,
@@ -443,6 +450,8 @@ export default fp((fastify) => {
           invitedPlayers: availableRoom.invitedPlayers,
           joinedPlayers: availableRoom.joinedPlayers,
           maxPlayers: availableRoom.maxPlayers,
+          isTournament: availableRoom.isTournament || false,
+          tournamentStarted: availableRoom.tournamentStarted || false,
         };
 
         availableRoom.joinedPlayers.forEach((player) => {

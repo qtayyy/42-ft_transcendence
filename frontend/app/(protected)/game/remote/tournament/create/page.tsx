@@ -100,6 +100,16 @@ export default function CreateTournamentRoomPage() {
 	const canStart = gameRoom && gameRoom.joinedPlayers.length >= 3;
 	const playerCount = gameRoom?.joinedPlayers.length || 1;
 
+	// Auto-redirect if tournament has already started
+	useEffect(() => {
+		// Ensure gameRoom exists before accessing properties
+		if (gameRoom?.tournamentStarted && roomId) {
+			const tournamentId = `RT-${roomId}`;
+			console.log("Tournament already started, redirecting to:", tournamentId);
+			router.push(`/game/remote/tournament/${tournamentId}`);
+		}
+	}, [gameRoom, roomId, router]);
+
 	return (
 		<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
 			<div className="w-full max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">

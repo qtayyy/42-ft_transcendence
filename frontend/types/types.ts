@@ -67,6 +67,8 @@ export interface GameRoomValue {
   invitedPlayers: Friend[];
   joinedPlayers: Friend[];
   maxPlayers: number;
+  isTournament?: boolean;
+  tournamentStarted?: boolean;
 }
 
 export interface Player {

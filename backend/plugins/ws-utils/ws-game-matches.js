@@ -847,6 +847,16 @@ export default fp(async (fastify, opts) => {
       }, opponentId);
     }
 
+    // If it's a tournament match, update tournament state immediately for forfeit
+    if (gameState.isTournamentMatch && gameState.tournamentId) {
+      console.log(`[Navigate Away] Processing tournament forfeit for ${matchId}`);
+      if (fastify.handleTournamentMatchEnd) {
+        // The remaining player is the winner
+        const winnerId = (disconnectedPlayer === "LEFT") ? gameState.rightPlayer.id : gameState.leftPlayer.id;
+        fastify.handleTournamentMatchEnd(gameState.tournamentId, matchId, winnerId);
+      }
+    }
+
     // Set timeout for auto-forfeit
     const timeoutKey = disconnectedPlayer === "LEFT" ? 'leftDisconnectTimeout' : 'rightDisconnectTimeout';
     if (!gameState[timeoutKey]) {
@@ -1348,5 +1358,34 @@ export default fp(async (fastify, opts) => {
 
     console.log(`Tournament match started: ${matchId} (${tournamentId}) - ${player1Name} vs ${player2Name}`);
     return matchId;
+  });
+
+  fastify.decorate("getGameState", (matchId, userId) => {
+    const gameState = fastify.gameStates.get(matchId);
+    if (!gameState) {
+      console.log(`[getGameState] No game state found for match ${matchId}`);
+      return;
+    }
+
+    // Verify user is part of the game or a spectator
+    const isPlayer = String(gameState.leftPlayer?.id) === String(userId) || String(gameState.rightPlayer?.id) === String(userId);
+    const isSpectator = fastify.matchSpectators?.get(matchId)?.has(Number(userId));
+
+    if (!isPlayer && !isSpectator) {
+      // Optional: check if user is admin or just allow it?
+      // For now, let's allow it but log it
+      console.log(`[getGameState] User ${userId} requested state for ${matchId} but is not player/spectator`);
+    }
+
+    const socket = fastify.onlineUsers.get(Number(userId));
+    if (socket) {
+      safeSend(socket, {
+        event: "GAME_STATE",
+        payload: {
+          ...serializeGameState(gameState),
+          me: String(gameState.leftPlayer?.id) === String(userId) ? "LEFT" : "RIGHT"
+        }
+      }, Number(userId));
+    }
   });
 });

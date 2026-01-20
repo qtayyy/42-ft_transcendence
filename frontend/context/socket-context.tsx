@@ -124,6 +124,8 @@ useEffect(() => {
                 invitedPlayers: payload.invitedPlayers,
                 joinedPlayers: payload.joinedPlayers,
                 maxPlayers: payload.maxPlayers,
+                isTournament: payload.isTournament || false,
+                tournamentStarted: payload.tournamentStarted || false,
               });
               setGameRoomLoaded(true);
               break;
@@ -197,9 +199,10 @@ useEffect(() => {
 
             case "LEAVE_ROOM":
               setGameRoom(null);
+              // Safely clear undefined property access if any component relies on it
+              setGameState(null); 
+              hasActiveGame.current = false;
               toast.info("You're removed from the game room");
-              // Don't force redirect here - let the caller handle navigation
-              // This prevents overriding intentional redirects (e.g., "New Game" -> tournament list)
               break;
 
             case "GAME_MATCH_START":
