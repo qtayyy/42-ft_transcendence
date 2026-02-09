@@ -7,11 +7,12 @@ import axios from "axios";
 
 export interface Notification {
   id: string;
-  type: "friend_request";
+  type: "friend_request" | "friend_online" | "chat_message";
   message: string;
   username: string;
   timestamp: Date;
   read: boolean;
+  senderId?: number; // For chat messages
 }
 
 export function useNotifications() {
@@ -120,6 +121,61 @@ export function useNotifications() {
       window.removeEventListener("friendRequest" as any, handleFriendRequest);
     };
   }, [isReady]);
+
+  // Listen for friend online/offline status
+  useEffect(() => {
+    if (!isReady || !user) return;
+
+    const handleFriendStatus = (event: CustomEvent) => {
+      const payload = event.detail;
+      // Only show notification for friends coming online
+      if (payload.status === "online" && payload.username) {
+        const newNotification: Notification = {
+          id: `friend_online_${payload.id}_${Date.now()}`,
+          type: "friend_online",
+          message: `${payload.username} is now online!`,
+          username: payload.username,
+          timestamp: new Date(),
+          read: false,
+        };
+        setNotifications((prev) => [newNotification, ...prev]);
+      }
+    };
+
+    window.addEventListener("friendStatus" as any, handleFriendStatus);
+
+    return () => {
+      window.removeEventListener("friendStatus" as any, handleFriendStatus);
+    };
+  }, [isReady, user]);
+
+  // Listen for chat messages
+  useEffect(() => {
+    if (!isReady || !user) return;
+
+    const handleChatMessage = (event: CustomEvent) => {
+      const payload = event.detail;
+      // Only show notification if message is from another user (not yourself)
+      if (payload.senderId && payload.senderId !== user.id && payload.senderUsername) {
+        const newNotification: Notification = {
+          id: `chat_message_${payload.senderId}_${Date.now()}`,
+          type: "chat_message",
+          message: `${payload.senderUsername} sent you a message`,
+          username: payload.senderUsername,
+          timestamp: new Date(),
+          read: false,
+          senderId: payload.senderId,
+        };
+        setNotifications((prev) => [newNotification, ...prev]);
+      }
+    };
+
+    window.addEventListener("chatMessage" as any, handleChatMessage);
+
+    return () => {
+      window.removeEventListener("chatMessage" as any, handleChatMessage);
+    };
+  }, [isReady, user]);
 
   const markAsRead = useCallback((id: string) => {
     setNotifications((prev) => {
