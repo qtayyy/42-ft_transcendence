@@ -100,6 +100,11 @@ useEffect(() => {
                 return prev;
               });
 
+              // Dispatch custom event for notifications
+              window.dispatchEvent(
+                new CustomEvent("friendStatus", { detail: { id, username, status } })
+              );
+
               toast.info(`${username} is now ${status}!`);
               break;
 

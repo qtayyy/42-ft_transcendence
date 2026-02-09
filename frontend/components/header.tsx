@@ -146,7 +146,14 @@ export default function Header() {
                         )}
                         onClick={() => {
                           markAsRead(notification.id);
-                          router.push("/friend-request");
+                          // Route based on notification type
+                          if (notification.type === "friend_request") {
+                            router.push("/friend-request");
+                          } else if (notification.type === "chat_message") {
+                            router.push("/chat");
+                          } else if (notification.type === "friend_online") {
+                            router.push("/dashboard");
+                          }
                         }}
                       >
                         <div className="flex items-start justify-between w-full">
