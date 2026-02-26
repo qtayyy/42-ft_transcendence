@@ -54,6 +54,7 @@ useEffect(() => {
 
 
   useEffect(() => {
+    let isMounted = true;
     if (!user) return;
 
     if (!wsRef.current) {
@@ -331,6 +332,7 @@ useEffect(() => {
       };
 
         websocket.onerror = (err) => {
+          if (websocket.readyState === WebSocket.CLOSING || websocket.readyState === WebSocket.CLOSED) return;
           console.error("WebSocket error:", err);
         };
 
@@ -338,10 +340,10 @@ useEffect(() => {
           setIsReady(false);
           console.log("WebSocket closed", event.code, event.reason);
           clearInterval(interval);
-          wsRef.current = null;
+          if (wsRef.current === websocket) wsRef.current = null;
 
           // Attempt reconnection with exponential backoff if not closed intentionally
-          if (event.code !== 1000) {
+          if (isMounted && event.code !== 1000 && event.code !== 1005) {
             const timeoutId = setTimeout(() => {
                 console.log("Attempting to reconnect...");
                 connect();
@@ -357,8 +359,9 @@ useEffect(() => {
     }
 
     return () => {
+      isMounted = false;
       if (wsRef.current) {
-        wsRef.current.close();
+        wsRef.current.close(1000, "User logged out");
         wsRef.current = null;
       }
     };
