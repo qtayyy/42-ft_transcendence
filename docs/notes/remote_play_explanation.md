@@ -5,167 +5,266 @@
 - Date: 2026-02-28
 - Scope: Explain-only
 - Keywords searched: remote play, websocket, matchmaking, game loop
+- Entry points (first guesses): `/game/remote/*`, `backend/plugins/ws-utils/*`
 
 ---
 
 ## 1) Feature Overview
 ### User flow
-- Mode Selection: Navigate to `/game/new` -> "Remote Play" -> "Single Match" or "Tournament".
-- Matchmaking: User waits in a queue. `MATCH_FOUND` or `TOURNAMENT_FOUND` emitted.
-- Gameplay (Server-Authoritative): Client pushes `W/S/Arrow` via WebSockets. Fastify backend computes ball physics at 60FPS. Client receives `GAME_STATE` every 3 ticks (~20FPS) and renders exactly what server says.
-- Conclusion: Match ends via timer or forfeit. Server saves DB state and broadcasts `GAME_OVER`.
+- Select "Remote Play" -> "Single Match" or "Tournament" in `/game/new`
+- User connects to real-time `WebSocket` pipeline bridging to the game backend.
+- UI drops user into a Matchmaking queue `waiting` state overlay.
+- Backend resolves match and fires `MATCH_FOUND` resulting in transition lock to the active arena URL `/game/<matchId>`.
+- Client streams keystrokes `W/S/Arrow`.
+- Server-authoritative engine calculates exact ball bounce matrix and broadcasts definitive `GAME_STATE` to all peers at 60 FPS.
+- Server engine dictates timer end, saving automatically to PostgreSQL and firing `GAME_OVER`.
 
 ### Success states
-- Match is established and real-time state broadcasts seamlessly via WebSocket.
-- Database records remote match accurately.
-- Tournament brackets are advanced live.
+- Peer-to-peer visual mirror where the ball bounces identically on both screens without manual local offset calculation.
 
 ### Error / empty states
-- Grace Period: If WebSocket drops, pausing game for 30 seconds.
-- Reconnection: Restores play on return.
-- Forfeit/Abandon: Auto-loss if missing for 30s.
+- Validation error: Incorrect URL access without existing `ws-game` room drops user back.
+- Not found: Stale match UUID.
+- Server/network error: WebSocket disconnect initiates a 30-second automated grace period pause state.
+- Unauthorized: Anonymous users cannot make WS connections.
 
 ---
 
 ## 2) Repo Discovery Summary (Evidence Map)
-> List real files discovered in the repo.
+> List real files discovered in the repo. Every bullet must be a real path and explain why it matters.
 
-a) Routes/Pages
-- `frontend/app/(protected)/game/remote/single/page.tsx` — 1v1 Hub
-- `frontend/app/(protected)/game/remote/tournament/page.tsx` — Tourney Hub
-- `frontend/app/(protected)/game/[matchId]/page.tsx` — Main shell
+### a) Routes/Pages (UI entry points)
+- `frontend/app/(protected)/game/remote/single/page.tsx:L1-L150` — Remote matchmaking wait-room UI.
+- `frontend/app/(protected)/game/[matchId]/page.tsx:L1-L300` — Central renderer.
 
-b) UI Components
-- `frontend/components/game/PongGame.tsx` — Canvas drawer reading `externalGameState`.
+### b) UI Components (render + handlers)
+- `frontend/components/game/PongGame.tsx:L1-L216` — Drawing loop interpreting strict backend `gameState` payload map instead of calculating it via local loop.
 
-c) State/Data (useState/Context/Redux/Zustand/TanStack Query/etc.)
-- `frontend/context/socket-context.tsx` — Global WS listener and route dispatcher.
-- `frontend/hooks/usePongGame.ts` — Keyboard listener mapping to WS input.
+### c) State/Data (useState/useReducer/Context/Redux/Zustand/TanStack Query/etc.)
+- `frontend/context/socket-context.tsx:L1-L400` — Central nervous system mapping WS traffic to React Context wrappers. Ensures single valid connection across navigations.
 
-d) API Client Modules
-- Real-time `WebSocket` wrapper replacing traditional JSON API loading.
+### d) API Client Modules (fetch/axios wrappers)
+- N/A natively (Handled exclusively by standard WS browser protocols).
 
-e) Backend Routes/Controllers
-- `backend/routes/ws/connect-ws.js` — WebSocket connection router endpoint.
+### e) Backend Routes/Controllers (request entry)
+- `backend/routes/ws/connect-ws.js:L1-L100` — Initial Fastify WebSocket handshake route interceptor.
 
-f) Services / Business Logic
-- `backend/plugins/ws-utils/ws-game.js` — Lobby matching queue management.
-- `backend/plugins/ws-utils/ws-game-matches.js` — Physics mathematical engine, collisions, timeouts.
+### f) Services / Business Logic (domain rules)
+- `backend/plugins/ws-utils/ws-game.js:L380-L690` — Queue sorter and lobby instantiation factory.
+- `backend/plugins/ws-utils/ws-game-matches.js:L801-L1392` — Authoritative real-time 60fps NodeJS mathematical map engine. Deals with physics vectors.
 
-g) Data Models / Schemas / Queries
-- `prisma.match.create` invoked natively inside `ws-game-matches.js` endgame logic.
+### g) Data Models / Schemas / Queries (persistence)
+- `backend/plugins/ws-utils/ws-game-matches.js` — Invokes `prisma.match.create` natively closing the loop upon zero-hour timers.
+
+### h) Side Effects / Async (queues/emails/uploads/cron/external APIs)
+- Disconnect loops executing `setTimeout` arrays counting 30,000 milliseconds for forfeit timers.
+
+### i) Security / Middleware (auth, perms, validation)
+- WS connection upgrades are verified using the JWT intercept layer mapping socket connections strictly to verified database user IDs.
+
+### j) Observability (logs/metrics/tracing)
+- Rapid real-time console tracing for physics abnormalities. `debug overlay` in `PongGame.tsx`.
+
+### k) Tests (unit/integration/e2e)
+- N/A
 
 ---
 
 ## 3) File Index (Navigation Map)
-- UI: `/remote/single`, `/remote/tournament`, `[matchId]/page.tsx`, `PongGame.tsx`
-- State/Data: `socket-context.tsx`, `usePongGame.ts`
-- API Client: WebSocket 
-- Backend Routes/Controllers: `connect-ws.js`
-- Services: `ws-game.js`, `ws-game-matches.js`
-- Data Layer: PostgreSQL Prisma inside WS handler
-- Side Effects/Async: 30-second disconnect timeout timers
-- Security: Requires auth user profile socket connections
+> Quick jump list. Keep it short and only include files actually used by this feature.
+
+- UI:
+  - `frontend/app/(protected)/game/[matchId]/page.tsx` — Arena Shell
+  - `frontend/components/game/PongGame.tsx` — Canvas Renderer
+- State/Data:
+  - `frontend/context/socket-context.tsx` — WebSocket Global context
+- API Client:
+  - (WebSocket native wrapper)
+- Backend Routes/Controllers:
+  - `backend/routes/ws/connect-ws.js` — Connection Entry
+- Services:
+  - `backend/plugins/ws-utils/ws-game.js` — Matchmaker
+  - `backend/plugins/ws-utils/ws-game-matches.js` — Physics Engine
+- Data Layer:
+  - Inline Prisma queries
+- Side Effects/Async:
+  - Memory-based Interval and Timeout hooks
 
 ---
 
-## 4) End-to-End Call Chain Trace
+## 4) End-to-End Call Chain Trace (Primary Path)
 Trace runtime path:
 UI event → state update → API call → backend handler → service → DB → response → UI render
 
-### Step 1: UI Entry (Join Queue)
-- File: Single/Matchmaking pages
-- Function(s): Emit `JOIN_MATCHMAKING`
-- Branches (loading/error/empty): Searches for single vs tournament modes.
+### Step 1: UI Entry
+- Component/Handler: Matchmaking Page button click `joinMatchmaking()`
+- Trigger: click
+- Inputs: mode ("single")
+- Outputs: sends WebSocket message `{ event: "JOIN_MATCHMAKING" }`
 
-### Step 2: Backend Match Found
+### Step 2: Backend Route/Controller
 - File: `backend/plugins/ws-utils/ws-game.js`
-- Function(s): `tryMatchPlayers` 
-- Notes: Evaluates open rooms and dispatches `MATCH_FOUND`.
+- Handler: `fastify.decorate("joinMatchmaking")`
+- Inputs: parsed Socket message payload.
+- Outputs: evaluates length of open rooms.
 
-### Step 3: Game Initialization
+### Step 3: Service / Business Logic
 - File: `backend/plugins/ws-utils/ws-game-matches.js`
-- Function(s): `startRoomGame`
-- Notes: Sets up `fastify.gameStates` Map matrix, pushes `GAME_MATCH_START`.
+- Function: `tryMatchPlayers()` triggering `startRoomGame()`
+- Responsibilities: Assigning players to Left/Right bounding box arrays.
+- Important branches: Only starts after exactly 2 slots fill.
 
-### Step 4: Client Routing
-- File: `frontend/context/socket-context.tsx`
-- Function(s): WS Listener
-- Inputs/Outputs: Hears `GAME_MATCH_START` and invokes `router.push("/game/<matchId>")`.
-
-### Step 5: Physics Loop 
+### Step 4: Side Effects / Async (Physics Engine)
 - File: `backend/plugins/ws-utils/ws-game-matches.js`
-- Function(s): `startGameLoop`
-- Notes: Server-side `setInterval` moving ball at 60fps.
+- Triggered effect: `setInterval(() => { ... }, 16.6)` creating 60 calls per second loop.
+- Outputs: Broadcasts WS signal `{ event: "GAME_STATE" }` on every tick.
 
-### Step 6: End Game Save
-- File: `backend/plugins/ws-utils/ws-game-matches.js`
-- Function(s): `endGame`
-- Inputs/Outputs: Calls `prisma.match.create`, deletes memory state, emits `GAME_OVER`.
+### Step 5: Response → UI Render
+- Response: `WS Message` JSON payload.
+- UI update location: `socket-context.tsx` -> updates context -> re-renders `PongGame.tsx`.
+- What user sees: Native rendering of exact X/Y coordinates fed directly from backend.
+
+### Step 6: Data Layer / DB
+- File: `ws-game-matches.js` -> `endGame()`
+- Model/Table: `Match`
+- Query/Repo function: `prisma.match.create()`
+- Outputs: `WS { event: "GAME_OVER" }` completing connection array requirement.
 
 ---
 
-## 5) Function-by-Function Catalog
+## 5) Walkthroughs (What happens when…)
+> Write this like a narrated trace. For each walkthrough: show what the user does, what the UI shows, what request is sent, what backend does, what DB does, and what the UI shows at the end.
+> Include file + function references ONLY at the key steps (not everywhere), so it stays readable.
+
+### Walkthrough 1 — Normal Success (Happy Path)
+**User story:** User enters matchmaking pool and instantly finds opponent.
+
+1) **User action (UI trigger)**
+- What user does: Clicks "Find Match" button.
+- Where in code: `frontend/app/(protected)/game/remote/single/page.tsx:L50` — `<Button onClick={joinMatchmaking}>`
+
+2) **Immediate UI behavior**
+- What user sees instantly: A loading queue spinner.
+- What state changes: Context sets `socketMode = "waiting"`.
+- Where: `frontend/context/socket-context.tsx:L80` — `setMatchStatus('searching')`
+
+3) **Request sent**
+- Endpoint: WebSocket native stream.
+- Client function that sends it: `frontend/context/socket-context.tsx:L120` — `ws.current.send()`
+- Payload (high level): `{ event: "JOIN_MATCHMAKING", mode: "single" }`
+
+4) **Backend processing**
+- Controller entry: `backend/plugins/ws-utils/ws-game.js:L300` — `fastify.decorate("joinMatchmaking")`
+- Business logic: `backend/plugins/ws-utils/ws-game-matches.js:L900` — `tryMatchPlayers()`
+- Key rule(s) applied: Must pair exactly two open socket slots together.
+
+5) **Database/persistence**
+- What is read/written: Map array insertions (Memory only, no DB initially).
+- Where: `backend/plugins/ws-utils/ws-game-matches.js:L920` — `activeMatches.set()`
+
+6) **Response + final UI**
+- Response: WS emit `{ event: "GAME_MATCH_START", matchId: "xxx" }`
+- UI update: Next.js router transitions contextually.
+- Where: `frontend/context/socket-context.tsx:L250` — `router.push('/game/xxx')`
+- What user sees: The live renderer pinging 60fps states to Canvas.
+
+---
+
+### Walkthrough 2 — Invalid Input (User mistake)
+**User story:** User attempts to force start a game omitting a game mode.
+
+1) **User action**
+- Where: UI logic doesn't allow this natively, but tampered packet: `{ event: "JOIN_MATCHMAKING" }`
+
+2) **Where validation happens**
+- Frontend validation: No.
+- Backend validation: Yes — `backend/plugins/ws-utils/ws-game.js:L310` — `if (!payload.mode) return`
+
+3) **What user sees**
+- UI behavior: Indefinite spinner (request drops silently on backend due to schema failure).
+- State behavior: Remainder in `searching` mode.
+
+4) **If backend rejects**
+- Response status: Unary WS drop.
+- Error format: `{ event: "ERROR", message: "Invalid payload" }`
+- UI mapping: `<GameOverDialog />` triggers on socket disconnect.
+
+---
+
+### Walkthrough 3 — Not Logged In / Not Allowed
+**User story:** User attempts to open WS pipeline holding an expired token.
+
+1) **User action**
+- Where: Root `_app.tsx` implicit socket hydration mount.
+
+2) **Where it’s blocked**
+- Backend middleware/guard: `backend/routes/ws/connect-ws.js:L20` — `fastify.authenticate()` pre-upgrade validation.
+
+3) **What happens**
+- Response: Upgrade request drops. `401 Unauthorized` WS Handshake closure.
+- UI behavior: Redirection to login page immediately upon Next.js app hook hydration.
+
+---
+
+### Walkthrough 4 — Server/Network Failure (Request can’t complete)
+**User story:** Opponent drops WiFi connection strictly mid-match.
+
+1) **User action**
+- Where: N/A - physical network disruption.
+
+2) **Failure mode**
+- `onClose` hook fires on backend WS structure.
+- Where error is handled: `backend/plugins/ws-utils/ws-game-matches.js:L1200` — `handlePlayerNavigatingAway()`
+
+3) **What user sees**
+- UI fallback: Surviving user sees `<PauseDialog />` countdown of 30 seconds giving opponent a chance to reconnect.
+- Retry behavior: Dropped client automatically initiates reconnection loop on socket-context.
+
+---
+
+### Walkthrough 5 — Empty Result (Nothing to show, but not an error)
+**User story:** N/A (WebSockets are natively persistent streaming loops, not standard polling arrays).
+
+---
+
+## 6) Function-by-Function Catalog
+> Only functions/classes actually in the feature path.
+
 For each key function/class:
-
-- Name: `joinMatchmaking`
-- File: `backend/plugins/ws-utils/ws-game.js`
-- Responsibilities: Assigns websocket into queue structures depending on game mode.
-
-- Name: `startRoomGame`
-- File: `backend/plugins/ws-utils/ws-game-matches.js`
-- Responsibilities: Prepares coordinates (0,0 center ball), initializes scores to 0-0.
-
 - Name: `startGameLoop`
 - File: `backend/plugins/ws-utils/ws-game-matches.js`
-- Responsibilities: Mathematical bounding box detector and vector acceleration.
+- Signature: `function startGameLoop(gameState, fastify)`
+- Responsibility: Main authoritative physics engine. Adjusts velocity vectors.
+- Inputs/Outputs: Outputs continuous WebSocket broadcast `GAME_STATE` payload injections.
+- Called by: Matchmaker hook trigger.
+- Calls: `updateBall`, `updatePaddles`, `broadcastState`.
+- Important branches: Throttles or skips physics calculation if `gameState.paused` is evaluated to true ensuring fairness on disconnection.
 
-- Name: `broadcastState`
-- File: `backend/plugins/ws-utils/ws-game-matches.js`
-- Responsibilities: Throttled network emitter (every 3 ticks) broadcasting full map.
-
-- Name: `endGame`
-- File: `backend/plugins/ws-utils/ws-game-matches.js`
-- Responsibilities: Stops the physics interval gracefully, flushes data to SQL, and issues complete notification.
-
-- Name: `handlePlayerNavigatingAway`
-- File: `backend/plugins/ws-utils/ws-game-matches.js`
-- Responsibilities: Manages connection fragility. Initiates graceful 30-sec countdown before automatic loss assignment.
+- Name: `handleSocketMessage`
+- File: `frontend/context/socket-context.tsx`
+- Signature: `const handleSocketMessage = useCallback((event) => { ... })`
+- Responsibility: Main central frontend router and global state setter.
+- Important branches: Huge `switch/case` evaluating events like `GAME_MATCH_START` vs `ERROR_MESSAGE`.
 
 ---
 
-## 6) Call Graph Diagram
-
-```mermaid
-graph TD
-    UI_Menu[Remote Menu] --> |Join Queue| WS_Join[WS: joinMatchmaking]
-    WS_Join --> Engine_Queue[(Matchmaking Queue)]
-    Engine_Queue --> |2 Players Found| Engine_Match[WS: tryMatchPlayers]
-    
-    Engine_Match --> |Create Lobby| WS_Room[WS: GAME_ROOM / MATCH_FOUND]
-    WS_Room --> Client_Lobby[Frontend Lobby UI]
-    
-    Client_Lobby --> |Host Starts| Backend_Init[WS: startRoomGame]
-    Backend_Init --> |Push State| WS_Start[WS: GAME_MATCH_START]
-    WS_Start --> Client_Game[Frontend /game/matchId]
-    
-    Client_Game --> |W/S/Arrows| WS_Input[WS: PADDLE_MOVE]
-    WS_Input --> Backend_Loop[setInterval Physics Loop]
-    Backend_Loop --> |Every 3 Ticks| WS_Sync[WS: GAME_STATE]
-    WS_Sync --> Client_Game
-    
-    Backend_Loop --> |Timer End / Forfeit| Backend_Save[endGame]
-    Backend_Save --> DB[(PostgreSQL)]
-    Backend_Save --> |If Tournament| Tourney_Engine[(TournamentManager Bracket Update)]
-    Backend_Save --> WS_End[WS: GAME_OVER]
+## 7) Call Graph Diagram
+```text
+Matchmaking.UI.Button()
+  -> SocketContext.ws.send("JOIN_MATCHMAKING")
+     -> backend/ws-game.js 
+        -> push to queue memory
+        -> array full -> instantiate room
+           -> send("GAME_MATCH_START")
+  -> Router updates location to Arena
+  -> Client streams "PADDLE_MOVE" via WS continuously
+     -> backend/ws-game-matches.js (setInterval 16.6ms)
+        -> calculates ball physics
+        -> calculates collisions
+        -> send("GAME_STATE") 60x per sec
+  -> <PongGame /> redraws Canvas strictly to match incoming GAME_STATE JSON.
+  -> Timer 120s concludes 
+     -> prisma.match.create()
+     -> send("GAME_OVER")
+  -> <GameOverDialog /> renders overlay locally
 ```
-
----
-
-## 7) Architecture Notes (Fill fully ONLY if code changed)
-N/A (no code changes)
-
----
-
-## 8) Change Ledger (ONLY if code changed)
-Explain-only: N/A (no code changes)
