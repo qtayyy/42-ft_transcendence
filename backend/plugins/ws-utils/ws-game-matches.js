@@ -480,10 +480,8 @@ function startGameLoop(gameState, fastify) {
     // Check power-up collisions
     checkPowerUpCollision(gameState);
 
-    // Broadcast state throttled (every 3 ticks = 20 FPS)
-    if (gameState.tickCount % 3 === 0) {
-      broadcastState(gameState, fastify);
-    }
+    // Broadcast state every tick (60 FPS) to eliminate client-side stutter
+    broadcastState(gameState, fastify);
 
     // Check for game over (timer expired)
     const result = checkGameOver(gameState);
