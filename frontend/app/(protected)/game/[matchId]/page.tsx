@@ -31,7 +31,7 @@ export default function GamePage() {
 	const searchParams = useSearchParams();
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
-	const { gameState } = useGame();
+	const { gameState, setGameState } = useGame();
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const matchId = params.matchId as string;
 	const [matchData, setMatchData] = useState<any>(null);
@@ -53,7 +53,7 @@ export default function GamePage() {
 
 	// Determine if this is a remote game (RS-* prefix or RT-* prefix for tournaments)
 	const isRemoteGame = matchId.startsWith("RS-") || matchId.startsWith("RT-");
-	
+
 	// For remote games, check if both players are ready
 	const gameStart = gameState && !gameState.leftPlayer?.gamePaused && !gameState.rightPlayer?.gamePaused;
 
@@ -87,7 +87,7 @@ export default function GamePage() {
 	// Request initial game state if missing (e.g. on page reload)
 	useEffect(() => {
 		if (!isRemoteGame || !isReady || !matchId || gameState) return;
-		
+
 		console.log("Requesting initial game state for match:", matchId);
 		sendSocketMessage({
 			event: "GET_GAME_STATE",
@@ -122,6 +122,16 @@ export default function GamePage() {
 		};
 	}, [matchId]);
 
+	// Cleanup spectator state on unmount to prevent blocking LEAVE_ROOM later
+	useEffect(() => {
+		return () => {
+			if (isSpectator && setGameState) {
+				console.log("Cleaning up spectator state on unmount");
+				setGameState(null);
+			}
+		};
+	}, [isSpectator, setGameState]);
+
 	// Listen for opponent disconnect/reconnect events
 	const [opponentConnected, setOpponentConnected] = useState(true);
 
@@ -139,6 +149,8 @@ export default function GamePage() {
 			toast.success("Opponent reconnected!");
 			setOpponentConnected(true);
 		};
+
+
 
 		const handleOpponentLeft = () => {
 			setOpponentConnected(false);
@@ -347,7 +359,7 @@ export default function GamePage() {
 		// Cleanup function - called when component unmounts (navigation away)
 		return () => {
 			window.removeEventListener("beforeunload", handleBeforeUnload);
-			
+
 			// Also send when component unmounts (user navigates to another page)
 			const currentGameState = gameStateRef.current;
 			const currentUser = userRef.current;
@@ -374,18 +386,18 @@ export default function GamePage() {
 				payload: { matchId }
 			});
 		}
-		
+
 		// Navigate back to tournament lobby or dashboard
 		let tournamentId: string | number | undefined = gameState?.tournamentId;
-		
+
 		// Fallback: Try to extract tournamentId from matchId (format: RT-{roomId}-m{id})
 		if (!tournamentId && matchId.startsWith("RT-")) {
-            // Extract everything before the last -m part
-            // Example: RT-123-m1 -> RT-123
-            const parts = matchId.split("-m");
-            if (parts.length > 1) {
-                tournamentId = parts[0];
-            }
+			// Extract everything before the last -m part
+			// Example: RT-123-m1 -> RT-123
+			const parts = matchId.split("-m");
+			if (parts.length > 1) {
+				tournamentId = parts[0];
+			}
 		}
 
 		if (tournamentId) {
@@ -506,7 +518,7 @@ export default function GamePage() {
 
 	const handleGameOver = async (winner: number | null, score: { p1: number; p2: number }, result: string) => {
 		console.log(`Game Over! Result: ${result}`, { winner, score });
-		
+
 		if (matchData && user) {
 			try {
 				const player1Id = matchData.player1?.isTemp ? null : matchData.player1?.id;
@@ -546,7 +558,7 @@ export default function GamePage() {
 		// Show loading state while waiting for game state to be restored via WebSocket
 		// Also verify that valid gameState matches the current matchId from URL to prevent showing stale state
 		const isGameStateValid = gameState && gameState.matchId === matchId;
-		
+
 		if ((!gameState || !isGameStateValid) && !gameOverResult) {
 			return (
 				<div className="h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted/20">
@@ -554,8 +566,8 @@ export default function GamePage() {
 						<Loader2 className="h-12 w-12 animate-spin text-primary" />
 						<h2 className="text-2xl font-bold">Connecting to game...</h2>
 						<p className="text-muted-foreground">
-							{gameState && gameState.matchId !== matchId 
-								? "Syncing game state..." 
+							{gameState && gameState.matchId !== matchId
+								? "Syncing game state..."
 								: "Restoring your game session"}
 						</p>
 						<Button
@@ -666,7 +678,7 @@ export default function GamePage() {
 							height={CANVAS_HEIGHT}
 							style={{ touchAction: 'none' }}
 						/>
-						
+
 						{/* Ready Status / Paused UI */}
 						{((gameState as any)?.paused || !gameStart) && !gameOverResult && gameState && (
 							<div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm p-8">
@@ -779,10 +791,10 @@ export default function GamePage() {
 
 										const me = mySide === "LEFT" ? gameState.leftPlayer : gameState.rightPlayer;
 										const opponent = mySide === "LEFT" ? gameState.rightPlayer : gameState.leftPlayer;
-										
+
 										const amIReady = !me?.gamePaused;
 										const isOpponentReady = !opponent?.gamePaused;
-										
+
 										if (amIReady && !isOpponentReady) {
 											return (
 												<div className="flex flex-col items-center justify-center space-y-4 animate-in fade-in zoom-in duration-300">
@@ -825,9 +837,9 @@ export default function GamePage() {
 													<p className="text-white/70 text-center max-w-sm">
 														Both players must click Ready to start the match.
 													</p>
-													
-													<Button 
-														size="lg" 
+
+													<Button
+														size="lg"
 														className="bg-green-600 hover:bg-green-700 text-white font-bold text-xl px-12 py-6 shadow-lg shadow-green-900/20 scale-100 hover:scale-105 transition-all"
 														onClick={() => {
 															// Send START event manually via socket
@@ -863,7 +875,7 @@ export default function GamePage() {
 							<div className="absolute inset-0 bg-black/80 flex items-center justify-center backdrop-blur-md">
 								<div className="text-center space-y-6 animate-in fade-in zoom-in duration-500">
 									<h2 className="text-5xl font-black text-white tracking-tight">GAME OVER</h2>
-									
+
 									<div className="flex items-center justify-center gap-8 py-8">
 										<div className={`text-center p-6 rounded-2xl transition-all duration-500 ${gameOverResult.winner === "LEFT" ? "bg-green-500/20 ring-4 ring-green-500 scale-110 shadow-2xl shadow-green-500/20" : "bg-white/5 grayscale opacity-70"}`}>
 											<p className="text-lg font-semibold text-white mb-1">{gameOverResult.leftPlayer?.username}</p>
@@ -881,74 +893,74 @@ export default function GamePage() {
 											)}
 										</div>
 									</div>
-								
-								<div className="flex gap-4 justify-center">
-									{gameOverResult.tournamentId ? (
-										<div className="space-y-4">
-											<p className="text-white/80 animate-pulse">
-												Returning to tournament lobby in 5 seconds...
-											</p>
-											<Button
-												onClick={() => {
-													router.push(`/game/remote/tournament/${gameOverResult.tournamentId}`);
-												}}
-												size="lg"
-												className="bg-white/10 hover:bg-white/20 text-white border-0"
-											>
-												Return Now <ArrowLeft className="ml-2 h-4 w-4" />
-											</Button>
-										</div>
-									) : (
-										<>
-											<Button
-												onClick={() => {
-													// Send rematch request with both players' info
-													sendSocketMessage({
-														event: "REMATCH",
-														payload: {
-															player1Id: gameOverResult.leftPlayer?.id,
-															player1Username: gameOverResult.leftPlayer?.username,
-															player2Id: gameOverResult.rightPlayer?.id,
-															player2Username: gameOverResult.rightPlayer?.username,
-														},
-													});
-													setGameOverResult(null);
-												}}
-												disabled={!opponentConnected}
-												size="lg"
-												className={cn(
-													"bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg h-14 px-8 shadow-lg shadow-green-500/20",
-													!opponentConnected && "opacity-50 cursor-not-allowed grayscale"
-												)}
-											>
-												{!opponentConnected ? "Opponent Left" : "Rematch"}
-											</Button>
-											<Button
-												onClick={() => {
-													// Notify opponent that we're leaving
-													// Use loose equality or explicit conversion as user.id might be string while gameState has numbers
-													const opponentId = Number(gameOverResult.leftPlayer?.id) === Number(user?.id)
-														? gameOverResult.rightPlayer?.id 
-														: gameOverResult.leftPlayer?.id;
-													sendSocketMessage({
-														event: "LEAVE_GAME",
-														payload: { 
-															opponentId,
-															matchId: gameOverResult.matchId 
-														},
-													});
-													router.push("/game/new");
-												}}
-												variant="outline"
-												size="lg"
-												className="text-lg h-14 px-8 border-white/20 text-white hover:bg-white/10"
-											>
-												Leave
-											</Button>
-										</>
-									)}
+
+									<div className="flex gap-4 justify-center">
+										{gameOverResult.tournamentId ? (
+											<div className="space-y-4">
+												<p className="text-white/80 animate-pulse">
+													Returning to tournament lobby in 5 seconds...
+												</p>
+												<Button
+													onClick={() => {
+														router.push(`/game/remote/tournament/${gameOverResult.tournamentId}`);
+													}}
+													size="lg"
+													className="bg-white/10 hover:bg-white/20 text-white border-0"
+												>
+													Return Now <ArrowLeft className="ml-2 h-4 w-4" />
+												</Button>
+											</div>
+										) : (
+											<>
+												<Button
+													onClick={() => {
+														// Send rematch request with both players' info
+														sendSocketMessage({
+															event: "REMATCH",
+															payload: {
+																player1Id: gameOverResult.leftPlayer?.id,
+																player1Username: gameOverResult.leftPlayer?.username,
+																player2Id: gameOverResult.rightPlayer?.id,
+																player2Username: gameOverResult.rightPlayer?.username,
+															},
+														});
+														setGameOverResult(null);
+													}}
+													disabled={!opponentConnected}
+													size="lg"
+													className={cn(
+														"bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg h-14 px-8 shadow-lg shadow-green-500/20",
+														!opponentConnected && "opacity-50 cursor-not-allowed grayscale"
+													)}
+												>
+													{!opponentConnected ? "Opponent Left" : "Rematch"}
+												</Button>
+												<Button
+													onClick={() => {
+														// Notify opponent that we're leaving
+														// Use loose equality or explicit conversion as user.id might be string while gameState has numbers
+														const opponentId = Number(gameOverResult.leftPlayer?.id) === Number(user?.id)
+															? gameOverResult.rightPlayer?.id
+															: gameOverResult.leftPlayer?.id;
+														sendSocketMessage({
+															event: "LEAVE_GAME",
+															payload: {
+																opponentId,
+																matchId: gameOverResult.matchId
+															},
+														});
+														router.push("/game/new");
+													}}
+													variant="outline"
+													size="lg"
+													className="text-lg h-14 px-8 border-white/20 text-white hover:bg-white/10"
+												>
+													Leave
+												</Button>
+											</>
+										)}
+									</div>
 								</div>
-							</div>
 							</div>
 						)}
 					</div>

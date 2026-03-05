@@ -11,11 +11,11 @@ export default function RemoteTournamentPage() {
 	return (
 		<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
 			<div className="w-full max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-8">
-				
+
 				{/* Header */}
 				<div className="flex items-center justify-between">
-					<Button 
-						variant="ghost" 
+					<Button
+						variant="ghost"
 						onClick={() => router.push("/game/new")}
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
@@ -42,7 +42,7 @@ export default function RemoteTournamentPage() {
 					{/* Create Room */}
 					<div className="group relative">
 						<div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
-						<Card 
+						<Card
 							className="relative h-full cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]"
 							onClick={() => router.push("/game/remote/tournament/create")}
 						>
@@ -71,7 +71,7 @@ export default function RemoteTournamentPage() {
 					{/* Join Room */}
 					<div className="group relative">
 						<div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
-						<Card 
+						<Card
 							className="relative h-full cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]"
 							onClick={() => router.push("/game/remote/tournament/join")}
 						>
@@ -100,7 +100,7 @@ export default function RemoteTournamentPage() {
 					{/* Quick Tournament */}
 					<div className="group relative">
 						<div className="absolute -inset-0.5 bg-gradient-to-r from-rose-500 to-pink-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
-						<Card 
+						<Card
 							className="relative h-full cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]"
 							onClick={() => router.push("/game/remote/tournament/matchmaking")}
 						>
