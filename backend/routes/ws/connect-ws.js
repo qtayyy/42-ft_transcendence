@@ -20,6 +20,15 @@ export default async function (fastify, opts) {
         `[WS Connect] User connected: ${userId} (type: ${typeof userId})`,
       );
 
+      // Clear any pending lobby disconnect timeout
+      if (fastify.lobbyDisconnectTimeouts?.has(userId)) {
+        console.log(
+          `[WS Connect] User ${userId} reconnected, clearing lobby grace period.`,
+        );
+        clearTimeout(fastify.lobbyDisconnectTimeouts.get(userId));
+        fastify.lobbyDisconnectTimeouts.delete(userId);
+      }
+
       // Check if this user was in a grace period for a game (was disconnected)
       // Only process if the player was actually marked as disconnected
       if (fastify.gameStates) {
@@ -79,7 +88,7 @@ export default async function (fastify, opts) {
             }
 
             // Notify opponent about reconnection
-            const opponentSocket = fastify.onlineUsers.get(opponentId);
+            const opponentSocket = fastify.onlineUsers.get(Number(opponentId));
             if (opponentSocket) {
               safeSend(
                 opponentSocket,
@@ -99,7 +108,9 @@ export default async function (fastify, opts) {
               const spectators = fastify.matchSpectators.get(matchId);
               if (spectators) {
                 spectators.forEach((spectatorId) => {
-                  const spectatorSocket = fastify.onlineUsers.get(spectatorId);
+                  const spectatorSocket = fastify.onlineUsers.get(
+                    Number(spectatorId),
+                  );
                   if (spectatorSocket) {
                     safeSend(
                       spectatorSocket,
@@ -158,6 +169,7 @@ export default async function (fastify, opts) {
       connection.on("message", (message) => {
         const data = JSON.parse(message);
         const { event, payload } = data;
+        console.log(`[WS Message] User ${userId} sent event: ${event}`);
         try {
           switch (event) {
             case "PING":
@@ -234,7 +246,7 @@ export default async function (fastify, opts) {
             case "LEAVE_GAME":
               // Notify opponent that this player left
               const opponentSocket = fastify.onlineUsers.get(
-                payload.opponentId,
+                Number(payload.opponentId),
               );
               if (opponentSocket) {
                 safeSend(
@@ -255,7 +267,7 @@ export default async function (fastify, opts) {
               // console.log(payload);
               fastify.updateGameState(
                 payload.matchId,
-                payload.userId,
+                userId, // Use standardized variable from connection scope
                 payload.keyEvent,
               );
               break;
@@ -349,7 +361,9 @@ export default async function (fastify, opts) {
                   };
 
                   // Send message to recipient if online
-                  const recipientSocket = fastify.onlineUsers.get(recipientId);
+                  const recipientSocket = fastify.onlineUsers.get(
+                    Number(recipientId),
+                  );
                   if (recipientSocket) {
                     console.log(
                       `Sending CHAT_MESSAGE to recipient ${recipientId}:`,
@@ -441,15 +455,16 @@ export default async function (fastify, opts) {
                   payload.tournamentId,
                 );
                 const isReady =
-                  tournament?.playerReadyStates.get(payload.userId) || false;
-                const socket = fastify.onlineUsers.get(userId);
+                  tournament?.playerReadyStates.get(Number(payload.userId)) ||
+                  false;
+                const socket = fastify.onlineUsers.get(Number(userId));
                 safeSend(
                   socket,
                   {
                     event: "PLAYER_READY_STATE",
-                    payload: { userId: payload.userId, isReady },
+                    payload: { userId: Number(payload.userId), isReady },
                   },
-                  userId,
+                  Number(userId),
                 );
               }
               break;
@@ -469,7 +484,7 @@ export default async function (fastify, opts) {
                 // Send current game state immediately
                 const gameState = fastify.gameStates.get(matchId);
                 if (gameState) {
-                  const socket = fastify.onlineUsers.get(userId);
+                  const socket = fastify.onlineUsers.get(Number(userId));
                   safeSend(
                     socket,
                     {
@@ -521,7 +536,7 @@ export default async function (fastify, opts) {
       connection.on("close", () => {
         console.log(`[WS Close] User ${userId} connection closed`);
 
-        const sockets = fastify.onlineUsers.get(userId);
+        const sockets = fastify.onlineUsers.get(Number(userId));
         if (sockets) {
           sockets.delete(connection);
           if (sockets.size === 0) {
@@ -577,7 +592,9 @@ export default async function (fastify, opts) {
                 );
 
                 // Check if opponent is also disconnected (both players disconnect scenario)
-                const opponentSocket = fastify.onlineUsers.get(opponentId);
+                const opponentSocket = fastify.onlineUsers.get(
+                  Number(opponentId),
+                );
                 const opponentDisconnected =
                   !opponentSocket || opponentSocket.readyState !== 1;
                 console.log(
@@ -652,8 +669,9 @@ export default async function (fastify, opts) {
                   const spectators = fastify.matchSpectators.get(matchId);
                   if (spectators) {
                     spectators.forEach((spectatorId) => {
-                      const spectatorSocket =
-                        fastify.onlineUsers.get(spectatorId);
+                      const spectatorSocket = fastify.onlineUsers.get(
+                        Number(spectatorId),
+                      );
                       if (spectatorSocket) {
                         safeSend(
                           spectatorSocket,
@@ -798,7 +816,22 @@ export default async function (fastify, opts) {
               if (!hasPendingMatch) {
                 const currentRoomId = fastify.currentRoom.get(userId);
                 if (currentRoomId) {
-                  fastify.leaveRoom(currentRoomId, userId);
+                  // LOBBY GRACE PERIOD:
+                  // If we are in a lobby (not active game/tournament match),
+                  // don't kick immediately. Wait 5s for possible refresh/reconnect.
+                  console.log(
+                    `[WS Close] User ${userId} left lobby room ${currentRoomId}. Starting 5s grace period...`,
+                  );
+
+                  const timeout = setTimeout(() => {
+                    console.log(
+                      `[WS Grace] Grace period expired for user ${userId} in room ${currentRoomId}. Removing...`,
+                    );
+                    fastify.lobbyDisconnectTimeouts.delete(userId);
+                    fastify.leaveRoom(currentRoomId, userId);
+                  }, 5000); // 5 seconds is plenty for HMR / page refresh
+
+                  fastify.lobbyDisconnectTimeouts.set(userId, timeout);
                 }
               }
             }

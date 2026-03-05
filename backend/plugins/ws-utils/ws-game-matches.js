@@ -232,8 +232,10 @@ function checkCollisionsAndScore(gameState) {
 }
 
 function broadcastState(gameState, fastify) {
-  const leftPlayerSocket = fastify.onlineUsers.get(gameState.leftPlayer.id);
-  const rightPlayerSocket = fastify.onlineUsers.get(gameState.rightPlayer.id);
+  const leftId = Number(gameState.leftPlayer.id);
+  const rightId = Number(gameState.rightPlayer.id);
+  const leftPlayerSocket = fastify.onlineUsers.get(leftId);
+  const rightPlayerSocket = fastify.onlineUsers.get(rightId);
 
   // Compute disconnect countdown if game is paused due to disconnect
   let disconnectCountdown = null;
@@ -262,7 +264,7 @@ function broadcastState(gameState, fastify) {
       event: "GAME_STATE",
       payload: { ...basePayload, me: "LEFT" },
     },
-    gameState.leftPlayer.id,
+    leftId,
   );
   safeSend(
     rightPlayerSocket,
@@ -270,7 +272,7 @@ function broadcastState(gameState, fastify) {
       event: "GAME_STATE",
       payload: { ...basePayload, me: "RIGHT" },
     },
-    gameState.rightPlayer.id,
+    rightId,
   );
 
   // Send to spectators
@@ -586,6 +588,10 @@ export default fp(async (fastify, opts) => {
    */
   fastify.decorate("dispatchMatches", (matches) => {
     matches.forEach((match) => {
+      // Ensure player IDs are numeric — Prisma can return BigInt/String from DB
+      const p1Id = Number(match.player1Id);
+      const p2Id = Number(match.player2Id);
+
       const initialGameState = {
         tournamentId: match.tournamentId,
         matchId: match.id,
@@ -593,7 +599,7 @@ export default fp(async (fastify, opts) => {
         isTournamentMatch: true,
         ball: { posX: CANVAS_WIDTH / 2, posY: CANVAS_HEIGHT / 2, dx: 4, dy: 3 },
         leftPlayer: {
-          id: match.player1Id,
+          id: p1Id, // Always numeric
           username: match.player1.username,
           gamePaused: true,
           score: match.score1,
@@ -603,7 +609,7 @@ export default fp(async (fastify, opts) => {
           moving: "",
         },
         rightPlayer: {
-          id: match.player2Id,
+          id: p2Id, // Always numeric
           username: match.player2.username,
           gamePaused: true,
           score: match.score2,
@@ -636,23 +642,38 @@ export default fp(async (fastify, opts) => {
       };
       fastify.gameStates.set(match.id, initialGameState);
 
-      const player1Socket = fastify.onlineUsers.get(match.player1Id);
+      console.log(
+        `[dispatchMatches] Dispatching match ${match.id}: p1=${p1Id} vs p2=${p2Id}`,
+      );
+
+      const player1Socket = fastify.onlineUsers.get(p1Id);
+      if (!player1Socket) {
+        console.warn(
+          `[dispatchMatches] p1 socket not found for userId=${p1Id}`,
+        );
+      }
       safeSend(
         player1Socket,
         {
           event: "GAME_MATCH_START",
           payload: { ...serializeGameState(initialGameState), me: "LEFT" },
         },
-        match.player1Id,
+        p1Id,
       );
-      const player2Socket = fastify.onlineUsers.get(match.player2Id);
+
+      const player2Socket = fastify.onlineUsers.get(p2Id);
+      if (!player2Socket) {
+        console.warn(
+          `[dispatchMatches] p2 socket not found for userId=${p2Id}`,
+        );
+      }
       safeSend(
         player2Socket,
         {
           event: "GAME_MATCH_START",
           payload: { ...serializeGameState(initialGameState), me: "RIGHT" },
         },
-        match.player2Id,
+        p2Id,
       );
     });
   });
@@ -661,22 +682,30 @@ export default fp(async (fastify, opts) => {
     const gameState = fastify.gameStates.get(matchId);
     if (!gameState) {
       console.warn(
-        `[updateGameState] Match ${matchId} not found for user ${userId}.`,
+        `[updateGameState] Match ${matchId} not found for user ${userId}. available: [${[...fastify.gameStates.keys()].join(", ")}]`,
       );
-      throw new Error(`Game state doesn't exist for match ${matchId}`);
+      return; // Early return to prevent crash, but log the issue
     }
 
     console.log(
       `[updateGameState] Received ${keyEvent} from user ${userId} for match ${matchId}. gameStarted=${gameState.gameStarted}`,
     );
 
-    let player;
     const uid = Number(userId);
-    if (uid === gameState.leftPlayer.id) player = "LEFT";
-    else if (uid === gameState.rightPlayer.id) player = "RIGHT";
+    const leftId = Number(gameState.leftPlayer.id);
+    const rightId = Number(gameState.rightPlayer.id);
+
+    console.log(
+      `[updateGameState] Comparing uid ${uid} (${typeof uid}) with matchId ${matchId}: leftId=${leftId}, rightId=${rightId}. gameStarted=${gameState.gameStarted}`,
+    );
+
+    let player;
+    if (uid === leftId) player = "LEFT";
+    else if (uid === rightId) player = "RIGHT";
     else {
-      // Allow spectators or ignore?
-      // throw new Error(`You don't have permission`);
+      console.warn(
+        `[updateGameState] User ${uid} not found in players for match ${matchId}. players: [${leftId}, ${rightId}]`,
+      );
       return; // Just ignore invalid input
     }
 
@@ -732,8 +761,12 @@ export default fp(async (fastify, opts) => {
           console.log(`[Game] Both players agreed. Game resumed!`);
 
           // Notify both players that game is resuming
-          const leftSocket = fastify.onlineUsers.get(gameState.leftPlayer.id);
-          const rightSocket = fastify.onlineUsers.get(gameState.rightPlayer.id);
+          const leftSocket = fastify.onlineUsers.get(
+            Number(gameState.leftPlayer.id),
+          );
+          const rightSocket = fastify.onlineUsers.get(
+            Number(gameState.rightPlayer.id),
+          );
           safeSend(
             leftSocket,
             { event: "GAME_RESUMED", payload: { matchId } },
@@ -750,7 +783,7 @@ export default fp(async (fastify, opts) => {
             player === "LEFT"
               ? gameState.rightPlayer.id
               : gameState.leftPlayer.id;
-          const otherSocket = fastify.onlineUsers.get(otherPlayerId);
+          const otherSocket = fastify.onlineUsers.get(Number(otherPlayerId));
           safeSend(
             otherSocket,
             {
@@ -765,7 +798,7 @@ export default fp(async (fastify, opts) => {
           );
 
           // Also notify the player who pressed space that they're waiting
-          const currentSocket = fastify.onlineUsers.get(uid);
+          const currentSocket = fastify.onlineUsers.get(Number(uid));
           safeSend(
             currentSocket,
             {
@@ -788,8 +821,12 @@ export default fp(async (fastify, opts) => {
         console.log(`[Game] Paused by user ${userId} (${player}) via SPACE`);
 
         // Notify both players about pause
-        const leftSocket = fastify.onlineUsers.get(gameState.leftPlayer.id);
-        const rightSocket = fastify.onlineUsers.get(gameState.rightPlayer.id);
+        const leftSocket = fastify.onlineUsers.get(
+          Number(gameState.leftPlayer.id),
+        );
+        const rightSocket = fastify.onlineUsers.get(
+          Number(gameState.rightPlayer.id),
+        );
         const pausePayload = {
           event: "GAME_PAUSED",
           payload: {
@@ -806,7 +843,9 @@ export default fp(async (fastify, opts) => {
           const spectators = fastify.matchSpectators.get(matchId);
           if (spectators) {
             spectators.forEach((spectatorId) => {
-              const spectatorSocket = fastify.onlineUsers.get(spectatorId);
+              const spectatorSocket = fastify.onlineUsers.get(
+                Number(spectatorId),
+              );
               safeSend(spectatorSocket, pausePayload, spectatorId);
             });
           }
@@ -819,6 +858,9 @@ export default fp(async (fastify, opts) => {
       // Once gameStarted is true, ENTER should not toggle ready state
       if (!gameState.gameStarted) {
         currentPlayer.gamePaused = !currentPlayer.gamePaused;
+        console.log(
+          `[updateGameState] Toggled ready state for ${player} (userId: ${uid}). Now gamePaused: ${currentPlayer.gamePaused}`,
+        );
       }
       // Note: ENTER no longer resumes from pause - use SPACE instead
     } else if (keyEvent !== "PAUSE") {
@@ -834,12 +876,17 @@ export default fp(async (fastify, opts) => {
       // Mark game as started - prevents ENTER from toggling ready state again
       if (!gameState.gameStarted) {
         gameState.gameStarted = true;
-        console.log("Game started for the first time");
+        console.log(
+          `[updateGameState] STARTING GAME! Both players ready. matchId: ${matchId}`,
+        );
       } else {
-        console.log("Game resumed");
+        console.log(`[updateGameState] RESUMING GAME! matchId: ${matchId}`);
       }
       startGameLoop(gameState, fastify);
     } else {
+      console.log(
+        `[updateGameState] Start condition not met: leftReady=${!gameState.leftPlayer.gamePaused}, rightReady=${!gameState.rightPlayer.gamePaused}, paused=${gameState.paused}`,
+      );
       // Broadcast state change (e.g. one player ready) so UI updates
       broadcastState(gameState, fastify);
     }
@@ -1469,9 +1516,9 @@ export default fp(async (fastify, opts) => {
         match.matchId,
         match.tournamentId,
         match.player1.id,
-        match.player1.name,
+        match.player1.username || match.player1.name, // TournamentManager uses 'username', fallback to 'name'
         match.player2.id,
-        match.player2.name,
+        match.player2.username || match.player2.name, // TournamentManager uses 'username', fallback to 'name'
       );
     } else {
       // Broadcast update so other player sees the checkmark

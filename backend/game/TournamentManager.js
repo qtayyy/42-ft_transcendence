@@ -120,6 +120,8 @@ class TournamentManager {
             player1: actualPlayer,
             player2: null,
             status: "pending", // Pending so user can "Confirm" it
+            p1Ready: true, // Bye is always ready
+            p2Ready: true,
             result: null,
           });
         } else {
@@ -131,6 +133,8 @@ class TournamentManager {
             player1: p1,
             player2: p2,
             status: "pending",
+            p1Ready: false, // Must be initialized — setLobbyReady depends on these fields
+            p2Ready: false,
             result: null,
           });
           matchId++;
