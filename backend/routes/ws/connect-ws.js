@@ -527,272 +527,280 @@ export default async function (fastify, opts) {
           if (sockets.size === 0) {
             fastify.onlineUsers.delete(userId);
             fastify.notifyFriendStatus(userId, "offline");
-          }
-        }
 
-        // Handle leaving queue if in matchmaking
-        fastify.leaveMatchmaking(userId);
+            // --- ONLY CLEANUP WHEN LAST TAB IS CLOSED ---
 
-        // Check if user has an active game and implement disconnect timeout
-        const DISCONNECT_GRACE_PERIOD = 30000; // 30 seconds
-        let activeGameState = null;
+            // Handle leaving queue if in matchmaking
+            fastify.leaveMatchmaking(userId);
 
-        console.log(
-          `[WS Close] Checking gameStates for user ${userId}. Total games: ${fastify.gameStates?.size || 0}`,
-        );
-
-        // Find if user is in any active game
-        for (const [matchId, gameState] of fastify.gameStates.entries()) {
-          const leftId = String(gameState.leftPlayer?.id);
-          const rightId = String(gameState.rightPlayer?.id);
-          const uId = String(userId);
-          console.log(
-            `[WS Close] Checking match ${matchId}: leftId=${leftId}, rightId=${rightId}, userId=${uId}`,
-          );
-
-          if (leftId === uId || rightId === uId) {
-            // Skip disconnect handling if game hasn't started or is already over
-            // This prevents false positive disconnects during the "Are you ready?" phase
-            if (!gameState.gameStarted || gameState.gameOver) {
-              console.log(
-                `[WS Close] Skipping disconnect for match ${matchId}: gameStarted=${gameState.gameStarted}, gameOver=${gameState.gameOver}`,
-              );
-              continue;
-            }
-
-            activeGameState = gameState;
-            const isLeftPlayer = leftId === uId;
-            const disconnectedPlayer = isLeftPlayer ? "LEFT" : "RIGHT";
-            const opponentIdRaw = isLeftPlayer
-              ? gameState.rightPlayer?.id
-              : gameState.leftPlayer?.id;
-            // Ensure opponentId is a number to match onlineUsers key type
-            const opponentId = Number(opponentIdRaw);
+            // Check if user has an active game and implement disconnect timeout
+            const DISCONNECT_GRACE_PERIOD = 30000; // 30 seconds
+            let activeGameState = null;
 
             console.log(
-              `[Disconnect] User ${userId} disconnected from match ${matchId}, starting grace period`,
-            );
-            console.log(
-              `[Disconnect] Looking for opponent ${opponentId} (raw: ${opponentIdRaw}, type: ${typeof opponentIdRaw})`,
+              `[WS Close] Checking gameStates for user ${userId}. Total games: ${fastify.gameStates?.size || 0}`,
             );
 
-            // Check if opponent is also disconnected (both players disconnect scenario)
-            const opponentSocket = fastify.onlineUsers.get(opponentId);
-            const opponentDisconnected =
-              !opponentSocket || opponentSocket.readyState !== 1;
-            console.log(
-              `[Disconnect] Opponent socket found: ${!!opponentSocket}, readyState: ${opponentSocket?.readyState}, disconnected: ${opponentDisconnected}`,
-            );
-
-            // Pause the game loop
-            // Record when pause started for timer adjustment
-            if (!activeGameState.paused) {
-              activeGameState.paused = true;
-              activeGameState.pausedAt = Date.now();
-            }
-
-            // Track which player(s) are disconnected
-            if (!activeGameState.disconnectedPlayers) {
-              activeGameState.disconnectedPlayers = new Set();
-            }
-            activeGameState.disconnectedPlayers.add(disconnectedPlayer);
-            activeGameState.disconnectedPlayer = disconnectedPlayer;
-            console.log(
-              `Paused game ${matchId} due to disconnect. Disconnected players: ${[...activeGameState.disconnectedPlayers].join(", ")}`,
-            );
-
-            // Notify opponent about disconnect with countdown info (if online)
-            if (opponentSocket && !opponentDisconnected) {
+            // Find if user is in any active game
+            for (const [matchId, gameState] of fastify.gameStates.entries()) {
+              const leftId = String(gameState.leftPlayer?.id);
+              const rightId = String(gameState.rightPlayer?.id);
+              const uId = String(userId);
               console.log(
-                `[Disconnect] Sending OPPONENT_DISCONNECTED and GAME_STATE to opponent ${opponentId}`,
-              );
-              safeSend(
-                opponentSocket,
-                {
-                  event: "OPPONENT_DISCONNECTED",
-                  payload: {
-                    matchId,
-                    disconnectedPlayer,
-                    gracePeriod: DISCONNECT_GRACE_PERIOD,
-                    gracePeriodEndsAt: Date.now() + DISCONNECT_GRACE_PERIOD,
-                  },
-                },
-                opponentId,
+                `[WS Close] Checking match ${matchId}: leftId=${leftId}, rightId=${rightId}, userId=${uId}`,
               );
 
-              // Also send updated game state with paused flag so UI shows pause overlay
-              const opponentSide = isLeftPlayer ? "RIGHT" : "LEFT";
-              const gameStatePayload = {
-                ...serializeGameState(activeGameState),
-                me: opponentSide,
-                disconnectCountdown: {
-                  disconnectedPlayer,
-                  gracePeriodEndsAt: Date.now() + DISCONNECT_GRACE_PERIOD,
-                },
-              };
-              console.log(
-                `[Disconnect] Sending GAME_STATE with paused=${gameStatePayload.paused}, disconnectedPlayer=${gameStatePayload.disconnectedPlayer}`,
-              );
-              safeSend(
-                opponentSocket,
-                {
-                  event: "GAME_STATE",
-                  payload: gameStatePayload,
-                },
-                opponentId,
-              );
-            } else {
-              console.log(
-                `[Disconnect] Cannot notify opponent: socket=${!!opponentSocket}, disconnected=${opponentDisconnected}`,
-              );
-            }
+              if (leftId === uId || rightId === uId) {
+                // Skip disconnect handling if game hasn't started or is already over
+                // This prevents false positive disconnects during the "Are you ready?" phase
+                if (!gameState.gameStarted || gameState.gameOver) {
+                  console.log(
+                    `[WS Close] Skipping disconnect for match ${matchId}: gameStarted=${gameState.gameStarted}, gameOver=${gameState.gameOver}`,
+                  );
+                  continue;
+                }
 
-            // Also notify spectators
-            if (fastify.matchSpectators) {
-              const spectators = fastify.matchSpectators.get(matchId);
-              if (spectators) {
-                spectators.forEach((spectatorId) => {
-                  const spectatorSocket = fastify.onlineUsers.get(spectatorId);
-                  if (spectatorSocket) {
-                    safeSend(
-                      spectatorSocket,
-                      {
-                        event: "OPPONENT_DISCONNECTED",
-                        payload: {
-                          matchId,
-                          disconnectedPlayer,
-                          gracePeriod: DISCONNECT_GRACE_PERIOD,
-                          gracePeriodEndsAt:
-                            Date.now() + DISCONNECT_GRACE_PERIOD,
-                          bothDisconnected:
-                            activeGameState.disconnectedPlayers?.size >= 2,
-                        },
-                      },
-                      spectatorId,
-                    );
-                  }
-                });
-              }
-            }
+                activeGameState = gameState;
+                const isLeftPlayer = leftId === uId;
+                const disconnectedPlayer = isLeftPlayer ? "LEFT" : "RIGHT";
+                const opponentIdRaw = isLeftPlayer
+                  ? gameState.rightPlayer?.id
+                  : gameState.leftPlayer?.id;
+                // Ensure opponentId is a number to match onlineUsers key type
+                const opponentId = Number(opponentIdRaw);
 
-            // Set a timeout for auto-forfeit (only if no timeout already set for this player)
-            const timeoutKey = isLeftPlayer
-              ? "leftDisconnectTimeout"
-              : "rightDisconnectTimeout";
-            if (!activeGameState[timeoutKey]) {
-              activeGameState[timeoutKey] = setTimeout(() => {
                 console.log(
-                  `[Disconnect] Grace period expired for User ${userId} (${disconnectedPlayer}), checking match ${matchId} status`,
+                  `[Disconnect] User ${userId} disconnected from match ${matchId}, starting grace period`,
+                );
+                console.log(
+                  `[Disconnect] Looking for opponent ${opponentId} (raw: ${opponentIdRaw}, type: ${typeof opponentIdRaw})`,
                 );
 
-                // Check if both players are disconnected
-                const bothDisconnected =
-                  activeGameState.disconnectedPlayers?.size >= 2;
+                // Check if opponent is also disconnected (both players disconnect scenario)
+                const opponentSocket = fastify.onlineUsers.get(opponentId);
+                const opponentDisconnected =
+                  !opponentSocket || opponentSocket.readyState !== 1;
+                console.log(
+                  `[Disconnect] Opponent socket found: ${!!opponentSocket}, readyState: ${opponentSocket?.readyState}, disconnected: ${opponentDisconnected}`,
+                );
 
-                if (bothDisconnected) {
-                  // Both players disconnected and didn't return in time
-                  // Both lose - no winner, game ends as double forfeit
+                // Pause the game loop
+                // Record when pause started for timer adjustment
+                if (!activeGameState.paused) {
+                  activeGameState.paused = true;
+                  activeGameState.pausedAt = Date.now();
+                }
+
+                // Track which player(s) are disconnected
+                if (!activeGameState.disconnectedPlayers) {
+                  activeGameState.disconnectedPlayers = new Set();
+                }
+                activeGameState.disconnectedPlayers.add(disconnectedPlayer);
+                activeGameState.disconnectedPlayer = disconnectedPlayer;
+                console.log(
+                  `Paused game ${matchId} due to disconnect. Disconnected players: ${[...activeGameState.disconnectedPlayers].join(", ")}`,
+                );
+
+                // Notify opponent about disconnect with countdown info (if online)
+                if (opponentSocket && !opponentDisconnected) {
                   console.log(
-                    `[Disconnect] Both players forfeited match ${matchId} - double forfeit`,
+                    `[Disconnect] Sending OPPONENT_DISCONNECTED and GAME_STATE to opponent ${opponentId}`,
+                  );
+                  safeSend(
+                    opponentSocket,
+                    {
+                      event: "OPPONENT_DISCONNECTED",
+                      payload: {
+                        matchId,
+                        disconnectedPlayer,
+                        gracePeriod: DISCONNECT_GRACE_PERIOD,
+                        gracePeriodEndsAt: Date.now() + DISCONNECT_GRACE_PERIOD,
+                      },
+                    },
+                    opponentId,
                   );
 
-                  gameState.gameOver = true;
-                  gameState.winner = null;
-                  gameState.winnerId = null;
-                  gameState.doubleForfeit = true;
-                  gameState.forfeit = true;
-
-                  // For tournament matches, handle both players losing
-                  if (gameState.tournamentId && fastify.activeTournaments) {
-                    const tournament = fastify.activeTournaments.get(
-                      gameState.tournamentId,
-                    );
-                    if (tournament) {
-                      // Mark both players as withdrawn
-                      tournament.markPlayerWithdrawn(gameState.leftPlayer?.id);
-                      tournament.markPlayerWithdrawn(gameState.rightPlayer?.id);
-                    }
-                  }
+                  // Also send updated game state with paused flag so UI shows pause overlay
+                  const opponentSide = isLeftPlayer ? "RIGHT" : "LEFT";
+                  const gameStatePayload = {
+                    ...serializeGameState(activeGameState),
+                    me: opponentSide,
+                    disconnectCountdown: {
+                      disconnectedPlayer,
+                      gracePeriodEndsAt: Date.now() + DISCONNECT_GRACE_PERIOD,
+                    },
+                  };
+                  console.log(
+                    `[Disconnect] Sending GAME_STATE with paused=${gameStatePayload.paused}, disconnectedPlayer=${gameStatePayload.disconnectedPlayer}`,
+                  );
+                  safeSend(
+                    opponentSocket,
+                    {
+                      event: "GAME_STATE",
+                      payload: gameStatePayload,
+                    },
+                    opponentId,
+                  );
                 } else {
-                  // Only this player forfeited
-                  const winner = isLeftPlayer ? "RIGHT" : "LEFT";
-                  const winnerId = isLeftPlayer
-                    ? gameState.rightPlayer?.id
-                    : gameState.leftPlayer?.id;
-
-                  gameState.gameOver = true;
-                  gameState.winner = winner;
-                  gameState.winnerId = winnerId;
-                  gameState.forfeit = true;
-                }
-
-                // End the game
-                if (fastify.endGame) {
-                  fastify.endGame(gameState, fastify).catch(console.error);
-                }
-
-                // Clean up timeouts
-                activeGameState.leftDisconnectTimeout = null;
-                activeGameState.rightDisconnectTimeout = null;
-              }, DISCONNECT_GRACE_PERIOD);
-            }
-            break;
-          }
-        }
-
-        // Clean up any room memberships ONLY if not in an active game (grace period)
-        // If in grace period, we want to keep them in the room so they can resume
-        if (!activeGameState) {
-          // Additional check: If user is in a tournament and has a pending match (even if game hasn't started yet),
-          // DO NOT leave the room. Leaving triggers markPlayerWithdrawn which auto-forfeits them.
-          let hasPendingMatch = false;
-          // Check if they are part of any pending match in gameStates (even if not started)
-          for (const [mid, gs] of fastify.gameStates.entries()) {
-            if (
-              (String(gs.leftPlayer?.id) === String(userId) ||
-                String(gs.rightPlayer?.id) === String(userId)) &&
-              !gs.gameOver
-            ) {
-              hasPendingMatch = true;
-              console.log(
-                `[WS Close] User ${userId} has pending match ${mid}, NOT leaving room/tournament.`,
-              );
-              break;
-            }
-          }
-
-          // ---------------------------------------------------------------
-          // TOURNAMENT GUARD: also check activeTournaments.
-          // When a match ends and players navigate back to the tournament
-          // lobby, their WS connection briefly drops during the React page
-          // transition. At that point gameStates no longer has the finished
-          // match, so hasPendingMatch above was false. We must NOT eject them
-          // from the room because that calls markPlayerWithdrawn and cascades
-          // walkover wins for all their remaining scheduled matches.
-          // ---------------------------------------------------------------
-          if (!hasPendingMatch && fastify.activeTournaments) {
-            const currentRoomId = fastify.currentRoom.get(userId);
-            if (currentRoomId) {
-              const tournamentId = `RT-${currentRoomId}`;
-              const tournament = fastify.activeTournaments.get(tournamentId);
-              if (tournament && !tournament.isComplete()) {
-                // Player is an active participant in an ongoing tournament.
-                // Check if they are NOT withdrawn yet before protecting them.
-                const isStillActive = !tournament.isPlayerWithdrawn(userId);
-                if (isStillActive) {
-                  hasPendingMatch = true;
                   console.log(
-                    `[WS Close] User ${userId} is in ongoing tournament ${tournamentId}, NOT leaving room.`,
+                    `[Disconnect] Cannot notify opponent: socket=${!!opponentSocket}, disconnected=${opponentDisconnected}`,
                   );
                 }
+
+                // Also notify spectators
+                if (fastify.matchSpectators) {
+                  const spectators = fastify.matchSpectators.get(matchId);
+                  if (spectators) {
+                    spectators.forEach((spectatorId) => {
+                      const spectatorSocket =
+                        fastify.onlineUsers.get(spectatorId);
+                      if (spectatorSocket) {
+                        safeSend(
+                          spectatorSocket,
+                          {
+                            event: "OPPONENT_DISCONNECTED",
+                            payload: {
+                              matchId,
+                              disconnectedPlayer,
+                              gracePeriod: DISCONNECT_GRACE_PERIOD,
+                              gracePeriodEndsAt:
+                                Date.now() + DISCONNECT_GRACE_PERIOD,
+                              bothDisconnected:
+                                activeGameState.disconnectedPlayers?.size >= 2,
+                            },
+                          },
+                          spectatorId,
+                        );
+                      }
+                    });
+                  }
+                }
+
+                // Set a timeout for auto-forfeit (only if no timeout already set for this player)
+                const timeoutKey = isLeftPlayer
+                  ? "leftDisconnectTimeout"
+                  : "rightDisconnectTimeout";
+                if (!activeGameState[timeoutKey]) {
+                  activeGameState[timeoutKey] = setTimeout(() => {
+                    console.log(
+                      `[Disconnect] Grace period expired for User ${userId} (${disconnectedPlayer}), checking match ${matchId} status`,
+                    );
+
+                    // Check if both players are disconnected
+                    const bothDisconnected =
+                      activeGameState.disconnectedPlayers?.size >= 2;
+
+                    if (bothDisconnected) {
+                      // Both players disconnected and didn't return in time
+                      // Both lose - no winner, game ends as double forfeit
+                      console.log(
+                        `[Disconnect] Both players forfeited match ${matchId} - double forfeit`,
+                      );
+
+                      gameState.gameOver = true;
+                      gameState.winner = null;
+                      gameState.winnerId = null;
+                      gameState.doubleForfeit = true;
+                      gameState.forfeit = true;
+
+                      // For tournament matches, handle both players losing
+                      if (gameState.tournamentId && fastify.activeTournaments) {
+                        const tournament = fastify.activeTournaments.get(
+                          gameState.tournamentId,
+                        );
+                        if (tournament) {
+                          // Mark both players as withdrawn
+                          tournament.markPlayerWithdrawn(
+                            gameState.leftPlayer?.id,
+                          );
+                          tournament.markPlayerWithdrawn(
+                            gameState.rightPlayer?.id,
+                          );
+                        }
+                      }
+                    } else {
+                      // Only this player forfeited
+                      const winner = isLeftPlayer ? "RIGHT" : "LEFT";
+                      const winnerId = isLeftPlayer
+                        ? gameState.rightPlayer?.id
+                        : gameState.leftPlayer?.id;
+
+                      gameState.gameOver = true;
+                      gameState.winner = winner;
+                      gameState.winnerId = winnerId;
+                      gameState.forfeit = true;
+                    }
+
+                    // End the game
+                    if (fastify.endGame) {
+                      fastify.endGame(gameState, fastify).catch(console.error);
+                    }
+
+                    // Clean up timeouts
+                    activeGameState.leftDisconnectTimeout = null;
+                    activeGameState.rightDisconnectTimeout = null;
+                  }, DISCONNECT_GRACE_PERIOD);
+                }
+                break;
               }
             }
-          }
 
-          if (!hasPendingMatch) {
-            const currentRoomId = fastify.currentRoom.get(userId);
-            if (currentRoomId) {
-              fastify.leaveRoom(currentRoomId, userId);
+            // Clean up any room memberships ONLY if not in an active game (grace period)
+            // If in grace period, we want to keep them in the room so they can resume
+            if (!activeGameState) {
+              // Additional check: If user is in a tournament and has a pending match (even if game hasn't started yet),
+              // DO NOT leave the room. Leaving triggers markPlayerWithdrawn which auto-forfeits them.
+              let hasPendingMatch = false;
+              // Check if they are part of any pending match in gameStates (even if not started)
+              for (const [mid, gs] of fastify.gameStates.entries()) {
+                if (
+                  (String(gs.leftPlayer?.id) === String(userId) ||
+                    String(gs.rightPlayer?.id) === String(userId)) &&
+                  !gs.gameOver
+                ) {
+                  hasPendingMatch = true;
+                  console.log(
+                    `[WS Close] User ${userId} has pending match ${mid}, NOT leaving room/tournament.`,
+                  );
+                  break;
+                }
+              }
+
+              // ---------------------------------------------------------------
+              // TOURNAMENT GUARD: also check activeTournaments.
+              // When a match ends and players navigate back to the tournament
+              // lobby, their WS connection briefly drops during the React page
+              // transition. At that point gameStates no longer has the finished
+              // match, so hasPendingMatch above was false. We must NOT eject them
+              // from the room because that calls markPlayerWithdrawn and cascades
+              // walkover wins for all their remaining scheduled matches.
+              // ---------------------------------------------------------------
+              if (!hasPendingMatch && fastify.activeTournaments) {
+                const currentRoomId = fastify.currentRoom.get(userId);
+                if (currentRoomId) {
+                  const tournamentId = `RT-${currentRoomId}`;
+                  const tournament =
+                    fastify.activeTournaments.get(tournamentId);
+                  if (tournament && !tournament.isComplete()) {
+                    // Player is an active participant in an ongoing tournament.
+                    // Check if they are NOT withdrawn yet before protecting them.
+                    const isStillActive = !tournament.isPlayerWithdrawn(userId);
+                    if (isStillActive) {
+                      hasPendingMatch = true;
+                      console.log(
+                        `[WS Close] User ${userId} is in ongoing tournament ${tournamentId}, NOT leaving room.`,
+                      );
+                    }
+                  }
+                }
+              }
+
+              if (!hasPendingMatch) {
+                const currentRoomId = fastify.currentRoom.get(userId);
+                if (currentRoomId) {
+                  fastify.leaveRoom(currentRoomId, userId);
+                }
+              }
             }
           }
         }
