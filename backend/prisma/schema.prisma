@@ -31,6 +31,7 @@ model Profile {
   fullname String
   dob      DateTime?
   region   String?
+  bio      String?
   
   tournaments    Tournament[]
   tournamentsWon Tournament[] @relation("TournamentWinner")

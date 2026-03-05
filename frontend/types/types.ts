@@ -36,6 +36,7 @@ export interface UserProfile {
   fullname?: string;
   dob?: string;
   region?: string;
+  bio?: string;
 };
 
 export interface AuthContextValue {
