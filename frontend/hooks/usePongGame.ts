@@ -9,7 +9,7 @@ interface UsePongGameProps {
 	onGameOver?: (winner: number | null, score: { p1: number; p2: number }, result: string) => void;
 }
 
-export function usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver }: UsePongGameProps) {
+export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: UsePongGameProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const socketRef = useRef<WebSocket | null>(null);
@@ -21,22 +21,31 @@ export function usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOve
 	const gameState = wsUrl ? localGameState : externalGameState;
 
 	// Responsive canvas
-	const [canvasDimensions, setCanvasDimensions] = useState({ width: 1200, height: 600 });
+	const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 400 });
 
 	useEffect(() => {
 		const updateCanvasSize = () => {
 			if (!containerRef.current) return;
 			const container = containerRef.current;
-			const aspectRatio = 2;
-			let width = Math.max(container.clientWidth - 40, 800);
+			const aspectRatio = 2; // 2:1 aspect ratio (800x400 game)
+
+			// Calculate max dimensions that fit in container
+			const maxWidth = container.clientWidth - 32; // Account for padding
+			const maxHeight = container.clientHeight - 32;
+
+			let width = maxWidth;
 			let height = width / aspectRatio;
 
-			if (height > container.clientHeight - 10) {
-				height = Math.max(container.clientHeight - 10, 300);
+			// If height exceeds container, scale down
+			if (height > maxHeight) {
+				height = maxHeight;
 				width = height * aspectRatio;
 			}
-			width = Math.min(width, 1400);
+
+			// Clamp to reasonable bounds
+			width = Math.max(400, Math.min(width, 1400));
 			height = width / aspectRatio;
+
 			setCanvasDimensions({ width, height });
 		};
 
@@ -75,7 +84,7 @@ export function usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOve
 
 	// Input Handling
 	useEffect(() => {
-		const sendInput = (payload: any) => {
+		const sendInput = (payload: object) => {
 			if (socketRef.current?.readyState === WebSocket.OPEN) {
 				socketRef.current.send(JSON.stringify(payload));
 			}

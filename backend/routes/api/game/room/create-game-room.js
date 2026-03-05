@@ -1,7 +1,7 @@
 import { PrismaClient } from "/app/generated/prisma/index.js";
 
 const prisma = new PrismaClient();
-const MAX_PLAYERS = 4;
+const MAX_PLAYERS = 8;
 
 export default async function (fastify, opts) {
   fastify.get(
@@ -11,11 +11,16 @@ export default async function (fastify, opts) {
     },
     async (request, reply) => {
       try {
-        const hostId = request.user.userId;
+        const hostId = Number(request.user.userId);
         const profile = await prisma.profile.findUnique({ where: { id: hostId } });
 
+        console.log(`[createGameRoom API] hostId: ${hostId} (type: ${typeof hostId})`);
+
         const existing = fastify.currentRoom.get(hostId);
-        if (existing) return reply.code(400).send({ error: "Already in a game room" });
+        if (existing) {
+          // User already has a room, return that room instead
+          return reply.code(200).send({ roomId: existing, existing: true });
+        }
 
         const roomId = fastify.createGameRoom(hostId, profile.username, MAX_PLAYERS);
         return reply.code(200).send({

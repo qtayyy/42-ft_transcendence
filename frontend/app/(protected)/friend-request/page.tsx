@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
-import { FriendRequest } from "@/type/types";
+import { FriendRequest } from "@/types/types";
 import { useLanguage } from "@/context/languageContext";
 import { useAuth } from "@/hooks/use-auth";
 

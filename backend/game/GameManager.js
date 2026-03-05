@@ -1,26 +1,21 @@
 import Game from './Game.js';
 
-class GameManager
-{
-	constructor()
-	{
+class GameManager {
+	constructor() {
 		this.activeGames = new Map(); // stores matchId -> game instance
 	}
 
-	createGame(matchId, mode)
-	{
-		const newGame = new Game(matchId, mode);
+	createGame(matchId, mode, tournamentId = null) {
+		const newGame = new Game(matchId, mode, tournamentId);
 		this.activeGames.set(matchId, newGame);
 		return (newGame);
 	}
 
-	getGame(matchId)
-	{
+	getGame(matchId) {
 		return (this.activeGames.get(matchId));
 	}
 
-	removeGame(matchId)
-	{
+	removeGame(matchId) {
 		this.activeGames.delete(matchId);
 	}
 }
