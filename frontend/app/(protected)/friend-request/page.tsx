@@ -44,8 +44,6 @@ export default function FriendRequestsPage() {
     try {
       await axios.put(`/api/friends/request/${id}/accept`);
       await fetchRequests();
-      // Refresh notifications in header
-      window.dispatchEvent(new CustomEvent("refreshNotifications"));
     } catch (error: any) {
       console.error("Failed to accept friend request:", error);
     }
@@ -55,8 +53,6 @@ export default function FriendRequestsPage() {
     try {
       await axios.put(`/api/friends/request/${id}/decline`);
       await fetchRequests();
-      // Refresh notifications in header
-      window.dispatchEvent(new CustomEvent("refreshNotifications"));
     } catch (error: any) {
       console.error("Failed to decline friend request:", error);
     }
