@@ -9,6 +9,7 @@ export interface FriendRequest {
   requester: {
     id: number;
     username: string;
+    avatar?: string;
   };
 };
 
