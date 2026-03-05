@@ -18,7 +18,7 @@ export default async function (fastify, opts) {
             addresseeId: userId,
           },
           include: {
-            requester: { select: { id: true, username: true } },
+            requester: { select: { id: true, username: true, avatar: true } },
           },
         });
 

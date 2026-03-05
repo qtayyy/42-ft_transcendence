@@ -3,15 +3,38 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FriendRequest } from "@/types/types";
 import { useLanguage } from "@/context/languageContext";
 import { useAuth } from "@/hooks/use-auth";
+import { useRouter } from "next/navigation";
+import { Users, UserPlus, MessageCircle, Check, X, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
+import SearchBar from "@/components/search-bar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+interface Friend {
+  id: number;
+  username: string;
+  avatar?: string;
+}
 
 export default function FriendRequestsPage() {
   const [requests, setRequests] = useState<FriendRequest[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userFound, setUserFound] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
   const { t } = useLanguage();
   const { user, loadingAuth } = useAuth();
+  const router = useRouter();
 
   const fetchRequests = async () => {
     try {
@@ -19,23 +42,31 @@ export default function FriendRequestsPage() {
       setRequests(res.data);
     } catch (error: any) {
       console.error("Failed to fetch friend requests:", error);
-      // If 401, the ProtectedRoute will handle redirect
       if (error.response?.status !== 401) {
-        // For other errors, set empty array to show "No pending requests"
         setRequests([]);
       }
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const fetchFriends = async () => {
+    try {
+      const res = await axios.get("/api/friends");
+      setFriends(res.data);
+    } catch (error: any) {
+      console.error("Failed to fetch friends:", error);
+      if (error.response?.status !== 401) {
+        setFriends([]);
+      }
     }
   };
 
   useEffect(() => {
-    // Wait for authentication to complete before fetching
     if (loadingAuth) return;
-    if (!user) return; // ProtectedRoute will handle redirect
+    if (!user) return;
     
     async function load() {
-      await fetchRequests();
+      await Promise.all([fetchRequests(), fetchFriends()]);
+      setLoading(false);
     }
     load();
   }, [user, loadingAuth]);
@@ -43,7 +74,7 @@ export default function FriendRequestsPage() {
   const accept = async (id: number) => {
     try {
       await axios.put(`/api/friends/request/${id}/accept`);
-      await fetchRequests();
+      await Promise.all([fetchRequests(), fetchFriends()]);
     } catch (error: any) {
       console.error("Failed to accept friend request:", error);
     }
@@ -58,35 +89,233 @@ export default function FriendRequestsPage() {
     }
   };
 
+  const handleChatClick = (friendId: number) => {
+    router.push(`/chat?userId=${friendId}`);
+  };
+
+  const handleSearchUser = async (query: string) => {
+    try {
+      setUserFound("");
+      const res = await axios.get(`/api/friends/search?user=${query}`);
+      setUserFound(res.data);
+      setDialogOpen(true);
+    } catch (error: any) {
+      const backendError = error.response?.data?.error;
+      alert(backendError || "Something went wrong. Please try again later.");
+    }
+  };
+
+  const sendFriendRequest = async () => {
+    try {
+      const res = await axios.post("/api/friends/request", {
+        username: userFound,
+      });
+      setDialogOpen(false);
+      alert(res.data.message);
+      // Refresh pending requests to show the new request if accepted immediately
+      await fetchRequests();
+    } catch (error: any) {
+      const backendError = error.response?.data?.error;
+      alert(backendError || "Something went wrong. Please try again later.");
+    }
+  };
+
   if (loading || loadingAuth) {
     return (
-      <div className="p-6">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
         <p className="text-sm text-muted-foreground">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-xl font-semibold mb-4">{t?.DropDown?.FriendRequests || "Friend Requests"}</h1>
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
+      <div className="w-full max-w-5xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        {/* Header */}
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 mb-4 ring-1 ring-primary/20">
+            <Users className="h-6 w-6 text-primary" />
+          </div>
+          <h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-white via-primary/50 to-white bg-clip-text text-transparent pb-2">
+            {t?.DropDown?.FriendRequests || "Friends"}
+          </h1>
+        </div>
 
-      {requests.length === 0 && <p>{t?.FriendRequests?.["No pending requests"] || "No pending requests"}</p>}
+        {/* Search Bar */}
+        <div className="group relative max-w-2xl mx-auto">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-500"></div>
+          <Card className="relative border-0 bg-card/95 backdrop-blur-sm">
+            <CardHeader className="text-center pb-3">
+              <div className="mx-auto p-3 rounded-2xl bg-green-500/10 mb-3 group-hover:bg-green-500/20 transition-colors w-fit">
+                <Search className="h-8 w-8 text-green-500" />
+              </div>
+              <CardTitle className="text-2xl font-bold">
+                {t?.Dashboard?.Search || "Search Friends"}
+              </CardTitle>
+              <CardDescription>
+                Find and connect with new friends
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pb-6">
+              <SearchBar searchUser={handleSearchUser} />
+            </CardContent>
+          </Card>
+        </div>
 
-      {requests.map((req) => (
-        <div
-          key={req.id}
-          className="flex items-center justify-between border p-3 rounded-lg mb-2"
-        >
-          <span>{req.requester.username}</span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Pending Friend Requests */}
+          <div className="group relative">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-500"></div>
+            <Card className="relative h-full border-0 bg-card/95 backdrop-blur-sm">
+              <CardHeader className="text-center pb-4">
+                <div className="mx-auto p-4 rounded-2xl bg-orange-500/10 mb-4 group-hover:bg-orange-500/20 transition-colors w-fit">
+                  <UserPlus className="h-10 w-10 text-orange-500" />
+                </div>
+                <CardTitle className="text-3xl font-bold">
+                  {t?.DropDown?.FriendRequests || "Friend Requests"}
+                </CardTitle>
+                <CardDescription className="text-base">
+                  {requests.length} pending request{requests.length !== 1 ? 's' : ''}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="bg-muted/30 backdrop-blur-sm border border-border/50 rounded-lg min-h-[300px] max-h-[500px] overflow-y-auto p-4 space-y-3">
+                  {requests.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <UserPlus className="h-12 w-12 text-muted-foreground/50 mb-3" />
+                      <p className="text-muted-foreground">
+                        {t?.FriendRequests?.["No pending requests"] || "No pending requests"}
+                      </p>
+                    </div>
+                  ) : (
+                    requests.map((req) => (
+                      <div
+                        key={req.id}
+                        className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border/50 hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10 border-2 border-primary/20">
+                            <AvatarImage src={req.requester?.avatar} />
+                            <AvatarFallback className="text-sm">
+                              {req.requester.username[0].toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium">{req.requester.username}</span>
+                        </div>
 
-          <div className="flex gap-2">
-            <Button onClick={() => accept(req.id)}>{t?.FriendRequests?.Accept || "Accept"}</Button>
-            <Button variant="destructive" onClick={() => decline(req.id)}>
-              {t?.FriendRequests?.Decline || "Decline"}
-            </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="default"
+                            onClick={() => accept(req.id)}
+                            className="gap-1"
+                          >
+                            <Check className="h-4 w-4" />
+                            {t?.FriendRequests?.Accept || "Accept"}
+                          </Button>
+                          <Button 
+                            size="sm"
+                            variant="destructive" 
+                            onClick={() => decline(req.id)}
+                            className="gap-1"
+                          >
+                            <X className="h-4 w-4" />
+                            {t?.FriendRequests?.Decline || "Decline"}
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Friends List */}
+          <div className="group relative">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-500"></div>
+            <Card className="relative h-full border-0 bg-card/95 backdrop-blur-sm">
+              <CardHeader className="text-center pb-4">
+                <div className="mx-auto p-4 rounded-2xl bg-blue-500/10 mb-4 group-hover:bg-blue-500/20 transition-colors w-fit">
+                  <Users className="h-10 w-10 text-blue-500" />
+                </div>
+                <CardTitle className="text-3xl font-bold">
+                  {t?.Dashboard?.Friends || "My Friends"}
+                </CardTitle>
+                <CardDescription className="text-base">
+                  {friends.length} friend{friends.length !== 1 ? 's' : ''}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="bg-muted/30 backdrop-blur-sm border border-border/50 rounded-lg min-h-[300px] max-h-[500px] overflow-y-auto p-4 space-y-3">
+                  {friends.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <Users className="h-12 w-12 text-muted-foreground/50 mb-3" />
+                      <p className="text-muted-foreground">
+                        No friends yet. Start by accepting friend requests!
+                      </p>
+                    </div>
+                  ) : (
+                    friends.map((friend) => (
+                      <div
+                        key={friend.id}
+                        className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border/50 hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10 border-2 border-primary/20">
+                            <AvatarImage src={friend.avatar} />
+                            <AvatarFallback className="text-sm">
+                              {friend.username[0].toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium">{friend.username}</span>
+                        </div>
+
+                        <Button 
+                          size="sm" 
+                          variant="default"
+                          onClick={() => handleChatClick(friend.id)}
+                          className="gap-2"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          Chat
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      ))}
+      </div>
+
+      {/* Friend Request Dialog */}
+      {userFound ? (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="p-10">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold">
+                {t?.Dashboard?.Friends || "Send Friend Request"}
+              </DialogTitle>
+              <DialogDescription className="text-base pt-2">
+                Click &lsquo;{t?.chat?.Send || "Send"}&rsquo; to send a friend request to:
+              </DialogDescription>
+              <p className="text-4xl font-bold pt-4 text-primary">{userFound}</p>
+            </DialogHeader>
+            <div className="grid justify-end pt-4">
+              <Button
+                className="w-40"
+                variant="default"
+                onClick={sendFriendRequest}
+                size="lg"
+              >
+                {t?.chat?.Send || "Send"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </div>
   );
 }
