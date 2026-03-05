@@ -660,23 +660,6 @@ export default function GamePage() {
 					<div className="absolute bottom-[20%] right-[10%] w-72 h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
 				</div>
 
-				{/* Spectator Badge - Positioned on the right to avoid overlap with header elements */}
-				{isSpectator && (
-					<div className="absolute top-36 right-8 z-50 flex flex-col items-end gap-2">
-						<Badge className="bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 text-sm font-medium animate-pulse shadow-lg">
-							<Eye className="mr-2 h-4 w-4" /> Spectating Live
-						</Badge>
-						<Button
-							onClick={returnToLobby}
-							variant="secondary"
-							size="sm"
-							className="bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background/90"
-						>
-							<ArrowLeft className="mr-2 h-4 w-4" /> Return to Lobby
-						</Button>
-					</div>
-				)}
-
 				{/* Header (Fixed Height) - Similar to local play */}
 				<div className="shrink-0 h-24 w-full max-w-7xl mx-auto grid grid-cols-3 items-center px-8 border-b border-white/5 bg-background/40 backdrop-blur-md z-10 transition-all duration-300">
 					{/* Left: Match Info */}
@@ -716,10 +699,26 @@ export default function GamePage() {
 
 					{/* Right: Status Indicators */}
 					<div className="flex items-center justify-end gap-3">
-						<div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/5 border border-green-500/20 rounded-full">
-							<div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-							<span className="text-xs font-bold text-green-500 tracking-wider">LIVE</span>
-						</div>
+						{isSpectator ? (
+							<>
+								<Badge className="bg-red-500/90 backdrop-blur-sm text-white px-4 py-1.5 text-sm font-bold animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.6)] flex items-center gap-2 border-0">
+									<Eye className="h-4 w-4" /> SPECTATING LIVE
+								</Badge>
+								<Button
+									onClick={returnToLobby}
+									variant="outline"
+									size="sm"
+									className="bg-black/40 border-white/10 text-white hover:bg-white/10 hover:text-white transition-colors"
+								>
+									<ArrowLeft className="mr-2 h-4 w-4" /> Lobby
+								</Button>
+							</>
+						) : (
+							<div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/5 border border-green-500/20 rounded-full">
+								<div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+								<span className="text-xs font-bold text-green-500 tracking-wider">LIVE</span>
+							</div>
+						)}
 					</div>
 				</div>
 
@@ -1073,17 +1072,18 @@ export default function GamePage() {
 		<div className="relative">
 			{/* Spectator Overlay */}
 			{isSpectator && (
-				<div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
-					<Badge className="bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 text-sm font-medium">
-						<Eye className="mr-2 h-4 w-4" /> Spectating
+				<div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3 bg-black/60 backdrop-blur-md border border-white/10 rounded-full shadow-2xl">
+					<Badge className="bg-red-500/90 text-white px-4 py-1.5 text-sm font-bold animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.6)] flex items-center gap-2 border-0">
+						<Eye className="h-4 w-4" /> SPECTATING LIVE
 					</Badge>
+					<div className="h-6 w-px bg-white/20" />
 					<Button
 						onClick={returnToLobby}
-						variant="outline"
+						variant="ghost"
 						size="sm"
-						className="bg-background/80 backdrop-blur-sm"
+						className="text-white hover:bg-white/10"
 					>
-						<ArrowLeft className="mr-2 h-4 w-4" /> Return to Lobby
+						<ArrowLeft className="mr-2 h-4 w-4" /> Lobby
 					</Button>
 				</div>
 			)}
