@@ -5,7 +5,7 @@ import { activeTournaments } from "../game/TournamentManager.js";
 export default fp(async (fastify) => {
   fastify.register(websocket);
 
-  // userId: socket
+  // userId: Set of sockets (to handle multiple tabs)
   const onlineUsers = new Map();
 
   // hostId: GameRoom object

@@ -1,12 +1,20 @@
 export function safeSend(socket, data, userId) {
   if (!socket) {
-    console.warn(`WS missing for user ${userId}. Was trying to send:`);
-    console.warn(data);
+    if (userId) {
+      console.warn(`WS missing for user ${userId}. Was trying to send:`);
+      console.warn(data);
+    }
     return;
   }
 
-  if (socket.readyState !== WebSocket.OPEN) {
-    console.warn(`WS for user ${userId} is not open`);
+  // Handle multiple sockets per user as a Set
+  if (socket instanceof Set) {
+    socket.forEach((s) => safeSend(s, data, userId));
+    return;
+  }
+
+  if (socket.readyState !== (global.WebSocket?.OPEN || 1)) {
+    // console.warn(`WS for user ${userId} is not open`);
     return;
   }
 

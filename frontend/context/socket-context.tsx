@@ -324,6 +324,9 @@ export const SocketProvider = ({ children }) => {
 							case "TOURNAMENT_PLAYER_LEFT":
 								// A player left the tournament
 								toast.warning("A player has left the tournament");
+								window.dispatchEvent(
+									new CustomEvent("tournamentPlayerLeft", { detail: payload })
+								);
 								break;
 
 							case "CHAT_MESSAGE":

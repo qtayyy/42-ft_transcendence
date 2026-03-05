@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
 import axios from "axios";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Leaderboard from "@/components/game/Leaderboard";
@@ -185,6 +186,20 @@ export default function RemoteTournamentPage() {
 		}
 	};
 
+	// Refresh tournament data
+	const fetchTournament = useCallback(async () => {
+		try {
+			const response = await axios.get(`/api/tournament/${tournamentId}`, { withCredentials: true });
+			setTournament(response.data);
+			
+			// Find next pending match
+			const nextMatch = getNextMatch(response.data.matches, response.data.currentRound || 1);
+			setCurrentMatch(nextMatch);
+		} catch (error) {
+			console.error("Failed to refresh tournament:", error);
+		}
+	}, [tournamentId, getNextMatch]);
+
     // Listen for real-time tournament updates
     useEffect(() => {
         const handleTournamentUpdate = (event: CustomEvent) => {
@@ -208,25 +223,22 @@ export default function RemoteTournamentPage() {
             }
         };
 
+        const handleTournamentPlayerLeft = (event: CustomEvent) => {
+            console.log("Received TOURNAMENT_PLAYER_LEFT:", event.detail);
+            toast.info("A player has left the tournament.");
+            
+            // Re-fetch the entire tournament to get the latest updated matches/brackets (walkovers)
+            fetchTournament();
+        };
+
         window.addEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
+        window.addEventListener("tournamentPlayerLeft", handleTournamentPlayerLeft as EventListener);
+        
         return () => {
             window.removeEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
+            window.removeEventListener("tournamentPlayerLeft", handleTournamentPlayerLeft as EventListener);
         };
-    }, [user, getNextMatch]);
-
-	// Refresh tournament data
-	const fetchTournament = useCallback(async () => {
-		try {
-			const response = await axios.get(`/api/tournament/${tournamentId}`, { withCredentials: true });
-			setTournament(response.data);
-			
-			// Find next pending match
-			const nextMatch = getNextMatch(response.data.matches, response.data.currentRound || 1);
-			setCurrentMatch(nextMatch);
-		} catch (error) {
-			console.error("Failed to refresh tournament:", error);
-		}
-	}, [tournamentId]);
+    }, [user, getNextMatch, fetchTournament]);
 
 	// Poll for tournament updates
 	useEffect(() => {
