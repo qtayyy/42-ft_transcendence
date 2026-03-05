@@ -17,9 +17,6 @@ import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
 import { useLanguage } from "@/context/languageContext";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { useNotifications } from "@/hooks/use-notifications";
-import { Bell } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 // Routes where the profile icon should be hidden (non-authenticated pages)
 const NON_AUTHENTICATED_ROUTES = [
@@ -37,8 +34,7 @@ export default function Header() {
   const { user, logout } = useAuth();
   const { sendSocketMessage, isReady } = useSocket();
   const { gameRoom } = useGame();
-  const { t } = useLanguage(); 
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { t } = useLanguage();
 
   // Check if current route is a non-authenticated page
   const isNonAuthenticatedPage = useMemo(() => {
@@ -98,82 +94,6 @@ export default function Header() {
 
         {shouldShowProfileIcon && (
           <>
-            {/* Notification bell */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="relative"
-                  aria-label="Notifications"
-                >
-                  <Bell className="h-5 w-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <div className="flex items-center justify-between p-2 border-b">
-                  <h3 className="font-semibold">
-                    {t?.DropDown?.Notification || "Notifications"}
-                  </h3>
-                  {unreadCount > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={markAllAsRead}
-                    >
-                      Mark all as read
-                    </Button>
-                  )}
-                </div>
-                {notifications.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    No notifications
-                  </div>
-                ) : (
-                  <div className="max-h-96 overflow-y-auto">
-                    {notifications.map((notification) => (
-                      <DropdownMenuItem
-                        key={notification.id}
-                        className={cn(
-                          "flex flex-col items-start p-3 cursor-pointer",
-                          !notification.read && "bg-muted/50"
-                        )}
-                        onClick={() => {
-                          markAsRead(notification.id);
-                          // Route based on notification type
-                          if (notification.type === "friend_request") {
-                            router.push("/friend-request");
-                          } else if (notification.type === "chat_message") {
-                            router.push("/chat");
-                          } else if (notification.type === "friend_online") {
-                            router.push("/dashboard");
-                          }
-                        }}
-                      >
-                        <div className="flex items-start justify-between w-full">
-                          <p className="text-sm font-medium">
-                            {notification.message}
-                          </p>
-                          {!notification.read && (
-                            <span className="h-2 w-2 rounded-full bg-primary ml-2 flex-shrink-0 mt-1" />
-                          )}
-                        </div>
-                        <span className="text-xs text-muted-foreground mt-1">
-                          {notification.timestamp.toLocaleTimeString()}
-                        </span>
-                      </DropdownMenuItem>
-                    ))}
-                  </div>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
             <DropdownMenu>
               <DropdownMenuTrigger>
                 {/* Add key to force re-render when avatar changes */}
