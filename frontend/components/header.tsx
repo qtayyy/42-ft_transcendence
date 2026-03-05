@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
@@ -33,16 +34,27 @@ export default function Header() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { sendSocketMessage, isReady } = useSocket();
-  const { gameRoom } = useGame();
+  const { gameRoom, gameState, setShowNavGuard, setPendingPath } = useGame();
   const { t } = useLanguage(); // change language to header
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   // Check if current route is a non-authenticated page
   const isNonAuthenticatedPage = useMemo(() => {
     return NON_AUTHENTICATED_ROUTES.includes(pathname);
   }, [pathname]);
 
+  // Check if an active match is in progress (not over)
+  const isGameActive = useMemo(() => {
+    return gameState && !gameState.gameOver;
+  }, [gameState]);
+
   // Only show profile icon if user exists AND we're not on a non-authenticated page
-  const shouldShowProfileIcon = user && !isNonAuthenticatedPage;
+  // Use hasMounted to prevent hydration mismatch
+  const shouldShowProfileIcon = hasMounted && user && !isNonAuthenticatedPage;
 
   const handleLogout = useCallback(async () => {
     if (!user || !isReady) return;
@@ -58,6 +70,11 @@ export default function Header() {
   }, [router, logout, user, isReady, sendSocketMessage, gameRoom]);
 
   function handleLogoClick() {
+    if (isGameActive) {
+      setPendingPath(user ? "/dashboard" : "/");
+      setShowNavGuard(true);
+      return;
+    }
     if (user) {
       router.push("/dashboard");
     }
@@ -65,6 +82,15 @@ export default function Header() {
       router.push("/");
     }
   }
+
+  const navigateTo = useCallback((path: string) => {
+    if (isGameActive) {
+      setPendingPath(path);
+      setShowNavGuard(true);
+      return;
+    }
+    router.push(path);
+  }, [isGameActive, router, setShowNavGuard, setPendingPath]);
 
   return (
     <div className={cn(
@@ -75,7 +101,7 @@ export default function Header() {
         <button
           type="button"
           onClick={handleLogoClick}
-          className="p-0 border-0 bg-transparent cursor-pointer"
+          className="p-0 border-0 bg-transparent cursor-pointer hover:opacity-80 transition-opacity"
           aria-label="Go to dashboard"
           suppressHydrationWarning
         >
@@ -100,7 +126,7 @@ export default function Header() {
             </DropdownMenu>
 
             <DropdownMenu>
-              <DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild>
                 {/* Add key to force re-render when avatar changes */}
                 <Avatar
                   className="w-15 h-15"
@@ -113,19 +139,19 @@ export default function Header() {
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => router.push("/profile")}>
+                <DropdownMenuItem onClick={() => navigateTo("/profile")}>
                   {t?.DropDown?.Profile || "Profile"}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/match")}>
+                <DropdownMenuItem onClick={() => navigateTo("/match")}>
                   {t?.DropDown?.MatchHistory || "Match History"}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/friend-request")}>
+                <DropdownMenuItem onClick={() => navigateTo("/friend-request")}>
                   {t?.DropDown?.FriendRequests || "Friend Requests"}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/settings")}>
+                <DropdownMenuItem onClick={() => navigateTo("/settings")}>
                   {t?.DropDown?.Settings || "Settings"}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout}>
+                <DropdownMenuItem onClick={isGameActive ? () => toast.warning("Finish your match before logging out.") : handleLogout}>
                   {t?.DropDown?.Logout || "Logout"}
                 </DropdownMenuItem>
               </DropdownMenuContent>

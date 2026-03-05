@@ -14,6 +14,8 @@ export const GameProvider = ({ children }) => {
   const [gameRoom, setGameRoom] = useState<GameRoomValue | null>(null);
   const [gameRoomLoaded, setGameRoomLoaded] = useState(false);
   const [gameState, setGameState] = useState<GameStateValue | null>(null);
+  const [showNavGuard, setShowNavGuard] = useState(false);
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -41,7 +43,11 @@ export const GameProvider = ({ children }) => {
         gameRoom,
         setGameRoom,
         gameState,
-        setGameState
+        setGameState,
+        showNavGuard,
+        setShowNavGuard,
+        pendingPath,
+        setPendingPath
       }}
     >
       {children}

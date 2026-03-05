@@ -2,7 +2,7 @@
 
 import PongGame from "@/components/game/PongGame";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
@@ -10,7 +10,8 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, ArrowLeft, Loader2, Timer, Keyboard, Gamepad2, Hash } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Eye, ArrowLeft, Loader2, Timer, Keyboard, Gamepad2, Hash, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPowerUpColor, getEffectColor, getPowerUpSymbol, formatTime } from "@/utils/gameHelpers";
 
@@ -31,7 +32,7 @@ export default function GamePage() {
 	const searchParams = useSearchParams();
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
-	const { gameState, setGameState } = useGame();
+	const { gameState, setGameState, setShowNavGuard, setPendingPath } = useGame();
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const matchId = params.matchId as string;
 	const [matchData, setMatchData] = useState<any>(null);
@@ -47,9 +48,11 @@ export default function GamePage() {
 		myReadyToResume: boolean;
 		opponentReadyToResume: boolean;
 	} | null>(null);
-
 	// Detect spectator mode from query param or gameState
 	const isSpectator = searchParams.get('spectator') === 'true' || (gameState as any)?.spectatorMode === true;
+
+	// Check if this is a tournament match
+	const isTournamentMatch = gameState?.tournamentId !== undefined && gameState?.tournamentId !== null;
 
 	// Determine if this is a remote game (RS-* prefix or RT-* prefix for tournaments)
 	const isRemoteGame = matchId.startsWith("RS-") || matchId.startsWith("RT-");
@@ -335,14 +338,14 @@ export default function GamePage() {
 
 	// Notify server when player is leaving the game page (for disconnect detection)
 	useEffect(() => {
-		if (!isRemoteGame || isSpectator) return;
+		if (!isRemoteGame) return;
 
 		const handleBeforeUnload = () => {
 			const currentGameState = gameStateRef.current;
 			const currentUser = userRef.current;
 
-			// Send notification that player is leaving
-			if (currentGameState?.matchId && currentUser?.id) {
+			// Send notification that player is leaving (both players and spectators)
+			if (currentGameState?.matchId && currentUser?.id && !isSpectator) {
 				sendSocketMessage({
 					event: "PLAYER_NAVIGATING_AWAY",
 					payload: {
@@ -365,7 +368,7 @@ export default function GamePage() {
 			const currentUser = userRef.current;
 			const currentGameOverResult = gameOverResultRef.current;
 
-			if (currentGameState?.matchId && !currentGameOverResult && currentUser?.id) {
+			if (currentGameState?.matchId && !currentGameOverResult && currentUser?.id && !isSpectator) {
 				sendSocketMessage({
 					event: "PLAYER_NAVIGATING_AWAY",
 					payload: {
@@ -377,8 +380,68 @@ export default function GamePage() {
 		};
 	}, [isRemoteGame, isSpectator, sendSocketMessage]); // Removed dependencies that change frequently
 
+	// Navigation guard for players and spectators in tournament matches
+	useEffect(() => {
+		// Only apply to tournament matches, and skip if game is over
+		if (!isTournamentMatch || gameOverResult) return;
+
+		const handleRouteChange = (e: BeforeUnloadEvent) => {
+			// Warn user about leaving active tournament
+			e.preventDefault();
+			e.returnValue = 'You have an active tournament. Are you sure you want to leave?';
+			return e.returnValue;
+		};
+
+		// Intercept browser navigation (refresh/close)
+		window.addEventListener("beforeunload", handleRouteChange);
+
+		// Intercept in-app navigation by listening to clicks on navigation elements
+		const handleNavigationClick = (e: MouseEvent) => {
+			const target = e.target as HTMLElement;
+			const link = target.closest('a[href]');
+
+			if (link) {
+				const href = link.getAttribute('href');
+				if (!href || href === '#' || href.startsWith('http')) {
+					// Allow external links, empty hrefs, and hash links
+					return;
+				}
+
+				// Get tournament lobby path
+				const tournamentId = gameState?.tournamentId;
+				const tournamentLobbyPath = tournamentId ? `/game/remote/tournament/${tournamentId}` : null;
+
+				// Allow navigation to:
+				// 1. Tournament lobby
+				// 2. Any game/match pages (including spectator views)
+				if (
+					(tournamentLobbyPath && href.includes(tournamentLobbyPath)) ||
+					href.includes('/game/')
+				) {
+					return;
+				}
+
+				// Block navigation to other pages and show confirmation dialog
+				e.preventDefault();
+				e.stopPropagation();
+
+				// Show confirmation dialog
+				setPendingPath(href);
+				setShowNavGuard(true);
+			}
+		};
+
+		// Add click listener to catch navigation attempts
+		document.addEventListener('click', handleNavigationClick, true);
+
+		return () => {
+			window.removeEventListener("beforeunload", handleRouteChange);
+			document.removeEventListener('click', handleNavigationClick, true);
+		};
+	}, [isTournamentMatch, gameOverResult, gameState, setShowNavGuard, setPendingPath]);
+
 	// Return to lobby handler for spectators
-	const returnToLobby = () => {
+	const returnToLobby = useCallback(() => {
 		// Send UNVIEW_MATCH event
 		if (matchId) {
 			sendSocketMessage({
@@ -405,7 +468,7 @@ export default function GamePage() {
 		} else {
 			router.push("/dashboard");
 		}
-	};
+	}, [matchId, sendSocketMessage, gameState, router]);
 
 	// Render remote game based on game state
 	useEffect(() => {
@@ -597,10 +660,10 @@ export default function GamePage() {
 					<div className="absolute bottom-[20%] right-[10%] w-72 h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
 				</div>
 
-				{/* Spectator Badge */}
+				{/* Spectator Badge - Positioned on the right to avoid overlap with header elements */}
 				{isSpectator && (
-					<div className="absolute top-36 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
-						<Badge className="bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 text-sm font-medium animate-pulse">
+					<div className="absolute top-36 right-8 z-50 flex flex-col items-end gap-2">
+						<Badge className="bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 text-sm font-medium animate-pulse shadow-lg">
 							<Eye className="mr-2 h-4 w-4" /> Spectating Live
 						</Badge>
 						<Button

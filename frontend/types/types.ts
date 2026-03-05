@@ -59,6 +59,10 @@ export interface GameContextValue {
 	setGameRoom: React.Dispatch<React.SetStateAction<GameRoomValue | null>>;
 	gameState: GameStateValue | null;
 	setGameState: React.Dispatch<React.SetStateAction<GameStateValue | null>>;
+	showNavGuard: boolean;
+	setShowNavGuard: (show: boolean) => void;
+	pendingPath: string | null;
+	setPendingPath: (path: string | null) => void;
 }
 
 export interface GameRoomValue {
