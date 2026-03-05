@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import axios from "axios";
+import { toast } from "sonner";
 import { AuthContextValue, UserProfile } from "@/types/types";
 
 const NON_AUTHENTICATED_ROUTES = [
@@ -71,10 +72,35 @@ export const AuthProvider = ({ children }) => {
 
     fetchUser();
 
+    // Global Axios Interceptor for 401 Unauthorized (Session Management)
+    const interceptorId = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response && error.response.status === 401) {
+          // Ignore 401s on non-authenticated routes (like login/signup failures)
+          // or 2fa verification endpoints
+          const url = error.config.url;
+          const isAuthEndpoint = url.includes('/api/auth/login') || url.includes('/api/auth/2fa/verify');
+          
+          if (!isNonAuthenticatedPage && !isAuthEndpoint) {
+            setUser(null);
+            toast.error("Your session has expired. Please log in again.");
+            router.push(`/login?next=${encodeURIComponent(pathname)}`);
+            // Return an unresolved Promise to swallow the error globally.
+            // This prevents downstream components (like tournament fetchers) 
+            // from throwing unhandled Promise rejections while the redirect is happening.
+            return new Promise(() => {});
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
     return () => {
       isMounted = false;
+      axios.interceptors.response.eject(interceptorId);
     };
-  }, [isNonAuthenticatedPage]);
+  }, [isNonAuthenticatedPage, router, pathname]);
 
   const login = useCallback(
     async (email: string, password: string) => {

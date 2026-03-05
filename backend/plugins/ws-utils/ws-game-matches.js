@@ -520,6 +520,17 @@ function startGameLoop(gameState, fastify) {
     if (typeof gameState.tickCount === "undefined") gameState.tickCount = 0;
     gameState.tickCount++;
 
+    // Check if game is still active in the main Map
+    // This prevents "ghost" loops if endGame failed to clear the interval correctly
+    if (!fastify.gameStates.has(matchId)) {
+      console.warn(
+        `[Game Loop] Match ${matchId} not found in gameStates. Stopping ghost loop.`,
+      );
+      clearInterval(loopHandle);
+      gameLoops.delete(matchId);
+      return;
+    }
+
     // Check if game is paused (e.g. player disconnected or manual pause)
     if (gameState.paused) {
       // Still broadcast paused state periodically so clients stay in sync
@@ -648,8 +659,16 @@ export default fp(async (fastify, opts) => {
 
   fastify.decorate("updateGameState", (matchId, userId, keyEvent) => {
     const gameState = fastify.gameStates.get(matchId);
-    if (!gameState)
+    if (!gameState) {
+      console.warn(
+        `[updateGameState] Match ${matchId} not found for user ${userId}.`,
+      );
       throw new Error(`Game state doesn't exist for match ${matchId}`);
+    }
+
+    console.log(
+      `[updateGameState] Received ${keyEvent} from user ${userId} for match ${matchId}. gameStarted=${gameState.gameStarted}`,
+    );
 
     let player;
     const uid = Number(userId);

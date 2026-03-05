@@ -147,7 +147,12 @@ export default async function (fastify, opts) {
         }
       }
 
-      fastify.onlineUsers.set(userId, connection);
+      // Handle multiple sockets per user
+      if (!fastify.onlineUsers.has(userId)) {
+        fastify.onlineUsers.set(userId, new Set());
+      }
+      fastify.onlineUsers.get(userId).add(connection);
+
       fastify.notifyFriendStatus(userId, "online");
 
       connection.on("message", (message) => {
@@ -515,8 +520,15 @@ export default async function (fastify, opts) {
 
       connection.on("close", () => {
         console.log(`[WS Close] User ${userId} connection closed`);
-        fastify.onlineUsers.delete(userId);
-        fastify.notifyFriendStatus(userId, "offline");
+
+        const sockets = fastify.onlineUsers.get(userId);
+        if (sockets) {
+          sockets.delete(connection);
+          if (sockets.size === 0) {
+            fastify.onlineUsers.delete(userId);
+            fastify.notifyFriendStatus(userId, "offline");
+          }
+        }
 
         // Handle leaving queue if in matchmaking
         fastify.leaveMatchmaking(userId);

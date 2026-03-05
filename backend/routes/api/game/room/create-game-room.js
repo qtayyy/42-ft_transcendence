@@ -1,4 +1,4 @@
-import { PrismaClient } from "/app/generated/prisma/index.js";
+import { PrismaClient } from "../../../../generated/prisma/index.js";
 
 const prisma = new PrismaClient();
 const MAX_PLAYERS = 8;
@@ -12,9 +12,13 @@ export default async function (fastify, opts) {
     async (request, reply) => {
       try {
         const hostId = Number(request.user.userId);
-        const profile = await prisma.profile.findUnique({ where: { id: hostId } });
+        const profile = await prisma.profile.findUnique({
+          where: { id: hostId },
+        });
 
-        console.log(`[createGameRoom API] hostId: ${hostId} (type: ${typeof hostId})`);
+        console.log(
+          `[createGameRoom API] hostId: ${hostId} (type: ${typeof hostId})`,
+        );
 
         const existing = fastify.currentRoom.get(hostId);
         if (existing) {
@@ -22,7 +26,11 @@ export default async function (fastify, opts) {
           return reply.code(200).send({ roomId: existing, existing: true });
         }
 
-        const roomId = fastify.createGameRoom(hostId, profile.username, MAX_PLAYERS);
+        const roomId = fastify.createGameRoom(
+          hostId,
+          profile.username,
+          MAX_PLAYERS,
+        );
         return reply.code(200).send({
           roomId,
         });
@@ -30,6 +38,6 @@ export default async function (fastify, opts) {
         console.error("Error creating game room:", error);
         return reply.code(500).send({ error: "Internal server error" });
       }
-    }
+    },
   );
 }
