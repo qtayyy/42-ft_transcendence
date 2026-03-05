@@ -28,12 +28,12 @@ export const SocketProvider = ({ children }) => {
 		setGameState,
 		gameRoom,
 	} = useGame();
+	const pathname = usePathname();
 	const router = useRouter();
 	const [isReady, setIsReady] = useState(false);
 	// Set this to NULL when a match ends
 	const hasActiveGame = useRef(false);
-
-	const pathname = usePathname();
+	const prevPathname = useRef(pathname);
 
 	useEffect(() => {
 		if (!gameState) return;
@@ -406,17 +406,33 @@ export const SocketProvider = ({ children }) => {
 
 	useEffect(() => {
 		if (pathname && gameRoom?.roomId && user?.id) {
+			// Define menu pages where we SHOULD auto-leave
 			const isMenuPage = pathname === '/game' ||
 				pathname === '/game/new' ||
 				pathname === '/game/remote' ||
 				pathname === '/game/remote/tournament' ||
 				pathname === '/game/remote/single' ||
-				pathname === '/game/local';
+				pathname === '/game/local' ||
+				pathname === '/dashboard';
 
-			if (!pathname.startsWith('/game') || isMenuPage) {
+			// Define lobby/game pages where we SHOULD NOT auto-leave
+			const isLobbyPage = pathname.includes('/tournament/create') || 
+							  pathname.includes('/tournament/join') ||
+							  pathname.includes('/tournament/RT-') ||
+							  pathname.includes('/single/create') ||
+							  pathname.includes('/single/join') ||
+							  pathname.includes('/single/RS-') ||
+							  pathname.startsWith('/game/') && !isMenuPage;
+
+			// Logic: We only want to trigger auto-leave if the pathname has ACTUALLY CHANGED
+			// and we moved from a non-menu page to a menu page.
+			const pathChanged = pathname !== prevPathname.current;
+			
+			if (pathChanged && (isMenuPage || !pathname.startsWith('/game')) && !isLobbyPage) {
 				// Only leave if they are not in an active game state, otherwise wait for game over / disconnect handler
 				const isSpectating = (gameState as any)?.spectatorMode;
 				if (!gameState || gameState.gameOver || isSpectating) {
+					console.log(`[SocketContext] Auto-leaving room ${gameRoom.roomId} due to navigation to ${pathname}`);
 					sendSocketMessage({
 						event: "LEAVE_ROOM",
 						payload: { roomId: gameRoom.roomId, userId: user.id }
@@ -425,6 +441,7 @@ export const SocketProvider = ({ children }) => {
 				}
 			}
 		}
+		prevPathname.current = pathname;
 	}, [pathname, gameRoom, user, gameState, sendSocketMessage, setGameRoom]);
 
 	return (

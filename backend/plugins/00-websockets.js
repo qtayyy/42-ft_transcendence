@@ -18,10 +18,14 @@ export default fp(async (fastify) => {
   // matchId: gameState
   const gameStates = new Map();
 
+  // Track lobby removal timeouts (userId: timeout)
+  const lobbyDisconnectTimeouts = new Map();
+
   fastify.decorate("onlineUsers", onlineUsers);
   fastify.decorate("gameRooms", gameRooms);
   fastify.decorate("currentRoom", currentRoom);
   fastify.decorate("gameStates", gameStates);
+  fastify.decorate("lobbyDisconnectTimeouts", lobbyDisconnectTimeouts);
 
   // Shared active tournaments map
   fastify.decorate("activeTournaments", activeTournaments);

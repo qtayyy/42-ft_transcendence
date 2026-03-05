@@ -7,29 +7,42 @@ const prisma = new PrismaClient();
 
 export default fp((fastify) => {
   fastify.decorate("createGameRoom", (hostId, hostUsername, maxPlayers) => {
+    console.log(`[CREATE_ROOM_START] hostId: ${hostId} (${hostUsername})`);
     const roomId = crypto.randomUUID();
-    // Ensure hostId is a number for consistent lookup in onlineUsers
     const numericHostId = Number(hostId);
-    fastify.currentRoom.set(numericHostId, roomId);
 
-    fastify.gameRooms.set(roomId, {
+    fastify.currentRoom.set(numericHostId, roomId);
+    console.log(
+      `[CREATE_ROOM_MAP] currentRoom.set(${numericHostId}, ${roomId})`,
+    );
+
+    const roomState = {
       hostId: numericHostId,
       invitedPlayers: [],
       joinedPlayers: [{ id: numericHostId, username: hostUsername }],
       maxPlayers,
-    });
+    };
+    fastify.gameRooms.set(roomId, roomState);
+    console.log(
+      `[CREATE_ROOM_MAP] gameRooms.set(${roomId}, ${JSON.stringify(roomState)})`,
+    );
+
     return roomId;
   });
 
   fastify.decorate("sendGameRoom", (userId) => {
-    // Ensure userId is a number for consistent lookup
     const numericUserId = Number(userId);
+    console.log(`[SEND_ROOM_START] userId: ${numericUserId}`);
 
     let roomId = fastify.currentRoom.get(numericUserId);
+    console.log(
+      `[SEND_ROOM_GET] currentRoom.get(${numericUserId}) -> ${roomId}`,
+    );
 
-    // Fallback: If not in currentRoom, check if user is in any active game room
-    // This handles cases where socket disconnected but user is still logically in the room
     if (!roomId) {
+      console.log(
+        `[SEND_ROOM_FALLBACK] Searching all rooms for player ${numericUserId}...`,
+      );
       for (const [id, room] of fastify.gameRooms.entries()) {
         const isJoined = room.joinedPlayers.some(
           (p) => Number(p.id) === numericUserId,
@@ -38,32 +51,31 @@ export default fp((fastify) => {
           roomId = id;
           fastify.currentRoom.set(numericUserId, roomId);
           console.log(
-            `[sendGameRoom] Recovered room ${roomId} for user ${numericUserId}`,
+            `[SEND_ROOM_RECOVERED] Found in room ${roomId}. Fixed map.`,
           );
           break;
         }
       }
     }
 
-    if (!roomId) return;
-    const room = fastify.gameRooms.get(roomId);
-    if (!room) {
-      const socket = fastify.onlineUsers.get(numericUserId);
-      safeSend(socket, { event: "ROOM_NOT_FOUND" }, numericUserId);
+    if (!roomId) {
+      console.log(
+        `[SEND_ROOM_NOT_FOUND] User ${numericUserId} has no active room.`,
+      );
       return;
     }
 
-    const isHost = numericUserId === Number(room.hostId);
-    const isJoined = room.joinedPlayers.some(
-      (p) => Number(p.id) === numericUserId,
-    );
-
-    if (!isHost && !isJoined) {
-      throw new Error(`You are not part of this room`);
+    const room = fastify.gameRooms.get(roomId);
+    if (!room) {
+      console.error(
+        `[SEND_ROOM_DESYNC] currentRoom says ${roomId} but gameRooms is MISSING it!`,
+      );
+      fastify.currentRoom.delete(numericUserId);
+      return;
     }
 
     const payload = {
-      roomId: roomId,
+      roomId,
       hostId: room.hostId,
       invitedPlayers: room.invitedPlayers,
       joinedPlayers: room.joinedPlayers,
@@ -72,15 +84,11 @@ export default fp((fastify) => {
       tournamentStarted: room.tournamentStarted || false,
     };
 
-    const socket = fastify.onlineUsers.get(numericUserId);
-    safeSend(
-      socket,
-      {
-        event: "GAME_ROOM",
-        payload,
-      },
-      numericUserId,
+    console.log(
+      `[SEND_ROOM_PAYLOAD] Sending to ${numericUserId}: ${JSON.stringify(payload)}`,
     );
+    const sockets = fastify.onlineUsers.get(numericUserId);
+    safeSend(sockets, { event: "GAME_ROOM", payload }, numericUserId);
   });
 
   fastify.decorate(
@@ -369,77 +377,87 @@ export default fp((fastify) => {
     }
   });
 
-  // Join room by code (for remote play)
   fastify.decorate("joinRoomByCode", (roomIdInput, userId, username) => {
     const roomId = roomIdInput.trim();
-    const room = fastify.gameRooms.get(roomId);
-    if (!room) throw new Error("Room not found");
-
-    // Ensure userId is a number for consistent lookup in onlineUsers
     const numericUserId = Number(userId);
+    console.log(`[JOIN_CODE_START] user: ${numericUserId}, code: [${roomId}]`);
 
-    // Check if already in another room
-    const existingRoom = fastify.currentRoom.get(numericUserId);
-    if (existingRoom && existingRoom !== roomId) {
-      throw new Error("Already in another room");
+    const room = fastify.gameRooms.get(roomId);
+    if (!room) {
+      console.error(`[JOIN_CODE_FAIL] Room not found: ${roomId}`);
+      throw new Error("Room not found");
     }
 
-    // Check if already in this room (compare as numbers)
-    if (room.joinedPlayers.some((p) => Number(p.id) === numericUserId)) {
-      // Already in room, just send room state
-      const socket = fastify.onlineUsers.get(numericUserId);
+    // Auto-leave ANY existing room logic
+    const existingRoom = fastify.currentRoom.get(numericUserId);
+    if (existingRoom && existingRoom !== roomId) {
+      console.log(
+        `[JOIN_CODE_MOVE] Player ${numericUserId} leaving room ${existingRoom} to join ${roomId}`,
+      );
+      const staleRoom = fastify.gameRooms.get(existingRoom);
+      if (staleRoom) {
+        staleRoom.joinedPlayers = staleRoom.joinedPlayers.filter(
+          (p) => Number(p.id) !== numericUserId,
+        );
+        console.log(
+          `[JOIN_CODE_MOVE] Removed from stale. New count: ${staleRoom.joinedPlayers.length}`,
+        );
+      }
+      fastify.currentRoom.delete(numericUserId);
+    }
+
+    // Double-check membership (idempotency)
+    const alreadyMember = room.joinedPlayers.some(
+      (p) => Number(p.id) === numericUserId,
+    );
+    if (alreadyMember) {
+      console.log(
+        `[JOIN_CODE_EXISTING] Player ${numericUserId} already in room ${roomId}. Syncing.`,
+      );
+      fastify.currentRoom.set(numericUserId, roomId); // Re-ensure map entry
       safeSend(
-        socket,
-        {
-          event: "JOIN_ROOM",
-          payload: { roomId, success: true },
-        },
+        fastify.onlineUsers.get(numericUserId),
+        { event: "JOIN_ROOM", payload: { roomId, success: true } },
         numericUserId,
       );
+      fastify.sendGameRoom(numericUserId);
       return;
     }
 
-    // Check if room is full
     if (room.joinedPlayers.length >= room.maxPlayers) {
       throw new Error("Room is full");
     }
 
-    // Add player to room with numeric ID for consistent lookup
+    // Perform JOIN
     fastify.currentRoom.set(numericUserId, roomId);
     room.joinedPlayers.push({ id: numericUserId, username });
-
-    // Notify the joining player
-    const joinerSocket = fastify.onlineUsers.get(numericUserId);
-    safeSend(
-      joinerSocket,
-      {
-        event: "JOIN_ROOM",
-        payload: { roomId, success: true },
-      },
-      numericUserId,
+    console.log(
+      `[JOIN_CODE_SUCCESS] User ${numericUserId} added to room ${roomId}. List: ${JSON.stringify(room.joinedPlayers)}`,
     );
 
-    // Build room payload
-    const payload = {
-      roomId: roomId,
-      hostId: room.hostId,
-      invitedPlayers: room.invitedPlayers,
-      joinedPlayers: room.joinedPlayers,
-      maxPlayers: room.maxPlayers,
+    // Notify ALL players in the room
+    const joinPayload = { roomId, success: true };
+    const roomSyncPayload = {
+      event: "GAME_ROOM",
+      payload: {
+        roomId,
+        hostId: room.hostId,
+        invitedPlayers: room.invitedPlayers,
+        joinedPlayers: room.joinedPlayers,
+        maxPlayers: room.maxPlayers,
+        isTournament: room.isTournament || false,
+        tournamentStarted: room.tournamentStarted || false,
+      },
     };
 
-    // Notify all players in the room (using numeric ID for lookup)
-    console.log(
-      `[joinRoomByCode] Notifying ${room.joinedPlayers.length} players:`,
-      room.joinedPlayers.map((p) => p.id),
-    );
-    room.joinedPlayers.forEach((player) => {
-      const playerNumId = Number(player.id);
-      const socket = fastify.onlineUsers.get(playerNumId);
-      console.log(
-        `[joinRoomByCode] Player ${playerNumId} socket found: ${!!socket}`,
-      );
-      safeSend(socket, { event: "GAME_ROOM", payload }, playerNumId);
+    room.joinedPlayers.forEach((p) => {
+      const pid = Number(p.id);
+      const s = fastify.onlineUsers.get(pid);
+      if (pid === numericUserId) {
+        safeSend(s, { event: "JOIN_ROOM", payload: joinPayload }, pid);
+      }
+      safeSend(s, roomSyncPayload, pid);
+      console.log(`[JOIN_CODE_NOTIFY] Sent sync to member ${pid}`);
     });
   });
 
