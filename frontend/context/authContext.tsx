@@ -7,7 +7,7 @@ import {
   useContext,
   useEffect,
 } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import axios from "axios";
 import { AuthContextValue, UserProfile } from "@/types/types";
 
@@ -27,7 +27,6 @@ export const AuthProvider = ({ children }) => {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
   
   const isNonAuthenticatedPage = useMemo(() => {
     return NON_AUTHENTICATED_ROUTES.includes(pathname);
@@ -86,14 +85,16 @@ export const AuthProvider = ({ children }) => {
         });
         if (response.status === 200) {
           setUser(response.data.profile);
-          const next = searchParams.get("next") ?? "/dashboard";
+          // Get redirect URL from current window location
+          const urlParams = new URLSearchParams(window.location.search);
+          const next = urlParams.get("next") ?? "/dashboard";
           router.push(next);
         } else if (response.status === 202) router.push("/2fa/verify");
       } catch (error) {
         throw error;
       }
     },
-    [router, searchParams]
+    [router]
   );
 
   const verify2fa = useCallback(
@@ -102,14 +103,16 @@ export const AuthProvider = ({ children }) => {
         const response = await axios.post("/api/auth/2fa/verify", { code });
         if (response.status === 200) {
           setUser(response.data.profile);
-          const next = searchParams.get("next") ?? "/dashboard";
+          // Get redirect URL from current window location
+          const urlParams = new URLSearchParams(window.location.search);
+          const next = urlParams.get("next") ?? "/dashboard";
           router.push(next);
         }
       } catch (error) {
         throw error;
       }
     },
-    [router, searchParams]
+    [router]
   );
 
   const logout = useCallback(async () => {

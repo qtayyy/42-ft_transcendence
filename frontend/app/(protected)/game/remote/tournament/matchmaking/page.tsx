@@ -63,9 +63,22 @@ export default function TournamentMatchmakingPage() {
 			setSearching(false);
 		};
 
+		const handleRoomError = (event: CustomEvent) => {
+			console.error("Failed to join tournament matchmaking:", event.detail);
+			setSearching(false);
+			// The socket-context already shows a toast.error, so we just need to route back
+			setTimeout(() => {
+				router.push("/game/remote/tournament");
+			}, 1000);
+		};
+
 		window.addEventListener("TOURNAMENT_FOUND" as any, handleTournamentFound);
-		return () => window.removeEventListener("TOURNAMENT_FOUND" as any, handleTournamentFound);
-	}, []);
+		window.addEventListener("JOIN_ROOM_ERROR" as any, handleRoomError);
+		return () => {
+			window.removeEventListener("TOURNAMENT_FOUND" as any, handleTournamentFound);
+			window.removeEventListener("JOIN_ROOM_ERROR" as any, handleRoomError);
+		};
+	}, [router]);
 
 	// Poll for room updates when in lobby
 	useEffect(() => {
