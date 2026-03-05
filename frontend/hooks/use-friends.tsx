@@ -32,8 +32,12 @@ export function useFriends() {
         const pendingData = await pendingRes.json();
         setFriends(friendsData || []);
         setPending(pendingData || []);
-      } catch (err: any) {
-        setError(err.message || 'Unknown error');
+      } catch (err) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('Unknown error');
+        }
       } finally {
         setLoading(false);
       }

@@ -67,6 +67,8 @@ export interface GameRoomValue {
   invitedPlayers: Friend[];
   joinedPlayers: Friend[];
   maxPlayers: number;
+  isTournament?: boolean;
+  tournamentStarted?: boolean;
 }
 
 export interface Player {
@@ -76,6 +78,7 @@ export interface Player {
   score: number;
   paddleX: number;
   paddleY: number;
+  paddleHeight?: number;
   moving: string;
 }
 
@@ -86,11 +89,49 @@ export interface Ball {
   dy: number
 }
 
+export type RemotePowerUpType = 'SPEED_UP' | 'SPEED_DOWN' | 'SIZE_UP' | 'SIZE_DOWN';
+
+export interface RemotePowerUp {
+  id: string;
+  x: number;
+  y: number;
+  type: RemotePowerUpType;
+}
+
+export interface RemoteActiveEffect {
+  type: RemotePowerUpType;
+  expiresAt: number;
+}
+
+export interface RemoteGameTimer {
+  startTime?: number;
+  timeElapsed: number;
+  timeRemaining: number;
+}
+
+export interface RemoteGameConstants {
+  canvasWidth: number;
+  canvasHeight: number;
+  paddleWidth: number;
+  paddleHeight: number;
+  ballSize: number;
+  matchDuration: number;
+}
+
 export interface GameStateValue {
-  tournamentId: number;
-  matchId: number;
+  tournamentId?: number | string;
+  matchId: number | string;
   ball: Ball;
   leftPlayer: Player;
   rightPlayer: Player;
-  me: string;
+  me?: string;
+  isRemote?: boolean;
+  isTournamentMatch?: boolean;
+  roomId?: string;
+  spectatorMode?: boolean;
+  // New fields for timer and power-ups
+  timer?: RemoteGameTimer | null;
+  powerUps?: RemotePowerUp[];
+  activeEffect?: RemoteActiveEffect | null;
+  constant?: RemoteGameConstants;
 }

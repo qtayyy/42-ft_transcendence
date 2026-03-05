@@ -1,5 +1,6 @@
 import fp from "fastify-plugin";
 import websocket from "@fastify/websocket";
+import { activeTournaments } from "../game/TournamentManager.js";
 
 export default fp(async (fastify) => {
   fastify.register(websocket);
@@ -21,4 +22,7 @@ export default fp(async (fastify) => {
   fastify.decorate("gameRooms", gameRooms);
   fastify.decorate("currentRoom", currentRoom);
   fastify.decorate("gameStates", gameStates);
+
+  // Shared active tournaments map
+  fastify.decorate("activeTournaments", activeTournaments);
 });
