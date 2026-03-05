@@ -11,6 +11,7 @@ import Header from "@/components/header";
 import { Toaster } from "@/components/ui/sonner";
 import GameInviteDialog from "@/components/game-invite-dialog";
 import { ReconnectionManager } from "@/components/game/reconnection-manager";
+import { NavigationGuard } from "@/components/game/navigation-guard";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({
@@ -45,11 +46,16 @@ export default function RootLayout({
                 <GameProvider>
                   <SocketProvider>
                     <Toaster position="top-center" />
-                    <Header />
+                    <NavigationGuard />
+                    <Suspense fallback={null}>
+                      <Header />
+                    </Suspense>
                     <GameInviteDialog />
                     <ReconnectionManager />
                     <main className="min-h-screen w-full">{children}</main>
-                    <Footer />
+                    <Suspense fallback={null}>
+                      <Footer />
+                    </Suspense>
                   </SocketProvider>
                 </GameProvider>
               </AuthProvider>
