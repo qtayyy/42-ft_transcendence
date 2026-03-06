@@ -23,11 +23,11 @@ export default function RemoteSingleMatchPage() {
 				<div className="flex items-center justify-between">
 					<Button
 						variant="ghost"
-						onClick={() => router.push("/game/new")}
+						onClick={() => router.push("/game/new/remote")}
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Back to Modes
+						Back to Remote Selection
 					</Button>
 				</div>
 
