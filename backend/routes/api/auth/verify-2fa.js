@@ -1,5 +1,5 @@
 import otplib from "otplib";
-import { PrismaClient } from "/app/generated/prisma/index.js";
+import { PrismaClient } from "../../../generated/prisma/index.js";
 
 const prisma = new PrismaClient();
 
@@ -31,7 +31,7 @@ export default async function (fastify, opts) {
         return reply.status(401).send({ error: "Invalid 2FA code" });
       const fullToken = fastify.jwt.sign(
         { userId: user.id },
-        { expiresIn: "1h" }
+        { expiresIn: "1h" },
       );
 
       const profile = await prisma.profile.findUnique({
@@ -78,15 +78,13 @@ export default async function (fastify, opts) {
         if (!isValid)
           return reply.status(401).send({ error: "Invalid 2FA code" });
 
-        return reply
-          .code(200)
-          .send({
-            message: "2FA enabled."
-          });
+        return reply.code(200).send({
+          message: "2FA enabled.",
+        });
       } catch (error) {
         console.error("2FA verification error:", error);
         return reply.code(500).send({ error: "Internal server error" });
       }
-    }
+    },
   );
 }
