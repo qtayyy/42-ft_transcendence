@@ -731,11 +731,13 @@ export default fp((fastify) => {
       (p) => p.userId !== numericUserId,
     );
 
-    // IMPORTANT: Also remove from any room they might have joined during matchmaking
+    // IMPORTANT: Only remove from room state for rooms created via matchmaking.
+    // Calling leaveMatchmaking on websocket close is generic and should not evict
+    // players from manual invite/code-join lobbies.
     const currentRoomId = fastify.currentRoom.get(numericUserId);
     if (currentRoomId) {
       const room = fastify.gameRooms.get(currentRoomId);
-      if (room) {
+      if (room && room.isMatchmade) {
         // Remove user from room's player list
         room.joinedPlayers = room.joinedPlayers.filter(
           (p) => Number(p.id) !== numericUserId,
@@ -774,13 +776,12 @@ export default fp((fastify) => {
             }
           });
         }
+        // Remove from currentRoom mapping only when removing from a matchmade room
+        fastify.currentRoom.delete(numericUserId);
+        console.log(
+          `[Matchmaking] User ${numericUserId} left room ${currentRoomId}`,
+        );
       }
-
-      // Remove from currentRoom mapping
-      fastify.currentRoom.delete(numericUserId);
-      console.log(
-        `[Matchmaking] User ${numericUserId} left room ${currentRoomId}`,
-      );
     }
 
     const socket = fastify.onlineUsers.get(numericUserId);
