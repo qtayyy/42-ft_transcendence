@@ -48,8 +48,17 @@ export default function GamePage() {
 		myReadyToResume: boolean;
 		opponentReadyToResume: boolean;
 	} | null>(null);
+	const spectatorParam = searchParams.get('spectator') === 'true';
 	// Detect spectator mode from query param or gameState
-	const isSpectator = searchParams.get('spectator') === 'true' || (gameState as any)?.spectatorMode === true;
+	const isSpectator = spectatorParam || (gameState as any)?.spectatorMode === true;
+
+	// Component lifecycle logging for debugging resource leaks
+	useEffect(() => {
+		console.log(`[GamePage] 🎮 Component MOUNTED for match: ${matchId}`, { isSpectator });
+		return () => {
+			console.log(`[GamePage] 🧹 Component UNMOUNTING for match: ${matchId}`);
+		};
+	}, [matchId, isSpectator]);
 
 	// Check if this is a tournament match
 	const isTournamentMatch = gameState?.tournamentId !== undefined && gameState?.tournamentId !== null;
@@ -62,6 +71,8 @@ export default function GamePage() {
 
 	// Track if we've already sent reconnection notification for this session
 	const hasNotifiedReconnection = useRef(false);
+	// Track if component is mounted to prevent false navigation events during re-renders
+	const isMountedRef = useRef(true);
 
 	// Notify server when player returns to game page (reconnection)
 	// Only send this if the game state shows we were disconnected, not on initial load
@@ -88,15 +99,28 @@ export default function GamePage() {
 	}, [isRemoteGame, isReady, matchId, user, isSpectator, sendSocketMessage, gameState]);
 
 	// Request initial game state if missing (e.g. on page reload)
+	// Spectators use VIEW_MATCH to subscribe to updates
 	useEffect(() => {
-		if (!isRemoteGame || !isReady || !matchId || gameState) return;
+		if (!isRemoteGame || !isReady || !matchId) return;
 
-		console.log("Requesting initial game state for match:", matchId);
-		sendSocketMessage({
-			event: "GET_GAME_STATE",
-			payload: { matchId }
-		});
-	}, [isRemoteGame, isReady, matchId, gameState, sendSocketMessage]);
+		// Check if gameState matches current matchId (prevent using stale state)
+		const isGameStateValid = gameState && gameState.matchId === matchId;
+		if (isGameStateValid) return;
+
+		if (isSpectator || spectatorParam) {
+			console.log("Spectator subscribing to match:", matchId, { isSpectator, spectatorParam });
+			sendSocketMessage({
+				event: "VIEW_MATCH",
+				payload: { matchId }
+			});
+		} else {
+			console.log("Requesting initial game state for match:", matchId);
+			sendSocketMessage({
+				event: "GET_GAME_STATE",
+				payload: { matchId }
+			});
+		}
+	}, [isRemoteGame, isReady, matchId, gameState, sendSocketMessage, isSpectator, spectatorParam]);
 
 	// Auto-redirect for tournament matches
 	useEffect(() => {
@@ -108,80 +132,86 @@ export default function GamePage() {
 		}
 	}, [gameOverResult, router]);
 
+	// Memoized event handlers to prevent listener accumulation
+	const handleGameOverEvent = useCallback((event: CustomEvent) => {
+		// Validate that this game over event belongs to the current match
+		if (event.detail?.matchId && event.detail.matchId !== matchId) {
+			console.log(`Ignoring Game Over event for different match: ${event.detail.matchId} (current: ${matchId})`);
+			return;
+		}
+		setGameOverResult(event.detail);
+	}, [matchId]);
+
 	// Listen for game over event
 	useEffect(() => {
-		const handleGameOver = (event: CustomEvent) => {
-			// Validate that this game over event belongs to the current match
-			if (event.detail?.matchId && event.detail.matchId !== matchId) {
-				console.log(`Ignoring Game Over event for different match: ${event.detail.matchId} (current: ${matchId})`);
-				return;
-			}
-			setGameOverResult(event.detail);
-		};
-
-		window.addEventListener("gameOver", handleGameOver as EventListener);
+		console.log(`[GamePage] Registering gameOver listener for match: ${matchId}`);
+		window.addEventListener("gameOver", handleGameOverEvent as EventListener);
 		return () => {
-			window.removeEventListener("gameOver", handleGameOver as EventListener);
+			console.log(`[GamePage] Removing gameOver listener for match: ${matchId}`);
+			window.removeEventListener("gameOver", handleGameOverEvent as EventListener);
 		};
-	}, [matchId]);
+	}, [matchId, handleGameOverEvent]);
 
 	// Cleanup spectator state on unmount to prevent blocking LEAVE_ROOM later
 	useEffect(() => {
 		return () => {
-			if (isSpectator && setGameState) {
+			// In dev Strict Mode, mount->unmount->mount can happen immediately.
+			// Only clear if this page is actually being left.
+			if (isSpectator && setGameState && window.location.pathname !== `/game/${matchId}`) {
 				console.log("Cleaning up spectator state on unmount");
 				setGameState(null);
 			}
 		};
-	}, [isSpectator, setGameState]);
+	}, [isSpectator, setGameState, matchId]);
 
 	// Listen for opponent disconnect/reconnect events
 	const [opponentConnected, setOpponentConnected] = useState(true);
 
+	// Memoized event handlers for game state events
+	const handleDisconnect = useCallback((event: CustomEvent) => {
+		const { disconnectedPlayer, gracePeriodEndsAt } = event.detail;
+		const countdown = Math.ceil((gracePeriodEndsAt - Date.now()) / 1000);
+		setDisconnectInfo({ disconnectedPlayer, gracePeriodEndsAt, countdown });
+		toast.warning("Opponent disconnected! Waiting for reconnection...");
+		setOpponentConnected(false);
+	}, []);
+
+	const handleReconnect = useCallback((_event: CustomEvent) => {
+		setDisconnectInfo(null);
+		toast.success("Opponent reconnected!");
+		setOpponentConnected(true);
+	}, []);
+
+	const handleOpponentLeft = useCallback(() => {
+		setOpponentConnected(false);
+		// We don't need to toast here as SocketContext already does, or we can add specific UI feedback
+	}, []);
+
+	// Pause/Resume events
+	const handleGamePaused = useCallback((event: CustomEvent) => {
+		const { pausedBy, pausedByName } = event.detail;
+		setPauseInfo({
+			pausedBy,
+			pausedByName,
+			myReadyToResume: false,
+			opponentReadyToResume: false
+		});
+	}, []);
+
+	const handleGameResumed = useCallback(() => {
+		setPauseInfo(null);
+	}, []);
+
+	const handleOpponentReadyToResume = useCallback(() => {
+		setPauseInfo(prev => prev ? { ...prev, opponentReadyToResume: true } : null);
+	}, []);
+
+	const handleWaitingForResume = useCallback(() => {
+		setPauseInfo(prev => prev ? { ...prev, myReadyToResume: true } : null);
+	}, []);
+
 	useEffect(() => {
-		const handleDisconnect = (event: CustomEvent) => {
-			const { disconnectedPlayer, gracePeriodEndsAt } = event.detail;
-			const countdown = Math.ceil((gracePeriodEndsAt - Date.now()) / 1000);
-			setDisconnectInfo({ disconnectedPlayer, gracePeriodEndsAt, countdown });
-			toast.warning("Opponent disconnected! Waiting for reconnection...");
-			setOpponentConnected(false);
-		};
-
-		const handleReconnect = (_event: CustomEvent) => {
-			setDisconnectInfo(null);
-			toast.success("Opponent reconnected!");
-			setOpponentConnected(true);
-		};
-
-
-
-		const handleOpponentLeft = () => {
-			setOpponentConnected(false);
-			// We don't need to toast here as SocketContext already does, or we can add specific UI feedback
-		};
-
-		// Pause/Resume events
-		const handleGamePaused = (event: CustomEvent) => {
-			const { pausedBy, pausedByName } = event.detail;
-			setPauseInfo({
-				pausedBy,
-				pausedByName,
-				myReadyToResume: false,
-				opponentReadyToResume: false
-			});
-		};
-
-		const handleGameResumed = () => {
-			setPauseInfo(null);
-		};
-
-		const handleOpponentReadyToResume = () => {
-			setPauseInfo(prev => prev ? { ...prev, opponentReadyToResume: true } : null);
-		};
-
-		const handleWaitingForResume = () => {
-			setPauseInfo(prev => prev ? { ...prev, myReadyToResume: true } : null);
-		};
+		console.log(`[GamePage] Registering game event listeners for match: ${matchId}`);
 
 		window.addEventListener("opponentDisconnected", handleDisconnect as EventListener);
 		window.addEventListener("opponentReconnected", handleReconnect as EventListener);
@@ -192,6 +222,7 @@ export default function GamePage() {
 		window.addEventListener("waitingForResume", handleWaitingForResume as EventListener);
 
 		return () => {
+			console.log(`[GamePage] Removing game event listeners for match: ${matchId}`);
 			window.removeEventListener("opponentDisconnected", handleDisconnect as EventListener);
 			window.removeEventListener("opponentReconnected", handleReconnect as EventListener);
 			window.removeEventListener("opponentLeft", handleOpponentLeft as EventListener);
@@ -200,7 +231,7 @@ export default function GamePage() {
 			window.removeEventListener("opponentReadyToResume", handleOpponentReadyToResume as EventListener);
 			window.removeEventListener("waitingForResume", handleWaitingForResume as EventListener);
 		};
-	}, []);
+	}, [matchId, handleDisconnect, handleReconnect, handleOpponentLeft, handleGamePaused, handleGameResumed, handleOpponentReadyToResume, handleWaitingForResume]);
 
 	// Sync disconnect info from game state (for reconnection scenarios or late state updates)
 	useEffect(() => {
@@ -243,24 +274,71 @@ export default function GamePage() {
 			setDisconnectInfo(null);
 			setOpponentConnected(true);
 		}
-	}, [gameState, disconnectInfo]);
+	}, [gameState, disconnectInfo?.disconnectedPlayer, disconnectInfo?.gracePeriodEndsAt]);
+
+	// Sync pauseInfo from gameState to ensure UI is always accurate 
+	// (especially for spectators or after a page refresh/reconnect)
+	useEffect(() => {
+		if (gameState?.paused) {
+			const playerSide = gameState.me || (String(user?.id) === String(gameState.leftPlayer?.id) ? "LEFT" : "RIGHT");
+			const myReady = gameState.resumeReady?.[playerSide as "LEFT" | "RIGHT"] || false;
+			const opponentReady = gameState.resumeReady?.[playerSide === "LEFT" ? "RIGHT" : "LEFT"] || false;
+			const pausedBy = gameState.pausedBy || "";
+			const pausedByName = gameState.pausedByName || (gameState.pausedBy === "LEFT" ? gameState.leftPlayer?.username : gameState.rightPlayer?.username) || "Unknown";
+
+			// Only update if something changed in pause state
+			setPauseInfo(prev => {
+				if (prev &&
+					prev.pausedBy === pausedBy &&
+					prev.pausedByName === pausedByName &&
+					prev.myReadyToResume === myReady &&
+					prev.opponentReadyToResume === opponentReady
+				) {
+					return prev;
+				}
+				return {
+					pausedBy,
+					pausedByName,
+					myReadyToResume: myReady,
+					opponentReadyToResume: opponentReady
+				};
+			});
+		} else if (gameState && !gameState.paused) {
+			if (pauseInfo !== null) {
+				setPauseInfo(null);
+			}
+		}
+	}, [gameState?.paused, gameState?.resumeReady, gameState?.pausedBy, user?.id]);
 
 	// Countdown timer for disconnect grace period
 	useEffect(() => {
 		if (!disconnectInfo) return;
 
+		let isActive = true; // Prevent interval accumulation
+		console.log(`[GamePage] Starting disconnect countdown for match: ${matchId}`);
+
 		const interval = setInterval(() => {
+			if (!isActive) {
+				clearInterval(interval);
+				return;
+			}
+
 			const remaining = Math.ceil((disconnectInfo.gracePeriodEndsAt - Date.now()) / 1000);
 			if (remaining <= 0) {
 				clearInterval(interval);
 				setDisconnectInfo(null);
+				console.log(`[GamePage] Disconnect countdown finished for match: ${matchId}`);
 			} else {
 				setDisconnectInfo(prev => prev ? { ...prev, countdown: remaining } : null);
 			}
 		}, 1000);
 
-		return () => clearInterval(interval);
-	}, [disconnectInfo?.gracePeriodEndsAt]);
+		return () => {
+			console.log(`[GamePage] Cleaning up disconnect countdown for match: ${matchId}`);
+			isActive = false;
+			clearInterval(interval);
+		};
+	}, [disconnectInfo?.gracePeriodEndsAt, matchId]);
 
 	// Load match data for local games
 	useEffect(() => {
@@ -330,15 +408,22 @@ export default function GamePage() {
 	const userRef = useRef(user);
 	const gameOverResultRef = useRef(gameOverResult);
 
+	// Keep gameStateRef updated for render loop without triggering re-renders
 	useEffect(() => {
 		gameStateRef.current = gameState;
+	}, [gameState]);
+
+	useEffect(() => {
 		userRef.current = user;
 		gameOverResultRef.current = gameOverResult;
-	}, [gameState, user, gameOverResult]);
+	}, [user, gameOverResult]);
 
 	// Notify server when player is leaving the game page (for disconnect detection)
 	useEffect(() => {
 		if (!isRemoteGame) return;
+
+		// Mark component as mounted
+		isMountedRef.current = true;
 
 		const handleBeforeUnload = () => {
 			const currentGameState = gameStateRef.current;
@@ -363,20 +448,31 @@ export default function GamePage() {
 		return () => {
 			window.removeEventListener("beforeunload", handleBeforeUnload);
 
-			// Also send when component unmounts (user navigates to another page)
-			const currentGameState = gameStateRef.current;
-			const currentUser = userRef.current;
-			const currentGameOverResult = gameOverResultRef.current;
+			// Mark as unmounted immediately
+			isMountedRef.current = false;
 
-			if (currentGameState?.matchId && !currentGameOverResult && currentUser?.id && !isSpectator) {
-				sendSocketMessage({
-					event: "PLAYER_NAVIGATING_AWAY",
-					payload: {
-						matchId: currentGameState.matchId,
-						userId: currentUser.id
+			// FIX: Only send PLAYER_NAVIGATING_AWAY if this is the FINAL unmount
+			// React's Strict Mode and hot reload can cause multiple mount/unmount cycles
+			// We use a small delay to detect if this is a re-render or actual navigation
+			setTimeout(() => {
+				// If component hasn't remounted after 100ms, it's actual navigation
+				if (!isMountedRef.current) {
+					const currentGameState = gameStateRef.current;
+					const currentUser = userRef.current;
+					const currentGameOverResult = gameOverResultRef.current;
+
+					if (currentGameState?.matchId && !currentGameOverResult && currentUser?.id && !isSpectator) {
+						console.log(`[GamePage] Sending PLAYER_NAVIGATING_AWAY for match: ${currentGameState.matchId}`);
+						sendSocketMessage({
+							event: "PLAYER_NAVIGATING_AWAY",
+							payload: {
+								matchId: currentGameState.matchId,
+								userId: currentUser.id
+							}
+						});
 					}
-				});
-			}
+				}
+			}, 100);
 		};
 	}, [isRemoteGame, isSpectator, sendSocketMessage]); // Removed dependencies that change frequently
 
@@ -472,24 +568,39 @@ export default function GamePage() {
 
 	// Render remote game based on game state
 	useEffect(() => {
-		if (!isRemoteGame || !gameState) return;
+		console.log(`[GamePage] 🎬 Render effect triggered`, { isRemoteGame, hasCanvas: !!canvasRef.current });
+		if (!isRemoteGame) return;
 
 		const canvas = canvasRef.current;
 		const ctx = canvas?.getContext("2d");
-		if (!ctx) return;
+		if (!ctx) {
+			console.log(`[GamePage] ⚠️ Canvas context not available`, { canvas: !!canvas, ctx: !!ctx });
+			return;
+		}
+
+		let animId: number | null = null;
+		let isActive = true; // Prevent animation frame accumulation
+
+		console.log(`[GamePage] Starting render loop for match: ${matchId}`, { isSpectator });
 
 		function drawGame() {
-			if (!ctx || !gameState) return;
+			const currentState = gameStateRef.current;
+			if (!ctx || !currentState || !isActive) {
+				if (!currentState && isSpectator) {
+					console.log(`[GamePage] 👁️ Spectator render skipped: no gameState`);
+				}
+				return;
+			}
 
 			// Get dimensions from game state or use defaults
-			const CANVAS_WIDTH = gameState.constant?.canvasWidth || DEFAULT_CANVAS_WIDTH;
-			const CANVAS_HEIGHT = gameState.constant?.canvasHeight || DEFAULT_CANVAS_HEIGHT;
-			const PADDLE_WIDTH = gameState.constant?.paddleWidth || DEFAULT_PADDLE_WIDTH;
-			const BALL_SIZE = gameState.constant?.ballSize || DEFAULT_BALL_SIZE;
+			const CANVAS_WIDTH = currentState.constant?.canvasWidth || DEFAULT_CANVAS_WIDTH;
+			const CANVAS_HEIGHT = currentState.constant?.canvasHeight || DEFAULT_CANVAS_HEIGHT;
+			const PADDLE_WIDTH = currentState.constant?.paddleWidth || DEFAULT_PADDLE_WIDTH;
+			const BALL_SIZE = currentState.constant?.ballSize || DEFAULT_BALL_SIZE;
 
-			const ball = gameState.ball;
-			const left = gameState.leftPlayer;
-			const right = gameState.rightPlayer;
+			const ball = currentState.ball;
+			const left = currentState.leftPlayer;
+			const right = currentState.rightPlayer;
 
 			// Clear canvas with black background
 			ctx.fillStyle = "#000000";
@@ -506,8 +617,8 @@ export default function GamePage() {
 			ctx.setLineDash([]);
 
 			// Draw power-ups
-			if (gameState.powerUps && gameState.powerUps.length > 0) {
-				gameState.powerUps.forEach((pu: any) => {
+			if (currentState.powerUps && currentState.powerUps.length > 0) {
+				currentState.powerUps.forEach((pu: any) => {
 					ctx.beginPath();
 					const puRadius = 10;
 					ctx.arc(pu.x, pu.y, puRadius, 0, Math.PI * 2);
@@ -533,8 +644,8 @@ export default function GamePage() {
 			if (ball) {
 				ctx.beginPath();
 				ctx.arc(ball.posX + BALL_SIZE / 2, ball.posY + BALL_SIZE / 2, BALL_SIZE / 2, 0, 2 * Math.PI);
-				ctx.fillStyle = gameState.activeEffect
-					? getEffectColor(gameState.activeEffect.type)
+				ctx.fillStyle = currentState.activeEffect
+					? getEffectColor(currentState.activeEffect.type)
 					: "#FFFFFF";
 				ctx.fill();
 			}
@@ -546,12 +657,12 @@ export default function GamePage() {
 			const rightPaddleHeight = right?.paddleHeight || DEFAULT_PADDLE_HEIGHT;
 
 			if (left) {
-				ctx.fillStyle = gameState.me === "LEFT" ? "#22c55e" : "#3b82f6";
+				ctx.fillStyle = currentState.me === "LEFT" ? "#22c55e" : "#3b82f6";
 				ctx.fillRect(left.paddleX, left.paddleY, PADDLE_WIDTH, leftPaddleHeight);
 			}
 
 			if (right) {
-				ctx.fillStyle = gameState.me === "RIGHT" ? "#22c55e" : "#3b82f6";
+				ctx.fillStyle = currentState.me === "RIGHT" ? "#22c55e" : "#3b82f6";
 				ctx.fillRect(right.paddleX, right.paddleY, PADDLE_WIDTH, rightPaddleHeight);
 			}
 
@@ -571,13 +682,24 @@ export default function GamePage() {
 		}
 
 		function loop() {
+			if (!isActive) {
+				console.log(`[GamePage] Stopping render loop for match: ${matchId} (inactive)`);
+				return;
+			}
 			drawGame();
-			requestAnimationFrame(loop);
+			animId = requestAnimationFrame(loop);
 		}
 
-		const animId = requestAnimationFrame(loop);
-		return () => cancelAnimationFrame(animId);
-	}, [isRemoteGame, gameState]);
+		animId = requestAnimationFrame(loop);
+
+		return () => {
+			console.log(`[GamePage] Cleaning up render loop for match: ${matchId}`);
+			isActive = false;
+			if (animId !== null) {
+				cancelAnimationFrame(animId);
+			}
+		};
+	}, [isRemoteGame, matchId]); // Removed gameState dependency to prevent infinite loop
 
 	const handleGameOver = async (winner: number | null, score: { p1: number; p2: number }, result: string) => {
 		console.log(`Game Over! Result: ${result}`, { winner, score });
@@ -742,7 +864,7 @@ export default function GamePage() {
 						/>
 
 						{/* Ready Status / Paused UI */}
-						{((gameState as any)?.paused || !gameStart) && !gameOverResult && gameState && (
+						{gameState && ((gameState as any)?.paused || (!gameState?.gameStarted && !gameStart)) && !gameOverResult && (
 							<div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm p-8">
 								<div className="text-center space-y-6 max-w-lg w-full">
 									{/* Paused UI - With Disconnect Countdown or Mutual Resume */}
@@ -1048,41 +1170,43 @@ export default function GamePage() {
 					</div>
 				</div>
 
-				{/* Footer Commands (Fixed Height) - Similar to local play */}
-				<div className="shrink-0 h-16 flex items-center justify-center pb-4 z-10">
-					<div className="flex items-center justify-between w-full max-w-4xl px-8 py-3 bg-card/60 rounded-full border border-border/50 backdrop-blur-md shadow-lg">
-						<div className="flex items-center gap-3">
-							<div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 ring-1 ring-green-500/20">
-								<Keyboard className="h-4 w-4" />
+				{/* Footer Commands (Fixed Height) - Only show for players, not spectators */}
+				{!isSpectator && (
+					<div className="shrink-0 h-16 flex items-center justify-center pb-4 z-10">
+						<div className="flex items-center justify-between w-full max-w-4xl px-8 py-3 bg-card/60 rounded-full border border-border/50 backdrop-blur-md shadow-lg">
+							<div className="flex items-center gap-3">
+								<div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 ring-1 ring-green-500/20">
+									<Keyboard className="h-4 w-4" />
+								</div>
+								<div className="flex flex-col">
+									<span className="text-xs font-bold text-foreground">Your Paddle</span>
+									<span className="text-[10px] text-muted-foreground font-mono">W / S or Arrow Keys</span>
+								</div>
 							</div>
-							<div className="flex flex-col">
-								<span className="text-xs font-bold text-foreground">Your Paddle</span>
-								<span className="text-[10px] text-muted-foreground font-mono">W / S or Arrow Keys</span>
+
+							<div className="h-6 w-px bg-border/50" />
+
+							<div className="flex items-center gap-3">
+								<div className="flex flex-col items-center">
+									<span className="text-xs font-bold text-foreground">Ready</span>
+									<span className="text-[10px] text-muted-foreground font-mono">ENTER</span>
+								</div>
 							</div>
-						</div>
 
-						<div className="h-6 w-px bg-border/50" />
+							<div className="h-6 w-px bg-border/50" />
 
-						<div className="flex items-center gap-3">
-							<div className="flex flex-col items-center">
-								<span className="text-xs font-bold text-foreground">Ready</span>
-								<span className="text-[10px] text-muted-foreground font-mono">ENTER</span>
-							</div>
-						</div>
-
-						<div className="h-6 w-px bg-border/50" />
-
-						<div className="flex items-center gap-3 text-right">
-							<div className="flex flex-col items-end">
-								<span className="text-xs font-bold text-foreground">Pause / Resume</span>
-								<span className="text-[10px] text-muted-foreground font-mono">SPACE</span>
-							</div>
-							<div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 ring-1 ring-purple-500/20">
-								<Gamepad2 className="h-4 w-4" />
+							<div className="flex items-center gap-3 text-right">
+								<div className="flex flex-col items-end">
+									<span className="text-xs font-bold text-foreground">Pause / Resume</span>
+									<span className="text-[10px] text-muted-foreground font-mono">SPACE</span>
+								</div>
+								<div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 ring-1 ring-purple-500/20">
+									<Gamepad2 className="h-4 w-4" />
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
+				)}
 			</div>
 		);
 	}
