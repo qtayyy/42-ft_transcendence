@@ -2,7 +2,8 @@
 
 import { useGame } from "@/hooks/use-game";
 import { useSocket } from "@/hooks/use-socket";
-import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
+import { usePathname, useRouter } from "next/navigation";
 import {
 	Dialog,
 	DialogContent,
@@ -12,13 +13,16 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ArrowLeft } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useCallback } from "react";
 
 export function NavigationGuard() {
 	const router = useRouter();
+	const pathname = usePathname();
+	const { user } = useAuth();
 	const {
 		gameState,
+		gameRoom,
 		showNavGuard,
 		setShowNavGuard,
 		pendingPath,
@@ -28,6 +32,22 @@ export function NavigationGuard() {
 
 	const isSpectator = gameState?.spectatorMode === true;
 	const matchId = gameState?.matchId;
+	const routeTournamentMatch = pathname.match(/^\/game\/remote\/tournament\/(RT-[^/?#]+)/);
+	const routeTournamentId = routeTournamentMatch?.[1] || null;
+	const resolvedTournamentId = (() => {
+		const tournamentId = gameState?.tournamentId;
+		if (tournamentId) return String(tournamentId);
+		if (typeof matchId === "string" && matchId.startsWith("RT-")) {
+			const parts = matchId.split("-m");
+			if (parts.length > 1) {
+				return parts[0];
+			}
+		}
+		return null;
+	})();
+	const tournamentId = resolvedTournamentId || routeTournamentId;
+	const tournamentRoomId = gameRoom?.roomId || (tournamentId ? tournamentId.replace(/^RT-/, "") : null);
+	const isTournamentLobby = /^\/game\/remote\/tournament\/RT-/.test(pathname);
 
 	const handleStay = () => {
 		setShowNavGuard(false);
@@ -73,6 +93,17 @@ export function NavigationGuard() {
 					payload: { matchId }
 				});
 			}
+			// Explicitly leave tournament room when user chooses "Leave Game"
+			// so backend can broadcast TOURNAMENT_PLAYER_LEFT / update standings.
+			if (tournamentRoomId && user?.id && (isTournamentLobby || !!tournamentId)) {
+				sendSocketMessage({
+					event: "LEAVE_ROOM",
+					payload: {
+						roomId: tournamentRoomId,
+						userId: user.id,
+					},
+				});
+			}
 
 			setShowNavGuard(false);
 			const path = pendingPath;
@@ -91,10 +122,15 @@ export function NavigationGuard() {
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<AlertTriangle className="h-5 w-5 text-yellow-500" />
-						Active Match in Progress
+						{isTournamentLobby ? "Active Tournament in Progress" : "Active Match in Progress"}
 					</DialogTitle>
 					<DialogDescription className="pt-2">
-						{isSpectator ? (
+						{isTournamentLobby ? (
+							<span className="block space-y-2">
+								<span className="block">You are currently in an active tournament lobby.</span>
+								<span className="block text-sm">Leaving now will withdraw you from the tournament and affect remaining matches.</span>
+							</span>
+						) : isSpectator ? (
 							<span className="block space-y-2">
 								<span className="block">You are currently spectating an active tournament match.</span>
 								<span className="block font-medium">What would you like to do?</span>

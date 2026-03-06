@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
@@ -50,6 +50,11 @@ export default function GamePage() {
 	const spectatorParam = searchParams.get('spectator') === 'true';
 	// Detect spectator mode from query param or gameState
 	const isSpectator = spectatorParam || (gameState as any)?.spectatorMode === true;
+	const inferredTournamentId = useMemo(() => {
+		if (!matchId?.startsWith("RT-")) return null;
+		const parts = matchId.split("-m");
+		return parts.length > 1 ? parts[0] : null;
+	}, [matchId]);
 
 	// Component lifecycle logging for debugging resource leaks
 	useEffect(() => {
@@ -60,7 +65,11 @@ export default function GamePage() {
 	}, [matchId, isSpectator]);
 
 	// Check if this is a tournament match
-	const isTournamentMatch = gameState?.tournamentId !== undefined && gameState?.tournamentId !== null;
+	// Use both gameState and matchId fallback so guards still work during reconnect/loading
+	const isTournamentMatch =
+		gameState?.tournamentId !== undefined && gameState?.tournamentId !== null
+			? true
+			: !!inferredTournamentId;
 
 	// Determine if this is a remote game (RS-* prefix or RT-* prefix for tournaments)
 	const isRemoteGame = matchId.startsWith("RS-") || matchId.startsWith("RT-");
@@ -97,22 +106,26 @@ export default function GamePage() {
 		}
 	}, [isRemoteGame, isReady, matchId, user, isSpectator, sendSocketMessage, gameState]);
 
-	// Request initial game state if missing (e.g. on page reload)
-	// Spectators use VIEW_MATCH to subscribe to updates
+	// Spectators re-subscribe on mount and after socket reconnect
 	useEffect(() => {
 		if (!isRemoteGame || !isReady || !matchId) return;
-
-		// Check if gameState matches current matchId (prevent using stale state)
-		const isGameStateValid = gameState && gameState.matchId === matchId;
-		if (isGameStateValid) return;
-
 		if (isSpectator || spectatorParam) {
 			console.log("Spectator subscribing to match:", matchId, { isSpectator, spectatorParam });
 			sendSocketMessage({
 				event: "VIEW_MATCH",
 				payload: { matchId }
 			});
-		} else {
+		}
+	}, [isRemoteGame, isReady, matchId, sendSocketMessage, isSpectator, spectatorParam]);
+
+	// Request initial game state if missing (e.g. on page reload) for players
+	useEffect(() => {
+		if (!isRemoteGame || !isReady || !matchId) return;
+		if (isSpectator || spectatorParam) return;
+
+		// Check if gameState matches current matchId (prevent using stale state)
+		const isGameStateValid = gameState && gameState.matchId === matchId;
+		if (!isGameStateValid) {
 			console.log("Requesting initial game state for match:", matchId);
 			sendSocketMessage({
 				event: "GET_GAME_STATE",
@@ -503,7 +516,7 @@ export default function GamePage() {
 				}
 
 				// Get tournament lobby path
-				const tournamentId = gameState?.tournamentId;
+				const tournamentId = gameState?.tournamentId || inferredTournamentId;
 				const tournamentLobbyPath = tournamentId ? `/game/remote/tournament/${tournamentId}` : null;
 
 				// Allow navigation to:
@@ -533,7 +546,7 @@ export default function GamePage() {
 			window.removeEventListener("beforeunload", handleRouteChange);
 			document.removeEventListener('click', handleNavigationClick, true);
 		};
-	}, [isTournamentMatch, gameOverResult, gameState, setShowNavGuard, setPendingPath]);
+	}, [isTournamentMatch, gameOverResult, gameState, inferredTournamentId, setShowNavGuard, setPendingPath]);
 
 	// Return to lobby handler for spectators
 	const returnToLobby = useCallback(() => {
@@ -546,36 +559,19 @@ export default function GamePage() {
 		}
 
 		// Navigate back to tournament lobby or dashboard
-		let tournamentId: string | number | undefined = gameState?.tournamentId;
-
-		// Fallback: Try to extract tournamentId from matchId (format: RT-{roomId}-m{id})
-		if (!tournamentId && matchId.startsWith("RT-")) {
-			// Extract everything before the last -m part
-			// Example: RT-123-m1 -> RT-123
-			const parts = matchId.split("-m");
-			if (parts.length > 1) {
-				tournamentId = parts[0];
-			}
-		}
+		const tournamentId = gameState?.tournamentId || inferredTournamentId;
 
 		if (tournamentId) {
 			router.push(`/game/remote/tournament/${tournamentId}`);
 		} else {
 			router.push("/dashboard");
 		}
-	}, [matchId, sendSocketMessage, gameState, router]);
+	}, [matchId, sendSocketMessage, gameState, inferredTournamentId, router]);
 
 	// Render remote game based on game state
 	useEffect(() => {
 		console.log(`[GamePage] 🎬 Render effect triggered`, { isRemoteGame, hasCanvas: !!canvasRef.current });
 		if (!isRemoteGame) return;
-
-		const canvas = canvasRef.current;
-		const ctx = canvas?.getContext("2d");
-		if (!ctx) {
-			console.log(`[GamePage] ⚠️ Canvas context not available`, { canvas: !!canvas, ctx: !!ctx });
-			return;
-		}
 
 		let animId: number | null = null;
 		let isActive = true; // Prevent animation frame accumulation
@@ -584,6 +580,8 @@ export default function GamePage() {
 
 		function drawGame() {
 			const currentState = gameStateRef.current;
+			const canvas = canvasRef.current;
+			const ctx = canvas?.getContext("2d");
 			if (!ctx || !currentState || !isActive) {
 				if (!currentState && isSpectator) {
 					console.log(`[GamePage] 👁️ Spectator render skipped: no gameState`);

@@ -48,9 +48,14 @@ export default function Header() {
   }, [pathname]);
 
   // Check if an active match is in progress (not over)
+  const isRemoteMatchRoute = useMemo(() => /^\/game\/(RS-|RT-)/.test(pathname), [pathname]);
+  const isTournamentLobbyRoute = useMemo(
+    () => /^\/game\/remote\/tournament\/RT-/.test(pathname),
+    [pathname]
+  );
   const isGameActive = useMemo(() => {
-    return gameState && !gameState.gameOver;
-  }, [gameState]);
+    return (gameState && !gameState.gameOver) || isRemoteMatchRoute || isTournamentLobbyRoute;
+  }, [gameState, isRemoteMatchRoute, isTournamentLobbyRoute]);
 
   // Only show profile icon if user exists AND we're not on a non-authenticated page
   // Use hasMounted to prevent hydration mismatch
