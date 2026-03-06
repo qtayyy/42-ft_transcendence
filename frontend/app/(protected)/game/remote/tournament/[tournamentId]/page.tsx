@@ -1,11 +1,12 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
 import axios from "axios";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Leaderboard from "@/components/game/Leaderboard";
@@ -37,6 +38,10 @@ export default function RemoteTournamentPage() {
 	const [loading, setLoading] = useState(true);
 	const [currentMatch, setCurrentMatch] = useState<TournamentMatch | null>(null);
 	const [isCreatingTournament, setIsCreatingTournament] = useState(false);
+	const [debugInfo, setDebugInfo] = useState<string>("Initializing...");
+	
+	// Creation lock to prevent multiple simultaneous POST requests
+	const creationLock = useRef(false);
 	// Calculate readiness derived from current match state
 	const isMeReady = useMemo(() => {
 		if (!currentMatch || !user) return false;
@@ -77,14 +82,37 @@ export default function RemoteTournamentPage() {
 		return currentRoundMatches.find(m => m.status === 'inprogress' || m.status === 'pending') || null;
 	}, [user]);
 
+	// Track if initialization has been called
+	const initCalled = useRef(false);
+	// Use ref for gameRoom to ensure loop always has latest data
+	const gameRoomRef = useRef<any>(gameRoom);
+	
+	useEffect(() => {
+		gameRoomRef.current = gameRoom;
+	}, [gameRoom]);
+
 	// Initialize tournament when page loads
 	useEffect(() => {
+		if (initCalled.current) return;
+		initCalled.current = true;
+
 		const initTournament = async () => {
-			if (!user) return;
+			if (!user) {
+				setDebugInfo("Waiting for user profile...");
+				setTimeout(initTournament, 1000);
+				return;
+			}
+
+			const currentRoom = gameRoomRef.current;
+			const expectedRoomId = tournamentId.replace(/^RT-/, '');
+			const isCorrectRoom = currentRoom?.roomId === expectedRoomId;
+			
+			setDebugInfo(`init: id=${tournamentId.slice(0, 8)}..., roomMatch=${isCorrectRoom}, players=${currentRoom?.joinedPlayers?.length || 0}`);
 
 			// Try to get existing tournament first
 			try {
 				const response = await axios.get(`/api/tournament/${tournamentId}`);
+				console.log("[RemoteTournament] init: Found existing tournament on backend");
 				setTournament({
 					tournamentId: response.data.tournamentId || tournamentId,
 					format: response.data.format,
@@ -101,22 +129,81 @@ export default function RemoteTournamentPage() {
 				setCurrentMatch(nextMatch);
 				setLoading(false);
 			} catch (error: any) {
-				if (error.response?.status === 404 && gameRoom) {
-					// Tournament doesn't exist and we have gameRoom info, create it
-					await createTournament();
-				} else if (error.response?.status === 404) {
-					// Tournament doesn't exist and no gameRoom - wait and retry
-					console.log("Tournament not found yet, waiting for creation...");
-					setTimeout(initTournament, 2000);
+				if (error.response?.status === 404) {
+					if (currentRoom) {
+						const isHost = Number(currentRoom.hostId) === Number(user?.id);
+						const playersCount = currentRoom.joinedPlayers.length;
+						
+						if (isHost && playersCount >= 3) {
+							if (isCorrectRoom) {
+								setDebugInfo(`Host detected. Creating tournament for room ${currentRoom.roomId.slice(0, 8)}...`);
+								await createTournamentInternal(currentRoom);
+							} else {
+								setDebugInfo(`Host detected but room ${currentRoom.roomId.slice(0, 8)} doesn't match URL. Waiting for sync...`);
+								setTimeout(initTournament, 2000);
+							}
+						} else if (isHost) {
+							setDebugInfo(`Host waiting for more players (need 3, have ${playersCount})`);
+							setTimeout(initTournament, 2000);
+						} else {
+							setDebugInfo("Guest waiting for host to create tournament...");
+							setTimeout(initTournament, 2500);
+						}
+					} else {
+						setDebugInfo("No gameRoom state yet, waiting for sync...");
+						setTimeout(initTournament, 2000);
+					}
 				} else {
-					console.error("Failed to load tournament:", error);
+					console.error("[RemoteTournament] init: Critical error:", error);
 					setLoading(false);
 				}
 			}
 		};
 
 		initTournament();
-	}, [tournamentId, gameRoom, user]);
+	}, [tournamentId, user]);
+
+	const createTournamentInternal = async (roomData: any) => {
+		if (creationLock.current) return;
+		creationLock.current = true;
+		setIsCreatingTournament(true);
+		
+		console.log("[RemoteTournament] create: Sending POST /api/tournament/create");
+		try {
+			const players = roomData.joinedPlayers.map((p: any) => ({
+				id: String(p.id),
+				name: p.username,
+				isTemp: false,
+			}));
+
+			const response = await axios.post('/api/tournament/create', {
+				players,
+				tournamentId: tournamentId,
+			});
+
+			console.log("[RemoteTournament] create: Success!", response.data);
+			setTournament({
+				tournamentId: tournamentId,
+				format: response.data.format,
+				playerCount: players.length,
+				currentRound: response.data.currentRound || 1,
+				totalRounds: response.data.totalRounds,
+				matches: response.data.matches,
+				leaderboard: response.data.leaderboard,
+				isComplete: false,
+			});
+
+			const nextMatch = getNextMatch(response.data.matches, response.data.currentRound || 1);
+			setCurrentMatch(nextMatch);
+			setLoading(false);
+		} catch (error) {
+			console.error("[RemoteTournament] create: Failed:", error);
+			creationLock.current = false; // Allow retry on failure
+			setLoading(false);
+		} finally {
+			setIsCreatingTournament(false);
+		}
+	};
 
 	// Cleanup when leaving the page (if tournament is complete)
 	useEffect(() => {
@@ -143,47 +230,22 @@ export default function RemoteTournamentPage() {
 		};
 	}, [tournament?.isComplete, sendSocketMessage, user, roomId]);
 
-	// Create tournament from room players
-	const createTournament = async () => {
-		if (!gameRoom || isCreatingTournament) return;
-		
-		setIsCreatingTournament(true);
+	// Deprecated in favor of createTournamentInternal
+	const createTournament = async () => {};
+
+	// Refresh tournament data
+	const fetchTournament = useCallback(async () => {
 		try {
-			// Convert room players to tournament format
-			const players = gameRoom.joinedPlayers.map((p) => ({
-				id: String(p.id),
-				name: p.username,
-				isTemp: false,
-			}));
-
-			// Pass tournamentId to ensure all clients use the same ID
-			const response = await axios.post('/api/tournament/create', {
-				players,
-				tournamentId: tournamentId,  // Use the RT-{roomId} format
-			});
-
-			setTournament({
-				tournamentId: tournamentId,
-				format: response.data.format,
-				playerCount: players.length,
-				currentRound: response.data.currentRound || 1,
-				totalRounds: response.data.totalRounds,
-				matches: response.data.matches,
-				leaderboard: response.data.leaderboard,
-				isComplete: false,
-			});
-
+			const response = await axios.get(`/api/tournament/${tournamentId}`, { withCredentials: true });
+			setTournament(response.data);
+			
 			// Find next pending match
 			const nextMatch = getNextMatch(response.data.matches, response.data.currentRound || 1);
 			setCurrentMatch(nextMatch);
-			setLoading(false);
 		} catch (error) {
-			console.error("Failed to create tournament:", error);
-			setLoading(false);
-		} finally {
-			setIsCreatingTournament(false);
+			console.error("Failed to refresh tournament:", error);
 		}
-	};
+	}, [tournamentId, getNextMatch]);
 
     // Listen for real-time tournament updates
     useEffect(() => {
@@ -208,25 +270,22 @@ export default function RemoteTournamentPage() {
             }
         };
 
+        const handleTournamentPlayerLeft = (event: CustomEvent) => {
+            console.log("Received TOURNAMENT_PLAYER_LEFT:", event.detail);
+            toast.info("A player has left the tournament.");
+            
+            // Re-fetch the entire tournament to get the latest updated matches/brackets (walkovers)
+            fetchTournament();
+        };
+
         window.addEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
+        window.addEventListener("tournamentPlayerLeft", handleTournamentPlayerLeft as EventListener);
+        
         return () => {
             window.removeEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
+            window.removeEventListener("tournamentPlayerLeft", handleTournamentPlayerLeft as EventListener);
         };
-    }, [user, getNextMatch]);
-
-	// Refresh tournament data
-	const fetchTournament = useCallback(async () => {
-		try {
-			const response = await axios.get(`/api/tournament/${tournamentId}`, { withCredentials: true });
-			setTournament(response.data);
-			
-			// Find next pending match
-			const nextMatch = getNextMatch(response.data.matches, response.data.currentRound || 1);
-			setCurrentMatch(nextMatch);
-		} catch (error) {
-			console.error("Failed to refresh tournament:", error);
-		}
-	}, [tournamentId]);
+    }, [user, getNextMatch, fetchTournament]);
 
 	// Poll for tournament updates
 	useEffect(() => {
@@ -304,12 +363,33 @@ export default function RemoteTournamentPage() {
 	};
 
 	if (loading) {
+		const isHost = gameRoom && Number(gameRoom.hostId) === Number(user?.id);
 		return (
-			<div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background">
+			<div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] bg-background gap-8">
 				<div className="flex flex-col items-center gap-4 animate-pulse">
 					<Loader2 className="h-12 w-12 text-primary animate-spin" />
 					<div className="text-xl font-medium text-muted-foreground">Loading tournament...</div>
+					<div className="text-xs font-mono text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border">
+						{debugInfo}
+					</div>
 				</div>
+
+				{isHost && (
+					<div className="flex flex-col items-center gap-4 mt-8 pt-8 border-t border-muted w-full max-w-sm">
+						<p className="text-xs text-center text-muted-foreground px-4">
+							Host Controls: Use this as a last resort if automatic creation fails.
+						</p>
+						<Button 
+							variant="outline" 
+							size="sm"
+							className="ring-1 ring-primary/20"
+							onClick={() => gameRoom && createTournamentInternal(gameRoom)}
+							disabled={isCreatingTournament}
+						>
+							{isCreatingTournament ? "Creating..." : "Force Create Tournament"}
+						</Button>
+					</div>
+				)}
 			</div>
 		);
 	}

@@ -24,6 +24,8 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 	const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 400 });
 
 	useEffect(() => {
+		console.log(`[usePongGame] Setting up canvas resize observer for match: ${matchId}`);
+
 		const updateCanvasSize = () => {
 			if (!containerRef.current) return;
 			const container = containerRef.current;
@@ -52,16 +54,21 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 		updateCanvasSize();
 		const resizeObserver = new ResizeObserver(updateCanvasSize);
 		if (containerRef.current) resizeObserver.observe(containerRef.current);
-		return () => resizeObserver.disconnect();
-	}, []);
+
+		return () => {
+			console.log(`[usePongGame] Cleaning up resize observer for match: ${matchId}`);
+			resizeObserver.disconnect();
+		};
+	}, [matchId]);
 
 	// WebSocket Connection
 	useEffect(() => {
 		if (!wsUrl) return;
 
+		console.log(`[usePongGame] Opening WebSocket connection for match: ${matchId}`);
 		const ws = new WebSocket(wsUrl);
 
-		ws.onopen = () => console.log(`Connected to Game Server (Match: ${matchId})`);
+		ws.onopen = () => console.log(`[usePongGame] ✅ Connected to Game Server (Match: ${matchId})`);
 
 		ws.onmessage = (event) => {
 			try {
@@ -74,16 +81,21 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 					setLocalGameState(data);
 				}
 			} catch (e) {
-				console.error("WS Parse Error", e);
+				console.error("[usePongGame] WS Parse Error", e);
 			}
 		};
 
 		socketRef.current = ws;
-		return () => ws.close();
+		return () => {
+			console.log(`[usePongGame] 🔌 Closing WebSocket connection for match: ${matchId}`);
+			ws.close();
+		};
 	}, [wsUrl, matchId, onGameOver]);
 
 	// Input Handling
 	useEffect(() => {
+		console.log(`[usePongGame] Registering keyboard input listeners for match: ${matchId}`);
+
 		const sendInput = (payload: object) => {
 			if (socketRef.current?.readyState === WebSocket.OPEN) {
 				socketRef.current.send(JSON.stringify(payload));
@@ -106,10 +118,11 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 		window.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("keyup", handleKeyUp);
 		return () => {
+			console.log(`[usePongGame] Removing keyboard input listeners for match: ${matchId}`);
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("keyup", handleKeyUp);
 		};
-	}, []);
+	}, [matchId]);
 
 	return {
 		gameState,

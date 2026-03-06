@@ -67,6 +67,30 @@ export default function JoinTournamentPage() {
 		setJoining(true);
 		setError(null);
 
+		// Listen for server confirmation BEFORE sending join request
+		// This prevents showing the lobby with stale data if the join fails
+		const onJoinSuccess = (e: any) => {
+			const data = e.detail;
+			console.log("[JOIN_ROOM_SUCCESS] detail:", data);
+			if (data.roomId === roomCode.trim()) {
+				setJoined(true);
+				window.removeEventListener("JOIN_ROOM", onJoinSuccess as EventListener);
+			} else {
+				console.warn(`[JOIN_ROOM_MISMATCH] Joined ${data.roomId} but wanted ${roomCode.trim()}`);
+			}
+		};
+		window.addEventListener("JOIN_ROOM", onJoinSuccess as EventListener);
+
+		// Set a timeout to clean up the listener if the server never responds
+		const timeout = setTimeout(() => {
+			window.removeEventListener("JOIN_ROOM", onJoinSuccess as EventListener);
+			// If we're still in joining state, show error
+			setJoining(prev => {
+				if (prev) setError("Join timed out — room may not exist. Please check the code.");
+				return false;
+			});
+		}, 5000);
+
 		try {
 			sendSocketMessage({
 				event: "JOIN_ROOM_BY_CODE",
@@ -76,8 +100,9 @@ export default function JoinTournamentPage() {
 					username: user.username,
 				},
 			});
-			setJoined(true);
 		} catch (err: any) {
+			clearTimeout(timeout);
+			window.removeEventListener("JOIN_ROOM", onJoinSuccess as EventListener);
 			setError(err.message || "Failed to join tournament");
 			setJoining(false);
 		}
@@ -141,7 +166,10 @@ export default function JoinTournamentPage() {
 									<Trophy className="h-8 w-8 text-emerald-500" />
 								</div>
 								<CardTitle className="text-2xl font-bold">Tournament Lobby</CardTitle>
-								<CardDescription>Waiting for host to start</CardDescription>
+								<CardDescription className="flex flex-col gap-1">
+									<span className="text-xs font-mono bg-muted px-2 py-0.5 rounded">ID: {gameRoom.roomId}</span>
+									<span>Waiting for host to start</span>
+								</CardDescription>
 							</CardHeader>
 
 							<CardContent className="space-y-6">
