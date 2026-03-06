@@ -857,6 +857,17 @@ export default function GamePage() {
 										const amIReady = !me?.gamePaused;
 										const isOpponentReady = !opponent?.gamePaused;
 
+										const toggleReady = () => {
+											sendSocketMessage({
+												event: "GAME_EVENTS",
+												payload: {
+													matchId: gameState.matchId,
+													userId: user?.id,
+													keyEvent: "START",
+												},
+											});
+										};
+
 										if (amIReady && !isOpponentReady) {
 											return (
 												<div className="flex flex-col items-center justify-center space-y-4 animate-in fade-in zoom-in duration-300">
@@ -868,9 +879,17 @@ export default function GamePage() {
 													</div>
 													<div className="space-y-1">
 														<h3 className="text-2xl font-bold text-yellow-500">Waiting for Opponent</h3>
-														<p className="text-white/80">
+														<p className="text-white/80 pb-4">
 															Waiting for <span className="font-semibold text-white">{opponent?.username || "Opponent"}</span> to be ready...
 														</p>
+														<Button
+															variant="outline"
+															size="sm"
+															className="border-white/20 text-white/70 hover:bg-white/10"
+															onClick={toggleReady}
+														>
+															Not Ready? Click to cancel
+														</Button>
 													</div>
 												</div>
 											);
@@ -886,15 +905,26 @@ export default function GamePage() {
 															<span className="font-semibold text-white">{opponent?.username}</span> is waiting for you.
 														</p>
 													</div>
-													<div className="p-6 bg-white/5 rounded-xl border border-white/10 w-full">
-														<p className="text-lg font-medium text-white mb-2">Press <span className="px-2 py-1 bg-white/20 rounded font-mono font-bold">ENTER</span> to start!</p>
-														<p className="text-xs text-white/50">Only you can start the match now</p>
+													<div className="p-6 bg-white/5 rounded-xl border border-white/10 w-full flex flex-col items-center gap-4">
+														<Button
+															size="lg"
+															className="bg-green-600 hover:bg-green-700 text-white font-bold text-xl px-12 py-6 shadow-lg shadow-green-900/20 scale-100 hover:scale-105 transition-all w-full"
+															onClick={toggleReady}
+														>
+															I AM READY
+														</Button>
+														<div className="text-center">
+															<p className="text-lg font-medium text-white mb-2">Or press <span className="px-2 py-1 bg-white/20 rounded font-mono font-bold">ENTER</span></p>
+														</div>
 													</div>
 												</div>
 											);
 										} else {
 											return (
 												<div className="flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
+													<div className="p-4 bg-blue-500/10 rounded-full ring-1 ring-blue-500/30 mb-2">
+														<span className="text-4xl">🎮</span>
+													</div>
 													<h3 className="text-3xl font-bold text-white">Are you ready?</h3>
 													<p className="text-white/70 text-center max-w-sm">
 														Both players must click Ready to start the match.
@@ -902,18 +932,8 @@ export default function GamePage() {
 
 													<Button
 														size="lg"
-														className="bg-green-600 hover:bg-green-700 text-white font-bold text-xl px-12 py-6 shadow-lg shadow-green-900/20 scale-100 hover:scale-105 transition-all"
-														onClick={() => {
-															// Send START event manually via socket
-															sendSocketMessage({
-																event: "GAME_EVENTS",
-																payload: {
-																	matchId: gameState.matchId,
-																	userId: user?.id,
-																	keyEvent: "START",
-																},
-															});
-														}}
+														className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xl px-12 py-6 shadow-lg shadow-blue-900/20 scale-100 hover:scale-105 transition-all"
+														onClick={toggleReady}
 													>
 														I AM READY
 													</Button>

@@ -546,7 +546,8 @@ export default async function (fastify, opts) {
             // --- ONLY CLEANUP WHEN LAST TAB IS CLOSED ---
 
             // Handle leaving queue if in matchmaking
-            fastify.leaveMatchmaking(userId);
+            // Passing false means "don't evict from room immediately, let grace period handle it"
+            fastify.leaveMatchmaking(userId, false);
 
             // Check if user has an active game and implement disconnect timeout
             const DISCONNECT_GRACE_PERIOD = 30000; // 30 seconds

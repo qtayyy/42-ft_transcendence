@@ -1,18 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useRef } from "react";
 import { ArrowLeft, LogIn, Loader2, AlertCircle, Users, Crown, User, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function JoinRoomPage() {
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
 	const { gameRoom } = useGame();
@@ -20,17 +22,39 @@ export default function JoinRoomPage() {
 	const [joining, setJoining] = useState(false);
 	const [joined, setJoined] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const hasAttemptedAutoJoin = useRef(false);
+
+	// Support auto-join from matchmaking redirect
+	useEffect(() => {
+		const roomIdParam = searchParams.get("roomId");
+		const isMatchmaking = searchParams.get("matchmaking") === "true";
+
+		if (roomIdParam && isMatchmaking && isReady && user && !joined && !joining && !hasAttemptedAutoJoin.current) {
+			console.log("[JoinRoom] Auto-joining matched room:", roomIdParam);
+			hasAttemptedAutoJoin.current = true;
+			setRoomCode(roomIdParam);
+			setJoining(true);
+			sendSocketMessage({
+				event: "JOIN_ROOM_BY_CODE",
+				payload: {
+					roomId: roomIdParam,
+					userId: user.id,
+					username: user.username,
+				},
+			});
+		}
+	}, [searchParams, isReady, user, joined, joining, sendSocketMessage]);
 
 	// Poll for room updates after joining
 	useEffect(() => {
 		if (!joined || !user || !isReady) return;
-		
+
 		// Initial fetch
 		sendSocketMessage({
 			event: "GET_GAME_ROOM",
 			payload: { userId: user.id },
 		});
-		
+
 		// Poll every 2 seconds
 		const interval = setInterval(() => {
 			sendSocketMessage({
@@ -38,7 +62,7 @@ export default function JoinRoomPage() {
 				payload: { userId: user.id },
 			});
 		}, 2000);
-		
+
 		return () => clearInterval(interval);
 	}, [joined, user, isReady, sendSocketMessage]);
 
@@ -58,11 +82,11 @@ export default function JoinRoomPage() {
 			setError("Invalid room code format (must be a valid UUID)");
 			return;
 		}
-		
+
 		setJoining(true);
 		setError(null);
 
-		
+
 		// Send join request via WebSocket calls
 		sendSocketMessage({
 			event: "JOIN_ROOM_BY_CODE",
@@ -121,10 +145,10 @@ export default function JoinRoomPage() {
 		return (
 			<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
 				<div className="w-full max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
-					
+
 					<div className="flex items-center justify-between">
-						<Button 
-							variant="ghost" 
+						<Button
+							variant="ghost"
 							onClick={handleLeave}
 							className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 						>
@@ -152,11 +176,11 @@ export default function JoinRoomPage() {
 									</label>
 									<div className="space-y-2">
 										{gameRoom.joinedPlayers.map((player, idx) => (
-											<div 
-												key={idx} 
+											<div
+												key={idx}
 												className={cn(
 													"flex items-center gap-3 p-3 rounded-xl",
-													player.id === gameRoom.hostId 
+													player.id === gameRoom.hostId
 														? "bg-primary/10 border border-primary/20"
 														: "bg-green-500/10 border border-green-500/20"
 												)}
@@ -165,7 +189,7 @@ export default function JoinRoomPage() {
 													"p-2 rounded-full",
 													player.id === gameRoom.hostId ? "bg-primary/20" : "bg-green-500/20"
 												)}>
-													{player.id === gameRoom.hostId 
+													{player.id === gameRoom.hostId
 														? <Crown className="h-4 w-4 text-primary" />
 														: <User className="h-4 w-4 text-green-500" />
 													}
@@ -181,7 +205,7 @@ export default function JoinRoomPage() {
 												</div>
 											</div>
 										))}
-										
+
 										{gameRoom.joinedPlayers.length < 2 && (
 											<div className="flex items-center gap-3 p-3 border border-dashed border-muted-foreground/30 rounded-xl">
 												<div className="p-2 bg-muted rounded-full">
@@ -196,11 +220,11 @@ export default function JoinRoomPage() {
 								{/* Status message */}
 								<div className={cn(
 									"p-3 rounded-xl text-center text-sm",
-									canStart 
+									canStart
 										? "bg-green-500/10 text-green-500 border border-green-500/20"
 										: "bg-muted/50 text-muted-foreground"
 								)}>
-									{isHost 
+									{isHost
 										? (canStart ? "Ready to start!" : "Waiting for opponent to join...")
 										: (canStart ? "Waiting for host to start..." : "Waiting for more players...")
 									}
@@ -214,7 +238,7 @@ export default function JoinRoomPage() {
 										size="lg"
 										className={cn(
 											"w-full text-lg h-14 font-bold transition-all",
-											canStart 
+											canStart
 												? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/20"
 												: "bg-muted text-muted-foreground"
 										)}
@@ -235,10 +259,10 @@ export default function JoinRoomPage() {
 	return (
 		<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
 			<div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
-				
+
 				<div className="flex items-center justify-between">
-					<Button 
-						variant="ghost" 
+					<Button
+						variant="ghost"
 						onClick={() => router.push("/game/remote/single")}
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>

@@ -861,6 +861,8 @@ export default fp(async (fastify, opts) => {
         console.log(
           `[updateGameState] Toggled ready state for ${player} (userId: ${uid}). Now gamePaused: ${currentPlayer.gamePaused}`,
         );
+        // Broadcast immediately so UI updates for both players
+        broadcastState(gameState, fastify);
       }
       // Note: ENTER no longer resumes from pause - use SPACE instead
     } else if (keyEvent !== "PAUSE") {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
@@ -16,6 +16,7 @@ export default function MatchmakingPage() {
 	const [searching, setSearching] = useState(true);
 	const [searchTime, setSearchTime] = useState(0);
 	const [playersInQueue, setPlayersInQueue] = useState(1);
+	const hasSentJoinRef = useRef(false);
 
 	// Search timer
 	useEffect(() => {
@@ -31,6 +32,8 @@ export default function MatchmakingPage() {
 	// Join matchmaking queue on mount
 	useEffect(() => {
 		if (!user || !isReady) return;
+		if (hasSentJoinRef.current) return;
+		hasSentJoinRef.current = true;
 		sendSocketMessage({
 			event: "JOIN_MATCHMAKING",
 			payload: {
@@ -40,6 +43,22 @@ export default function MatchmakingPage() {
 			},
 		});
 	}, [user, isReady, sendSocketMessage]);
+
+	// Handle backend matchmaking errors (e.g. room conflicts)
+	useEffect(() => {
+		const handleRoomError = (event: CustomEvent) => {
+			console.error("Failed to join single matchmaking:", event.detail);
+			setSearching(false);
+			setTimeout(() => {
+				router.push("/game/remote/single");
+			}, 1000);
+		};
+
+		window.addEventListener("JOIN_ROOM_ERROR" as any, handleRoomError);
+		return () => {
+			window.removeEventListener("JOIN_ROOM_ERROR" as any, handleRoomError);
+		};
+	}, [router]);
 
 	const handleCancel = () => {
 		setSearching(false);
