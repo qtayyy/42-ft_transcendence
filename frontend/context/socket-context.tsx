@@ -7,11 +7,12 @@ import {
 	useContext,
 	useState,
 	useCallback,
+	useMemo,
 } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { SocketContextValue } from "@/types/types";
-import { useGame } from "@/hooks/use-game";
+import { useGameDispatch } from "@/hooks/use-game";
 import { usePathname, useRouter } from "next/navigation";
 
 const SocketContext = createContext<SocketContextValue | null>(null);
@@ -19,15 +20,17 @@ const SocketContext = createContext<SocketContextValue | null>(null);
 export const SocketProvider = ({ children }) => {
 	const wsRef = useRef<WebSocket | null>(null);
 	const { user } = useAuth();
+	const gameDispatch = useGameDispatch();
 	const {
 		setOnlineFriends,
 		setInvitesReceived,
 		setGameRoom,
 		setGameRoomLoaded,
-		gameState,
 		setGameState,
-		gameRoom,
-	} = useGame();
+		getLatestGameRoom,
+		getLatestGameState,
+	} = gameDispatch;
+
 	const pathname = usePathname();
 	const router = useRouter();
 	const [isReady, setIsReady] = useState(false);
@@ -35,25 +38,36 @@ export const SocketProvider = ({ children }) => {
 	const hasActiveGame = useRef(false);
 	const prevPathname = useRef(pathname);
 
-	useEffect(() => {
-		if (!gameState) return;
+	// STABLE DEPS REF: This pattern prevents the WebSocket from re-connecting
+	// whenever the router or context setters change identity/reference.
+	const stableDeps = useRef({
+		setOnlineFriends,
+		setInvitesReceived,
+		setGameRoom,
+		setGameRoomLoaded,
+		setGameState,
+		getLatestGameRoom,
+		getLatestGameState,
+		router,
+		pathname,
+	});
 
-		if (!hasActiveGame.current) {
-			hasActiveGame.current = true;
-			// Navigate based on game type
-			const matchId = String(gameState.matchId);
-			if (matchId.startsWith("RS-")) {
-				// Remote single match
-				router.push(`/game/${matchId}`);
-			} else if (matchId.startsWith("RT-")) {
-				// Remote tournament
-				router.push(`/game/${matchId}`);
-			} else {
-				// Local tournament (existing behavior)
-				router.push(`/game/tournament/${matchId}`);
-			}
-		}
-	}, [gameState, router]);
+	useEffect(() => {
+		stableDeps.current = {
+			setOnlineFriends,
+			setInvitesReceived,
+			setGameRoom,
+			setGameRoomLoaded,
+			setGameState,
+			getLatestGameRoom,
+			getLatestGameState,
+			router,
+			pathname,
+		};
+	});
+
+	// Navigation on match start is now handled in the message handlers
+	// to avoid reactive loops depending on gameState.
 
 
 	useEffect(() => {
@@ -104,7 +118,7 @@ export const SocketProvider = ({ children }) => {
 							case "FRIEND_STATUS":
 								const { id, username, status } = msg.payload;
 
-								setOnlineFriends((prev) => {
+								stableDeps.current.setOnlineFriends((prev) => {
 									const exists = prev.find((f) => f.id === id);
 
 									if (status === "online" && !exists) {
@@ -122,7 +136,7 @@ export const SocketProvider = ({ children }) => {
 								break;
 
 							case "GAME_ROOM":
-								setGameRoom({
+								stableDeps.current.setGameRoom({
 									roomId: payload.roomId,
 									hostId: payload.hostId,
 									invitedPlayers: payload.invitedPlayers,
@@ -131,16 +145,16 @@ export const SocketProvider = ({ children }) => {
 									isTournament: payload.isTournament || false,
 									tournamentStarted: payload.tournamentStarted || false,
 								});
-								setGameRoomLoaded(true);
+								stableDeps.current.setGameRoomLoaded(true);
 								break;
 
 							case "ROOM_NOT_FOUND":
-								setGameRoom(null);
-								setGameRoomLoaded(true);
+								stableDeps.current.setGameRoom(null);
+								stableDeps.current.setGameRoomLoaded(true);
 								break;
 
 							case "GAME_INVITE":
-								setInvitesReceived((prev) => [
+								stableDeps.current.setInvitesReceived((prev) => [
 									...prev,
 									{
 										roomId: payload.roomId,
@@ -172,7 +186,7 @@ export const SocketProvider = ({ children }) => {
 								// Host (who is at /create) stays there. Joiner (at /matchmaking) is redirected to lobby.
 								const isHostPage = window.location.pathname.includes("/game/remote/single/create");
 								if (!isHostPage) {
-									router.push(`/game/remote/single/join?roomId=${payload.roomId}&matchmaking=true`);
+									stableDeps.current.router.push(`/game/remote/single/join?roomId=${payload.roomId}&matchmaking=true`);
 								}
 								break;
 
@@ -191,7 +205,7 @@ export const SocketProvider = ({ children }) => {
 							case "MATCHMAKING_HOST":
 								// User has been designated as host for a new matchmade room
 								// Redirect to the create page which acts as the lobby
-								router.push("/game/remote/single/create");
+								stableDeps.current.router.push("/game/remote/single/create");
 								break;
 
 							case "MATCHMAKING_LEFT":
@@ -206,23 +220,23 @@ export const SocketProvider = ({ children }) => {
 								break;
 
 							case "LEAVE_ROOM":
-								setGameRoom(null);
+								stableDeps.current.setGameRoom(null);
 								// Safely clear undefined property access if any component relies on it
-								setGameState(null);
+								stableDeps.current.setGameState(null);
 								hasActiveGame.current = false;
 								toast.info("You're removed from the game room");
 								break;
 
 							case "GAME_MATCH_START":
-								setGameState(payload);
+								stableDeps.current.setGameState(payload);
 								// Navigate to game page for the match
 								if (payload.matchId) {
-									router.push(`/game/${payload.matchId}`);
+									stableDeps.current.router.push(`/game/${payload.matchId}`);
 								}
 								break;
 
 							case "TOURNAMENT_START":
-								setGameRoom({
+								stableDeps.current.setGameRoom({
 									roomId: payload.roomId,
 									joinedPlayers: payload.players,
 									invitedPlayers: [],
@@ -232,11 +246,47 @@ export const SocketProvider = ({ children }) => {
 									tournamentStarted: true
 								});
 								// Navigate all players to the remote tournament game page
-								router.push(`/game/remote/tournament/${payload.tournamentId}`);
+								stableDeps.current.router.push(`/game/remote/tournament/${payload.tournamentId}`);
 								break;
 
 							case "GAME_STATE":
-								setGameState({ ...payload });
+								// Handle navigation if we just joined/reconnected and aren't on the game page yet
+								if (!hasActiveGame.current) {
+									hasActiveGame.current = true;
+									const matchId = String(payload.matchId);
+									const currentPath = window.location.pathname;
+									if (!currentPath.includes(`/game/${matchId}`)) {
+										console.log(`[SocketContext] Redirecting to active match ${matchId}`);
+										const targetPath = payload.spectatorMode
+											? `/game/${matchId}?spectator=true`
+											: `/game/${matchId}`;
+										stableDeps.current.router.push(targetPath);
+									}
+								}
+
+								// Only update if something actually changed to avoid excessive re-render loops
+								stableDeps.current.setGameState((prev: any) => {
+									if (!prev) return { ...payload };
+
+									// Increased threshold for ball movement to avoid jitter/loops if updates are too fast
+									const ballMovedSignificantly =
+										Math.abs((prev.ball?.posX || 0) - (payload.ball?.posX || 0)) > 0.1 ||
+										Math.abs((prev.ball?.posY || 0) - (payload.ball?.posY || 0)) > 0.1;
+
+									if (prev.matchId === payload.matchId &&
+										!ballMovedSignificantly &&
+										prev.leftPlayer?.score === payload.leftPlayer?.score &&
+										prev.rightPlayer?.score === payload.rightPlayer?.score &&
+										prev.paused === payload.paused &&
+										prev.resumeReady?.LEFT === payload.resumeReady?.LEFT &&
+										prev.resumeReady?.RIGHT === payload.resumeReady?.RIGHT &&
+										prev.leftPlayer?.paddleY === payload.leftPlayer?.paddleY &&
+										prev.rightPlayer?.paddleY === payload.rightPlayer?.paddleY
+									) {
+										return prev;
+									}
+									return { ...payload };
+								});
 								break;
 
 							case "GAME_OVER":
@@ -246,12 +296,12 @@ export const SocketProvider = ({ children }) => {
 								);
 								// Reset state after a delay to allow results screen
 								setTimeout(() => {
-									setGameState(null);
+									stableDeps.current.setGameState(null);
 									// IMPORTANT: Don't clear gameRoom if we're in a tournament!
 									// The user is still in the tournament lobby, and we need this state
 									// so that navigating away to the dashboard correctly fires LEAVE_ROOM.
 									if (!payload.tournamentId) {
-										setGameRoom(null);
+										stableDeps.current.setGameRoom(null);
 									}
 									hasActiveGame.current = false;
 								}, 5000);
@@ -259,10 +309,10 @@ export const SocketProvider = ({ children }) => {
 
 							case "REMATCH_FAILED":
 								toast.error(payload.reason || "Rematch failed");
-								setGameState(null);
-								setGameRoom(null);
+								stableDeps.current.setGameState(null);
+								stableDeps.current.setGameRoom(null);
 								hasActiveGame.current = false;
-								router.push("/game/new");
+								stableDeps.current.router.push("/game/new");
 								break;
 
 							case "OPPONENT_LEFT":
@@ -388,15 +438,7 @@ export const SocketProvider = ({ children }) => {
 				wsRef.current = null;
 			}
 		};
-	}, [
-		user,
-		setInvitesReceived,
-		setOnlineFriends,
-		setGameRoom,
-		router,
-		setGameRoomLoaded,
-		setGameState,
-	]);
+	}, [user?.id]);
 
 	const sendSocketMessage = useCallback((payload: any) => {
 		const socket = wsRef.current;
@@ -408,6 +450,10 @@ export const SocketProvider = ({ children }) => {
 	}, []);
 
 	useEffect(() => {
+		const { getLatestGameRoom, getLatestGameState } = stableDeps.current;
+		const gameRoom = getLatestGameRoom();
+		const gameState = getLatestGameState();
+
 		if (pathname && gameRoom?.roomId && user?.id) {
 			// Define menu pages where we SHOULD auto-leave
 			const isMenuPage = pathname === '/game' ||
@@ -434,18 +480,28 @@ export const SocketProvider = ({ children }) => {
 			if (pathChanged && (isMenuPage || !pathname.startsWith('/game')) && !isLobbyPage) {
 				// Only leave if they are not in an active game state, otherwise wait for game over / disconnect handler
 				const isSpectating = (gameState as any)?.spectatorMode;
-				if (!gameState || gameState.gameOver || isSpectating) {
+
+				// FIX: Add proper checks for active game state
+				const isInActiveMatch = gameState &&
+					gameState.gameStarted &&
+					!gameState.gameOver &&
+					!isSpectating;
+
+				// FIX: Only leave if definitively NOT in active match
+				if (!isInActiveMatch) {
 					console.log(`[SocketContext] Auto-leaving room ${gameRoom.roomId} due to navigation to ${pathname}`);
 					sendSocketMessage({
 						event: "LEAVE_ROOM",
 						payload: { roomId: gameRoom.roomId, userId: user.id }
 					});
-					setGameRoom(null);
+					stableDeps.current.setGameRoom(null);
+				} else {
+					console.log(`[SocketContext] Skipping auto-leave: player in active match`);
 				}
 			}
 		}
 		prevPathname.current = pathname;
-	}, [pathname, gameRoom, user, gameState, sendSocketMessage, setGameRoom]);
+	}, [pathname, user?.id, sendSocketMessage]); // No longer depends on gameRoom or gameState!
 
 	const forceCleanup = useCallback(() => {
 		if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -453,14 +509,17 @@ export const SocketProvider = ({ children }) => {
 		}
 	}, []);
 
+	const contextValue = useMemo(
+		() => ({
+			sendSocketMessage,
+			isReady,
+			forceCleanup,
+		}),
+		[sendSocketMessage, isReady, forceCleanup]
+	);
+
 	return (
-		<SocketContext.Provider
-			value={{
-				sendSocketMessage,
-				isReady,
-				forceCleanup,
-			}}
-		>
+		<SocketContext.Provider value={contextValue}>
 			{children}
 		</SocketContext.Provider>
 	);

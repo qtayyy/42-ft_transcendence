@@ -139,5 +139,16 @@ export interface GameStateValue {
 	powerUps?: RemotePowerUp[];
 	activeEffect?: RemoteActiveEffect | null;
 	constant?: RemoteGameConstants;
+	gameStarted?: boolean;
 	gameOver?: boolean;
+	paused?: boolean;
+	pausedBy?: string;
+	pausedByName?: string;
+	pausedAt?: number;
+	resumeReady?: { LEFT: boolean; RIGHT: boolean } | null;
+	disconnectCountdown?: {
+		disconnectedPlayer: string;
+		gracePeriodEndsAt: number;
+		countdown: number;
+	} | null;
 }

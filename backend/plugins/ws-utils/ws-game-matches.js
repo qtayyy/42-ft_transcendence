@@ -27,6 +27,13 @@ const gameLoops = new Map(); // matchId -> intervalHandle
 // Track spectators per match
 const matchSpectators = new Map(); // matchId -> Set of spectatorIds
 
+// Periodic diagnostic to monitor for memory leaks
+setInterval(() => {
+  if (gameLoops.size > 0) {
+    console.log(`[Game Loop Monitor] Active game loops: ${gameLoops.size} | Matches: [${Array.from(gameLoops.keys()).join(', ')}]`);
+  }
+}, 30000); // Log every 30 seconds if there are active loops
+
 function updatePaddles(gameState, player) {
   let currentPlayer = gameState.rightPlayer;
   if (player === "LEFT") currentPlayer = gameState.leftPlayer;
@@ -323,10 +330,20 @@ import { activeTournaments } from "../../game/TournamentManager.js";
 async function endGame(gameState, fastify) {
   const matchId = gameState.matchId;
 
-  // Stop the game loop
+  // Stop the game loop with enhanced cleanup verification
   const loopHandle = gameLoops.get(matchId);
   if (loopHandle) {
     clearInterval(loopHandle);
+    gameLoops.delete(matchId);
+    console.log(`[endGame] Successfully cleared game loop for match ${matchId}. Remaining loops: ${gameLoops.size}`);
+  } else {
+    console.warn(`[endGame] No game loop found for match ${matchId} - may have already been cleared`);
+  }
+
+  // Verify cleanup was successful
+  if (gameLoops.has(matchId)) {
+    console.error(`[endGame] CRITICAL: Failed to delete game loop for match ${matchId}! Forcing removal...`);
+    // Force removal if still present
     gameLoops.delete(matchId);
   }
 
@@ -504,7 +521,12 @@ function startGameLoop(gameState, fastify) {
   const matchId = gameState.matchId;
 
   // Don't start if already running
-  if (gameLoops.has(matchId)) return;
+  if (gameLoops.has(matchId)) {
+    console.warn(`[Game Loop] Loop already exists for match ${matchId}. Skipping duplicate.`);
+    return;
+  }
+
+  console.log(`[Game Loop] Starting game loop for match ${matchId}. Total active loops: ${gameLoops.size + 1}`);
 
   // Initialize timer when game starts
   const now = Date.now();
@@ -526,10 +548,19 @@ function startGameLoop(gameState, fastify) {
     // This prevents "ghost" loops if endGame failed to clear the interval correctly
     if (!fastify.gameStates.has(matchId)) {
       console.warn(
-        `[Game Loop] Match ${matchId} not found in gameStates. Stopping ghost loop.`,
+        `[Game Loop] Match ${matchId} not found in gameStates. Stopping ghost loop at tick ${gameState.tickCount}.`,
       );
       clearInterval(loopHandle);
       gameLoops.delete(matchId);
+      return;
+    }
+
+    // Additional safety check: verify this loop is still the registered one
+    if (gameLoops.get(matchId) !== loopHandle) {
+      console.error(
+        `[Game Loop] Loop handle mismatch for match ${matchId}. This is a ghost loop. Stopping.`,
+      );
+      clearInterval(loopHandle);
       return;
     }
 
@@ -760,7 +791,8 @@ export default fp(async (fastify, opts) => {
           gameState.resumeReady = null; // Clear resume states
           console.log(`[Game] Both players agreed. Game resumed!`);
 
-          // Notify both players that game is resuming
+          // Notify both players that game is resuming via specialized events
+          // for tactical immediate feedback (e.g. toasts)
           const leftSocket = fastify.onlineUsers.get(
             Number(gameState.leftPlayer.id),
           );
@@ -777,6 +809,10 @@ export default fp(async (fastify, opts) => {
             { event: "GAME_RESUMED", payload: { matchId } },
             gameState.rightPlayer.id,
           );
+          
+          // CRITICAL: Also broadcast the FULL state immediately so both players' 
+          // draw loops see the unpaused state right away
+          broadcastState(gameState, fastify);
         } else {
           // One player ready, notify the other
           const otherPlayerId =
@@ -816,14 +852,23 @@ export default fp(async (fastify, opts) => {
         // Broadcast the updated state (including resumeReady) so both players see the update
         broadcastState(gameState, fastify);
       } else if (gameRunning) {
+        // Prevent accidental rapid re-pause if user just resumed but is still holding SPACE
+        // (Minimum 1 second between manual pause actions)
+        const lastPauseAction = gameState.lastPauseActionAt || 0;
+        if (Date.now() - lastPauseAction < 1000) {
+          console.log(`[Game] Ignoring rapid pause toggle from user ${userId}`);
+          return;
+        }
+
         // Pause the game - any player can pause
         gameState.paused = true;
         gameState.pausedAt = Date.now();
+        gameState.lastPauseActionAt = gameState.pausedAt;
         gameState.pausedBy = player;
         gameState.resumeReady = { LEFT: false, RIGHT: false }; // Reset resume states
         console.log(`[Game] Paused by user ${userId} (${player}) via SPACE`);
 
-        // Notify both players about pause
+        // Notify both players about pause via specialized event
         const leftSocket = fastify.onlineUsers.get(
           Number(gameState.leftPlayer.id),
         );
@@ -853,6 +898,9 @@ export default fp(async (fastify, opts) => {
             });
           }
         }
+        
+        // CRITICAL: Call broadcastState immediately so UI updates right away
+        broadcastState(gameState, fastify);
       }
     }
     // ENTER = Ready toggle (pre-game only)
@@ -996,45 +1044,8 @@ export default fp(async (fastify, opts) => {
     gameState.disconnectedPlayers.add(disconnectedPlayer);
     gameState.disconnectedPlayer = disconnectedPlayer;
 
-    // Notify opponent
-    const opponentSocket = fastify.onlineUsers.get(Number(opponentId));
-    if (opponentSocket) {
-      console.log(`[Navigate Away] Notifying opponent ${opponentId}`);
-      safeSend(
-        opponentSocket,
-        {
-          event: "OPPONENT_DISCONNECTED",
-          payload: {
-            matchId,
-            disconnectedPlayer,
-            gracePeriod: DISCONNECT_GRACE_PERIOD,
-            gracePeriodEndsAt: Date.now() + DISCONNECT_GRACE_PERIOD,
-          },
-        },
-        opponentId,
-      );
-
-      // Also send game state with pause info
-      const opponentSide = disconnectedPlayer === "LEFT" ? "RIGHT" : "LEFT";
-      safeSend(
-        opponentSocket,
-        {
-          event: "GAME_STATE",
-          payload: {
-            ...gameState,
-            disconnectedPlayers: gameState.disconnectedPlayers
-              ? [...gameState.disconnectedPlayers]
-              : [],
-            me: opponentSide,
-            disconnectCountdown: {
-              disconnectedPlayer,
-              gracePeriodEndsAt: Date.now() + DISCONNECT_GRACE_PERIOD,
-            },
-          },
-        },
-        opponentId,
-      );
-    }
+    // Notify ALL participants (including this player's other tabs and spectators)
+    broadcastState(gameState, fastify);
 
     // If it's a tournament match, update tournament state immediately for forfeit
     if (gameState.isTournamentMatch && gameState.tournamentId) {
@@ -1114,6 +1125,66 @@ export default fp(async (fastify, opts) => {
    * Handle player returning to game (reconnecting)
    * Only processes if the player was actually marked as disconnected
    */
+  fastify.decorate("handlePlayerDisconnecting", (matchId, userId) => {
+    const gameState = fastify.gameStates.get(matchId);
+    if (!gameState || gameState.gameOver || !gameState.gameStarted) return;
+
+    const uid = Number(userId);
+    let disconnectedPlayer = null;
+
+    if (uid === gameState.leftPlayer?.id) {
+      disconnectedPlayer = "LEFT";
+    } else if (uid === gameState.rightPlayer?.id) {
+      disconnectedPlayer = "RIGHT";
+    } else {
+      return;
+    }
+
+    console.log(`[Disconnect] Hard disconnect for user ${userId} (${disconnectedPlayer}) from match ${matchId}`);
+
+    // Pause the game
+    if (!gameState.paused) {
+      gameState.paused = true;
+      gameState.pausedAt = Date.now();
+    }
+
+    // Track disconnected player
+    if (!gameState.disconnectedPlayers) {
+      gameState.disconnectedPlayers = new Set();
+    }
+    gameState.disconnectedPlayers.add(disconnectedPlayer);
+    gameState.disconnectedPlayer = disconnectedPlayer;
+
+    // Set timeout for auto-forfeit if not already set
+    const timeoutKey = disconnectedPlayer === "LEFT" ? "leftDisconnectTimeout" : "rightDisconnectTimeout";
+    if (!gameState[timeoutKey]) {
+      gameState[timeoutKey] = setTimeout(() => {
+        console.log(`[Disconnect] Grace period expired for ${disconnectedPlayer} in match ${matchId}`);
+        
+        const bothDisconnected = gameState.disconnectedPlayers?.size >= 2;
+        if (bothDisconnected) {
+          gameState.gameOver = true;
+          gameState.winner = null;
+          gameState.winnerId = null;
+          gameState.doubleForfeit = true;
+          gameState.forfeit = true;
+        } else {
+          const winner = disconnectedPlayer === "LEFT" ? "RIGHT" : "LEFT";
+          const winnerId = disconnectedPlayer === "LEFT" ? gameState.rightPlayer?.id : gameState.leftPlayer?.id;
+          gameState.gameOver = true;
+          gameState.winner = winner;
+          gameState.winnerId = winnerId;
+          gameState.forfeit = true;
+        }
+        endGame(gameState, fastify).catch(console.error);
+        gameState[timeoutKey] = null;
+      }, DISCONNECT_GRACE_PERIOD);
+    }
+
+    // Broadcast update to everyone
+    broadcastState(gameState, fastify);
+  });
+
   fastify.decorate("handlePlayerReconnecting", (matchId, userId) => {
     const gameState = fastify.gameStates.get(matchId);
     if (!gameState) return;
@@ -1161,40 +1232,34 @@ export default fp(async (fastify, opts) => {
     // Remove from disconnected players
     gameState.disconnectedPlayers.delete(reconnectedPlayer);
 
-    // If no more disconnected players, resume game
+    // If no more disconnected players, handle the transition to manual resume state
     if (gameState.disconnectedPlayers.size === 0) {
-      gameState.paused = false;
-      gameState.pausedAt = null;
       gameState.disconnectedPlayer = null;
-
-      // Notify both players
-      const leftSocket = fastify.onlineUsers.get(gameState.leftPlayer?.id);
-      const rightSocket = fastify.onlineUsers.get(gameState.rightPlayer?.id);
-
-      safeSend(
-        leftSocket,
-        { event: "OPPONENT_RECONNECTED", payload: { matchId } },
-        gameState.leftPlayer?.id,
-      );
-      safeSend(
-        rightSocket,
-        { event: "OPPONENT_RECONNECTED", payload: { matchId } },
-        gameState.rightPlayer?.id,
-      );
+      console.log(`[Reconnect] All players back in ${matchId}, remaining PAUSED until manual resume`);
     }
 
-    // Notify opponent about reconnection
-    const opponentSocket = fastify.onlineUsers.get(Number(opponentId));
+    // Always notify about the specific player who reconnected (for toasts/UI markers)
+    const opponentSide = reconnectedPlayer === "LEFT" ? "RIGHT" : "LEFT";
+    const currentOpponentId = opponentSide === "LEFT" ? gameState.leftPlayer?.id : gameState.rightPlayer?.id;
+    const opponentSocket = fastify.onlineUsers.get(Number(currentOpponentId));
+    
     if (opponentSocket) {
       safeSend(
         opponentSocket,
         {
           event: "OPPONENT_RECONNECTED",
-          payload: { matchId, reconnectedPlayer },
+          payload: { 
+            matchId, 
+            reconnectedPlayer,
+            status: gameState.disconnectedPlayers.size === 0 ? "PAUSED_WAITING_FOR_SPACE" : "WAITING_FOR_OTHERS"
+          },
         },
-        opponentId,
+        currentOpponentId,
       );
     }
+
+    // Broadcast full game state to EVERYONE (syncs high-level UI like pause overlays)
+    broadcastState(gameState, fastify);
   });
 
   /**

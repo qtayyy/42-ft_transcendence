@@ -867,10 +867,20 @@ export default fp((fastify) => {
    * Notifies all players to navigate to the tournament game page
    */
   fastify.decorate("startTournament", (roomId, tournamentId) => {
+    console.log(`[Tournament] START_TOURNAMENT received: roomId=${roomId}, tournamentId=${tournamentId}`);
     const room = fastify.gameRooms.get(roomId);
-    if (!room) throw new Error("Room not found");
-    if (room.joinedPlayers.length < 3)
+    if (!room) {
+      console.error(`[Tournament] Room NOT FOUND: ${roomId}`);
+      console.log(`[Tournament] Available rooms: ${[...fastify.gameRooms.keys()].join(", ")}`);
+      throw new Error("Room not found");
+    }
+    
+    console.log(`[Tournament] Room ${roomId} found. Players: ${room.joinedPlayers.length}. tournamentStarted=${room.tournamentStarted}`);
+    
+    if (room.joinedPlayers.length < 3) {
+      console.warn(`[Tournament] Not enough players: ${room.joinedPlayers.length}`);
       throw new Error("Need at least 3 players for a tournament");
+    }
 
     // Mark tournament as started so new players can't join via matchmaking
     room.tournamentStarted = true;

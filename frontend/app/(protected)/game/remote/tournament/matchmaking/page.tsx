@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -130,15 +131,40 @@ export default function TournamentMatchmakingPage() {
 	};
 
 	const handleStartTournament = () => {
-		if (!tournamentRoom || !isReady) return;
+		const roomId = gameRoom?.roomId || tournamentRoom?.roomId;
+		const tournamentId = tournamentRoom?.tournamentId || (gameRoom?.roomId ? `RT-${gameRoom.roomId}` : "");
+
+		console.log("[Tournament] Start requested", {
+			roomId,
+			tournamentId,
+			isReady,
+			hasTournamentRoom: !!tournamentRoom,
+			hasGameRoom: !!gameRoom,
+			gameRoomId: gameRoom?.roomId,
+			tournamentRoomId: tournamentRoom?.roomId,
+			playerCount: gameRoom?.joinedPlayers.length || tournamentRoom?.players.length
+		});
+
+		if (!roomId || !isReady) {
+			console.warn("[Tournament] Cannot start: missing roomId or socket not ready");
+			toast.error("Cannot start tournament: Socket not ready or Room ID missing");
+			return;
+		}
+
+		toast.loading("Starting tournament...", { id: "start-tournament" });
 
 		sendSocketMessage({
 			event: "START_TOURNAMENT",
 			payload: {
-				roomId: tournamentRoom.roomId,
-				tournamentId: tournamentRoom.tournamentId,
+				roomId,
+				tournamentId,
 			},
 		});
+
+		// Set a timeout to clear loading if it takes too long
+		setTimeout(() => {
+			toast.dismiss("start-tournament");
+		}, 5000);
 	};
 
 	const formatTime = (seconds: number) => {

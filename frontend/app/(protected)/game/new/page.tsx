@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { Users, Monitor, Gamepad2, Trophy, ArrowLeft, Swords, Globe, Zap } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/languageContext";
 
 export default function NewGamePage() {
@@ -21,12 +20,24 @@ export default function NewGamePage() {
 		setSelectedMode(null);
 	};
 
-	return (
-		<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
-			<div className="w-full max-w-5xl space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-				
-				{/* Header Section */}
-				<div className="text-center space-y-4">
+		return (
+			<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
+				<div className="w-full max-w-5xl space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+					{selectedMode && (
+						<div className="flex items-center justify-between">
+							<Button
+								variant="ghost"
+								onClick={handleBack}
+								className="gap-2 text-muted-foreground hover:text-foreground pl-0"
+							>
+								<ArrowLeft className="h-4 w-4" />
+								{t.Game["Back to Modes"]}
+							</Button>
+						</div>
+					)}
+					
+					{/* Header Section */}
+					<div className="text-center space-y-4">
 					<div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 mb-4 ring-1 ring-primary/20">
 						<Zap className="h-6 w-6 text-primary animate-pulse" />
 					</div>
@@ -110,17 +121,6 @@ export default function NewGamePage() {
 				) : selectedMode === "local" ? (
 					// Step 2: Local Play Options
 					<div className="space-y-8 animate-in zoom-in-95 duration-500">
-						<div className="flex justify-center">
-							<Button 
-								variant="ghost" 
-								onClick={handleBack}
-								className="gap-2 text-muted-foreground hover:text-foreground"
-							>
-								<ArrowLeft className="h-4 w-4" />
-								{t.Game["Back to Modes"]}
-							</Button>
-						</div>
-
 						<div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto">
 							{/* Single Match */}
 							<div className="group relative">
@@ -170,17 +170,6 @@ export default function NewGamePage() {
 				) : (
 					// Step 2: Remote Play Options
 					<div className="space-y-8 animate-in zoom-in-95 duration-500">
-						<div className="flex justify-center">
-							<Button 
-								variant="ghost" 
-								onClick={handleBack}
-								className="gap-2 text-muted-foreground hover:text-foreground"
-							>
-								<ArrowLeft className="h-4 w-4" />
-								Return to Mode Selection
-							</Button>
-						</div>
-
 						<div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto">
 							{/* Single Match */}
 							<div className="group relative">

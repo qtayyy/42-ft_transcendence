@@ -1,5 +1,6 @@
 "use client";
 
-import { useGameContext } from "@/context/game-context";
+import { useGameContext, useGameDispatch as useGameDispatchContext } from "@/context/game-context";
 
 export const useGame = () => useGameContext();
+export const useGameDispatch = () => useGameDispatchContext();
