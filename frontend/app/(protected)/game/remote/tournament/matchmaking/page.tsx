@@ -130,7 +130,7 @@ export default function TournamentMatchmakingPage() {
 	};
 
 	const handleStartTournament = () => {
-		if (!tournamentRoom || !gameRoom || gameRoom.joinedPlayers.length < 3 || !isReady) return;
+		if (!tournamentRoom || !isReady) return;
 
 		sendSocketMessage({
 			event: "START_TOURNAMENT",

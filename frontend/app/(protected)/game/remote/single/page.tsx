@@ -4,18 +4,25 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Gamepad2, Plus, LogIn, Shuffle, Swords, Users, Zap } from "lucide-react";
+import { useSocketContext } from "@/context/socket-context";
 
 export default function RemoteSingleMatchPage() {
 	const router = useRouter();
+	const { forceCleanup } = useSocketContext();
+
+	const handleNavigate = (path: string) => {
+		forceCleanup();
+		router.push(path);
+	};
 
 	return (
 		<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
 			<div className="w-full max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-8">
-				
+
 				{/* Header */}
 				<div className="flex items-center justify-between">
-					<Button 
-						variant="ghost" 
+					<Button
+						variant="ghost"
 						onClick={() => router.push("/game/new")}
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
@@ -42,9 +49,9 @@ export default function RemoteSingleMatchPage() {
 					{/* Create Room */}
 					<div className="group relative">
 						<div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
-						<Card 
+						<Card
 							className="relative h-full cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]"
-							onClick={() => router.push("/game/remote/single/create")}
+							onClick={() => handleNavigate("/game/remote/single/create")}
 						>
 							<div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
 								<Plus className="h-24 w-24 -mr-6 -mt-6" />
@@ -71,9 +78,9 @@ export default function RemoteSingleMatchPage() {
 					{/* Join Room */}
 					<div className="group relative">
 						<div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
-						<Card 
+						<Card
 							className="relative h-full cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]"
-							onClick={() => router.push("/game/remote/single/join")}
+							onClick={() => handleNavigate("/game/remote/single/join")}
 						>
 							<div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
 								<LogIn className="h-24 w-24 -mr-6 -mt-6" />
@@ -100,9 +107,9 @@ export default function RemoteSingleMatchPage() {
 					{/* Quick Match */}
 					<div className="group relative">
 						<div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
-						<Card 
+						<Card
 							className="relative h-full cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]"
-							onClick={() => router.push("/game/remote/single/matchmaking")}
+							onClick={() => handleNavigate("/game/remote/single/matchmaking")}
 						>
 							<div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
 								<Zap className="h-24 w-24 -mr-6 -mt-6" />

@@ -812,6 +812,9 @@ export default fp(async (fastify, opts) => {
             uid,
           );
         }
+        
+        // Broadcast the updated state (including resumeReady) so both players see the update
+        broadcastState(gameState, fastify);
       } else if (gameRunning) {
         // Pause the game - any player can pause
         gameState.paused = true;
