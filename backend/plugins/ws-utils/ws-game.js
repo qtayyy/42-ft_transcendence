@@ -6,29 +6,34 @@ import { safeSend } from "../../utils/ws-utils.js";
 const prisma = new PrismaClient();
 
 export default fp((fastify) => {
-  fastify.decorate("createGameRoom", (hostId, hostUsername, maxPlayers) => {
-    console.log(`[CREATE_ROOM_START] hostId: ${hostId} (${hostUsername})`);
-    const roomId = crypto.randomUUID();
-    const numericHostId = Number(hostId);
+  fastify.decorate(
+    "createGameRoom",
+    (hostId, hostUsername, maxPlayers, isPublic = false) => {
+      console.log(`[CREATE_ROOM_START] hostId: ${hostId} (${hostUsername})`);
+      const roomId = crypto.randomUUID();
+      const numericHostId = Number(hostId);
 
-    fastify.currentRoom.set(numericHostId, roomId);
-    console.log(
-      `[CREATE_ROOM_MAP] currentRoom.set(${numericHostId}, ${roomId})`,
-    );
+      fastify.currentRoom.set(numericHostId, roomId);
+      console.log(
+        `[CREATE_ROOM_MAP] currentRoom.set(${numericHostId}, ${roomId})`,
+      );
 
-    const roomState = {
-      hostId: numericHostId,
-      invitedPlayers: [],
-      joinedPlayers: [{ id: numericHostId, username: hostUsername }],
-      maxPlayers,
-    };
-    fastify.gameRooms.set(roomId, roomState);
-    console.log(
-      `[CREATE_ROOM_MAP] gameRooms.set(${roomId}, ${JSON.stringify(roomState)})`,
-    );
+      const roomState = {
+        hostId: numericHostId,
+        invitedPlayers: [],
+        joinedPlayers: [{ id: numericHostId, username: hostUsername }],
+        maxPlayers,
+        isPublic,
+        createdAt: Date.now(),
+      };
+      fastify.gameRooms.set(roomId, roomState);
+      console.log(
+        `[CREATE_ROOM_MAP] gameRooms.set(${roomId}, ${JSON.stringify(roomState)})`,
+      );
 
-    return roomId;
-  });
+      return roomId;
+    },
+  );
 
   fastify.decorate("sendGameRoom", (userId) => {
     const numericUserId = Number(userId);
@@ -536,6 +541,7 @@ export default fp((fastify) => {
         if (
           room.isTournament &&
           room.isMatchmade &&
+          room.isPublic &&
           !room.tournamentStarted &&
           room.joinedPlayers.length < room.maxPlayers
         ) {
@@ -601,6 +607,7 @@ export default fp((fastify) => {
         joinedPlayers: [{ id: numericUserId, username }],
         maxPlayers: 8,
         isMatchmade: true,
+        isPublic: true,
         isTournament: true,
         tournamentStarted: false,
       });
@@ -635,15 +642,17 @@ export default fp((fastify) => {
 
       console.log(`[Matchmaking] Searching for 1v1 room. Total rooms: ${fastify.gameRooms.size}`);
       for (const [roomId, room] of fastify.gameRooms.entries()) {
-        console.log(`[Matchmaking] Checking room ${roomId}: isTournament=${room.isTournament}, isMatchmade=${room.isMatchmade}, maxPlayers=${room.maxPlayers}, joined=${room.joinedPlayers.length}`);
+        console.log(
+          `[Matchmaking] Checking room ${roomId}: isTournament=${room.isTournament}, isMatchmade=${room.isMatchmade}, isPublic=${room.isPublic}, maxPlayers=${room.maxPlayers}, joined=${room.joinedPlayers.length}`,
+        );
         if (
           !room.isTournament &&
-          (room.isMatchmade || room.maxPlayers === 2) &&
+          room.isPublic &&
           room.joinedPlayers.length < room.maxPlayers
         ) {
           availableRoom = room;
           availableRoomId = roomId;
-          console.log(`[Matchmaking] Found available 1v1 room: ${roomId}`);
+          console.log(`[Matchmaking] Found available public 1v1 room: ${roomId}`);
           break;
         }
       }
@@ -686,6 +695,7 @@ export default fp((fastify) => {
         joinedPlayers: [{ id: numericUserId, username }],
         maxPlayers: 2,
         isMatchmade: true,
+        isPublic: true,
         isTournament: false,
       });
 

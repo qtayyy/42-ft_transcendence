@@ -26,6 +26,7 @@ export interface Invites {
 export interface SocketContextValue {
 	sendSocketMessage: (payload: Record<string, unknown>) => void;
 	isReady: boolean;
+	forceCleanup: () => void;
 }
 
 export interface UserProfile {

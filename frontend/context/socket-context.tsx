@@ -303,7 +303,6 @@ export const SocketProvider = ({ children }) => {
 								break;
 
 							case "OPPONENT_READY_TO_RESUME":
-								// Dispatch event showing opponent is ready to resume
 								window.dispatchEvent(
 									new CustomEvent("opponentReadyToResume", { detail: payload })
 								);
@@ -448,11 +447,18 @@ export const SocketProvider = ({ children }) => {
 		prevPathname.current = pathname;
 	}, [pathname, gameRoom, user, gameState, sendSocketMessage, setGameRoom]);
 
+	const forceCleanup = useCallback(() => {
+		if (wsRef.current?.readyState === WebSocket.OPEN) {
+			wsRef.current.send(JSON.stringify({ event: "FORCE_CLEANUP" }));
+		}
+	}, []);
+
 	return (
 		<SocketContext.Provider
 			value={{
 				sendSocketMessage,
 				isReady,
+				forceCleanup,
 			}}
 		>
 			{children}

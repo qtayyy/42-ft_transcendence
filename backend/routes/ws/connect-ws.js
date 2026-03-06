@@ -262,6 +262,34 @@ export default async function (fastify, opts) {
             case "LEAVE_ROOM":
               fastify.leaveRoom(payload.roomId, payload.userId);
               break;
+            
+            case "FORCE_CLEANUP":
+              console.log(`[FORCE_CLEANUP] Requested for user ${userId}`);
+              // 1. Leave any matchmaking queue
+              fastify.leaveMatchmaking(userId, true);
+              
+              // 2. Leave any pre-game room
+              const currentRoomId = fastify.currentRoom.get(userId);
+              if (currentRoomId) {
+                console.log(`[FORCE_CLEANUP] Leaving room ${currentRoomId} for user ${userId}`);
+                fastify.leaveRoom(currentRoomId, userId);
+              }
+              
+              // 3. Forfeit any active game match
+              if (fastify.gameStates) {
+                for (const [matchId, state] of fastify.gameStates.entries()) {
+                  if (state.gameOver) continue;
+                  if (Number(state.leftPlayer.id) === userId || Number(state.rightPlayer.id) === userId) {
+                    console.log(`[FORCE_CLEANUP] Forfeiting match ${matchId} for user ${userId}`);
+                    try {
+                      fastify.forfeitMatch(matchId, userId);
+                    } catch (e) {
+                      console.error(`[FORCE_CLEANUP] Forfeit failed: ${e.message}`);
+                    }
+                  }
+                }
+              }
+              break;
 
             case "GAME_EVENTS":
               // console.log(payload);

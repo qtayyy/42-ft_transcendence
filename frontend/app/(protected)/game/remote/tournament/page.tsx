@@ -4,9 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Trophy, Plus, LogIn, Shuffle, Users, Crown, Zap } from "lucide-react";
+import { useSocketContext } from "@/context/socket-context";
 
 export default function RemoteTournamentPage() {
 	const router = useRouter();
+	const { forceCleanup } = useSocketContext();
+
+	const handleNavigate = (path: string) => {
+		forceCleanup();
+		router.push(path);
+	};
 
 	return (
 		<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
@@ -44,7 +51,7 @@ export default function RemoteTournamentPage() {
 						<div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
 						<Card
 							className="relative h-full cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]"
-							onClick={() => router.push("/game/remote/tournament/create")}
+							onClick={() => handleNavigate("/game/remote/tournament/create")}
 						>
 							<div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
 								<Crown className="h-24 w-24 -mr-6 -mt-6" />
@@ -73,7 +80,7 @@ export default function RemoteTournamentPage() {
 						<div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
 						<Card
 							className="relative h-full cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]"
-							onClick={() => router.push("/game/remote/tournament/join")}
+							onClick={() => handleNavigate("/game/remote/tournament/join")}
 						>
 							<div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
 								<LogIn className="h-24 w-24 -mr-6 -mt-6" />
@@ -102,7 +109,7 @@ export default function RemoteTournamentPage() {
 						<div className="absolute -inset-0.5 bg-gradient-to-r from-rose-500 to-pink-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
 						<Card
 							className="relative h-full cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]"
-							onClick={() => router.push("/game/remote/tournament/matchmaking")}
+							onClick={() => handleNavigate("/game/remote/tournament/matchmaking")}
 						>
 							<div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
 								<Zap className="h-24 w-24 -mr-6 -mt-6" />
