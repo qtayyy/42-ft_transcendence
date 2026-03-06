@@ -34,7 +34,7 @@ export default function CreateRoomPage() {
 			if (!user || creating || roomId) return;
 			setCreating(true);
 			try {
-				const res = await axios.get("/api/game/room/create");
+				const res = await axios.get("/api/game/room/create?maxPlayers=2");
 				setRoomId(res.data.roomId);
 				setError(null);
 			} catch (err: any) {
@@ -49,13 +49,13 @@ export default function CreateRoomPage() {
 	// Poll for room updates every 2 seconds
 	useEffect(() => {
 		if (!user || !isReady || !roomId) return;
-		
+
 		// Initial fetch
 		sendSocketMessage({
 			event: "GET_GAME_ROOM",
 			payload: { userId: user.id },
 		});
-		
+
 		// Poll every 2 seconds
 		const interval = setInterval(() => {
 			sendSocketMessage({
@@ -63,7 +63,7 @@ export default function CreateRoomPage() {
 				payload: { userId: user.id },
 			});
 		}, 2000);
-		
+
 		return () => clearInterval(interval);
 	}, [user, isReady, roomId]);
 
@@ -97,12 +97,12 @@ export default function CreateRoomPage() {
 	const canStart = gameRoom && gameRoom.joinedPlayers.length >= 2;
 
 	return (
-		<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
+		<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-linear-to-b from-background to-muted/20">
 			<div className="w-full max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
-				
+
 				<div className="flex items-center justify-between">
-					<Button 
-						variant="ghost" 
+					<Button
+						variant="ghost"
 						onClick={handleLeave}
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
@@ -112,7 +112,7 @@ export default function CreateRoomPage() {
 				</div>
 
 				<div className="relative group">
-					<div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-500"></div>
+					<div className="absolute -inset-0.5 bg-linear-to-r from-blue-500 to-cyan-500 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-500"></div>
 					<Card className="relative border-0 bg-card/95 backdrop-blur-sm shadow-2xl">
 						<CardHeader className="text-center pb-4">
 							<div className="mx-auto p-4 rounded-full bg-blue-500/10 mb-4 ring-1 ring-blue-500/20">
@@ -165,7 +165,7 @@ export default function CreateRoomPage() {
 									{/* Players */}
 									<div className="space-y-3">
 										<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-											Players ({gameRoom?.joinedPlayers.length || 1}/2)
+											Players ({gameRoom?.joinedPlayers.length || 1}/{gameRoom?.maxPlayers || 2})
 										</label>
 										<div className="space-y-2">
 											{/* Host (Current User) */}
@@ -215,8 +215,8 @@ export default function CreateRoomPage() {
 										size="lg"
 										className={cn(
 											"w-full text-lg h-14 font-bold transition-all",
-											canStart 
-												? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/20"
+											canStart
+												? "bg-linear-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/20"
 												: "bg-muted text-muted-foreground"
 										)}
 									>

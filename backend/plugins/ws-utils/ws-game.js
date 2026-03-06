@@ -282,9 +282,15 @@ export default fp((fastify) => {
       (p) => Number(p.id) !== numericUserId,
     );
 
-    // If room is empty, delete it
+    // If room is empty, delete it after a short grace period
     if (room.joinedPlayers.length === 0) {
-      fastify.gameRooms.delete(roomId);
+      setTimeout(() => {
+        const currentRoom = fastify.gameRooms.get(roomId);
+        if (currentRoom && currentRoom.joinedPlayers.length === 0) {
+          fastify.gameRooms.delete(roomId);
+          console.log(`[Room] Deleted empty room ${roomId} after grace period`);
+        }
+      }, 5000); // 5 seconds grace period
     }
 
     // Broadcast update to remaining players in room
@@ -483,14 +489,36 @@ export default fp((fastify) => {
     const staleRoomId = fastify.currentRoom.get(numericUserId);
     if (staleRoomId) {
       const room = fastify.gameRooms.get(staleRoomId);
-      if (room && room.isMatchmade && !room.tournamentStarted) {
-        // Silently clean up stale room state and allow them to re-queue
+      const isAlreadyInThisRoom = room?.joinedPlayers?.some(
+        (p) => Number(p.id) === numericUserId,
+      );
+
+      // Idempotency: if this user already joined a matchmade pre-game room,
+      // ignore duplicate JOIN_MATCHMAKING calls instead of evicting them.
+      if (
+        room &&
+        room.isMatchmade &&
+        !room.tournamentStarted &&
+        isAlreadyInThisRoom
+      ) {
         console.log(
-          `[Matchmaking] Silently clearing User ${numericUserId} from stale room ${staleRoomId}`,
+          `[Matchmaking] Duplicate join ignored for user ${numericUserId} in room ${staleRoomId}`,
+        );
+        return;
+      }
+
+      if (room && !room.tournamentStarted) {
+        // If user starts quick matchmaking while still bound to any pre-game room
+        // (manual code room or previous matchmade lobby), auto-leave it.
+        console.log(
+          `[Matchmaking] Auto-leaving User ${numericUserId} from room ${staleRoomId} before queueing`,
         );
         fastify.leaveRoom(staleRoomId, numericUserId);
+      } else if (!room) {
+        // Room mapping is stale (map points to a deleted room). Clear it and continue.
+        fastify.currentRoom.delete(numericUserId);
       } else {
-        throw new Error("Already in a room");
+        throw new Error("Already in an active room");
       }
     }
 
@@ -605,14 +633,17 @@ export default fp((fastify) => {
       let availableRoom = null;
       let availableRoomId = null;
 
+      console.log(`[Matchmaking] Searching for 1v1 room. Total rooms: ${fastify.gameRooms.size}`);
       for (const [roomId, room] of fastify.gameRooms.entries()) {
+        console.log(`[Matchmaking] Checking room ${roomId}: isTournament=${room.isTournament}, isMatchmade=${room.isMatchmade}, maxPlayers=${room.maxPlayers}, joined=${room.joinedPlayers.length}`);
         if (
           !room.isTournament &&
-          room.isMatchmade &&
+          (room.isMatchmade || room.maxPlayers === 2) &&
           room.joinedPlayers.length < room.maxPlayers
         ) {
           availableRoom = room;
           availableRoomId = roomId;
+          console.log(`[Matchmaking] Found available 1v1 room: ${roomId}`);
           break;
         }
       }
@@ -621,32 +652,27 @@ export default fp((fastify) => {
         // Join the existing room
         fastify.currentRoom.set(numericUserId, availableRoomId);
         availableRoom.joinedPlayers.push({ id: numericUserId, username });
+        availableRoom.isMatchmade = true; // Mark as matchmade room for grace period logic
 
         console.log(
           `[Matchmaking] User ${numericUserId} matched into room ${availableRoomId}`,
         );
 
-        // Start the game immediately
-        // This initializes game state and sends GAME_MATCH_START to both players
-        // which triggers the redirect to the game page.
-        if (fastify.startRoomGame) {
-          fastify.startRoomGame(availableRoomId);
-        } else {
-          console.error("[Matchmaking] fastify.startRoomGame is not defined!");
-          // Fallback: Send MATCH_FOUND as before (though it might hang if no state)
-          const payload = {
-            event: "MATCH_FOUND",
-            payload: {
-              roomId: availableRoomId,
-              matchId: `RS-${availableRoomId}`,
-              players: availableRoom.joinedPlayers,
-            },
-          };
-          availableRoom.joinedPlayers.forEach((p) => {
-            const s = fastify.onlineUsers.get(Number(p.id));
-            if (s) safeSend(s, payload, Number(p.id));
-          });
-        }
+        // Notify BOTH players that a match was found
+        // They should be redirected to the lobby, NOT auto-start the game
+        const payload = {
+          event: "MATCH_FOUND",
+          payload: {
+            roomId: availableRoomId,
+            matchId: `RS-${availableRoomId}`,
+            players: availableRoom.joinedPlayers,
+          },
+        };
+
+        availableRoom.joinedPlayers.forEach((p) => {
+          const s = fastify.onlineUsers.get(Number(p.id));
+          if (s) safeSend(s, payload, Number(p.id));
+        });
         return;
       }
 
@@ -720,8 +746,9 @@ export default fp((fastify) => {
     fastify.tryMatchPlayers(mode);
   });
 
-  fastify.decorate("leaveMatchmaking", (userId) => {
+  fastify.decorate("leaveMatchmaking", (userId, immediate = true) => {
     const numericUserId = Number(userId);
+    console.log(`[leaveMatchmaking] user: ${numericUserId}, immediate: ${immediate}`);
 
     // Remove from both queues
     matchmakingQueue.single = matchmakingQueue.single.filter(
@@ -731,57 +758,14 @@ export default fp((fastify) => {
       (p) => p.userId !== numericUserId,
     );
 
-    // IMPORTANT: Only remove from room state for rooms created via matchmaking.
-    // Calling leaveMatchmaking on websocket close is generic and should not evict
-    // players from manual invite/code-join lobbies.
+    if (!immediate) {
+      console.log(`[leaveMatchmaking] Skipping room removal for ${numericUserId} (delegating to grace period)`);
+      return;
+    }
+
     const currentRoomId = fastify.currentRoom.get(numericUserId);
     if (currentRoomId) {
-      const room = fastify.gameRooms.get(currentRoomId);
-      if (room && room.isMatchmade) {
-        // Remove user from room's player list
-        room.joinedPlayers = room.joinedPlayers.filter(
-          (p) => Number(p.id) !== numericUserId,
-        );
-        room.invitedPlayers = room.invitedPlayers.filter(
-          (p) => Number(p.id) !== numericUserId,
-        );
-
-        // If room becomes empty and it's a matchmade room, delete it
-        if (room.joinedPlayers.length === 0 && room.isMatchmade) {
-          fastify.gameRooms.delete(currentRoomId);
-          console.log(
-            `[Matchmaking] Deleted empty matchmade room ${currentRoomId}`,
-          );
-        } else if (room.joinedPlayers.length > 0) {
-          // Notify remaining players in the room
-          room.joinedPlayers.forEach((player) => {
-            const playerSocket = fastify.onlineUsers.get(Number(player.id));
-            if (playerSocket) {
-              safeSend(
-                playerSocket,
-                {
-                  event: "GAME_ROOM",
-                  payload: {
-                    roomId: currentRoomId,
-                    hostId: room.hostId,
-                    invitedPlayers: room.invitedPlayers,
-                    joinedPlayers: room.joinedPlayers,
-                    maxPlayers: room.maxPlayers,
-                    isTournament: room.isTournament || false,
-                    tournamentStarted: room.tournamentStarted || false,
-                  },
-                },
-                Number(player.id),
-              );
-            }
-          });
-        }
-        // Remove from currentRoom mapping only when removing from a matchmade room
-        fastify.currentRoom.delete(numericUserId);
-        console.log(
-          `[Matchmaking] User ${numericUserId} left room ${currentRoomId}`,
-        );
-      }
+      fastify.leaveRoom(currentRoomId, userId);
     }
 
     const socket = fastify.onlineUsers.get(numericUserId);

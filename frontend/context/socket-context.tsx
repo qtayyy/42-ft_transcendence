@@ -168,8 +168,12 @@ export const SocketProvider = ({ children }) => {
 
 
 							case "MATCH_FOUND":
-								// Navigate to the matched game room
-								router.push(`/game/${payload.matchId}`);
+								// Navigate to the lobby instead of the game
+								// Host (who is at /create) stays there. Joiner (at /matchmaking) is redirected to lobby.
+								const isHostPage = window.location.pathname.includes("/game/remote/single/create");
+								if (!isHostPage) {
+									router.push(`/game/remote/single/join?roomId=${payload.roomId}&matchmaking=true`);
+								}
 								break;
 
 							case "TOURNAMENT_FOUND":
@@ -416,18 +420,18 @@ export const SocketProvider = ({ children }) => {
 				pathname === '/dashboard';
 
 			// Define lobby/game pages where we SHOULD NOT auto-leave
-			const isLobbyPage = pathname.includes('/tournament/create') || 
-							  pathname.includes('/tournament/join') ||
-							  pathname.includes('/tournament/RT-') ||
-							  pathname.includes('/single/create') ||
-							  pathname.includes('/single/join') ||
-							  pathname.includes('/single/RS-') ||
-							  pathname.startsWith('/game/') && !isMenuPage;
+			const isLobbyPage = pathname.includes('/tournament/create') ||
+				pathname.includes('/tournament/join') ||
+				pathname.includes('/tournament/RT-') ||
+				pathname.includes('/single/create') ||
+				pathname.includes('/single/join') ||
+				pathname.includes('/single/RS-') ||
+				pathname.startsWith('/game/') && !isMenuPage;
 
 			// Logic: We only want to trigger auto-leave if the pathname has ACTUALLY CHANGED
 			// and we moved from a non-menu page to a menu page.
 			const pathChanged = pathname !== prevPathname.current;
-			
+
 			if (pathChanged && (isMenuPage || !pathname.startsWith('/game')) && !isLobbyPage) {
 				// Only leave if they are not in an active game state, otherwise wait for game over / disconnect handler
 				const isSpectating = (gameState as any)?.spectatorMode;
