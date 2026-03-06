@@ -478,6 +478,13 @@ export const SocketProvider = ({ children }) => {
 			const pathChanged = pathname !== prevPathname.current;
 
 			if (pathChanged && (isMenuPage || !pathname.startsWith('/game')) && !isLobbyPage) {
+				const isTournamentRoom = gameRoom?.isTournament === true;
+				if (isTournamentRoom) {
+					console.log(`[SocketContext] Skipping auto-leave for ongoing tournament room ${gameRoom.roomId}`);
+					prevPathname.current = pathname;
+					return;
+				}
+
 				// Only leave if they are not in an active game state, otherwise wait for game over / disconnect handler
 				const isSpectating = (gameState as any)?.spectatorMode;
 
