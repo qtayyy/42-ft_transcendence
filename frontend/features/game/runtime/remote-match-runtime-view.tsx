@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Eye, ArrowLeft, Timer, Keyboard, Gamepad2, Hash, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTime } from "@/utils/gameHelpers";
+import { ReadyOverlay } from "@/components/game/ReadyOverlay";
 
 interface RemoteMatchRuntimeViewProps {
 	canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -213,112 +214,13 @@ export default function RemoteMatchRuntimeView({
 									</div>
 								)}
 
-								{!(gameState as any)?.paused && (() => {
-									if (isSpectator) {
-										return (
-											<div className="flex flex-col items-center justify-center space-y-4">
-												<Loader2 className="h-12 w-12 text-primary animate-spin" />
-												<h3 className="text-2xl font-bold text-white">Match Starting Soon</h3>
-												<p className="text-white/80">Waiting for players to get ready...</p>
-											</div>
-										);
-									}
-
-									const mySide = gameState.me;
-									const me = mySide === "LEFT" ? gameState.leftPlayer : gameState.rightPlayer;
-									const opponent = mySide === "LEFT" ? gameState.rightPlayer : gameState.leftPlayer;
-									const amIReady = !me?.gamePaused;
-									const isOpponentReady = !opponent?.gamePaused;
-
-									const toggleReady = () => {
-										sendSocketMessage({
-											event: "GAME_EVENTS",
-											payload: {
-												matchId: gameState.matchId,
-												userId: user?.id,
-												keyEvent: "START",
-											},
-										});
-									};
-
-									if (amIReady && !isOpponentReady) {
-										return (
-											<div className="flex flex-col items-center justify-center space-y-4 animate-in fade-in zoom-in duration-300">
-												<div className="relative">
-													<div className="h-16 w-16 rounded-full border-4 border-yellow-500/30 border-t-yellow-500 animate-spin" />
-													<div className="absolute inset-0 flex items-center justify-center">
-														<span className="text-xl">⏳</span>
-													</div>
-												</div>
-												<div className="space-y-1">
-													<h3 className="text-2xl font-bold text-yellow-500">Waiting for Opponent</h3>
-													<p className="text-white/80 pb-4">
-														Waiting for <span className="font-semibold text-white">{opponent?.username || "Opponent"}</span> to be ready...
-													</p>
-													<Button
-														variant="outline"
-														size="sm"
-														className="border-white/20 text-white/70 hover:bg-white/10"
-														onClick={toggleReady}
-													>
-														Not Ready? Click to cancel
-													</Button>
-												</div>
-											</div>
-										);
-									} else if (!amIReady && isOpponentReady) {
-										return (
-											<div className="flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
-												<div className="p-4 bg-green-500/10 rounded-full ring-1 ring-green-500/30 mb-2">
-													<span className="text-4xl">✨</span>
-												</div>
-												<div className="space-y-2">
-													<h3 className="text-3xl font-bold text-green-400">Opponent is Ready!</h3>
-													<p className="text-white/90 text-lg">
-														<span className="font-semibold text-white">{opponent?.username}</span> is waiting for you.
-													</p>
-												</div>
-												<div className="p-6 bg-white/5 rounded-xl border border-white/10 w-full flex flex-col items-center gap-4">
-													<Button
-														size="lg"
-														className="bg-green-600 hover:bg-green-700 text-white font-bold text-xl px-12 py-6 shadow-lg shadow-green-900/20 scale-100 hover:scale-105 transition-all w-full"
-														onClick={toggleReady}
-													>
-														I AM READY
-													</Button>
-													<div className="text-center">
-														<p className="text-lg font-medium text-white mb-2">Or press <span className="px-2 py-1 bg-white/20 rounded font-mono font-bold">ENTER</span></p>
-													</div>
-												</div>
-											</div>
-										);
-									}
-
-									return (
-										<div className="flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-300">
-											<div className="p-4 bg-blue-500/10 rounded-full ring-1 ring-blue-500/30 mb-2">
-												<span className="text-4xl">🎮</span>
-											</div>
-											<h3 className="text-3xl font-bold text-white">Are you ready?</h3>
-											<p className="text-white/70 text-center max-w-sm">
-												Both players must click Ready to start the match.
-											</p>
-
-											<Button
-												size="lg"
-												className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xl px-12 py-6 shadow-lg shadow-blue-900/20 scale-100 hover:scale-105 transition-all"
-												onClick={toggleReady}
-											>
-												I AM READY
-											</Button>
-
-											<p className="text-xs text-white/40 pt-4">(Or press ENTER)</p>
-											<p className="text-sm text-white/50">
-												{gameState.me === "LEFT" ? "You are Player 1 (Left)" : "You are Player 2 (Right)"}
-											</p>
-										</div>
-									);
-								})()}
+								{!(gameState as any)?.paused && isSpectator && (
+									<div className="flex flex-col items-center justify-center space-y-4">
+										<Loader2 className="h-12 w-12 text-primary animate-spin" />
+										<h3 className="text-2xl font-bold text-white">Match Starting Soon</h3>
+										<p className="text-white/80">Waiting for players to get ready...</p>
+									</div>
+								)}
 							</div>
 						</div>
 					)}
@@ -451,6 +353,45 @@ export default function RemoteMatchRuntimeView({
 					</div>
 				</div>
 			)}
+
+			{/* ReadyOverlay for remote matches */}
+			{gameState && !gameState.gameStarted && !gameStart && !(gameState as any)?.paused && !isSpectator && !gameOverResult && (() => {
+				const mySide = gameState.me;
+				const me = mySide === "LEFT" ? gameState.leftPlayer : gameState.rightPlayer;
+				const currentPlayerReady = !me?.gamePaused;
+
+				return (
+					<ReadyOverlay
+						isOpen={true}
+						mode="remote"
+						player1Ready={!gameState.leftPlayer?.gamePaused}
+						player2Ready={!gameState.rightPlayer?.gamePaused}
+						player1Name={gameState.leftPlayer?.username || "Player 1"}
+						player2Name={gameState.rightPlayer?.username || "Player 2"}
+						currentPlayerReady={currentPlayerReady}
+						onReady={() => {
+							sendSocketMessage({
+								event: "GAME_EVENTS",
+								payload: {
+									matchId: gameState.matchId,
+									userId: user?.id,
+									keyEvent: "START",
+								},
+							});
+						}}
+						onStart={() => {
+							sendSocketMessage({
+								event: "GAME_EVENTS",
+								payload: {
+									matchId: gameState.matchId,
+									userId: user?.id,
+									keyEvent: "START",
+								},
+							});
+						}}
+					/>
+				);
+			})()}
 		</div>
 	);
 }

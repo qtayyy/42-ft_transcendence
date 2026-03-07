@@ -3,8 +3,8 @@ import { GameState, GameMode } from "@/types/game";
 import { usePongGame } from "@/hooks/usePongGame";
 import { renderGame } from "@/utils/gameRenderer";
 import { GameOverDialog } from "@/components/game/GameOverDialog";
+import { ReadyOverlay } from "@/components/game/ReadyOverlay";
 import { formatTime } from "@/utils/gameHelpers";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Timer, Keyboard, Gamepad2, Hash, Zap, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,11 +32,12 @@ export default function PongGame({
 	onExit,
 	isTournamentMatch = false,
 }: PongGameProps) {
-	const { 
-		gameState, 
-		canvasRef, 
-		containerRef, 
-		canvasDimensions 
+	const {
+		gameState,
+		canvasRef,
+		containerRef,
+		canvasDimensions,
+		socketRef
 	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver });
 
 	// Determine Display ID & Suffix
@@ -215,10 +216,25 @@ export default function PongGame({
 				</div>
 			</div>
 
-			<GameOverDialog 
-				gameState={gameState || null} 
+			<GameOverDialog
+				gameState={gameState || null}
 				open={gameState?.status === "finished"}
-				onExit={onExit} 
+				onExit={onExit}
+			/>
+
+			{/* Ready Overlay */}
+			<ReadyOverlay
+				isOpen={gameState?.status === "waiting"}
+				mode={mode}
+				player1Ready={true} // TODO: Get from game state for remote matches
+				player2Ready={true} // TODO: Get from game state for remote matches
+				player1Name="Player 1" // TODO: Get from game state
+				player2Name="Player 2" // TODO: Get from game state
+				onStart={() => {
+					if (socketRef.current?.readyState === WebSocket.OPEN) {
+						socketRef.current.send(JSON.stringify({ type: "START" }));
+					}
+				}}
 			/>
 		</div>
 	);

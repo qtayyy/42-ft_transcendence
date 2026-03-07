@@ -264,24 +264,27 @@ export const SocketProvider = ({ children }) => {
 									}
 								}
 
-								// Only update if something actually changed to avoid excessive re-render loops
-								stableDeps.current.setGameState((prev: any) => {
-									if (!prev) return { ...payload };
+									// Only update if something actually changed to avoid excessive re-render loops
+									stableDeps.current.setGameState((prev: any) => {
+										if (!prev) return { ...payload };
 
-									// Increased threshold for ball movement to avoid jitter/loops if updates are too fast
-									const ballMovedSignificantly =
-										Math.abs((prev.ball?.posX || 0) - (payload.ball?.posX || 0)) > 0.1 ||
-										Math.abs((prev.ball?.posY || 0) - (payload.ball?.posY || 0)) > 0.1;
+										// Increased threshold for ball movement to avoid jitter/loops if updates are too fast
+										const ballMovedSignificantly =
+											Math.abs((prev.ball?.posX || 0) - (payload.ball?.posX || 0)) > 0.1 ||
+											Math.abs((prev.ball?.posY || 0) - (payload.ball?.posY || 0)) > 0.1;
 
-									if (prev.matchId === payload.matchId &&
-										!ballMovedSignificantly &&
-										prev.leftPlayer?.score === payload.leftPlayer?.score &&
-										prev.rightPlayer?.score === payload.rightPlayer?.score &&
-										prev.paused === payload.paused &&
-										prev.resumeReady?.LEFT === payload.resumeReady?.LEFT &&
-										prev.resumeReady?.RIGHT === payload.resumeReady?.RIGHT &&
-										prev.leftPlayer?.paddleY === payload.leftPlayer?.paddleY &&
-										prev.rightPlayer?.paddleY === payload.rightPlayer?.paddleY
+										if (prev.matchId === payload.matchId &&
+											!ballMovedSignificantly &&
+											prev.leftPlayer?.score === payload.leftPlayer?.score &&
+											prev.rightPlayer?.score === payload.rightPlayer?.score &&
+											prev.leftPlayer?.gamePaused === payload.leftPlayer?.gamePaused &&
+											prev.rightPlayer?.gamePaused === payload.rightPlayer?.gamePaused &&
+											prev.gameStarted === payload.gameStarted &&
+											prev.paused === payload.paused &&
+											prev.resumeReady?.LEFT === payload.resumeReady?.LEFT &&
+											prev.resumeReady?.RIGHT === payload.resumeReady?.RIGHT &&
+											prev.leftPlayer?.paddleY === payload.leftPlayer?.paddleY &&
+											prev.rightPlayer?.paddleY === payload.rightPlayer?.paddleY
 									) {
 										return prev;
 									}
