@@ -76,12 +76,31 @@ export default function CreateRoomPage() {
 	};
 
 	const handleStartGame = () => {
-		if (!gameRoom || gameRoom.joinedPlayers.length < 2 || !roomId || !isReady) return;
+		console.log('🎮 [Start Match] Button clicked!');
+		console.log('🎮 [Start Match] Checking conditions:', {
+			hasGameRoom: !!gameRoom,
+			playerCount: gameRoom?.joinedPlayers.length,
+			roomId: roomId,
+			isReady: isReady
+		});
+
+		if (!gameRoom || gameRoom.joinedPlayers.length < 2 || !roomId || !isReady) {
+			console.error('❌ [Start Match] Cannot start game - conditions not met:', {
+				gameRoom: !!gameRoom,
+				players: gameRoom?.joinedPlayers.length || 0,
+				roomId: roomId,
+				socketReady: isReady
+			});
+			return;
+		}
+
+		console.log('✅ [Start Match] All conditions met! Sending START_ROOM_GAME event');
 		// Send start game event - both players will receive GAME_MATCH_START
 		sendSocketMessage({
 			event: "START_ROOM_GAME",
 			payload: { roomId },
 		});
+		console.log('📤 [Start Match] Event sent successfully');
 	};
 
 	const handleLeave = () => {
