@@ -76,6 +76,15 @@ export default async function (fastify, opts) {
 
 			connection.on("close", () => {
 				console.log(`[GAME WS] ${userId} disconnected`);
+
+				// For local games, allow reconnection by clearing the player slot
+				if (game.mode === 'local') {
+					if (game.players.p1.socket === connection) {
+						console.log(`[GAME WS] Clearing local host slot for reconnection`);
+						game.players.p1.socket = null;
+						// Don't clear the id to allow same user to reconnect
+					}
+				}
 			});
 		}
 	);
