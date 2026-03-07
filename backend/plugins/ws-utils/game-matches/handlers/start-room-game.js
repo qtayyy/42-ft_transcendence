@@ -25,9 +25,26 @@ export function createStartRoomGameHandler({
    * Called when host clicks "Start Game" in the room lobby
    */
   return (roomId) => {
+    console.log(`🎮 [START_ROOM_GAME] Received request to start room: ${roomId}`);
+
     const room = fastify.gameRooms.get(roomId);
-    if (!room) throw new Error("Room not found");
-    if (room.joinedPlayers.length < 2) throw new Error("Need at least 2 players");
+    if (!room) {
+      console.error(`❌ [START_ROOM_GAME] Room ${roomId} not found!`);
+      console.error(`❌ [START_ROOM_GAME] Available rooms:`, Array.from(fastify.gameRooms.keys()));
+      throw new Error("Room not found");
+    }
+
+    console.log(`✅ [START_ROOM_GAME] Room found:`, {
+      roomId: room.roomId,
+      hostId: room.hostId,
+      maxPlayers: room.maxPlayers,
+      joinedPlayers: room.joinedPlayers.map(p => ({ id: p.id, username: p.username }))
+    });
+
+    if (room.joinedPlayers.length < 2) {
+      console.error(`❌ [START_ROOM_GAME] Not enough players! Only ${room.joinedPlayers.length} player(s) in room`);
+      throw new Error("Need at least 2 players");
+    }
 
     const player1 = room.joinedPlayers[0];
     const player2 = room.joinedPlayers[1];

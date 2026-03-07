@@ -97,17 +97,26 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 		console.log(`[usePongGame] Registering keyboard input listeners for match: ${matchId}`);
 
 		const sendInput = (payload: object) => {
+			console.log('[usePongGame] 🎮 Attempting to send input:', payload);
+			console.log('[usePongGame] 🔌 WebSocket state:', socketRef.current?.readyState, '(1=OPEN, 0=CONNECTING, 2=CLOSING, 3=CLOSED)');
 			if (socketRef.current?.readyState === WebSocket.OPEN) {
 				socketRef.current.send(JSON.stringify(payload));
+				console.log('[usePongGame] ✅ Message sent successfully');
+			} else {
+				console.error('[usePongGame] ❌ WebSocket NOT READY! Cannot send message. State:', socketRef.current?.readyState);
 			}
 		};
 
 		const handleKeyDown = (e: KeyboardEvent) => {
+			console.log('[usePongGame] ⌨️ Key pressed:', e.key);
 			if (e.key === "w" || e.key === "W") sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 1 });
 			else if (e.key === "s" || e.key === "S") sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 1 });
 			else if (e.key === "ArrowUp") { e.preventDefault(); sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 2 }); }
 			else if (e.key === "ArrowDown") { e.preventDefault(); sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 2 }); }
-			else if (e.key === "Enter") sendInput({ type: "START" });
+			else if (e.key === "Enter") {
+				console.log('[usePongGame] 🎯 ENTER KEY DETECTED - Sending START command');
+				sendInput({ type: "START" });
+			}
 		};
 
 		const handleKeyUp = (e: KeyboardEvent) => {

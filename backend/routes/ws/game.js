@@ -45,14 +45,20 @@ export default async function (fastify, opts) {
 			connection.on("message", (raw) => {
 				try {
 					const message = JSON.parse(raw);
+					console.log(`[GAME WS] 📩 Received message:`, { type: message.type, role, matchId });
 
 					if (message.type === "PADDLE_MOVE") {
 						game.handleInput(role, message);
 					}
 
-					if (message.type === "START" && role == 'host') {
-						console.log("[GAME WS] Starting game");
-						game.startGameLoop();
+					if (message.type === "START") {
+						console.log(`[GAME WS] 🎯 START command received! Role: ${role}, Expected: 'host'`);
+						if (role == 'host') {
+							console.log("[GAME WS] ✅ Role matches! Starting game loop...");
+							game.startGameLoop();
+						} else {
+							console.error(`[GAME WS] ❌ Role mismatch! Cannot start. Role: '${role}' (type: ${typeof role})`);
+						}
 					}
 				}
 				catch (e) {
