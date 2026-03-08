@@ -108,6 +108,7 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 			else if (e.key === "ArrowUp") { e.preventDefault(); sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 2 }); }
 			else if (e.key === "ArrowDown") { e.preventDefault(); sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 2 }); }
 			else if (e.key === "Enter") sendInput({ type: "START" });
+			else if (e.key === " ") { e.preventDefault(); sendInput({ type: "PAUSE" }); }
 		};
 
 		const handleKeyUp = (e: KeyboardEvent) => {
