@@ -1,4 +1,18 @@
 "use client";
+
+/**
+ * DRAFT / LEGACY ROUTE
+ *
+ * This route is currently not referenced by active navigation.
+ * The active match runtime route is: /game/[matchId].
+ *
+ * Original implementation is kept below as commented draft code for reference.
+ */
+export default function TournamentMatchDraftPage() {
+  return null;
+}
+
+/*
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useSocket } from "@/hooks/use-socket";
@@ -22,7 +36,7 @@ export default function GamePage() {
   useEffect(() => {
   if (!isReady) {
     return;
-  }  
+  }
 
   const onKeyDown = (e) => {
     const KEYS = ["w", "W", "s", "S", "Enter"];
@@ -129,3 +143,4 @@ export default function GamePage() {
     </div>
   );
 }
+*/
