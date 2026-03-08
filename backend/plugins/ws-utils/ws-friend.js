@@ -1,4 +1,4 @@
-import { PrismaClient } from "/app/generated/prisma/index.js";
+import { PrismaClient } from "../../generated/prisma/index.js";
 import fp from "fastify-plugin";
 import { safeSend } from "../../utils/ws-utils.js";
 
@@ -39,7 +39,7 @@ export default fp(async (fastify) => {
             status,
           },
         },
-        friendId
+        friendId,
       );
     });
   });

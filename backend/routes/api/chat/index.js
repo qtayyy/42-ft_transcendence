@@ -1,4 +1,4 @@
-import { PrismaClient } from "/app/generated/prisma/index.js";
+import { PrismaClient } from "../../../generated/prisma/index.js";
 
 const prisma = new PrismaClient();
 
@@ -74,7 +74,6 @@ export default async function (fastify, opts) {
         console.error("Error fetching chat history:", error);
         return reply.code(500).send({ error: "Internal server error" });
       }
-    }
+    },
   );
 }
-

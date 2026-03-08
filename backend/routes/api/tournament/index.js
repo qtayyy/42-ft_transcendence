@@ -1,277 +1,302 @@
-import TournamentManager, { activeTournaments } from "../../../game/TournamentManager.js";
+import TournamentManager, {
+  activeTournaments,
+} from "../../../game/TournamentManager.js";
 
 export default async function (fastify, opts) {
+  // Expose activeTournaments to fastify instance for other plugins (ws-game-matches)
+  // fastify.decorate("activeTournaments", activeTournaments); // Already decorated in websockets.js
 
-	// Expose activeTournaments to fastify instance for other plugins (ws-game-matches)
-	// fastify.decorate("activeTournaments", activeTournaments); // Already decorated in websockets.js
+  // Periodic cleanup for stale tournaments
+  const CLEANUP_INTERVAL = 60 * 60 * 1000; // 60 minutes
+  const TOURNAMENT_TTL = 24 * 60 * 60 * 1000; // 24 hours
+  const COMPLETED_TTL = 60 * 60 * 1000; // 1 hour
 
-	// Periodic cleanup for stale tournaments
-	const CLEANUP_INTERVAL = 60 * 60 * 1000; // 60 minutes
-	const TOURNAMENT_TTL = 24 * 60 * 60 * 1000; // 24 hours
-	const COMPLETED_TTL = 60 * 60 * 1000; // 1 hour
+  setInterval(() => {
+    const now = Date.now();
+    let cleanedCount = 0;
 
-	setInterval(() => {
-		const now = Date.now();
-		let cleanedCount = 0;
+    for (const [tournamentId, tournament] of activeTournaments.entries()) {
+      const shouldClean =
+        // Remove completed tournaments after 1 hour
+        (tournament.isComplete() &&
+          tournament.completedAt &&
+          now - tournament.completedAt > COMPLETED_TTL) ||
+        // Remove inactive tournaments after 24 hours
+        (tournament.createdAt && now - tournament.createdAt > TOURNAMENT_TTL);
 
-		for (const [tournamentId, tournament] of activeTournaments.entries()) {
-			const shouldClean =
-				// Remove completed tournaments after 1 hour
-				(tournament.isComplete() && tournament.completedAt && (now - tournament.completedAt > COMPLETED_TTL)) ||
-				// Remove inactive tournaments after 24 hours
-				(tournament.createdAt && (now - tournament.createdAt > TOURNAMENT_TTL));
+      if (shouldClean) {
+        activeTournaments.delete(tournamentId);
+        cleanedCount++;
+        console.log(`[Cleanup] Removed stale tournament: ${tournamentId}`);
+      }
+    }
 
-			if (shouldClean) {
-				activeTournaments.delete(tournamentId);
-				cleanedCount++;
-				console.log(`[Cleanup] Removed stale tournament: ${tournamentId}`);
-			}
-		}
+    if (cleanedCount > 0) {
+      console.log(`[Cleanup] Removed ${cleanedCount} stale tournament(s)`);
+    }
+  }, CLEANUP_INTERVAL);
 
-		if (cleanedCount > 0) {
-			console.log(`[Cleanup] Removed ${cleanedCount} stale tournament(s)`);
-		}
-	}, CLEANUP_INTERVAL);
+  /**
+   * Create a new tournament
+   * POST /api/tournament/create
+   */
+  fastify.post(
+    "/create",
+    {
+      onRequest: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      console.log(
+        `[POST /create] Tournament creation request. Body: ${JSON.stringify(request.body)}`,
+      );
+      try {
+        const { players, tournamentId: customTournamentId } = request.body; // Array of {id, name, isTemp}
 
-	/**
-	 * Create a new tournament
-	 * POST /api/tournament/create
-	 */
-	fastify.post(
-		"/create",
-		{
-			onRequest: [fastify.authenticate],
-		},
-		async (request, reply) => {
-			try {
-				const { players, tournamentId: customTournamentId } = request.body; // Array of {id, name, isTemp}
+        if (!players || players.length < 3 || players.length > 8) {
+          return reply.code(400).send({
+            error: "Tournament must have 3-8 players",
+          });
+        }
 
-				if (!players || players.length < 3 || players.length > 8) {
-					return reply.code(400).send({
-						error: "Tournament must have 3-8 players"
-					});
-				}
+        if (
+          customTournamentId &&
+          (customTournamentId.length < 3 || customTournamentId.length > 64)
+        ) {
+          return reply.code(400).send({
+            error: "Tournament name/ID must be between 3 and 64 characters",
+          });
+        }
 
-				if (customTournamentId && (customTournamentId.length < 3 || customTournamentId.length > 64)) {
-					return reply.code(400).send({
-						error: "Tournament name/ID must be between 3 and 64 characters"
-					});
-				}
+        // Use custom tournamentId if provided, otherwise generate one
+        const tournamentId = customTournamentId || `RT-${Date.now()}`;
 
-				// Use custom tournamentId if provided, otherwise generate one
-				const tournamentId = customTournamentId || `RT-${Date.now()}`;
+        // Check if tournament already exists
+        if (activeTournaments.has(tournamentId)) {
+          // Return existing tournament data
+          const existingTournament = activeTournaments.get(tournamentId);
+          return reply.code(200).send({
+            success: true,
+            tournamentId: tournamentId,
+            format: existingTournament.format,
+            totalRounds: existingTournament.totalRounds,
+            matches: existingTournament.matches,
+            leaderboard: existingTournament.getLeaderboard(),
+            currentRound: existingTournament.currentRound,
+          });
+        }
 
-				// Check if tournament already exists
-				if (activeTournaments.has(tournamentId)) {
-					// Return existing tournament data
-					const existingTournament = activeTournaments.get(tournamentId);
-					return reply.code(200).send({
-						success: true,
-						tournamentId: tournamentId,
-						format: existingTournament.format,
-						totalRounds: existingTournament.totalRounds,
-						matches: existingTournament.matches,
-						leaderboard: existingTournament.getLeaderboard(),
-						currentRound: existingTournament.currentRound
-					});
-				}
+        // Create tournament manager
+        const tournament = new TournamentManager(tournamentId, players);
 
-				// Create tournament manager
-				const tournament = new TournamentManager(tournamentId, players);
+        // Generate initial matches based on format
+        if (tournament.format === "round-robin") {
+          tournament.matches = tournament.generateRoundRobinPairings();
+        } else if (tournament.format === "swiss") {
+          tournament.matches = tournament.generateSwissPairings(1);
+        }
 
-				// Generate initial matches based on format
-				if (tournament.format === 'round-robin') {
-					tournament.matches = tournament.generateRoundRobinPairings();
-				} else if (tournament.format === 'swiss') {
-					tournament.matches = tournament.generateSwissPairings(1);
-				}
+        // Store tournament
+        activeTournaments.set(tournamentId, tournament);
 
-				// Store tournament
-				activeTournaments.set(tournamentId, tournament);
+        return reply.code(200).send({
+          success: true,
+          tournamentId: tournamentId,
+          format: tournament.format,
+          totalRounds: tournament.totalRounds,
+          matches: tournament.matches,
+          leaderboard: tournament.getLeaderboard(),
+        });
+      } catch (error) {
+        console.error("Error creating tournament:", error);
+        return reply.code(500).send({ error: "Failed to create tournament" });
+      }
+    },
+  );
 
-				return reply.code(200).send({
-					success: true,
-					tournamentId: tournamentId,
-					format: tournament.format,
-					totalRounds: tournament.totalRounds,
-					matches: tournament.matches,
-					leaderboard: tournament.getLeaderboard()
-				});
+  /**
+   * Get tournament status
+   * GET /api/tournament/:id
+   */
+  fastify.get(
+    "/:id",
+    {
+      onRequest: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      try {
+        const { id } = request.params;
+        const tournament = activeTournaments.get(id);
 
-			} catch (error) {
-				console.error("Error creating tournament:", error);
-				return reply.code(500).send({ error: "Failed to create tournament" });
-			}
-		}
-	);
+        if (!tournament) {
+          return reply.code(404).send({ error: "Tournament not found" });
+        }
 
-	/**
-	 * Get tournament status
-	 * GET /api/tournament/:id
-	 */
-	fastify.get(
-		"/:id",
-		{
-			onRequest: [fastify.authenticate],
-		},
-		async (request, reply) => {
-			try {
-				const { id } = request.params;
-				const tournament = activeTournaments.get(id);
+        return reply.code(200).send(tournament.getSummary());
+      } catch (error) {
+        console.error("Error fetching tournament:", error);
+        return reply.code(500).send({ error: "Failed to fetch tournament" });
+      }
+    },
+  );
 
-				if (!tournament) {
-					return reply.code(404).send({ error: "Tournament not found" });
-				}
+  /**
+   * Update match result and standings
+   * POST /api/tournament/:id/match-result
+   */
+  fastify.post(
+    "/:id/match-result",
+    {
+      onRequest: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      try {
+        const { id } = request.params;
+        const { matchId, player1Id, player2Id, score, outcome } = request.body;
 
-				return reply.code(200).send(tournament.getSummary());
+        const tournament = activeTournaments.get(id);
 
-			} catch (error) {
-				console.error("Error fetching tournament:", error);
-				return reply.code(500).send({ error: "Failed to fetch tournament" });
-			}
-		}
-	);
+        if (!tournament) {
+          return reply.code(404).send({ error: "Tournament not found" });
+        }
 
-	/**
-	 * Update match result and standings
-	 * POST /api/tournament/:id/match-result
-	 */
-	fastify.post(
-		"/:id/match-result",
-		{
-			onRequest: [fastify.authenticate],
-		},
-		async (request, reply) => {
-			try {
-				const { id } = request.params;
-				const { matchId, player1Id, player2Id, score, outcome } = request.body;
+        // Find and update the match
+        const match = tournament.matches.find((m) => m.matchId === matchId);
+        if (!match) {
+          return reply.code(404).send({ error: "Match not found" });
+        }
 
-				const tournament = activeTournaments.get(id);
+        // Update match status
+        match.status = "completed";
+        match.result = { player1Id, player2Id, score, outcome };
 
-				if (!tournament) {
-					return reply.code(404).send({ error: "Tournament not found" });
-				}
+        // Update standings
+        tournament.updateStandings({ player1Id, player2Id, score, outcome });
 
-				// Find and update the match
-				const match = tournament.matches.find(m => m.matchId === matchId);
-				if (!match) {
-					return reply.code(404).send({ error: "Match not found" });
-				}
+        // Check if we need to generate next round (Swiss only)
+        if (tournament.format === "swiss") {
+          const roundMatches = tournament.matches.filter(
+            (m) => m.round === tournament.currentRound,
+          );
+          const allRoundComplete = roundMatches.every(
+            (m) => m.status === "completed" || m.status === "bye",
+          );
 
-				// Update match status
-				match.status = 'completed';
-				match.result = { player1Id, player2Id, score, outcome };
+          if (
+            allRoundComplete &&
+            tournament.currentRound < tournament.totalRounds
+          ) {
+            // Generate next round
+            // Guard against duplicate generation
+            const existingNextRound = tournament.matches.filter(
+              (m) => m.round === tournament.currentRound + 1,
+            );
+            if (existingNextRound.length === 0) {
+              tournament.currentRound += 1;
+              const nextRoundMatches = tournament.generateSwissPairings(
+                tournament.currentRound,
+              );
+              tournament.matches.push(...nextRoundMatches);
+            } else {
+              console.log(
+                `Tournament ${id}: Matches for Round ${tournament.currentRound + 1} already exist. Skipping.`,
+              );
+              // Consider advancing round if not already?
+              if (
+                tournament.matches.some(
+                  (m) => m.round === tournament.currentRound + 1,
+                )
+              ) {
+                // if matches exist, we probably should have incremented tournament.currentRound?
+                // But let's assume TournamentManager internal logic handled it.
+              }
+            }
+          }
+        }
 
-				// Update standings
-				tournament.updateStandings({ player1Id, player2Id, score, outcome });
+        return reply.code(200).send({
+          success: true,
+          leaderboard: tournament.getLeaderboard(),
+          isComplete: tournament.isComplete(),
+          currentRound: tournament.currentRound,
+          nextMatches: tournament.matches.filter((m) => m.status === "pending"),
+        });
+      } catch (error) {
+        console.error("Error updating match result:", error);
+        return reply.code(500).send({ error: "Failed to update match result" });
+      }
+    },
+  );
 
-				// Check if we need to generate next round (Swiss only)
-				if (tournament.format === 'swiss') {
-					const roundMatches = tournament.matches.filter(m => m.round === tournament.currentRound);
-					const allRoundComplete = roundMatches.every(m => m.status === 'completed' || m.status === 'bye');
+  /**
+   * Get current leaderboard
+   * GET /api/tournament/:id/leaderboard
+   */
+  fastify.get(
+    "/:id/leaderboard",
+    {
+      onRequest: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      try {
+        const { id } = request.params;
+        const tournament = activeTournaments.get(id);
 
-					if (allRoundComplete && tournament.currentRound < tournament.totalRounds) {
-						// Generate next round
-						// Guard against duplicate generation
-						const existingNextRound = tournament.matches.filter(m => m.round === tournament.currentRound + 1);
-						if (existingNextRound.length === 0) {
-							tournament.currentRound += 1;
-							const nextRoundMatches = tournament.generateSwissPairings(tournament.currentRound);
-							tournament.matches.push(...nextRoundMatches);
-						} else {
-							console.log(`Tournament ${id}: Matches for Round ${tournament.currentRound + 1} already exist. Skipping.`);
-							// Consider advancing round if not already?
-							if (tournament.matches.some(m => m.round === tournament.currentRound + 1)) {
-								// if matches exist, we probably should have incremented tournament.currentRound?
-								// But let's assume TournamentManager internal logic handled it.
-							}
-						}
-					}
-				}
+        if (!tournament) {
+          return reply.code(404).send({ error: "Tournament not found" });
+        }
 
-				return reply.code(200).send({
-					success: true,
-					leaderboard: tournament.getLeaderboard(),
-					isComplete: tournament.isComplete(),
-					currentRound: tournament.currentRound,
-					nextMatches: tournament.matches.filter(m => m.status === 'pending')
-				});
+        return reply.code(200).send({
+          leaderboard: tournament.getLeaderboard(),
+          format: tournament.format,
+          currentRound: tournament.currentRound,
+          totalRounds: tournament.totalRounds,
+        });
+      } catch (error) {
+        console.error("Error fetching leaderboard:", error);
+        return reply.code(500).send({ error: "Failed to fetch leaderboard" });
+      }
+    },
+  );
 
-			} catch (error) {
-				console.error("Error updating match result:", error);
-				return reply.code(500).send({ error: "Failed to update match result" });
-			}
-		}
-	);
+  /**
+   * Get next match to play
+   * GET /api/tournament/:id/next-match
+   */
+  fastify.get(
+    "/:id/next-match",
+    {
+      onRequest: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      try {
+        const { id } = request.params;
+        const tournament = activeTournaments.get(id);
 
-	/**
-	 * Get current leaderboard
-	 * GET /api/tournament/:id/leaderboard
-	 */
-	fastify.get(
-		"/:id/leaderboard",
-		{
-			onRequest: [fastify.authenticate],
-		},
-		async (request, reply) => {
-			try {
-				const { id } = request.params;
-				const tournament = activeTournaments.get(id);
+        if (!tournament) {
+          return reply.code(404).send({ error: "Tournament not found" });
+        }
 
-				if (!tournament) {
-					return reply.code(404).send({ error: "Tournament not found" });
-				}
+        // Find first pending match
+        const nextMatch = tournament.matches.find(
+          (m) => m.status === "pending",
+        );
 
-				return reply.code(200).send({
-					leaderboard: tournament.getLeaderboard(),
-					format: tournament.format,
-					currentRound: tournament.currentRound,
-					totalRounds: tournament.totalRounds
-				});
+        if (!nextMatch) {
+          return reply.code(200).send({
+            nextMatch: null,
+            message: tournament.isComplete()
+              ? "Tournament complete"
+              : "No pending matches",
+          });
+        }
 
-			} catch (error) {
-				console.error("Error fetching leaderboard:", error);
-				return reply.code(500).send({ error: "Failed to fetch leaderboard" });
-			}
-		}
-	);
-
-	/**
-	 * Get next match to play
-	 * GET /api/tournament/:id/next-match
-	 */
-	fastify.get(
-		"/:id/next-match",
-		{
-			onRequest: [fastify.authenticate],
-		},
-		async (request, reply) => {
-			try {
-				const { id } = request.params;
-				const tournament = activeTournaments.get(id);
-
-				if (!tournament) {
-					return reply.code(404).send({ error: "Tournament not found" });
-				}
-
-				// Find first pending match
-				const nextMatch = tournament.matches.find(m => m.status === 'pending');
-
-				if (!nextMatch) {
-					return reply.code(200).send({
-						nextMatch: null,
-						message: tournament.isComplete() ? "Tournament complete" : "No pending matches"
-					});
-				}
-
-				return reply.code(200).send({
-					nextMatch: nextMatch
-				});
-
-			} catch (error) {
-				console.error("Error fetching next match:", error);
-				return reply.code(500).send({ error: "Failed to fetch next match" });
-			}
-		}
-	);
+        return reply.code(200).send({
+          nextMatch: nextMatch,
+        });
+      } catch (error) {
+        console.error("Error fetching next match:", error);
+        return reply.code(500).send({ error: "Failed to fetch next match" });
+      }
+    },
+  );
 }
