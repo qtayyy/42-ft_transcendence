@@ -54,6 +54,14 @@ export default async function (fastify, opts) {
 						console.log("[GAME WS] Starting game");
 						game.startGameLoop();
 					}
+
+					if (message.type === "PAUSE" && role == 'host') {
+						if (game.running) {
+							game.pause();
+						} else if (game.gameState.status === "paused") {
+							game.resume();
+						}
+					}
 				}
 				catch (e) {
 					console.error("[GAME WS] Error:", e);

@@ -6,7 +6,7 @@ import { GameOverDialog } from "@/components/game/GameOverDialog";
 import { formatTime } from "@/utils/gameHelpers";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Timer, Keyboard, Gamepad2, Hash, Zap, Play } from "lucide-react";
+import { Timer, Keyboard, Gamepad2, Hash, Zap, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** 
@@ -155,7 +155,20 @@ export default function PongGame({
 					</div>
 				)}
 
-				{/* Canvas */}
+				{/* Pause Overlay */}
+			{gameState?.status === "paused" && (
+					<div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+						<Card className="border-blue-500/50 bg-blue-500/10">
+							<div className="px-8 py-6 flex flex-col items-center gap-3">
+								<Pause className="h-10 w-10 text-blue-400" />
+								<div className="text-blue-400 font-bold text-2xl tracking-widest uppercase">Paused</div>
+								<div className="text-muted-foreground text-sm">Press <kbd className="px-2 py-0.5 bg-white/10 rounded text-white font-mono">Space</kbd> to resume</div>
+							</div>
+						</Card>
+					</div>
+				)}
+
+			{/* Canvas */}
 				<div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group max-w-full">
 					<div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
 					<canvas
@@ -179,6 +192,13 @@ export default function PongGame({
 							<span className="text-xs font-bold text-foreground">Player 1</span>
 							<span className="text-[10px] text-muted-foreground font-mono">W / S</span>
 						</div>
+					</div>
+
+					<div className="h-6 w-px bg-border/50" />
+
+					<div className="flex flex-col items-center">
+						<Pause className="h-3.5 w-3.5 text-muted-foreground mb-0.5" />
+						<span className="text-[10px] text-muted-foreground font-mono">Space</span>
 					</div>
 
 					<div className="h-6 w-px bg-border/50" />

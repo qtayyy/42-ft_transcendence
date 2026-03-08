@@ -46,6 +46,7 @@ class Game {
     // Timer-based match tracking
     this.startTime = null; // When the game started
     this.timeRemaining = MATCH_DURATION_MS; // Time left in ms
+    this.pausedAt = null; // Timestamp when game was paused
 
     // Power-Up State
     this.lastSpawnTime = 0;
@@ -183,8 +184,8 @@ class Game {
     console.log(`Starting Game Loop for Match ${this.matchId}`);
     this.gameState.status = "playing";
 
-    // Initialize timer
-    this.startTime = Date.now();
+    // Initialize timer (only on first start, not on resume)
+    if (!this.startTime) this.startTime = Date.now();
 
     this.loopHandle = setInterval(() => {
       this._updateTimer(); // Update timer first
@@ -608,15 +609,24 @@ class Game {
     if (!this.running) return;
     console.log(`Pausing Game Match ${this.matchId}`);
     this.running = false;
+    this.pausedAt = Date.now();
     if (this.loopHandle) {
       clearInterval(this.loopHandle);
       this.loopHandle = null;
     }
+    this.gameState.status = "paused";
+    this._broadcastState();
   }
 
   resume() {
     if (this.running) return;
     console.log(`Resuming Game Match ${this.matchId}`);
+    // Adjust startTime to exclude the time spent paused
+    if (this.pausedAt && this.startTime) {
+      const pauseDuration = Date.now() - this.pausedAt;
+      this.startTime += pauseDuration;
+      this.pausedAt = null;
+    }
     this.startGameLoop();
   }
 }
