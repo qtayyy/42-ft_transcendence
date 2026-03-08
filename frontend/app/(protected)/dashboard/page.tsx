@@ -18,6 +18,7 @@ import {
 import { useGame } from "@/hooks/use-game";
 import { useLanguage } from '@/context/languageContext';
 import { Users, BarChart3, PieChart, Trophy, Search, Zap, Activity } from "lucide-react";
+import { useFriends } from "@/hooks/use-friends";
 
 
 export default function DashboardPage() {
@@ -26,11 +27,12 @@ export default function DashboardPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const { gameRoom, onlineFriends } = useGame();
   const { t } = useLanguage();
+  const { friends: allFriends } = useFriends();
 
-  const offlineFriends = [
-    { id: 3, username: "Charlie" },
-    { id: 4, username: "Diana" },
-  ];
+  // Calculate offline friends by filtering out online friends
+  const offlineFriends = allFriends.filter(
+    friend => !onlineFriends.some(onlineFriend => String(onlineFriend.id) === String(friend.id))
+  );
   const tournaments = [
     {
       id: 1,
@@ -101,7 +103,8 @@ export default function DashboardPage() {
       <Button
         onClick={() => router.push('/chat')}
         aria-label="Go to Chat"
-        className="fixed bottom-8 right-8 z-50 rounded-full text-2xl"
+        variant="ghost"
+        className="fixed bottom-8 right-8 z-50 rounded-full text-5xl p-0 h-auto w-auto bg-transparent hover:bg-transparent"
       >
         💬
       </Button>

@@ -100,7 +100,7 @@ export default function Header() {
   return (
     <div className={cn(
       "z-50 flex w-full items-center justify-between p-3",
-      "fixed top-0 inset-x-0 bg-transparent" // Overlay on all pages
+      "fixed top-0 inset-x-0 bg-transparent" 
     )}>
       <div>
         <button
@@ -125,11 +125,6 @@ export default function Header() {
 
         {shouldShowProfileIcon && (
           <>
-            {/* Notification bell - WIP */}
-            <DropdownMenu>
-              <DropdownMenuTrigger>{t?.DropDown?.Notification || "Notification"}</DropdownMenuTrigger>
-            </DropdownMenu>
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 {/* Add key to force re-render when avatar changes */}
