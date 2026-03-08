@@ -82,7 +82,9 @@ model Tournament {
 
 enum MatchMode {
   LOCAL
+  LOCAL_TOURNAMENT
   REMOTE
+  REMOTE_TOURNAMENT
   AI
 }
 
