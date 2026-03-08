@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircleIcon, Eye, EyeOff } from "lucide-react";
+import { AlertCircleIcon, Eye, EyeOff, Shield, Lock, Trash2, Settings as SettingsIcon, KeyRound } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import React, { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/context/languageContext";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function SettingsPage() {
   const [error, setError] = useState("");
@@ -243,44 +244,80 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="h-screen bg-accent m-2 p-6">
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircleIcon className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      {success && (
-        <Alert className="bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400">
-          <AlertCircleIcon className="h-4 w-4" />
-          <AlertTitle>Success</AlertTitle>
-          <AlertDescription>{success}</AlertDescription>
-        </Alert>
-      )}
-      <div className="flex justify-between">
-        <p className="text-2xl font-semibold p-5">{t?.DropDown?.Settings?.toUpperCase() || "SETTINGS"}</p>
-      </div>
-      <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-5 mx-5">
-          {/* Left Column - Main Settings */}
-          <div className="lg:col-span-2 space-y-8">
-            <div>
-              <p className="text-xl font-semibold">
-                {t?.Setting?.["Two-factor authentication (2FA)"] || "Two-factor authentication (2FA)"}
-              </p>
-              <div className="flex gap-4 items-center mt-4">
-                <Switch
-                  id="twoFA"
-                  checked={twoFA}
-                  onCheckedChange={handleSwitch}
-                  className="bg-gray-400"
-                />
-                <Label htmlFor="twoFA">
-                  {twoFA ? (t?.Setting?.["2FAEnable"] || "2FA Enabled") : (t?.Setting?.["2FADisable"] || "2FA Disabled")}
-                </Label>
-              </div>
-              {qrImage && twoFAStep === "enable" ? (
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
+      <div className="w-full max-w-7xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        {/* Header Section */}
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 mb-4 ring-1 ring-primary/20">
+            <SettingsIcon className="h-6 w-6 text-primary animate-pulse" />
+          </div>
+          <h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-white via-primary/50 to-white bg-clip-text text-transparent pb-2">
+            {t?.DropDown?.Settings || "Settings"}
+          </h1>
+          <p className="text-xl text-muted-foreground font-medium max-w-2xl mx-auto">
+            Manage your account security and preferences
+          </p>
+        </div>
+
+        {/* Alerts */}
+        {error && (
+          <Alert variant="destructive" className="max-w-3xl mx-auto">
+            <AlertCircleIcon className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {success && (
+          <Alert className="bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400 max-w-3xl mx-auto">
+            <AlertCircleIcon className="h-4 w-4" />
+            <AlertTitle>Success</AlertTitle>
+            <AlertDescription>{success}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {/* Left Column - Security Settings */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* 2FA Card */}
+            <div className="group relative">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
+              <Card className="relative border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.01]">
+                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <Shield className="h-32 w-32 -mr-8 -mt-8" />
+                </div>
+                <CardHeader>
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-xl bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+                      <Shield className="h-8 w-8 text-blue-500" />
+                    </div>
+                    <div className="flex-1">
+                      <CardTitle className="text-2xl mb-2">
+                        {t?.Setting?.["Two-factor authentication (2FA)"] || "Two-factor authentication (2FA)"}
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Add an extra layer of security to your account
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-4 items-center p-4 bg-muted/30 rounded-lg border border-border/50">
+                    <Switch
+                      id="twoFA"
+                      checked={twoFA}
+                      onCheckedChange={handleSwitch}
+                    />
+                    <Label htmlFor="twoFA" className="font-medium cursor-pointer">
+                      {twoFA ? (t?.Setting?.["2FAEnable"] || "2FA Enabled") : (t?.Setting?.["2FADisable"] || "2FA Disabled")}
+                    </Label>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 2FA Dialogs */}
+            {qrImage && twoFAStep === "enable" ? (
                 <Dialog
                   open={twoFADialogOpen}
                   onOpenChange={(open) => {
@@ -372,139 +409,179 @@ export default function SettingsPage() {
                   </DialogContent>
                 </Dialog>
               ) : null}
-            </div>
 
-            <div className="pt-12">
-              <p className="text-xl font-semibold mb-4">{t?.Setting?.ChangePassword || "Change password"}</p>
-
-              <form onSubmit={handleSubmit} className="grid gap-5">
-                {passwordChangeStep === "input" && (
-                  <>
-                    <div className="grid gap-3">
-                      <Label htmlFor="oldPassword">{t?.Setting?.CurrentPassword || "Current password"}</Label>
-                      <div className="relative w-full md:w-3/4">
-                        <Input
-                          type={showOldPassword ? "text" : "password"}
-                          id="oldPassword"
-                          value={oldPassword}
-                          onChange={(e) => setOldPassword(e.target.value)}
-                          className="pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowOldPassword(!showOldPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          {showOldPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="grid gap-3">
-                      <Label htmlFor="newPassword">{t?.Setting?.NewPassword || "New password"}</Label>
-                      <div className="relative w-full md:w-3/4">
-                        <Input
-                          type={showNewPassword ? "text" : "password"}
-                          id="newPassword"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          className="pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowNewPassword(!showNewPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          {showNewPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {passwordChangeStep === "otp" && (
-                  <div className="grid gap-3">
-                    <p className="text-sm text-muted-foreground">
-                      We&apos;ve sent a 6-digit OTP to{" "}
-                      <strong>{userEmail}</strong>
-                    </p>
-                    <Label htmlFor="otp">Enter OTP</Label>
-                    <Input
-                      type="text"
-                      id="otp"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      placeholder="Enter 6-digit OTP"
-                      maxLength={6}
-                      className="w-full md:w-3/4 text-center text-2xl tracking-widest"
-                    />
-                    {countdown > 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        Resend OTP in <strong>{countdown}s</strong>
-                      </p>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleResendOTP}
-                        className="text-sm text-primary hover:underline text-left"
-                      >
-                        Didn&apos;t receive OTP? Resend Code
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <Button type="submit" className="w-auto">
-                    {passwordChangeStep === "input"
-                      ? (t?.Setting?.Save || "Save")
-                      : "Verify & Change Password"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleCancelPasswordChange}
-                    className="w-auto"
-                  >
-                    {t?.Setting?.Cancel || "Cancel"}
-                  </Button>
+            {/* Password Change Card */}
+            <div className="group relative">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
+              <Card className="relative border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.01]">
+                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <KeyRound className="h-32 w-32 -mr-8 -mt-8" />
                 </div>
-              </form>
+                <CardHeader>
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-xl bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
+                      <Lock className="h-8 w-8 text-purple-500" />
+                    </div>
+                    <div className="flex-1">
+                      <CardTitle className="text-2xl mb-2">
+                        {t?.Setting?.ChangePassword || "Change Password"}
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Update your account password
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSubmit} className="space-y-6">
+                    {passwordChangeStep === "input" && (
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="oldPassword" className="text-base">
+                            {t?.Setting?.CurrentPassword || "Current password"}
+                          </Label>
+                          <div className="relative">
+                            <Input
+                              type={showOldPassword ? "text" : "password"}
+                              id="oldPassword"
+                              value={oldPassword}
+                              onChange={(e) => setOldPassword(e.target.value)}
+                              className="pr-10 bg-muted/30 border-border/50"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowOldPassword(!showOldPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              {showOldPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="newPassword" className="text-base">
+                            {t?.Setting?.NewPassword || "New password"}
+                          </Label>
+                          <div className="relative">
+                            <Input
+                              type={showNewPassword ? "text" : "password"}
+                              id="newPassword"
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              className="pr-10 bg-muted/30 border-border/50"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewPassword(!showNewPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              {showNewPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {passwordChangeStep === "otp" && (
+                      <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground p-4 bg-muted/30 rounded-lg border border-border/50">
+                          We&apos;ve sent a 6-digit OTP to{" "}
+                          <strong className="text-foreground">{userEmail}</strong>
+                        </p>
+                        <div className="space-y-2">
+                          <Label htmlFor="otp" className="text-base">Enter OTP</Label>
+                          <Input
+                            type="text"
+                            id="otp"
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value)}
+                            placeholder="Enter 6-digit OTP"
+                            maxLength={6}
+                            className="text-center text-2xl tracking-widest bg-muted/30 border-border/50"
+                          />
+                        </div>
+                        {countdown > 0 ? (
+                          <p className="text-sm text-muted-foreground text-center">
+                            Resend OTP in <strong>{countdown}s</strong>
+                          </p>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleResendOTP}
+                            className="text-sm text-primary hover:underline w-full text-center"
+                          >
+                            Didn&apos;t receive OTP? Resend Code
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex gap-3 pt-2">
+                      <Button type="submit" className="flex-1">
+                        {passwordChangeStep === "input"
+                          ? (t?.Setting?.Save || "Save")
+                          : "Verify & Change Password"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleCancelPasswordChange}
+                        className="flex-1"
+                      >
+                        {t?.Setting?.Cancel || "Cancel"}
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
           {/* Right Column - Danger Zone */}
           <div className="lg:col-span-1">
-            <div className="border border-destructive/50 rounded-lg p-6 bg-destructive/5">
-              <p className="text-xl font-semibold text-destructive mb-2">
-                {t?.Setting?.DangerZone || "Danger Zone"}
-              </p>
-              <p className="text-lg font-medium mb-4">{t?.Setting?.DeleteProfile || "Delete Profile"}</p>
-              <p className="text-sm text-muted-foreground mb-4">
-                {t?.Setting?.["Once you delete your account, there is no going back. This action is irreversible."] || "Once you delete your account, there is no going back. This action is irreversible."}
-              </p>
-              <Dialog
-                open={deleteDialogOpen}
-                onOpenChange={(open) => {
-                  setDeleteDialogOpen(open);
-                  if (!open) {
-                    setDeletePassword("");
-                    setDeleteError("");
-                  }
-                }}
-              >
-                <DialogTrigger asChild>
-                  <Button variant="destructive" className="w-full">
-                    {t?.Setting?.["DeleteAccount "] || "Delete Account"}
-                  </Button>
-                </DialogTrigger>
+            <div className="group relative">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl blur opacity-30 group-hover:opacity-100 transition duration-500"></div>
+              <Card className="relative border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.01]">
+                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <Trash2 className="h-32 w-32 -mr-8 -mt-8" />
+                </div>
+                <CardHeader>
+                  <div className="p-3 rounded-xl bg-red-500/10 group-hover:bg-red-500/20 transition-colors inline-block mb-3">
+                    <Trash2 className="h-8 w-8 text-red-500" />
+                  </div>
+                  <CardTitle className="text-2xl text-destructive">
+                    {t?.Setting?.DangerZone || "Danger Zone"}
+                  </CardTitle>
+                  <CardDescription className="text-base">
+                    {t?.Setting?.DeleteProfile || "Delete Profile"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    {t?.Setting?.["Once you delete your account, there is no going back. This action is irreversible."] || "Once you delete your account, there is no going back. This action is irreversible."}
+                  </p>
+                  <Dialog
+                    open={deleteDialogOpen}
+                    onOpenChange={(open) => {
+                      setDeleteDialogOpen(open);
+                      if (!open) {
+                        setDeletePassword("");
+                        setDeleteError("");
+                      }
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button variant="destructive" className="w-full hover:scale-[1.02] transition-all">
+                        {t?.Setting?.["DeleteAccount "] || "Delete Account"}
+                      </Button>
+                    </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>
@@ -566,6 +643,8 @@ export default function SettingsPage() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>

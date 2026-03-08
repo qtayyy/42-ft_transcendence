@@ -29,7 +29,7 @@ export default async function (fastify, opts) {
         // 1. https://www.npmjs.com/package/@fastify/multipart
         // 2. https://betterstack.com/community/guides/scaling-nodejs/fastify-file-uploads/
         const parts = request.parts();
-        const ALLOWED_FIELDS = new Set(['email','username','dob','region']);
+        const ALLOWED_FIELDS = new Set(['email','username','dob','region','bio']);
         for await (const part of parts) {
           if (part.type === "file") {
             const uploadDir = path.join(process.cwd(), "uploads");
