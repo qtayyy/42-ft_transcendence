@@ -110,7 +110,7 @@ export function createGameLifecycle({
           player2Id: right.id,
           score1: left.score,
           score2: right.score,
-          mode: "REMOTE",
+          mode: gameState.tournamentId ? "REMOTE_TOURNAMENT" : "REMOTE",
         },
       });
       console.log(`Match ${matchId} saved to database`);
