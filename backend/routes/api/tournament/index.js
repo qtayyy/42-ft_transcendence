@@ -1,6 +1,9 @@
 import TournamentManager, {
   activeTournaments,
 } from "../../../game/TournamentManager.js";
+import { PrismaClient } from "../../../generated/prisma/index.js";
+
+const prisma = new PrismaClient();
 
 export default async function (fastify, opts) {
   // Expose activeTournaments to fastify instance for other plugins (ws-game-matches)
@@ -171,6 +174,23 @@ export default async function (fastify, opts) {
 
         // Update standings
         tournament.updateStandings({ player1Id, player2Id, score, outcome });
+
+        // Persist match to database (only when at least player1 is a registered user)
+        if (player1Id) {
+          try {
+            await prisma.match.create({
+              data: {
+                player1Id: player1Id,
+                player2Id: player2Id || null,
+                score1: score.p1,
+                score2: score.p2,
+                mode: "LOCAL_TOURNAMENT",
+              },
+            });
+          } catch (dbError) {
+            console.error("Failed to persist local tournament match:", dbError);
+          }
+        }
 
         // Check if we need to generate next round (Swiss only)
         if (tournament.format === "swiss") {
