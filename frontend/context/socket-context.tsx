@@ -182,11 +182,28 @@ export const SocketProvider = ({ children }) => {
 
 
 							case "MATCH_FOUND":
-								// Navigate to the lobby instead of the game
-								// Host (who is at /create) stays there. Joiner (at /matchmaking) is redirected to lobby.
-								const isHostPage = window.location.pathname.includes("/game/remote/single/create");
-								if (!isHostPage) {
-									stableDeps.current.router.push(`/game/remote/single/join?roomId=${payload.roomId}&matchmaking=true`);
+								// Navigate to lobby based on actual host identity (more reliable than pathname checks).
+								{
+									const hostId = Number(payload?.hostId);
+									const myId = Number(user?.id);
+									const hostKnown = !Number.isNaN(hostId);
+									const iAmHost = hostKnown && !Number.isNaN(myId) && hostId === myId;
+
+									if (hostKnown) {
+										if (iAmHost) {
+											if (!window.location.pathname.includes("/game/remote/single/create")) {
+												stableDeps.current.router.push("/game/remote/single/create?matchmaking=true");
+											}
+										} else {
+											stableDeps.current.router.push(`/game/remote/single/join?roomId=${payload.roomId}&matchmaking=true`);
+										}
+									} else {
+										// Backward-compatible fallback for older payloads.
+										const isHostPage = window.location.pathname.includes("/game/remote/single/create");
+										if (!isHostPage) {
+											stableDeps.current.router.push(`/game/remote/single/join?roomId=${payload.roomId}&matchmaking=true`);
+										}
+									}
 								}
 								break;
 
@@ -200,12 +217,15 @@ export const SocketProvider = ({ children }) => {
 							case "MATCHMAKING_JOINED":
 								// Optionally show queue position
 								console.log("Joined matchmaking queue, position:", payload.position);
+								window.dispatchEvent(
+									new CustomEvent("MATCHMAKING_JOINED", { detail: payload })
+								);
 								break;
 
 							case "MATCHMAKING_HOST":
 								// User has been designated as host for a new matchmade room
 								// Redirect to the create page which acts as the lobby
-								stableDeps.current.router.push("/game/remote/single/create");
+								stableDeps.current.router.push("/game/remote/single/create?matchmaking=true");
 								break;
 
 							case "MATCHMAKING_LEFT":
@@ -277,6 +297,9 @@ export const SocketProvider = ({ children }) => {
 										!ballMovedSignificantly &&
 										prev.leftPlayer?.score === payload.leftPlayer?.score &&
 										prev.rightPlayer?.score === payload.rightPlayer?.score &&
+										prev.leftPlayer?.gamePaused === payload.leftPlayer?.gamePaused &&
+										prev.rightPlayer?.gamePaused === payload.rightPlayer?.gamePaused &&
+										prev.gameStarted === payload.gameStarted &&
 										prev.paused === payload.paused &&
 										prev.resumeReady?.LEFT === payload.resumeReady?.LEFT &&
 										prev.resumeReady?.RIGHT === payload.resumeReady?.RIGHT &&

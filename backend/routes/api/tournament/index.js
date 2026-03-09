@@ -6,6 +6,28 @@ import { PrismaClient } from "../../../generated/prisma/index.js";
 const prisma = new PrismaClient();
 
 export default async function (fastify, opts) {
+  const isLocalTournamentId = (id) =>
+    typeof id === "string" && id.startsWith("local-tournament-");
+
+  /**
+   * Local tournaments are device-scoped and should not be blocked by auth expiry.
+   * Remote tournaments still require authentication.
+   */
+  const authenticateTournamentRequest = async (request, reply) => {
+    const bodyTournamentId =
+      request.body && typeof request.body === "object"
+        ? request.body.tournamentId
+        : null;
+    const paramTournamentId =
+      request.params && typeof request.params === "object"
+        ? request.params.id
+        : null;
+    const tournamentId = bodyTournamentId || paramTournamentId;
+
+    if (isLocalTournamentId(tournamentId)) return;
+    await fastify.authenticate(request, reply);
+  };
+
   // Expose activeTournaments to fastify instance for other plugins (ws-game-matches)
   // fastify.decorate("activeTournaments", activeTournaments); // Already decorated in websockets.js
 
@@ -46,7 +68,7 @@ export default async function (fastify, opts) {
   fastify.post(
     "/create",
     {
-      onRequest: [fastify.authenticate],
+      preHandler: [authenticateTournamentRequest],
     },
     async (request, reply) => {
       console.log(
@@ -123,7 +145,7 @@ export default async function (fastify, opts) {
   fastify.get(
     "/:id",
     {
-      onRequest: [fastify.authenticate],
+      preHandler: [authenticateTournamentRequest],
     },
     async (request, reply) => {
       try {
@@ -149,12 +171,13 @@ export default async function (fastify, opts) {
   fastify.post(
     "/:id/match-result",
     {
-      onRequest: [fastify.authenticate],
+      preHandler: [authenticateTournamentRequest],
     },
     async (request, reply) => {
       try {
         const { id } = request.params;
-        const { matchId, player1Id, player2Id, score, outcome } = request.body;
+        const { matchId, player1Id, player2Id, score, outcome, winnerId } =
+          request.body;
 
         const tournament = activeTournaments.get(id);
 
@@ -168,15 +191,21 @@ export default async function (fastify, opts) {
           return reply.code(404).send({ error: "Match not found" });
         }
 
-        // Update match status
-        match.status = "completed";
-        match.result = { player1Id, player2Id, score, outcome };
-
-        // Update standings
-        tournament.updateStandings({ player1Id, player2Id, score, outcome });
+        // Idempotency: duplicate submissions can happen after reconnect/retry.
+        // Let TournamentManager handle status transitions + round advancement safely.
+        const wasAlreadyCompleted = match.status === "completed";
+        const updateResult = tournament.updateMatchResult(
+          matchId,
+          score,
+          outcome,
+          winnerId || null,
+        );
+        if (!updateResult.success) {
+          return reply.code(400).send({ error: "Failed to update match result" });
+        }
 
         // Persist match to database (only when at least player1 is a registered user)
-        if (player1Id) {
+        if (!wasAlreadyCompleted && player1Id) {
           try {
             await prisma.match.create({
               data: {
@@ -189,47 +218,6 @@ export default async function (fastify, opts) {
             });
           } catch (dbError) {
             console.error("Failed to persist local tournament match:", dbError);
-          }
-        }
-
-        // Check if we need to generate next round (Swiss only)
-        if (tournament.format === "swiss") {
-          const roundMatches = tournament.matches.filter(
-            (m) => m.round === tournament.currentRound,
-          );
-          const allRoundComplete = roundMatches.every(
-            (m) => m.status === "completed" || m.status === "bye",
-          );
-
-          if (
-            allRoundComplete &&
-            tournament.currentRound < tournament.totalRounds
-          ) {
-            // Generate next round
-            // Guard against duplicate generation
-            const existingNextRound = tournament.matches.filter(
-              (m) => m.round === tournament.currentRound + 1,
-            );
-            if (existingNextRound.length === 0) {
-              tournament.currentRound += 1;
-              const nextRoundMatches = tournament.generateSwissPairings(
-                tournament.currentRound,
-              );
-              tournament.matches.push(...nextRoundMatches);
-            } else {
-              console.log(
-                `Tournament ${id}: Matches for Round ${tournament.currentRound + 1} already exist. Skipping.`,
-              );
-              // Consider advancing round if not already?
-              if (
-                tournament.matches.some(
-                  (m) => m.round === tournament.currentRound + 1,
-                )
-              ) {
-                // if matches exist, we probably should have incremented tournament.currentRound?
-                // But let's assume TournamentManager internal logic handled it.
-              }
-            }
           }
         }
 
@@ -254,7 +242,7 @@ export default async function (fastify, opts) {
   fastify.get(
     "/:id/leaderboard",
     {
-      onRequest: [fastify.authenticate],
+      preHandler: [authenticateTournamentRequest],
     },
     async (request, reply) => {
       try {
@@ -285,7 +273,7 @@ export default async function (fastify, opts) {
   fastify.get(
     "/:id/next-match",
     {
-      onRequest: [fastify.authenticate],
+      preHandler: [authenticateTournamentRequest],
     },
     async (request, reply) => {
       try {

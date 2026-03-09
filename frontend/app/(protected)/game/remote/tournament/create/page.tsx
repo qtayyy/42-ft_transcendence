@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Copy, Check, Users, Loader2, Play, Crown, User, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import axios from "axios";
+import { handleSessionExpiredRedirect } from "@/lib/session-expired";
 
 export default function CreateTournamentRoomPage() {
 	const router = useRouter();
@@ -32,8 +33,13 @@ export default function CreateTournamentRoomPage() {
 				const res = await axios.get("/api/game/room/create");
 				setRoomId(res.data.roomId);
 				setError(null);
-			} catch (err: any) {
-				setError(err.response?.data?.error || "Failed to create tournament room");
+			} catch (err: unknown) {
+				if (handleSessionExpiredRedirect(err, router, "/game/remote/tournament")) return;
+				const errorMessage =
+					axios.isAxiosError(err) && err.response?.data?.error
+						? String(err.response.data.error)
+						: "Failed to create tournament room";
+				setError(errorMessage);
 			} finally {
 				setCreating(false);
 			}
