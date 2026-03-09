@@ -53,6 +53,7 @@ export function NavigationGuard() {
 	const tournamentId = resolvedTournamentId || routeTournamentId;
 	const tournamentRoomId = gameRoom?.roomId || (tournamentId ? tournamentId.replace(/^RT-/, "") : null);
 	const isTournamentLobby = /^\/game\/remote\/tournament\/RT-/.test(pathname);
+	const isLocalTournamentLobby = /^\/game\/local\/tournament\/[^/]+$/.test(pathname);
 	const isLocalTournamentMatch = useMemo(() => {
 		if (isSpectator || !isRuntimeMatchRoute || isRemoteRuntimeMatch) return false;
 		if (typeof window === "undefined") return false;
@@ -84,15 +85,16 @@ export function NavigationGuard() {
 		}
 	}, [isSpectator, isRuntimeMatchRoute, isRemoteRuntimeMatch, routeMatchId]);
 	const isLocalMatch = isRuntimeMatchRoute && !isRemoteRuntimeMatch && !isLocalTournamentMatch && !isSpectator;
-	const guardTitle = isTournamentLobby || isLocalTournamentMatch
+	const isAnyTournamentContext = isTournamentLobby || isLocalTournamentLobby || isLocalTournamentMatch;
+	const guardTitle = isAnyTournamentContext
 		? "Active Tournament in Progress"
 		: "Active Match in Progress";
 	const stayLabel = isSpectator
 		? "Stay Here"
-		: isTournamentLobby || isLocalTournamentMatch
+		: isAnyTournamentContext
 			? "Stay in Tournament"
 			: "Stay in Match";
-	const leaveLabel = isTournamentLobby || isLocalTournamentMatch ? "Leave Tournament" : "Leave Game";
+	const leaveLabel = isAnyTournamentContext ? "Leave Tournament" : "Leave Game";
 
 	const handleStay = () => {
 		setShowNavGuard(false);
@@ -110,9 +112,9 @@ export function NavigationGuard() {
 			}
 			// Explicitly leave tournament room when user chooses "Leave Game"
 			// so backend can broadcast TOURNAMENT_PLAYER_LEFT / update standings.
-			if (tournamentRoomId && user?.id && (isTournamentLobby || !!tournamentId)) {
-				sendSocketMessage({
-					event: "LEAVE_ROOM",
+				if (tournamentRoomId && user?.id && (isTournamentLobby || !!tournamentId)) {
+					sendSocketMessage({
+						event: "LEAVE_ROOM",
 					payload: {
 						roomId: tournamentRoomId,
 						userId: user.id,
@@ -140,11 +142,13 @@ export function NavigationGuard() {
 							{guardTitle}
 						</DialogTitle>
 						<DialogDescription className="pt-2">
-							{isTournamentLobby ? (
-							<span className="block space-y-2">
-								<span className="block">You are currently in an active tournament lobby.</span>
-									<span className="block text-sm">Leaving now will withdraw you from the tournament and affect remaining matches.</span>
-								</span>
+							{isTournamentLobby || isLocalTournamentLobby ? (
+								<span className="block space-y-2">
+									<span className="block">You are currently in an active tournament lobby.</span>
+									<span className="block text-sm">
+										Leaving now will withdraw you from the tournament and affect remaining matches.
+									</span>
+									</span>
 							) : isLocalTournamentMatch ? (
 								<span className="block space-y-2">
 									<span className="block font-semibold text-foreground">You are currently in an active local tournament match.</span>

@@ -5,23 +5,25 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, ArrowLeft } from "lucide-react";
 
-interface LocalMatchRuntimeViewProps {
+interface LocalGameRuntimeViewProps {
 	isSpectator: boolean;
 	returnToLobby: () => void;
 	matchId: string;
 	handleGameOver: (winner: number | null, score: { p1: number; p2: number }, result: string) => Promise<void>;
 	handleExit: () => void;
 	isTournamentMatch: boolean;
+	pauseOnGuard: boolean;
 }
 
-export default function LocalMatchRuntimeView({
+export default function LocalGameRuntimeView({
 	isSpectator,
 	returnToLobby,
 	matchId,
 	handleGameOver,
 	handleExit,
 	isTournamentMatch,
-}: LocalMatchRuntimeViewProps) {
+	pauseOnGuard,
+}: LocalGameRuntimeViewProps) {
 	return (
 		<div className="relative">
 			{isSpectator && (
@@ -48,6 +50,7 @@ export default function LocalMatchRuntimeView({
 				onGameOver={handleGameOver}
 				onExit={handleExit}
 				isTournamentMatch={isTournamentMatch}
+				pauseOnGuard={pauseOnGuard}
 			/>
 		</div>
 	);

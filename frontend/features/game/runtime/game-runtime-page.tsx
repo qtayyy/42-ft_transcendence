@@ -7,12 +7,11 @@ import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
 import axios from "axios";
 import { toast } from "sonner";
+import type { GameState } from "@/types/game";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
-import { getPowerUpColor, getEffectColor, getPowerUpSymbol } from "@/utils/gameHelpers";
-import RemoteMatchRuntimeView from "@/features/game/runtime/remote-match-runtime-view";
-import LocalMatchRuntimeView from "@/features/game/runtime/local-match-runtime-view";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import RemoteGameRuntimeView from "@/features/game/runtime/remote-game-runtime-view";
+import LocalGameRuntimeView from "@/features/game/runtime/local-game-runtime-view";
 import { NavigationGuard } from "@/components/game/navigation-guard";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
 
@@ -27,8 +26,12 @@ const REMOTE_DISPLAY_SCALE = 1.4;
 const DEFAULT_PADDLE_WIDTH = 12;
 const DEFAULT_PADDLE_HEIGHT = 80;
 const DEFAULT_BALL_SIZE = 12;
+const DEFAULT_MATCH_DURATION = 120000;
+const DEFAULT_FPS = 60;
+const DEFAULT_TICK_MS = 1000 / DEFAULT_FPS;
+const DEFAULT_PADDLE_SPEED = 10;
 
-export default function GamePage() {
+export default function GameRuntimePage() {
 	const params = useParams();
 	const pathname = usePathname();
 	const router = useRouter();
@@ -36,7 +39,6 @@ export default function GamePage() {
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
 	const { gameState, setGameState, showNavGuard, setShowNavGuard, pendingPath, setPendingPath } = useGame();
-	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const matchId = params.matchId as string;
 	const [matchData, setMatchData] = useState<any>(null);
 	const [gameOverResult, setGameOverResult] = useState<any>(null);
@@ -429,7 +431,7 @@ export default function GamePage() {
 	const userRef = useRef(user);
 	const gameOverResultRef = useRef(gameOverResult);
 
-	// Keep gameStateRef updated for render loop without triggering re-renders
+	// Keep refs synced for disconnect/navigation cleanup without re-running effects
 	useEffect(() => {
 		gameStateRef.current = gameState;
 	}, [gameState]);
@@ -582,21 +584,32 @@ export default function GamePage() {
 			return;
 		}
 		if (navGuardPauseSentRef.current) return;
-		if (!pendingPath || !isRemoteGame || isSpectator) return;
+		if (!pendingPath || isSpectator) return;
 
-		const currentMatchId = gameState?.matchId;
-		const isAlreadyPaused = !!gameState?.paused;
-		if (!currentMatchId || isAlreadyPaused) return;
+		if (isRemoteGame) {
+			const currentMatchId = gameState?.matchId;
+			const isAlreadyPaused = !!gameState?.paused;
+			if (!currentMatchId || isAlreadyPaused) return;
 
+			navGuardPauseSentRef.current = true;
+			sendSocketMessage({
+				event: "GAME_EVENTS",
+				payload: {
+					matchId: currentMatchId,
+					userId: user?.id,
+					keyEvent: "PAUSE",
+				},
+			});
+			return;
+		}
+
+		// Local match: pause via local WS game loop.
+		window.dispatchEvent(
+			new CustomEvent("localGuardPauseRequested", {
+				detail: { matchId },
+			})
+		);
 		navGuardPauseSentRef.current = true;
-		sendSocketMessage({
-			event: "GAME_EVENTS",
-			payload: {
-				matchId: currentMatchId,
-				userId: user?.id,
-				keyEvent: "PAUSE",
-			},
-		});
 	}, [
 		showNavGuard,
 		pendingPath,
@@ -604,6 +617,7 @@ export default function GamePage() {
 		isSpectator,
 		gameState?.matchId,
 		gameState?.paused,
+		matchId,
 		user?.id,
 		sendSocketMessage
 	]);
@@ -627,136 +641,6 @@ export default function GamePage() {
 			router.push("/dashboard");
 		}
 	}, [matchId, sendSocketMessage, gameState, inferredTournamentId, router]);
-
-	// Render remote game based on game state
-	useEffect(() => {
-		console.log(`[GamePage] 🎬 Render effect triggered`, { isRemoteGame, hasCanvas: !!canvasRef.current });
-		if (!isRemoteGame) return;
-
-		let animId: number | null = null;
-		let isActive = true; // Prevent animation frame accumulation
-
-		console.log(`[GamePage] Starting render loop for match: ${matchId}`, { isSpectator });
-
-		function drawGame() {
-			const currentState = gameStateRef.current;
-			const canvas = canvasRef.current;
-			const ctx = canvas?.getContext("2d");
-			if (!ctx || !currentState || !isActive) {
-				if (!currentState && isSpectator) {
-					console.log(`[GamePage] 👁️ Spectator render skipped: no gameState`);
-				}
-				return;
-			}
-
-			// Get dimensions from game state or use defaults
-			const CANVAS_WIDTH = currentState.constant?.canvasWidth || DEFAULT_CANVAS_WIDTH;
-			const CANVAS_HEIGHT = currentState.constant?.canvasHeight || DEFAULT_CANVAS_HEIGHT;
-			const PADDLE_WIDTH = currentState.constant?.paddleWidth || DEFAULT_PADDLE_WIDTH;
-			const BALL_SIZE = currentState.constant?.ballSize || DEFAULT_BALL_SIZE;
-
-			const ball = currentState.ball;
-			const left = currentState.leftPlayer;
-			const right = currentState.rightPlayer;
-
-			// Clear canvas with black background
-			ctx.fillStyle = "#000000";
-			ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-			// Draw center line
-			ctx.setLineDash([10, 10]);
-			ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-			ctx.lineWidth = 2;
-			ctx.beginPath();
-			ctx.moveTo(CANVAS_WIDTH / 2, 0);
-			ctx.lineTo(CANVAS_WIDTH / 2, CANVAS_HEIGHT);
-			ctx.stroke();
-			ctx.setLineDash([]);
-
-			// Draw power-ups
-			if (currentState.powerUps && currentState.powerUps.length > 0) {
-				currentState.powerUps.forEach((pu: any) => {
-					ctx.beginPath();
-					const puRadius = 10;
-					ctx.arc(pu.x, pu.y, puRadius, 0, Math.PI * 2);
-					ctx.fillStyle = getPowerUpColor(pu.type);
-					ctx.fill();
-
-					// White border
-					ctx.strokeStyle = "#fff";
-					ctx.lineWidth = 1;
-					ctx.stroke();
-					ctx.closePath();
-
-					// Symbol
-					ctx.fillStyle = "#000";
-					ctx.font = "bold 10px Arial";
-					ctx.textAlign = "center";
-					ctx.textBaseline = "middle";
-					ctx.fillText(getPowerUpSymbol(pu.type), pu.x, pu.y);
-				});
-			}
-
-			// Draw ball with effect color if active
-			if (ball) {
-				ctx.beginPath();
-				ctx.arc(ball.posX + BALL_SIZE / 2, ball.posY + BALL_SIZE / 2, BALL_SIZE / 2, 0, 2 * Math.PI);
-				ctx.fillStyle = currentState.activeEffect
-					? getEffectColor(currentState.activeEffect.type)
-					: "#FFFFFF";
-				ctx.fill();
-			}
-
-			// Draw paddles with color coding:
-			// Green = your paddle (movable), Blue = opponent paddle
-			// Use dynamic paddle height from game state
-			const leftPaddleHeight = left?.paddleHeight || DEFAULT_PADDLE_HEIGHT;
-			const rightPaddleHeight = right?.paddleHeight || DEFAULT_PADDLE_HEIGHT;
-
-			if (left) {
-				ctx.fillStyle = currentState.me === "LEFT" ? "#22c55e" : "#3b82f6";
-				ctx.fillRect(left.paddleX, left.paddleY, PADDLE_WIDTH, leftPaddleHeight);
-			}
-
-			if (right) {
-				ctx.fillStyle = currentState.me === "RIGHT" ? "#22c55e" : "#3b82f6";
-				ctx.fillRect(right.paddleX, right.paddleY, PADDLE_WIDTH, rightPaddleHeight);
-			}
-
-			// Draw scores on canvas
-			const fontSize = 48;
-			ctx.font = `bold ${fontSize}px Arial`;
-			ctx.fillStyle = "white";
-			const centerX = CANVAS_WIDTH / 2;
-
-			// Left player score
-			ctx.textAlign = "right";
-			ctx.fillText(`${left?.score || 0}`, centerX - 30, 60);
-
-			// Right player score
-			ctx.textAlign = "left";
-			ctx.fillText(`${right?.score || 0}`, centerX + 30, 60);
-		}
-
-		function loop() {
-			if (!isActive) {
-				console.log(`[GamePage] Stopping render loop for match: ${matchId} (inactive)`);
-				return;
-			}
-			drawGame();
-			animId = requestAnimationFrame(loop);
-		}
-
-		animId = requestAnimationFrame(loop);
-
-		return () => {
-			console.log(`[GamePage] Cleaning up render loop for match: ${matchId}`);
-			isActive = false;
-			if (animId !== null) {
-				cancelAnimationFrame(animId);
-			}
-		};
-	}, [isRemoteGame, matchId]); // Removed gameState dependency to prevent infinite loop
 
 	const handleGameOver = async (winner: number | null, score: { p1: number; p2: number }, result: string) => {
 		console.log(`Game Over! Result: ${result}`, { winner, score });
@@ -831,9 +715,82 @@ export default function GamePage() {
 		router.push("/game/new");
 	};
 
+	const normalizedRemoteGameState = useMemo<GameState | null>(() => {
+		if (!isRemoteGame || !gameState) return null;
+
+		const constants = {
+			canvasWidth: gameState.constant?.canvasWidth || DEFAULT_CANVAS_WIDTH,
+			canvasHeight: gameState.constant?.canvasHeight || DEFAULT_CANVAS_HEIGHT,
+			paddleWidth: gameState.constant?.paddleWidth || DEFAULT_PADDLE_WIDTH,
+			paddleHeight: gameState.constant?.paddleHeight || DEFAULT_PADDLE_HEIGHT,
+			ballSize: gameState.constant?.ballSize || DEFAULT_BALL_SIZE,
+			matchDuration: gameState.constant?.matchDuration || DEFAULT_MATCH_DURATION,
+		};
+
+		const left = gameState.leftPlayer;
+		const right = gameState.rightPlayer;
+		const ball = gameState.ball;
+		if (!left || !right || !ball) return null;
+
+		const winnerToken = String(gameOverResult?.winner || "").toUpperCase();
+		const winner =
+			winnerToken === "LEFT" ? 1 : winnerToken === "RIGHT" ? 2 : null;
+		const result = winner ? "win" : gameOverResult ? "draw" : null;
+
+		return {
+			status: gameOverResult
+				? "finished"
+				: gameState.paused
+					? "paused"
+					: gameState.gameStarted
+						? "playing"
+						: "waiting",
+			constant: {
+				canvasWidth: constants.canvasWidth,
+				canvasHeight: constants.canvasHeight,
+				paddleWidth: constants.paddleWidth,
+				paddleHeight: constants.paddleHeight,
+				paddleSpeed: DEFAULT_PADDLE_SPEED,
+				ballSize: constants.ballSize,
+				FPS: DEFAULT_FPS,
+				TICK_MS: DEFAULT_TICK_MS,
+				matchDuration: constants.matchDuration,
+			},
+			timer: gameState.timer || {
+				timeElapsed: 0,
+				timeRemaining: constants.matchDuration,
+			},
+			ball: {
+				x: ball.posX || 0,
+				y: ball.posY || 0,
+				dx: ball.dx || 0,
+				dy: ball.dy || 0,
+			},
+			paddles: {
+				p1: {
+					x: left.paddleX || 0,
+					y: left.paddleY || 0,
+					moving: left.moving || null,
+				},
+				p2: {
+					x: right.paddleX ?? (constants.canvasWidth - constants.paddleWidth),
+					y: right.paddleY || 0,
+					moving: right.moving || null,
+				},
+			},
+			score: {
+				p1: left.score || 0,
+				p2: right.score || 0,
+			},
+			winner,
+			result,
+			powerUps: gameState.powerUps || [],
+			activeEffect: gameState.activeEffect || null,
+		};
+	}, [isRemoteGame, gameState, gameOverResult]);
+
 	// Get canvas dimensions from game state
 	const CANVAS_WIDTH = gameState?.constant?.canvasWidth || DEFAULT_CANVAS_WIDTH;
-	const CANVAS_HEIGHT = gameState?.constant?.canvasHeight || DEFAULT_CANVAS_HEIGHT;
 
 	// Remote game rendering
 	if (isRemoteGame) {
@@ -874,27 +831,26 @@ export default function GamePage() {
 			);
 		}
 
-		return (
-			<>
-				<RemoteMatchRuntimeView
-					canvasRef={canvasRef}
-					matchId={matchId}
-					gameState={gameState}
-					gameOverResult={gameOverResult}
-					isSpectator={isSpectator}
-					returnToLobby={returnToLobby}
-					sendSocketMessage={sendSocketMessage}
-					user={user}
-					setGameOverResult={setGameOverResult}
-					opponentConnected={opponentConnected}
-					router={router}
-					CANVAS_WIDTH={CANVAS_WIDTH}
-					CANVAS_HEIGHT={CANVAS_HEIGHT}
-					REMOTE_DISPLAY_SCALE={REMOTE_DISPLAY_SCALE}
-					gameStart={gameStart}
-					disconnectInfo={disconnectInfo}
-					pauseInfo={pauseInfo}
-				/>
+			return (
+				<>
+					<RemoteGameRuntimeView
+						matchId={matchId}
+						gameState={gameState}
+						normalizedGameState={normalizedRemoteGameState}
+						gameOverResult={gameOverResult}
+						isSpectator={isSpectator}
+						returnToLobby={returnToLobby}
+						sendSocketMessage={sendSocketMessage}
+						user={user}
+						setGameOverResult={setGameOverResult}
+						opponentConnected={opponentConnected}
+						router={router}
+						CANVAS_WIDTH={CANVAS_WIDTH}
+						REMOTE_DISPLAY_SCALE={REMOTE_DISPLAY_SCALE}
+						gameStart={gameStart}
+						disconnectInfo={disconnectInfo}
+						pauseInfo={pauseInfo}
+					/>
 				<NavigationGuard />
 			</>
 		);
@@ -902,13 +858,14 @@ export default function GamePage() {
 
 	return (
 		<>
-			<LocalMatchRuntimeView
+				<LocalGameRuntimeView
 				isSpectator={isSpectator}
 				returnToLobby={returnToLobby}
 				matchId={matchId}
 				handleGameOver={handleGameOver}
 				handleExit={handleExit}
 				isTournamentMatch={!!matchData?.isTournamentMatch}
+				pauseOnGuard={showNavGuard && !isSpectator && !gameOverResult}
 			/>
 			<NavigationGuard />
 		</>

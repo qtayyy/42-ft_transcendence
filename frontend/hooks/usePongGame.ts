@@ -13,12 +13,15 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const socketRef = useRef<WebSocket | null>(null);
+	const onGameOverRef = useRef(onGameOver);
 
 	// Local state for direct WebSocket mode
 	const [localGameState, setLocalGameState] = useState<GameState | null>(null);
 
 	// Determine active game state
 	const gameState = wsUrl ? localGameState : externalGameState;
+	const baseCanvasWidth = gameState?.constant?.canvasWidth || 800;
+	const baseCanvasHeight = gameState?.constant?.canvasHeight || 400;
 
 	// Responsive canvas
 	const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 400 });
@@ -29,7 +32,7 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 		const updateCanvasSize = () => {
 			if (!containerRef.current) return;
 			const container = containerRef.current;
-			const aspectRatio = 2; // 2:1 aspect ratio (800x400 game)
+			const aspectRatio = baseCanvasWidth / baseCanvasHeight;
 
 			// Calculate max dimensions that fit in container
 			const maxWidth = container.clientWidth - 32; // Account for padding
@@ -55,11 +58,11 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 		const resizeObserver = new ResizeObserver(updateCanvasSize);
 		if (containerRef.current) resizeObserver.observe(containerRef.current);
 
-		return () => {
-			console.log(`[usePongGame] Cleaning up resize observer for match: ${matchId}`);
-			resizeObserver.disconnect();
-		};
-	}, [matchId]);
+			return () => {
+				console.log(`[usePongGame] Cleaning up resize observer for match: ${matchId}`);
+				resizeObserver.disconnect();
+			};
+	}, [matchId, baseCanvasWidth, baseCanvasHeight]);
 
 	// WebSocket Connection
 	useEffect(() => {
@@ -72,13 +75,13 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 
 		ws.onmessage = (event) => {
 			try {
-				const data = JSON.parse(event.data);
-				if (data.type === "GAME_OVER") {
-					if (onGameOver) onGameOver(data.winner, data.score, data.result || 'win');
-					// Store final result
-					setLocalGameState(prev => prev ? ({ ...prev, status: 'finished', winner: data.winner, score: data.score, result: data.result }) : null);
-				} else {
-					setLocalGameState(data);
+			const data = JSON.parse(event.data);
+			if (data.type === "GAME_OVER") {
+				if (onGameOverRef.current) onGameOverRef.current(data.winner, data.score, data.result || 'win');
+				// Store final result
+				setLocalGameState(prev => prev ? ({ ...prev, status: 'finished', winner: data.winner, score: data.score, result: data.result }) : null);
+			} else {
+				setLocalGameState(data);
 				}
 			} catch (e) {
 				console.error("[usePongGame] WS Parse Error", e);
@@ -90,10 +93,15 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 			console.log(`[usePongGame] 🔌 Closing WebSocket connection for match: ${matchId}`);
 			ws.close();
 		};
-	}, [wsUrl, matchId, onGameOver]);
+	}, [wsUrl, matchId]);
+
+	useEffect(() => {
+		onGameOverRef.current = onGameOver;
+	}, [onGameOver]);
 
 	// Input Handling
 	useEffect(() => {
+		if (!wsUrl) return;
 		console.log(`[usePongGame] Registering keyboard input listeners for match: ${matchId}`);
 
 		const sendInput = (payload: object) => {
@@ -124,12 +132,12 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 
 		window.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("keyup", handleKeyUp);
-		return () => {
-			console.log(`[usePongGame] Removing keyboard input listeners for match: ${matchId}`);
-			window.removeEventListener("keydown", handleKeyDown);
-			window.removeEventListener("keyup", handleKeyUp);
-		};
-	}, [matchId]);
+			return () => {
+				console.log(`[usePongGame] Removing keyboard input listeners for match: ${matchId}`);
+				window.removeEventListener("keydown", handleKeyDown);
+				window.removeEventListener("keyup", handleKeyUp);
+			};
+	}, [matchId, wsUrl]);
 
 	return {
 		gameState,

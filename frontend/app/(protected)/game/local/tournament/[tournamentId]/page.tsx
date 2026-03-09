@@ -1,12 +1,14 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useGame } from "@/hooks/use-game";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Leaderboard from "@/components/game/Leaderboard";
+import { NavigationGuard } from "@/components/game/navigation-guard";
 import { Tournament, TournamentMatch } from "@/lib/tournament";
 import { Play, Trophy, ArrowLeft, Crown, History, Medal, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -24,8 +26,10 @@ type PendingTournamentResult = {
 
 export default function TournamentPage() {
 	const params = useParams();
+	const pathname = usePathname();
 	const router = useRouter();
 	const { user } = useAuth();
+	const { setShowNavGuard, setPendingPath } = useGame();
 	const tournamentId = params.tournamentId as string;
 
 	const [tournament, setTournament] = useState<Tournament | null>(null);
@@ -101,6 +105,46 @@ export default function TournamentPage() {
 	useEffect(() => {
 		fetchTournament();
 	}, [fetchTournament]);
+
+	const shouldGuardNavigation = !!tournament && !tournament.isComplete;
+
+	useEffect(() => {
+		if (!shouldGuardNavigation) return;
+
+		const warningMessage = "Navigating away will forfeit the entire tournament. Are you sure you want to leave?";
+		const handleRouteChange = (e: BeforeUnloadEvent) => {
+			e.preventDefault();
+			e.returnValue = warningMessage;
+			return e.returnValue;
+		};
+
+		const handleNavigationClick = (e: MouseEvent) => {
+			const target = e.target as HTMLElement;
+			const link = target.closest("a[href]");
+			if (!link) return;
+
+			const href = link.getAttribute("href");
+			if (!href || href === "#" || href.startsWith("http")) return;
+			if (href === pathname) return;
+
+			e.preventDefault();
+			e.stopPropagation();
+			setPendingPath(href);
+			setShowNavGuard(true);
+		};
+
+		window.addEventListener("beforeunload", handleRouteChange);
+		document.addEventListener("click", handleNavigationClick, true);
+		return () => {
+			window.removeEventListener("beforeunload", handleRouteChange);
+			document.removeEventListener("click", handleNavigationClick, true);
+		};
+	}, [shouldGuardNavigation, pathname, setPendingPath, setShowNavGuard]);
+
+	const handleExitTournament = () => {
+		setPendingPath("/game/new");
+		setShowNavGuard(true);
+	};
 
 	const handleStartMatch = () => {
 		if (!currentMatch) return;
@@ -260,14 +304,14 @@ export default function TournamentPage() {
 		<div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b from-background to-muted/20">
 			<div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
 				{/* Navigation & Header */}
-				<div className="flex flex-col md:flex-row items-center justify-between gap-4">
-					<Button
-						variant="ghost"
-						onClick={() => router.push("/game/new")}
-						className="text-muted-foreground hover:text-foreground pl-0 gap-2 self-start md:self-center"
-					>
-						<ArrowLeft className="h-4 w-4" />
-						Exit Tournament
+					<div className="flex flex-col md:flex-row items-center justify-between gap-4">
+						<Button
+							variant="ghost"
+							onClick={handleExitTournament}
+							className="text-muted-foreground hover:text-foreground pl-0 gap-2 self-start md:self-center"
+						>
+							<ArrowLeft className="h-4 w-4" />
+							Exit Tournament
 					</Button>
 					
 					<div className="text-center md:text-right">
@@ -436,7 +480,8 @@ export default function TournamentPage() {
 						</div>
 					</div>
 				</div>
+				</div>
+				<NavigationGuard />
 			</div>
-		</div>
-	);
-}
+		);
+	}

@@ -1,19 +1,20 @@
 "use client";
 
-import type { RefObject } from "react";
+import type { GameState } from "@/types/game";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, ArrowLeft, Timer, Keyboard, Gamepad2, Hash, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTime } from "@/utils/gameHelpers";
+import PongGame from "@/components/game/PongGame";
 import { ReadyOverlay } from "@/components/game/ReadyOverlay";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
 import { GameOverOverlay } from "@/components/game/GameOverOverlay";
 
-interface RemoteMatchRuntimeViewProps {
-	canvasRef: RefObject<HTMLCanvasElement | null>;
+interface RemoteGameRuntimeViewProps {
 	matchId: string;
 	gameState: any;
+	normalizedGameState: GameState | null;
 	gameOverResult: any;
 	isSpectator: boolean;
 	returnToLobby: () => void;
@@ -23,17 +24,16 @@ interface RemoteMatchRuntimeViewProps {
 	opponentConnected: boolean;
 	router: any;
 	CANVAS_WIDTH: number;
-	CANVAS_HEIGHT: number;
 	REMOTE_DISPLAY_SCALE: number;
 	gameStart: any;
 	disconnectInfo: any;
 	pauseInfo: any;
 }
 
-export default function RemoteMatchRuntimeView({
-	canvasRef,
+export default function RemoteGameRuntimeView({
 	matchId,
 	gameState,
+	normalizedGameState,
 	gameOverResult,
 	isSpectator,
 	returnToLobby,
@@ -43,12 +43,11 @@ export default function RemoteMatchRuntimeView({
 	opponentConnected,
 	router,
 	CANVAS_WIDTH,
-	CANVAS_HEIGHT,
 	REMOTE_DISPLAY_SCALE,
 	gameStart,
 	disconnectInfo,
 	pauseInfo,
-}: RemoteMatchRuntimeViewProps) {
+}: RemoteGameRuntimeViewProps) {
 	return (
 		<div className="h-screen pt-32 pb-4 flex flex-col overflow-hidden bg-gradient-to-b from-background to-muted/20 relative">
 			<div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -115,24 +114,23 @@ export default function RemoteMatchRuntimeView({
 			</div>
 
 			<div className="flex-1 w-full relative flex items-center justify-center p-4 overflow-hidden z-0">
-				<div
-					className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group"
-					style={{
-						width: `${CANVAS_WIDTH * REMOTE_DISPLAY_SCALE}px`,
-						maxWidth: "95vw",
-					}}
-				>
-					<div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
-					<canvas
-						ref={canvasRef}
-						className="block bg-[#020817] w-full h-auto"
-						width={CANVAS_WIDTH}
-						height={CANVAS_HEIGHT}
-						style={{ touchAction: "none" }}
-					/>
+					<div
+						className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group"
+						style={{
+							width: `${CANVAS_WIDTH * REMOTE_DISPLAY_SCALE}px`,
+							maxWidth: "95vw",
+						}}
+					>
+						<PongGame
+							matchId={matchId}
+							mode="remote"
+							gameState={normalizedGameState}
+							layout="canvasOnly"
+							showBuiltInOverlays={false}
+						/>
 
-					{/* Waiting for players overlay - only show when not paused */}
-					{gameState && !gameState?.gameStarted && !gameStart && !(gameState as any)?.paused && !gameOverResult && isSpectator && (
+						{/* Waiting for players overlay - only show when not paused */}
+						{gameState && !gameState?.gameStarted && !gameStart && !(gameState as any)?.paused && !gameOverResult && isSpectator && (
 						<div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm p-8">
 							<div className="flex flex-col items-center justify-center space-y-4">
 								<Loader2 className="h-12 w-12 text-primary animate-spin" />
