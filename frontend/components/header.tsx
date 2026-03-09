@@ -55,7 +55,9 @@ export default function Header() {
     return routeId !== "new" && routeId !== "remote" && routeId !== "local";
   }, [pathname]);
   const isTournamentLobbyRoute = useMemo(
-    () => /^\/game\/remote\/tournament\/RT-/.test(pathname),
+    () =>
+      /^\/game\/remote\/tournament\/RT-/.test(pathname) ||
+      /^\/game\/local\/tournament\/[^/]+$/.test(pathname),
     [pathname]
   );
   const isGameActive = useMemo(() => {

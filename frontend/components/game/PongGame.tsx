@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { GameState, GameMode } from "@/types/game";
 import { usePongGame } from "@/hooks/usePongGame";
 import { renderGame } from "@/utils/gameRenderer";
@@ -23,6 +23,11 @@ interface PongGameProps {
 	onGameOver?: (winner: number | null, score: { p1: number; p2: number }, result: string) => void;
 	onExit?: () => void;
 	isTournamentMatch?: boolean;
+	layout?: "full" | "canvasOnly";
+	showBuiltInOverlays?: boolean;
+	onStart?: () => void;
+	onPauseToggle?: () => void;
+	pauseOnGuard?: boolean;
 }
 
 export default function PongGame({
@@ -33,6 +38,11 @@ export default function PongGame({
 	onGameOver,
 	onExit,
 	isTournamentMatch = false,
+	layout = "full",
+	showBuiltInOverlays = true,
+	onStart,
+	onPauseToggle,
+	pauseOnGuard = false,
 }: PongGameProps) {
 	const {
 		gameState,
@@ -41,6 +51,7 @@ export default function PongGame({
 		canvasDimensions,
 		socketRef
 	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver });
+	const guardPauseSentRef = useRef(false);
 
 	// Determine Display ID & Suffix
 	let cleanId = matchId.replace(/^(local-|tournament-)/, '');
@@ -81,6 +92,95 @@ export default function PongGame({
 				rightPlayer: { username: "Player 2", score: gameState.score.p2 },
 			}
 			: null;
+
+	const handleStart = () => {
+		if (onStart) {
+			onStart();
+			return;
+		}
+		if (socketRef.current?.readyState === WebSocket.OPEN) {
+			socketRef.current.send(JSON.stringify({ type: "START" }));
+		}
+	};
+
+	const handlePauseToggle = () => {
+		if (onPauseToggle) {
+			onPauseToggle();
+			return;
+		}
+		if (socketRef.current?.readyState === WebSocket.OPEN) {
+			socketRef.current.send(JSON.stringify({ type: "PAUSE" }));
+		}
+	};
+
+	const requestLocalPauseForGuard = useCallback(() => {
+		if (guardPauseSentRef.current) return;
+
+		let attempts = 0;
+		const maxAttempts = 30;
+		const tryPause = () => {
+			if (guardPauseSentRef.current) return;
+			if (gameState?.status !== "playing") return;
+
+			const ws = socketRef.current;
+			if (ws?.readyState === WebSocket.OPEN) {
+				ws.send(JSON.stringify({ type: "PAUSE" }));
+				guardPauseSentRef.current = true;
+				return;
+			}
+
+			attempts += 1;
+			if (attempts < maxAttempts) {
+				window.setTimeout(tryPause, 50);
+			}
+		};
+
+		tryPause();
+	}, [gameState?.status, socketRef]);
+
+	// Auto-pause local game when navigation guard opens.
+	// Prevent duplicate PAUSE toggles while guard remains open.
+	useEffect(() => {
+		if (!pauseOnGuard) {
+			guardPauseSentRef.current = false;
+			return;
+		}
+		if (guardPauseSentRef.current) return;
+		if (mode !== "local" || wsUrl === undefined) return;
+		if (gameState?.status !== "playing") return;
+		requestLocalPauseForGuard();
+	}, [pauseOnGuard, mode, wsUrl, gameState?.status, requestLocalPauseForGuard]);
+
+	// Runtime guard trigger for local matches.
+	useEffect(() => {
+		if (mode !== "local" || wsUrl === undefined) return;
+
+		const handleLocalGuardPause = (event: Event) => {
+			const customEvent = event as CustomEvent<{ matchId?: string }>;
+			if (customEvent.detail?.matchId && customEvent.detail.matchId !== matchId) return;
+			requestLocalPauseForGuard();
+		};
+
+		window.addEventListener("localGuardPauseRequested", handleLocalGuardPause as EventListener);
+		return () => {
+			window.removeEventListener("localGuardPauseRequested", handleLocalGuardPause as EventListener);
+		};
+	}, [mode, wsUrl, matchId, requestLocalPauseForGuard]);
+
+	if (layout === "canvasOnly") {
+		return (
+			<div ref={containerRef} className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group w-full max-w-full">
+				<div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
+				<canvas
+					ref={canvasRef}
+					width={canvasDimensions.width}
+					height={canvasDimensions.height}
+					className="block bg-[#020817] w-full h-auto"
+					style={{ touchAction: "none", width: "100%", height: "auto" }}
+				/>
+			</div>
+		);
+	}
 
 	return (
 		<div className="h-screen pt-32 pb-4 flex flex-col overflow-hidden bg-gradient-to-b from-background to-muted/20 relative">
@@ -156,7 +256,7 @@ export default function PongGame({
 			<div ref={containerRef} className="flex-1 w-full relative flex items-center justify-center p-4 overflow-hidden z-0">
 				
 				{/* Waiting Overlay */}
-				{gameState?.status === "waiting" && (
+				{showBuiltInOverlays && gameState?.status === "waiting" && (
 					<div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
 						<Card className="border-yellow-500/50 bg-yellow-500/10 animate-pulse">
 							<div className="px-6 py-4 text-yellow-500 font-bold text-lg flex items-center gap-2">
@@ -168,15 +268,13 @@ export default function PongGame({
 				)}
 
 				{/* Pause Overlay */}
-			<PauseOverlay
-				isOpen={gameState?.status === "paused"}
-				mode={mode}
-				onResume={() => {
-					if (socketRef.current?.readyState === WebSocket.OPEN) {
-						socketRef.current.send(JSON.stringify({ type: "PAUSE" }));
-					}
-				}}
-			/>
+			{showBuiltInOverlays && (
+				<PauseOverlay
+					isOpen={gameState?.status === "paused"}
+					mode={mode}
+					onResume={handlePauseToggle}
+				/>
+			)}
 
 			{/* Canvas */}
 				<div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group max-w-full">
@@ -225,7 +323,7 @@ export default function PongGame({
 				</div>
 			</div>
 
-			{localGameOverResult && (
+			{showBuiltInOverlays && localGameOverResult && (
 				<GameOverOverlay
 					gameOverResult={localGameOverResult}
 					mode="local"
@@ -236,19 +334,17 @@ export default function PongGame({
 			)}
 
 			{/* Ready Overlay */}
-			<ReadyOverlay
-				isOpen={gameState?.status === "waiting"}
-				mode={mode}
-				player1Ready={true} // TODO: Get from game state for remote matches
-				player2Ready={true} // TODO: Get from game state for remote matches
-				player1Name="Player 1" // TODO: Get from game state
-				player2Name="Player 2" // TODO: Get from game state
-				onStart={() => {
-					if (socketRef.current?.readyState === WebSocket.OPEN) {
-						socketRef.current.send(JSON.stringify({ type: "START" }));
-					}
-				}}
-			/>
+			{showBuiltInOverlays && (
+				<ReadyOverlay
+					isOpen={gameState?.status === "waiting"}
+					mode={mode}
+					player1Ready={true} // TODO: Get from game state for remote matches
+					player2Ready={true} // TODO: Get from game state for remote matches
+					player1Name="Player 1" // TODO: Get from game state
+					player2Name="Player 2" // TODO: Get from game state
+					onStart={handleStart}
+				/>
+			)}
 		</div>
 	);
 }
