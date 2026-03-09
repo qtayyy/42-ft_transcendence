@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, UserPlus, X, Play, ArrowLeft, Trophy, Crown } from "lucide-react";
+import { User, UserPlus, X, ArrowLeft, Trophy, Crown } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { handleSessionExpiredRedirect } from "@/lib/session-expired";
 
 export default function LocalTournamentPage() {
 	const router = useRouter();
@@ -36,6 +37,11 @@ export default function LocalTournamentPage() {
 		if (!canStartTournament) return;
 
 		try {
+			// Local tournaments must use a local-prefixed ID.
+			// If we let backend default to RT-*, local match IDs become RT-* and
+			// runtime misclassifies them as remote matches.
+			const localTournamentId = `local-tournament-${Date.now()}`;
+
 			// Build full player list
 			const allPlayers = [
 				{ id: user?.id || 'user', name: user?.username || "You", isTemp: false },
@@ -44,7 +50,8 @@ export default function LocalTournamentPage() {
 
 			// Create tournament via backend
 			const response = await axios.post("/api/tournament/create", {
-				players: allPlayers
+				players: allPlayers,
+				tournamentId: localTournamentId,
 			});
 
 			const { tournamentId } = response.data;
@@ -52,6 +59,7 @@ export default function LocalTournamentPage() {
 			// Navigate to tournament page
 			router.push(`/game/local/tournament/${tournamentId}`);
 		} catch (error) {
+			if (handleSessionExpiredRedirect(error, router, "/game/local/tournament")) return;
 			console.error("Failed to create tournament:", error);
 			alert("Failed to create tournament. Please try again.");
 		}
