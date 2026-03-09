@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Copy, Check, Users, Loader2, Play, Crown, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import axios from "axios";
+import { handleSessionExpiredRedirect } from "@/lib/session-expired";
 
 export default function CreateRoomPage() {
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
 	const { gameRoom, onlineFriends } = useGame();
@@ -21,10 +23,47 @@ export default function CreateRoomPage() {
 	const [copied, setCopied] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const hasSentMatchmakingJoinRef = useRef(false);
+	const isMatchmakingMode = searchParams.get("matchmaking") === "true";
+
+	const sendJoinMatchmaking = useCallback(() => {
+		if (!user || !isReady) return;
+		sendSocketMessage({
+			event: "JOIN_MATCHMAKING",
+			payload: {
+				userId: user.id,
+				username: user.username,
+				mode: "single",
+			},
+		});
+	}, [user, isReady, sendSocketMessage]);
+
+	// Public matchmaking mode: join queue directly from create page.
+	useEffect(() => {
+		if (!isMatchmakingMode || !user || !isReady) return;
+		if (hasSentMatchmakingJoinRef.current) return;
+		hasSentMatchmakingJoinRef.current = true;
+		sendJoinMatchmaking();
+	}, [isMatchmakingMode, user, isReady, sendJoinMatchmaking]);
+
+	// Keep room info in sync and redirect non-hosts to join lobby.
+	useEffect(() => {
+		if (!isMatchmakingMode || !gameRoom || !user) return;
+		const me = Number(user.id);
+		const isMember = gameRoom.joinedPlayers?.some((p) => Number(p.id) === me);
+		if (!isMember) return;
+
+		setRoomId(gameRoom.roomId);
+		if (Number(gameRoom.hostId) !== me) {
+			router.push(`/game/remote/single/join?roomId=${gameRoom.roomId}&matchmaking=true`);
+		}
+	}, [isMatchmakingMode, gameRoom, user, router]);
 
 	// Create room on mount
 	useEffect(() => {
 		const createRoom = async () => {
+			if (isMatchmakingMode) return;
+
 			// If we already have a gameRoom (e.g. from matchmaking host redirect), uses that
 			if (gameRoom && gameRoom.hostId === Number(user?.id)) {
 				setRoomId(gameRoom.roomId);
@@ -37,14 +76,19 @@ export default function CreateRoomPage() {
 				const res = await axios.get("/api/game/room/create?maxPlayers=2");
 				setRoomId(res.data.roomId);
 				setError(null);
-			} catch (err: any) {
-				setError(err.response?.data?.error || "Failed to create room");
+			} catch (err: unknown) {
+				if (handleSessionExpiredRedirect(err, router, "/game/remote/single")) return;
+				const errorMessage =
+					axios.isAxiosError(err) && err.response?.data?.error
+						? String(err.response.data.error)
+						: "Failed to create room";
+				setError(errorMessage);
 			} finally {
 				setCreating(false);
 			}
 		};
 		createRoom();
-	}, [user, gameRoom]);
+	}, [user, gameRoom, isMatchmakingMode]);
 
 	// Poll for room updates every 2 seconds
 	useEffect(() => {
@@ -76,15 +120,40 @@ export default function CreateRoomPage() {
 	};
 
 	const handleStartGame = () => {
-		if (!gameRoom || gameRoom.joinedPlayers.length < 2 || !roomId || !isReady) return;
+		console.log('🎮 [Start Match] Button clicked!');
+		console.log('🎮 [Start Match] Checking conditions:', {
+			hasGameRoom: !!gameRoom,
+			playerCount: gameRoom?.joinedPlayers.length,
+			roomId: roomId,
+			isReady: isReady
+		});
+
+		if (!gameRoom || gameRoom.joinedPlayers.length < 2 || !roomId || !isReady) {
+			console.error('❌ [Start Match] Cannot start game - conditions not met:', {
+				gameRoom: !!gameRoom,
+				players: gameRoom?.joinedPlayers.length || 0,
+				roomId: roomId,
+				socketReady: isReady
+			});
+			return;
+		}
+
+		console.log('✅ [Start Match] All conditions met! Sending START_ROOM_GAME event');
 		// Send start game event - both players will receive GAME_MATCH_START
 		sendSocketMessage({
 			event: "START_ROOM_GAME",
 			payload: { roomId },
 		});
+		console.log('📤 [Start Match] Event sent successfully');
 	};
 
 	const handleLeave = () => {
+		if (isMatchmakingMode && user && isReady) {
+			sendSocketMessage({
+				event: "LEAVE_MATCHMAKING",
+				payload: { userId: user.id },
+			});
+		}
 		if (roomId && user && isReady) {
 			sendSocketMessage({
 				event: "LEAVE_ROOM",
@@ -118,13 +187,18 @@ export default function CreateRoomPage() {
 							<div className="mx-auto p-4 rounded-full bg-blue-500/10 mb-4 ring-1 ring-blue-500/20">
 								<Users className="h-8 w-8 text-blue-500" />
 							</div>
-							<CardTitle className="text-2xl font-bold">Game Room</CardTitle>
-							<CardDescription>Share the code with a friend to join</CardDescription>
+							<CardTitle className="text-2xl font-bold">{isMatchmakingMode ? "Finding Opponent" : "Game Room"}</CardTitle>
+							<CardDescription>{isMatchmakingMode ? "Searching public queue and preparing your lobby..." : "Share the code with a friend to join"}</CardDescription>
 						</CardHeader>
 
 						<CardContent className="space-y-6">
 							{/* Room Code */}
-							{creating ? (
+							{(isMatchmakingMode && !roomId && !error) ? (
+								<div className="flex items-center justify-center py-8">
+									<Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+									<span className="ml-3 text-muted-foreground">Searching matchmaking...</span>
+								</div>
+							) : creating ? (
 								<div className="flex items-center justify-center py-8">
 									<Loader2 className="h-8 w-8 animate-spin text-blue-500" />
 									<span className="ml-3 text-muted-foreground">Creating room...</span>

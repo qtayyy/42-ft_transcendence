@@ -1,7 +1,7 @@
 "use client";
 
-import MatchRuntimePage from "@/features/game/runtime/match-runtime-page";
+import GameRuntimePage from "@/features/game/runtime/game-runtime-page";
 
 export default function GamePageRoute() {
-	return <MatchRuntimePage />;
+	return <GameRuntimePage />;
 }

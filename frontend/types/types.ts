@@ -1,16 +1,16 @@
 import React from "react";
 
 export interface FriendRequest {
-  id: number;
-  requesterId: number;
-  addresseeId: number;
-  status: "PENDING" | "ACCEPTED" | "DECLINED";
-  createdAt: string;
-  requester: {
-    id: number;
-    username: string;
-    avatar?: string;
-  };
+	id: number;
+	requesterId: number;
+	addresseeId: number;
+	status: "PENDING" | "ACCEPTED" | "DECLINED";
+	createdAt: string;
+	requester: {
+		id: number;
+		username: string;
+		avatar?: string;
+	};
 };
 
 export interface Friend {
@@ -31,14 +31,14 @@ export interface SocketContextValue {
 }
 
 export interface UserProfile {
-  id: string;
-  email: string;
-  avatar?: string;
-  username: string;
-  fullname?: string;
-  dob?: string;
-  region?: string;
-  bio?: string;
+	id: string;
+	email: string;
+	avatar?: string;
+	username: string;
+	fullname?: string;
+	dob?: string;
+	region?: string;
+	bio?: string;
 };
 
 export interface AuthContextValue {
