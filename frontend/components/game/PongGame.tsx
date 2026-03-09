@@ -2,10 +2,12 @@ import { useEffect } from "react";
 import { GameState, GameMode } from "@/types/game";
 import { usePongGame } from "@/hooks/usePongGame";
 import { renderGame } from "@/utils/gameRenderer";
-import { GameOverDialog } from "@/components/game/GameOverDialog";
+import { GameOverOverlay } from "@/components/game/GameOverOverlay";
 import { ReadyOverlay } from "@/components/game/ReadyOverlay";
+import { PauseOverlay } from "@/components/game/PauseOverlay";
 import { formatTime } from "@/utils/gameHelpers";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Timer, Keyboard, Gamepad2, Hash, Zap, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +72,15 @@ export default function PongGame({
 
 		renderGame(context, gameState, canvasDimensions);
 	}, [gameState, canvasDimensions]);
+
+	const localGameOverResult =
+		gameState?.status === "finished"
+			? {
+				winner: gameState.winner === 1 ? "LEFT" : gameState.winner === 2 ? "RIGHT" : undefined,
+				leftPlayer: { username: "Player 1", score: gameState.score.p1 },
+				rightPlayer: { username: "Player 2", score: gameState.score.p2 },
+			}
+			: null;
 
 	return (
 		<div className="h-screen pt-32 pb-4 flex flex-col overflow-hidden bg-gradient-to-b from-background to-muted/20 relative">
@@ -157,17 +168,15 @@ export default function PongGame({
 				)}
 
 				{/* Pause Overlay */}
-			{gameState?.status === "paused" && (
-					<div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-						<Card className="border-blue-500/50 bg-blue-500/10">
-							<div className="px-8 py-6 flex flex-col items-center gap-3">
-								<Pause className="h-10 w-10 text-blue-400" />
-								<div className="text-blue-400 font-bold text-2xl tracking-widest uppercase">Paused</div>
-								<div className="text-muted-foreground text-sm">Press <kbd className="px-2 py-0.5 bg-white/10 rounded text-white font-mono">Space</kbd> to resume</div>
-							</div>
-						</Card>
-					</div>
-				)}
+			<PauseOverlay
+				isOpen={gameState?.status === "paused"}
+				mode={mode}
+				onResume={() => {
+					if (socketRef.current?.readyState === WebSocket.OPEN) {
+						socketRef.current.send(JSON.stringify({ type: "PAUSE" }));
+					}
+				}}
+			/>
 
 			{/* Canvas */}
 				<div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group max-w-full">
@@ -216,11 +225,15 @@ export default function PongGame({
 				</div>
 			</div>
 
-			<GameOverDialog
-				gameState={gameState || null}
-				open={gameState?.status === "finished"}
-				onExit={onExit}
-			/>
+			{localGameOverResult && (
+				<GameOverOverlay
+					gameOverResult={localGameOverResult}
+					mode="local"
+					onExit={onExit}
+					localActionLabel={isTournamentMatch ? "Return to Lobby" : "Continue to Menu"}
+					localAutoExitSeconds={isTournamentMatch ? 5 : undefined}
+				/>
+			)}
 
 			{/* Ready Overlay */}
 			<ReadyOverlay
