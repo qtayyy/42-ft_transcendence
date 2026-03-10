@@ -33,10 +33,14 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 			if (!containerRef.current) return;
 			const container = containerRef.current;
 			const aspectRatio = baseCanvasWidth / baseCanvasHeight;
+			const computed = window.getComputedStyle(container);
+			const paddingX = (parseFloat(computed.paddingLeft) || 0) + (parseFloat(computed.paddingRight) || 0);
+			const paddingY = (parseFloat(computed.paddingTop) || 0) + (parseFloat(computed.paddingBottom) || 0);
 
-			// Calculate max dimensions that fit in container
-			const maxWidth = container.clientWidth - 32; // Account for padding
-			const maxHeight = container.clientHeight - 32;
+			// Use actual container padding to avoid mode-specific shrink differences.
+			const maxWidth = Math.max(container.clientWidth - paddingX, 0);
+			const maxHeight = Math.max(container.clientHeight - paddingY, 0);
+			if (!maxWidth || !maxHeight) return;
 
 			let width = maxWidth;
 			let height = width / aspectRatio;
@@ -47,11 +51,14 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 				width = height * aspectRatio;
 			}
 
-			// Clamp to reasonable bounds
-			width = Math.max(400, Math.min(width, 1400));
+			// Cap extremely large desktops, but allow small windows/mobile widths.
+			width = Math.min(width, 1400);
 			height = width / aspectRatio;
 
-			setCanvasDimensions({ width, height });
+			setCanvasDimensions({
+				width: Math.round(width),
+				height: Math.round(height),
+			});
 		};
 
 		updateCanvasSize();
