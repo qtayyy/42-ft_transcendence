@@ -21,8 +21,6 @@ const DEFAULT_CANVAS_WIDTH = 800;
 const DEFAULT_CANVAS_HEIGHT = 350;
 const LOCAL_TOURNAMENT_PENDING_RESULT_PREFIX = "pending-local-tournament-result:";
 
-// Display scale factor for remote games (multiplied by logical dimensions)
-const REMOTE_DISPLAY_SCALE = 1.4;
 const DEFAULT_PADDLE_WIDTH = 12;
 const DEFAULT_PADDLE_HEIGHT = 80;
 const DEFAULT_BALL_SIZE = 12;
@@ -789,9 +787,6 @@ export default function GameRuntimePage() {
 		};
 	}, [isRemoteGame, gameState, gameOverResult]);
 
-	// Get canvas dimensions from game state
-	const CANVAS_WIDTH = gameState?.constant?.canvasWidth || DEFAULT_CANVAS_WIDTH;
-
 	// Remote game rendering
 	if (isRemoteGame) {
 		// Show loading state while waiting for game state to be restored via WebSocket
@@ -845,8 +840,6 @@ export default function GameRuntimePage() {
 						setGameOverResult={setGameOverResult}
 						opponentConnected={opponentConnected}
 						router={router}
-						CANVAS_WIDTH={CANVAS_WIDTH}
-						REMOTE_DISPLAY_SCALE={REMOTE_DISPLAY_SCALE}
 						gameStart={gameStart}
 						disconnectInfo={disconnectInfo}
 						pauseInfo={pauseInfo}
