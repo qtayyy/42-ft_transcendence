@@ -5,10 +5,11 @@ import { renderGame } from "@/utils/gameRenderer";
 import { GameOverOverlay } from "@/components/game/GameOverOverlay";
 import { ReadyOverlay } from "@/components/game/ReadyOverlay";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
+import { GameControlsTray } from "@/components/game/GameControlsTray";
 import { formatTime } from "@/utils/gameHelpers";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Timer, Keyboard, Gamepad2, Hash, Zap, Pause } from "lucide-react";
+import { Timer, Hash, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** 
@@ -25,6 +26,7 @@ interface PongGameProps {
 	isTournamentMatch?: boolean;
 	layout?: "full" | "canvasOnly";
 	showBuiltInOverlays?: boolean;
+	showControlsTray?: boolean;
 	onStart?: () => void;
 	onPauseToggle?: () => void;
 	pauseOnGuard?: boolean;
@@ -40,6 +42,7 @@ export default function PongGame({
 	isTournamentMatch = false,
 	layout = "full",
 	showBuiltInOverlays = true,
+	showControlsTray = true,
 	onStart,
 	onPauseToggle,
 	pauseOnGuard = false,
@@ -169,15 +172,24 @@ export default function PongGame({
 
 	if (layout === "canvasOnly") {
 		return (
-			<div ref={containerRef} className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group w-full max-w-full">
-				<div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
-				<canvas
-					ref={canvasRef}
-					width={canvasDimensions.width}
-					height={canvasDimensions.height}
-					className="block bg-[#020817] w-full h-auto"
-					style={{ touchAction: "none", width: "100%", height: "auto" }}
-				/>
+			<div ref={containerRef} className="relative h-full w-full overflow-hidden">
+				<div
+					className="absolute left-1/2 top-1/2 w-full -translate-x-1/2 -translate-y-1/2 rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group"
+					style={{
+						maxWidth: `${canvasDimensions.width}px`,
+						maxHeight: `${canvasDimensions.height}px`,
+						aspectRatio: `${canvasDimensions.width} / ${canvasDimensions.height}`,
+					}}
+				>
+					<div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
+					<canvas
+						ref={canvasRef}
+						width={canvasDimensions.width}
+						height={canvasDimensions.height}
+						className="block bg-[#020817] w-full h-full"
+						style={{ touchAction: "none" }}
+					/>
+				</div>
 			</div>
 		);
 	}
@@ -268,13 +280,13 @@ export default function PongGame({
 				)}
 
 				{/* Pause Overlay */}
-			{showBuiltInOverlays && (
-				<PauseOverlay
-					isOpen={gameState?.status === "paused"}
-					mode={mode}
-					onResume={handlePauseToggle}
-				/>
-			)}
+				{showBuiltInOverlays && (
+					<PauseOverlay
+						isOpen={gameState?.status === "paused"}
+						mode={mode}
+						onResume={handlePauseToggle}
+					/>
+				)}
 
 			{/* Canvas */}
 				<div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group max-w-full">
@@ -289,39 +301,7 @@ export default function PongGame({
 				</div>
 			</div>
 
-			{/* Footer Commands (Fixed Height) */}
-			<div className="shrink-0 h-16 flex items-center justify-center pb-4 z-10">
-				<div className="flex items-center justify-between w-full max-w-3xl px-8 py-3 bg-card/60 rounded-full border border-border/50 backdrop-blur-md shadow-lg">
-					<div className="flex items-center gap-3">
-						<div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 ring-1 ring-blue-500/20">
-							<Keyboard className="h-4 w-4" />
-						</div>
-						<div className="flex flex-col">
-							<span className="text-xs font-bold text-foreground">Player 1</span>
-							<span className="text-[10px] text-muted-foreground font-mono">W / S</span>
-						</div>
-					</div>
-
-					<div className="h-6 w-px bg-border/50" />
-
-					<div className="flex flex-col items-center">
-						<Pause className="h-3.5 w-3.5 text-muted-foreground mb-0.5" />
-						<span className="text-[10px] text-muted-foreground font-mono">Space</span>
-					</div>
-
-					<div className="h-6 w-px bg-border/50" />
-
-					<div className="flex items-center gap-3 text-right">
-						<div className="flex flex-col items-end">
-							<span className="text-xs font-bold text-foreground">Player 2</span>
-							<span className="text-[10px] text-muted-foreground font-mono">Arrow Keys</span>
-						</div>
-						<div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 ring-1 ring-purple-500/20">
-							<Gamepad2 className="h-4 w-4" />
-						</div>
-					</div>
-				</div>
-			</div>
+			{showControlsTray && <GameControlsTray mode={mode === "remote" ? "remote" : "local"} />}
 
 			{showBuiltInOverlays && localGameOverResult && (
 				<GameOverOverlay

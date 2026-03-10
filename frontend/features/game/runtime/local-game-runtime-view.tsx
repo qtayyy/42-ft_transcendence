@@ -50,6 +50,7 @@ export default function LocalGameRuntimeView({
 				onGameOver={handleGameOver}
 				onExit={handleExit}
 				isTournamentMatch={isTournamentMatch}
+				showControlsTray={!isSpectator}
 				pauseOnGuard={pauseOnGuard}
 			/>
 		</div>
