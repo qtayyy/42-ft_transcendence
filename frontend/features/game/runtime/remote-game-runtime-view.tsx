@@ -3,10 +3,11 @@
 import type { GameState } from "@/types/game";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, ArrowLeft, Timer, Keyboard, Gamepad2, Hash, Loader2 } from "lucide-react";
+import { Eye, ArrowLeft, Timer, Hash, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTime } from "@/utils/gameHelpers";
 import PongGame from "@/components/game/PongGame";
+import { GameControlsTray } from "@/components/game/GameControlsTray";
 import { ReadyOverlay } from "@/components/game/ReadyOverlay";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
 import { GameOverOverlay } from "@/components/game/GameOverOverlay";
@@ -23,8 +24,6 @@ interface RemoteGameRuntimeViewProps {
 	setGameOverResult: (value: any) => void;
 	opponentConnected: boolean;
 	router: any;
-	CANVAS_WIDTH: number;
-	REMOTE_DISPLAY_SCALE: number;
 	gameStart: any;
 	disconnectInfo: any;
 	pauseInfo: any;
@@ -42,8 +41,6 @@ export default function RemoteGameRuntimeView({
 	setGameOverResult,
 	opponentConnected,
 	router,
-	CANVAS_WIDTH,
-	REMOTE_DISPLAY_SCALE,
 	gameStart,
 	disconnectInfo,
 	pauseInfo,
@@ -114,13 +111,7 @@ export default function RemoteGameRuntimeView({
 			</div>
 
 			<div className="flex-1 w-full relative flex items-center justify-center p-4 overflow-hidden z-0">
-					<div
-						className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group"
-						style={{
-							width: `${CANVAS_WIDTH * REMOTE_DISPLAY_SCALE}px`,
-							maxWidth: "95vw",
-						}}
-					>
+					<div className="relative h-full w-full">
 						<PongGame
 							matchId={matchId}
 							mode="remote"
@@ -143,42 +134,7 @@ export default function RemoteGameRuntimeView({
 				</div>
 			</div>
 
-			{!isSpectator && (
-				<div className="shrink-0 h-16 flex items-center justify-center pb-4 z-10">
-					<div className="flex items-center justify-between w-full max-w-4xl px-8 py-3 bg-card/60 rounded-full border border-border/50 backdrop-blur-md shadow-lg">
-						<div className="flex items-center gap-3">
-							<div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 ring-1 ring-green-500/20">
-								<Keyboard className="h-4 w-4" />
-							</div>
-							<div className="flex flex-col">
-								<span className="text-xs font-bold text-foreground">Your Paddle</span>
-								<span className="text-[10px] text-muted-foreground font-mono">W / S or Arrow Keys</span>
-							</div>
-						</div>
-
-						<div className="h-6 w-px bg-border/50" />
-
-						<div className="flex items-center gap-3">
-							<div className="flex flex-col items-center">
-								<span className="text-xs font-bold text-foreground">Ready</span>
-								<span className="text-[10px] text-muted-foreground font-mono">ENTER</span>
-							</div>
-						</div>
-
-						<div className="h-6 w-px bg-border/50" />
-
-						<div className="flex items-center gap-3 text-right">
-							<div className="flex flex-col items-end">
-								<span className="text-xs font-bold text-foreground">Pause / Resume</span>
-								<span className="text-[10px] text-muted-foreground font-mono">SPACE</span>
-							</div>
-							<div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 ring-1 ring-purple-500/20">
-								<Gamepad2 className="h-4 w-4" />
-							</div>
-						</div>
-					</div>
-				</div>
-			)}
+			{!isSpectator && <GameControlsTray mode="remote" />}
 
 			{/* ReadyOverlay for remote matches */}
 			{gameState && !gameState.gameStarted && !gameStart && !(gameState as any)?.paused && !isSpectator && !gameOverResult && (() => {
