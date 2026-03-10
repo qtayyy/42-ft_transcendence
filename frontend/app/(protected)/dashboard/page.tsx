@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import { useGame } from "@/hooks/use-game";
 import { useLanguage } from '@/context/languageContext';
-import { Users, BarChart3, PieChart, Trophy, Search, Zap, Activity } from "lucide-react";
+import { Users, BarChart3, PieChart, Trophy, Search, Activity } from "lucide-react";
 import { useFriends } from "@/hooks/use-friends";
+import { CapybaraIcon } from "@/components/icons/capybara-icon";
 
 
 export default function DashboardPage() {
@@ -114,7 +115,7 @@ export default function DashboardPage() {
         {/* Header Section */}
         <div className="text-center space-y-4">
           <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 mb-4 ring-1 ring-primary/20">
-            <Zap className="h-6 w-6 text-primary animate-pulse" />
+            <CapybaraIcon className="h-6 w-6 text-primary animate-pulse" />
           </div>
           <h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-white via-primary/50 to-white bg-clip-text text-transparent pb-2">
             {t.Dashboard.Dashboard}
