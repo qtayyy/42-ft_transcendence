@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import axios from "axios";
 import { ReconnectionModal } from "./reconnection-modal";
 import { useAuth } from "@/hooks/use-auth";
+import { handleSessionExpiredRedirect } from "@/lib/session-expired";
 
 interface GameStatusResponse {
   active: boolean;
@@ -17,10 +18,15 @@ interface GameStatusResponse {
 
 export function ReconnectionManager() {
   const router = useRouter();
+  const routerRef = useRef(router);
   const pathname = usePathname();
   const { user } = useAuth();
   const [activeMatch, setActiveMatch] = useState<GameStatusResponse | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    routerRef.current = router;
+  }, [router]);
 
   useEffect(() => {
     if (!user) return;
@@ -54,11 +60,9 @@ export function ReconnectionManager() {
             setShowModal(false);
             setActiveMatch(null);
         }
-      } catch (err: any) {
-        // Don't log 401 errors - they're expected when user session expires
-        if (err?.response?.status !== 401) {
-          console.error("Failed to check game status", err);
-        }
+      } catch (err: unknown) {
+        if (handleSessionExpiredRedirect(err, routerRef.current)) return;
+        console.error("Failed to check game status", err);
         // Clear any stale modal state on error
         setShowModal(false);
         setActiveMatch(null);
@@ -90,17 +94,28 @@ export function ReconnectionManager() {
         setShowModal(false);
         setActiveMatch(null);
         router.push("/dashboard"); 
-    } catch (err) {
+    } catch (err: unknown) {
+        if (handleSessionExpiredRedirect(err, router)) return;
         console.error("Failed to leave game", err);
     }
   };
+
+  const modalMatch = activeMatch
+    ? {
+        type: activeMatch.type ?? "game",
+        matchId: activeMatch.matchId ?? "",
+        tournamentId: activeMatch.tournamentId,
+        opponent: activeMatch.opponent ?? "Opponent",
+        message: activeMatch.message,
+      }
+    : null;
 
   if (!showModal || !activeMatch) return null;
 
   return (
     <ReconnectionModal 
       isOpen={showModal}
-      activeMatch={activeMatch as any}
+      activeMatch={modalMatch}
       onContinue={handleContinue}
       onLeave={handleLeave}
     />

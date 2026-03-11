@@ -484,10 +484,18 @@ export default fp((fastify) => {
 
     // Ensure userId is a number for consistent lookup
     const numericUserId = Number(userId);
+    const socket = fastify.onlineUsers.get(numericUserId);
 
-    // Check if already in queue
-    if (queue.some((p) => p.userId === numericUserId)) {
-      return; // Already in queue
+    // If a stale queue entry exists for this user, drop it and continue.
+    // Single/tournament matchmaking now route primarily through room join/create flow.
+    const existingQueueIndex = queue.findIndex(
+      (p) => p.userId === numericUserId,
+    );
+    if (existingQueueIndex !== -1) {
+      console.log(
+        `[Matchmaking] Removing stale queue entry for user ${numericUserId} (mode=${mode})`,
+      );
+      queue.splice(existingQueueIndex, 1);
     }
 
     // Check if already in a room
@@ -506,10 +514,81 @@ export default fp((fastify) => {
         !room.tournamentStarted &&
         isAlreadyInThisRoom
       ) {
+        const sameModeRoom =
+          (mode === "single" && !room.isTournament) ||
+          (mode === "tournament" && room.isTournament);
+        if (sameModeRoom) {
+          console.log(
+            `[Matchmaking] Duplicate join rehydrated for user ${numericUserId} in room ${staleRoomId}`,
+          );
+
+          // Re-send latest room snapshot so client can recover from stale UI state.
+          safeSend(
+            socket,
+            {
+              event: "GAME_ROOM",
+              payload: {
+                roomId: staleRoomId,
+                hostId: room.hostId,
+                invitedPlayers: room.invitedPlayers,
+                joinedPlayers: room.joinedPlayers,
+                maxPlayers: room.maxPlayers,
+                isTournament: room.isTournament || false,
+                tournamentStarted: room.tournamentStarted || false,
+              },
+            },
+            numericUserId,
+          );
+
+          if (mode === "single") {
+            // Host should return to the create lobby; joiners should go to join lobby.
+            if (Number(room.hostId) === numericUserId) {
+              safeSend(
+                socket,
+                {
+                  event: "MATCHMAKING_HOST",
+                  payload: { roomId: staleRoomId, recovered: true },
+                },
+                numericUserId,
+              );
+            } else {
+              safeSend(
+                socket,
+                {
+                  event: "MATCH_FOUND",
+                  payload: {
+                    roomId: staleRoomId,
+                    matchId: `RS-${staleRoomId}`,
+                    players: room.joinedPlayers,
+                    hostId: room.hostId,
+                    recovered: true,
+                  },
+                },
+                numericUserId,
+              );
+            }
+          } else {
+            safeSend(
+              socket,
+              {
+                event: "TOURNAMENT_FOUND",
+                payload: {
+                  roomId: staleRoomId,
+                  tournamentId: `RT-${staleRoomId}`,
+                  players: room.joinedPlayers,
+                  isHost: Number(room.hostId) === numericUserId,
+                  recovered: true,
+                },
+              },
+              numericUserId,
+            );
+          }
+          return;
+        }
+
         console.log(
-          `[Matchmaking] Duplicate join ignored for user ${numericUserId} in room ${staleRoomId}`,
+          `[Matchmaking] Duplicate join mode mismatch for user ${numericUserId} in room ${staleRoomId}, leaving stale room`,
         );
-        return;
       }
 
       if (room && !room.tournamentStarted) {
@@ -526,8 +605,6 @@ export default fp((fastify) => {
         throw new Error("Already in an active room");
       }
     }
-
-    const socket = fastify.onlineUsers.get(numericUserId);
 
     // For tournament mode: first try to find an existing available tournament room
     if (mode === "tournament") {
@@ -675,6 +752,7 @@ export default fp((fastify) => {
             roomId: availableRoomId,
             matchId: `RS-${availableRoomId}`,
             players: availableRoom.joinedPlayers,
+            hostId: availableRoom.hostId,
           },
         };
 
@@ -813,6 +891,7 @@ export default fp((fastify) => {
         payload: {
           roomId,
           matchId: `RS-${roomId}`,
+          hostId: player1.userId,
           players: [
             { id: player1.userId, username: player1.username },
             { id: player2.userId, username: player2.username },

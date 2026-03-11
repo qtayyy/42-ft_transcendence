@@ -114,6 +114,8 @@ class Game {
           id: userId,
         };
         console.log(`Local Game Hosted by (ID: ${userId})`);
+        // Send initial waiting state to the host
+        socket.send(JSON.stringify(this.gameState));
         return `host`;
       }
     } else if (this.mode === "remote") {
@@ -123,6 +125,8 @@ class Game {
           id: userId,
         };
         console.log(`Remote P1 joined (ID: ${userId})`);
+        // Send initial waiting state to P1
+        socket.send(JSON.stringify(this.gameState));
         return "p1";
       } else if (!this.players.p2.socket) {
         this.players.p2 = {
