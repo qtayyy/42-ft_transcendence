@@ -48,6 +48,11 @@ model Profile {
   sentMessages Message[] @relation("MessageSender")
   // Messages received by this user
   receivedMessages Message[] @relation("MessageReceiver")
+
+  // Users this profile has blocked
+  blockedUsers Block[] @relation("Blocker")
+  // Users who have blocked this profile
+  blockedBy Block[] @relation("Blocked")
 }
 
 enum FriendshipStatus {
@@ -122,8 +127,24 @@ model Message {
   recipientId Int
 
   content   String
+  read      Boolean  @default(false)
+  readAt    DateTime?
   createdAt DateTime @default(now())
 
   @@index([senderId, recipientId])
   @@index([recipientId, senderId])
+}
+
+model Block {
+  id Int @id @default(autoincrement())
+
+  blocker   Profile @relation("Blocker", fields: [blockerId], references: [id])
+  blockerId Int
+
+  blocked   Profile @relation("Blocked", fields: [blockedId], references: [id])
+  blockedId Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
 }

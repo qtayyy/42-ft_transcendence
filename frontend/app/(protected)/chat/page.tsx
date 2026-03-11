@@ -650,8 +650,8 @@ export default function ChatPage() {
                             disabled={!isReady}
                             className="gap-2"
                           >
-                            <Gamepad2 className="w-4 h-4" />
-                            <span className="hidden sm:inline">Invite to Game</span>
+                            {/* <Gamepad2 className="w-4 h-4" />
+                            <span className="hidden sm:inline">Invite to Game</span> */}
                           </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>

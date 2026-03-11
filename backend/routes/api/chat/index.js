@@ -15,6 +15,22 @@ export default async function (fastify, opts) {
           return reply.code(400).send({ error: "Invalid friend ID" });
         }
 
+        // Check if either user has blocked the other
+        const blockExists = await prisma.block.findFirst({
+          where: {
+            OR: [
+              { blockerId: myId, blockedId: friendId },
+              { blockerId: friendId, blockedId: myId },
+            ],
+          },
+        });
+
+        if (blockExists) {
+          return reply
+            .code(403)
+            .send({ error: "Cannot access chat with blocked user" });
+        }
+
         // Verify friendship exists
         const friendship = await prisma.friendship.findFirst({
           where: {
@@ -67,6 +83,8 @@ export default async function (fastify, opts) {
           avatar: msg.sender.avatar || null,
           message: msg.content,
           timestamp: msg.createdAt.toISOString(),
+          read: msg.read,
+          readAt: msg.readAt?.toISOString() || null,
         }));
 
         return reply.code(200).send(formattedMessages);
