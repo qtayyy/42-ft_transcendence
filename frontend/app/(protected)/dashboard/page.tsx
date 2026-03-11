@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import { useGame } from "@/hooks/use-game";
 import { useLanguage } from '@/context/languageContext';
-import { Users, BarChart3, PieChart, Trophy, Search, Activity } from "lucide-react";
+import { Users, BarChart3, PieChart, Trophy, Search, Zap, Activity, MessageCircle } from "lucide-react";
 import { useFriends } from "@/hooks/use-friends";
+import { Badge } from "@/components/ui/badge";
 import { CapybaraIcon } from "@/components/icons/capybara-icon";
 
 
@@ -100,15 +101,24 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
-      {/* Default shadcn Chat Button */}
-      <Button
-        onClick={() => router.push('/chat')}
-        aria-label="Go to Chat"
-        variant="ghost"
-        className="fixed bottom-8 right-8 z-50 rounded-full text-5xl p-0 h-auto w-auto bg-transparent hover:bg-transparent"
-      >
-        💬
-      </Button>
+      {/* Floating Chat Button - Modern Design */}
+      <div className="fixed bottom-8 right-8 z-50 group">
+        <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl blur opacity-60 group-hover:opacity-100 transition duration-300 animate-pulse"></div>
+        <Button
+          onClick={() => router.push('/chat')}
+          aria-label="Go to Chat"
+          size="lg"
+          className="relative rounded-2xl shadow-2xl hover:shadow-primary/50 transition-all duration-300 hover:scale-105 flex items-center gap-3 px-6 py-6 bg-card border border-border/50 text-foreground hover:bg-card/90"
+        >
+          <MessageCircle className="h-6 w-6 text-primary" />
+          <span className="font-semibold text-lg">Chat</span>
+          {onlineFriends.length > 0 && (
+            <Badge variant="destructive" className="ml-1 animate-bounce">
+              {onlineFriends.length}
+            </Badge>
+          )}
+        </Button>
+      </div>
 
       {/* Main Content */}
       <div className="w-full max-w-7xl space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">

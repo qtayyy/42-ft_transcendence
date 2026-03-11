@@ -412,6 +412,33 @@ export const SocketProvider = ({ children }) => {
 								);
 								break;
 
+							case "TYPING_INDICATOR":
+								console.log("Received TYPING_INDICATOR via WebSocket:", payload);
+								window.dispatchEvent(
+									new CustomEvent("typingIndicator", { detail: payload })
+								);
+								break;
+
+							case "MESSAGE_READ":
+								console.log("Received MESSAGE_READ via WebSocket:", payload);
+								window.dispatchEvent(
+									new CustomEvent("messageRead", { detail: payload })
+								);
+								break;
+
+							case "GAME_INVITE":
+								console.log("Received GAME_INVITE via WebSocket:", payload);
+								window.dispatchEvent(
+									new CustomEvent("gameInvite", { detail: payload })
+								);
+								toast.info(`${payload.inviterName} invited you to play a game!`);
+								break;
+
+							case "GAME_INVITE_SENT":
+								console.log("Game invite sent successfully:", payload);
+								toast.success("Game invite sent!");
+								break;
+
 							case "PLAYER_READY_STATE":
 								// Dispatch custom event for ready state persistence
 								window.dispatchEvent(new CustomEvent("PLAYER_READY_STATE", { detail: payload }));
