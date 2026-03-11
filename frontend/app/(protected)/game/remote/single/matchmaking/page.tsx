@@ -1,22 +1,35 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
+import { useGame } from "@/hooks/use-game";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowLeft, Zap, Loader2, Users, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export default function MatchmakingPage() {
 	const router = useRouter();
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
+	const { gameRoom } = useGame();
 	const [searching, setSearching] = useState(true);
 	const [searchTime, setSearchTime] = useState(0);
 	const [playersInQueue, setPlayersInQueue] = useState(1);
 	const hasSentJoinRef = useRef(false);
+
+	const sendJoinMatchmaking = useCallback(() => {
+		if (!user || !isReady) return;
+		sendSocketMessage({
+			event: "JOIN_MATCHMAKING",
+			payload: {
+				userId: user.id,
+				username: user.username,
+				mode: "single",
+			},
+		});
+	}, [user, isReady, sendSocketMessage]);
 
 	// Search timer
 	useEffect(() => {
@@ -31,18 +44,18 @@ export default function MatchmakingPage() {
 
 	// Join matchmaking queue on mount
 	useEffect(() => {
-		if (!user || !isReady) return;
+		if (!searching || !user || !isReady) return;
 		if (hasSentJoinRef.current) return;
 		hasSentJoinRef.current = true;
-		sendSocketMessage({
-			event: "JOIN_MATCHMAKING",
-			payload: {
-				userId: user.id,
-				username: user.username,
-				mode: "single",
-			},
-		});
-	}, [user, isReady, sendSocketMessage]);
+		sendJoinMatchmaking();
+	}, [searching, user, isReady, sendJoinMatchmaking]);
+
+	// If socket drops, allow matchmaking request to be sent again on reconnect.
+	useEffect(() => {
+		if (!isReady) {
+			hasSentJoinRef.current = false;
+		}
+	}, [isReady]);
 
 	// Handle backend matchmaking errors (e.g. room conflicts)
 	useEffect(() => {
@@ -54,11 +67,57 @@ export default function MatchmakingPage() {
 			}, 1000);
 		};
 
-		window.addEventListener("JOIN_ROOM_ERROR" as any, handleRoomError);
+		window.addEventListener("JOIN_ROOM_ERROR", handleRoomError as EventListener);
 		return () => {
-			window.removeEventListener("JOIN_ROOM_ERROR" as any, handleRoomError);
+			window.removeEventListener("JOIN_ROOM_ERROR", handleRoomError as EventListener);
 		};
 	}, [router]);
+
+	// Keep queue stats reactive when backend emits queue updates.
+	useEffect(() => {
+		const handleMatchmakingJoined = (event: CustomEvent) => {
+			const position = Number(event.detail?.position);
+			if (!Number.isNaN(position) && position > 0) {
+				setPlayersInQueue(position);
+			}
+		};
+		window.addEventListener("MATCHMAKING_JOINED", handleMatchmakingJoined as EventListener);
+		return () => {
+			window.removeEventListener("MATCHMAKING_JOINED", handleMatchmakingJoined as EventListener);
+		};
+	}, []);
+
+	// Recovery guard: if room state is already available (e.g. recovered socket/session),
+	// redirect to the correct lobby instead of staying on matchmaking spinner.
+	useEffect(() => {
+		if (!searching || !user || !gameRoom) return;
+		if (gameRoom.isTournament) return;
+
+		const me = Number(user.id);
+		const isMember = gameRoom.joinedPlayers?.some((p) => Number(p.id) === me);
+		if (!isMember) return;
+
+		if (Number(gameRoom.hostId) === me) {
+			router.push("/game/remote/single/create");
+			return;
+		}
+
+		router.push(`/game/remote/single/join?roomId=${gameRoom.roomId}&matchmaking=true`);
+	}, [searching, user, gameRoom, router]);
+
+	// Watchdog: retry join request if still searching with no room assignment.
+	useEffect(() => {
+		if (!searching || !user || !isReady) return;
+		const retry = setInterval(() => {
+			const me = Number(user.id);
+			const isMember = gameRoom?.joinedPlayers?.some((p) => Number(p.id) === me);
+			if (!isMember) {
+				sendJoinMatchmaking();
+			}
+		}, 5000);
+
+		return () => clearInterval(retry);
+	}, [searching, user, isReady, gameRoom, sendJoinMatchmaking]);
 
 	const handleCancel = () => {
 		setSearching(false);

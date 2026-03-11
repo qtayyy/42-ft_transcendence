@@ -1,33 +1,88 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useGame } from "@/hooks/use-game";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Leaderboard from "@/components/game/Leaderboard";
+import { NavigationGuard } from "@/components/game/navigation-guard";
 import { Tournament, TournamentMatch } from "@/lib/tournament";
 import { Play, Trophy, ArrowLeft, Crown, History, Medal, Star } from "lucide-react";
-import { Badge, badgeVariants } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
+import { handleSessionExpiredRedirect } from "@/lib/session-expired";
+
+const LOCAL_TOURNAMENT_PENDING_RESULT_PREFIX = "pending-local-tournament-result:";
+type PendingTournamentResult = {
+	matchId: string;
+	player1Id: number | string | null;
+	player2Id: number | string | null;
+	score: { p1: number; p2: number };
+	outcome: string;
+	recordedAt?: number;
+};
 
 export default function TournamentPage() {
 	const params = useParams();
+	const pathname = usePathname();
 	const router = useRouter();
 	const { user } = useAuth();
+	const { setShowNavGuard, setPendingPath } = useGame();
 	const tournamentId = params.tournamentId as string;
 
 	const [tournament, setTournament] = useState<Tournament | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [currentMatch, setCurrentMatch] = useState<TournamentMatch | null>(null);
 
-	// Load tournament from backend
-	useEffect(() => {
-		fetchTournament();
-	}, [tournamentId]);
+	const flushPendingResults = useCallback(async () => {
+		if (typeof window === "undefined") return;
+		const keyPrefix = `${LOCAL_TOURNAMENT_PENDING_RESULT_PREFIX}${tournamentId}:`;
+		const pendingEntries: Array<{ key: string; recordedAt: number; payload: PendingTournamentResult }> = [];
+		for (let i = 0; i < localStorage.length; i++) {
+			const key = localStorage.key(i);
+			if (key && key.startsWith(keyPrefix)) {
+				const raw = localStorage.getItem(key);
+				if (!raw) continue;
+				try {
+					const payload = JSON.parse(raw) as PendingTournamentResult;
+					pendingEntries.push({
+						key,
+						recordedAt: Number(payload?.recordedAt) || 0,
+						payload,
+					});
+				} catch {
+					localStorage.removeItem(key);
+				}
+			}
+		}
 
-	const fetchTournament = async () => {
+		pendingEntries.sort((a, b) => a.recordedAt - b.recordedAt);
+
+			for (const entry of pendingEntries) {
+				try {
+					const payload = entry.payload;
+					await axios.post(`/api/tournament/${tournamentId}/match-result`, {
+					matchId: payload.matchId,
+					player1Id: payload.player1Id,
+					player2Id: payload.player2Id,
+					score: payload.score,
+					outcome: payload.outcome,
+				});
+					localStorage.removeItem(entry.key);
+				} catch (error) {
+					if (handleSessionExpiredRedirect(error, router, `/game/local/tournament/${tournamentId}`)) {
+						return;
+					}
+					console.error("Failed to replay pending tournament result:", error);
+				}
+			}
+		}, [tournamentId, router]);
+
+	const fetchTournament = useCallback(async () => {
 		try {
+			await flushPendingResults();
 			const response = await axios.get(`/api/tournament/${tournamentId}`);
 			setTournament(response.data);
 			
@@ -38,17 +93,69 @@ export default function TournamentPage() {
 			setCurrentMatch(nextMatch || null);
 			setLoading(false);
 		} catch (error) {
+			if (handleSessionExpiredRedirect(error, router, `/game/local/tournament/${tournamentId}`)) {
+				return;
+			}
 			console.error("Failed to load tournament:", error);
 			setLoading(false);
 		}
+	}, [tournamentId, flushPendingResults, router]);
+
+	// Load tournament from backend
+	useEffect(() => {
+		fetchTournament();
+	}, [fetchTournament]);
+
+	const shouldGuardNavigation = !!tournament && !tournament.isComplete;
+
+	useEffect(() => {
+		if (!shouldGuardNavigation) return;
+
+		const warningMessage = "Navigating away will forfeit the entire tournament. Are you sure you want to leave?";
+		const handleRouteChange = (e: BeforeUnloadEvent) => {
+			e.preventDefault();
+			e.returnValue = warningMessage;
+			return e.returnValue;
+		};
+
+		const handleNavigationClick = (e: MouseEvent) => {
+			const target = e.target as HTMLElement;
+			const link = target.closest("a[href]");
+			if (!link) return;
+
+			const href = link.getAttribute("href");
+			if (!href || href === "#" || href.startsWith("http")) return;
+			if (href === pathname) return;
+
+			e.preventDefault();
+			e.stopPropagation();
+			setPendingPath(href);
+			setShowNavGuard(true);
+		};
+
+		window.addEventListener("beforeunload", handleRouteChange);
+		document.addEventListener("click", handleNavigationClick, true);
+		return () => {
+			window.removeEventListener("beforeunload", handleRouteChange);
+			document.removeEventListener("click", handleNavigationClick, true);
+		};
+	}, [shouldGuardNavigation, pathname, setPendingPath, setShowNavGuard]);
+
+	const handleExitTournament = () => {
+		setPendingPath("/game/new");
+		setShowNavGuard(true);
 	};
 
 	const handleStartMatch = () => {
 		if (!currentMatch) return;
+		const runtimeMatchId = currentMatch.matchId.startsWith("RT-")
+			? `local-${currentMatch.matchId}`
+			: currentMatch.matchId;
 
 		// Store match data for game page
 		const matchData = {
 			matchId: currentMatch.matchId,
+			runtimeMatchId,
 			tournamentId: tournamentId,
 			player1: currentMatch.player1,
 			player2: currentMatch.player2,
@@ -56,7 +163,7 @@ export default function TournamentPage() {
 		};
 
 		localStorage.setItem("current-match", JSON.stringify(matchData));
-		router.push(`/game/${currentMatch.matchId}`);
+		router.push(`/game/${runtimeMatchId}`);
 	};
 
 	// Listen for match results from game page
@@ -78,6 +185,9 @@ export default function TournamentPage() {
 					// Refresh tournament data
 					await fetchTournament();
 				} catch (error) {
+					if (handleSessionExpiredRedirect(error, router, `/game/local/tournament/${tournamentId}`)) {
+						return;
+					}
 					console.error("Failed to update match result:", error);
 				}
 			}
@@ -85,7 +195,7 @@ export default function TournamentPage() {
 
 		window.addEventListener("message", handleMessage);
 		return () => window.removeEventListener("message", handleMessage);
-	}, [tournamentId]);
+		}, [tournamentId, fetchTournament, router]);
 
 	if (loading) {
 		return (
@@ -194,14 +304,14 @@ export default function TournamentPage() {
 		<div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b from-background to-muted/20">
 			<div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
 				{/* Navigation & Header */}
-				<div className="flex flex-col md:flex-row items-center justify-between gap-4">
-					<Button
-						variant="ghost"
-						onClick={() => router.push("/game/new")}
-						className="text-muted-foreground hover:text-foreground pl-0 gap-2 self-start md:self-center"
-					>
-						<ArrowLeft className="h-4 w-4" />
-						Exit Tournament
+					<div className="flex flex-col md:flex-row items-center justify-between gap-4">
+						<Button
+							variant="ghost"
+							onClick={handleExitTournament}
+							className="text-muted-foreground hover:text-foreground pl-0 gap-2 self-start md:self-center"
+						>
+							<ArrowLeft className="h-4 w-4" />
+							Exit Tournament
 					</Button>
 					
 					<div className="text-center md:text-right">
@@ -273,14 +383,21 @@ export default function TournamentPage() {
 												</div>
 												<Button
 													onClick={async () => {
-														await axios.post(`/api/tournament/${tournamentId}/match-result`, {
-															matchId: currentMatch.matchId,
-															player1Id: currentMatch.player1.id,
-															player2Id: null,
-															score: { p1: 0, p2: 0 },
-															outcome: 'bye'
-														});
-														await fetchTournament();
+														try {
+															await axios.post(`/api/tournament/${tournamentId}/match-result`, {
+																matchId: currentMatch.matchId,
+																player1Id: currentMatch.player1.id,
+																player2Id: null,
+																score: { p1: 0, p2: 0 },
+																outcome: 'bye'
+															});
+															await fetchTournament();
+														} catch (error) {
+															if (handleSessionExpiredRedirect(error, router, `/game/local/tournament/${tournamentId}`)) {
+																return;
+															}
+															console.error("Failed to process bye result:", error);
+														}
 													}}
 													className="w-full md:w-auto bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-black font-semibold shadow-lg shadow-orange-500/20"
 													size="lg"
@@ -363,7 +480,8 @@ export default function TournamentPage() {
 						</div>
 					</div>
 				</div>
+				</div>
+				<NavigationGuard />
 			</div>
-		</div>
-	);
-}
+		);
+	}

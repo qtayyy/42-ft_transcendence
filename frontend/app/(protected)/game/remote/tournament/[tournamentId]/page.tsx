@@ -10,10 +10,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Leaderboard from "@/components/game/Leaderboard";
-import { Tournament, TournamentMatch, PlayerStanding } from "@/lib/tournament";
+import { TournamentMatch, PlayerStanding } from "@/lib/tournament";
 import { Play, Trophy, ArrowLeft, Crown, History, Medal, Star, Loader2, Users, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { GameRoomValue } from "@/types/types";
+import { handleSessionExpiredRedirect } from "@/lib/session-expired";
 
 interface RemoteTournamentState {
 	tournamentId: string;
@@ -26,12 +28,17 @@ interface RemoteTournamentState {
 	isComplete: boolean;
 }
 
+interface TournamentMatchWithReady extends TournamentMatch {
+	p1Ready?: boolean;
+	p2Ready?: boolean;
+}
+
 export default function RemoteTournamentPage() {
 	const params = useParams();
 	const router = useRouter();
-	const { user } = useAuth();
+	const { user, loadingAuth } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
-	const { gameState, gameRoom } = useGame();
+	const { gameRoom } = useGame();
 	const tournamentId = params.tournamentId as string;
 
 	const [tournament, setTournament] = useState<RemoteTournamentState | null>(null);
@@ -45,9 +52,10 @@ export default function RemoteTournamentPage() {
 	// Calculate readiness derived from current match state
 	const isMeReady = useMemo(() => {
 		if (!currentMatch || !user) return false;
+		const matchWithReady = currentMatch as TournamentMatchWithReady;
 		const isP1 = String(currentMatch.player1.id) === String(user.id) || currentMatch.player1.name === user.username;
 		const isP2 = currentMatch.player2 && (String(currentMatch.player2.id) === String(user.id) || currentMatch.player2.name === user.username);
-		return (isP1 && (currentMatch as any).p1Ready) || (isP2 && (currentMatch as any).p2Ready);
+		return (isP1 && !!matchWithReady.p1Ready) || (isP2 && !!matchWithReady.p2Ready);
 	}, [currentMatch, user]);
 
 	// Extract roomId from tournamentId (RT-{roomId})
@@ -85,11 +93,58 @@ export default function RemoteTournamentPage() {
 	// Track if initialization has been called
 	const initCalled = useRef(false);
 	// Use ref for gameRoom to ensure loop always has latest data
-	const gameRoomRef = useRef<any>(gameRoom);
+	const gameRoomRef = useRef<GameRoomValue | null>(gameRoom);
 	
 	useEffect(() => {
 		gameRoomRef.current = gameRoom;
 	}, [gameRoom]);
+
+	const createTournamentInternal = useCallback(async (roomData: GameRoomValue) => {
+		if (creationLock.current) return;
+		creationLock.current = true;
+		setIsCreatingTournament(true);
+		
+		console.log("[RemoteTournament] create: Sending POST /api/tournament/create");
+		try {
+			const players = roomData.joinedPlayers.map((p) => ({
+				id: String(p.id),
+				name: p.username,
+				isTemp: false,
+			}));
+
+			const response = await axios.post('/api/tournament/create', {
+				players,
+				tournamentId: tournamentId,
+			}, {
+				withCredentials: true,
+			});
+
+			console.log("[RemoteTournament] create: Success!", response.data);
+			setTournament({
+				tournamentId: tournamentId,
+				format: response.data.format,
+				playerCount: players.length,
+				currentRound: response.data.currentRound || 1,
+				totalRounds: response.data.totalRounds,
+				matches: response.data.matches,
+				leaderboard: response.data.leaderboard,
+				isComplete: false,
+			});
+
+			const nextMatch = getNextMatch(response.data.matches, response.data.currentRound || 1);
+			setCurrentMatch(nextMatch);
+			setLoading(false);
+		} catch (error) {
+			if (handleSessionExpiredRedirect(error, router, `/game/remote/tournament/${tournamentId}`)) {
+				return;
+			}
+			console.error("[RemoteTournament] create: Failed:", error);
+			creationLock.current = false; // Allow retry on failure
+			setLoading(false);
+		} finally {
+			setIsCreatingTournament(false);
+		}
+		}, [getNextMatch, tournamentId, router]);
 
 	// Initialize tournament when page loads
 	useEffect(() => {
@@ -97,6 +152,12 @@ export default function RemoteTournamentPage() {
 		initCalled.current = true;
 
 		const initTournament = async () => {
+			if (loadingAuth) {
+				setDebugInfo("Waiting for authentication...");
+				setTimeout(initTournament, 500);
+				return;
+			}
+
 			if (!user) {
 				setDebugInfo("Waiting for user profile...");
 				setTimeout(initTournament, 1000);
@@ -111,7 +172,9 @@ export default function RemoteTournamentPage() {
 
 			// Try to get existing tournament first
 			try {
-				const response = await axios.get(`/api/tournament/${tournamentId}`);
+				const response = await axios.get(`/api/tournament/${tournamentId}`, {
+					withCredentials: true,
+				});
 				console.log("[RemoteTournament] init: Found existing tournament on backend");
 				setTournament({
 					tournamentId: response.data.tournamentId || tournamentId,
@@ -128,8 +191,15 @@ export default function RemoteTournamentPage() {
 				const nextMatch = getNextMatch(response.data.matches, response.data.currentRound || 1);
 				setCurrentMatch(nextMatch);
 				setLoading(false);
-			} catch (error: any) {
-				if (error.response?.status === 404) {
+			} catch (error: unknown) {
+				if (handleSessionExpiredRedirect(error, router, `/game/remote/tournament/${tournamentId}`)) {
+					setDebugInfo("Session expired while loading tournament. Redirecting to login...");
+					return;
+				}
+
+				const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+
+				if (status === 404) {
 					if (currentRoom) {
 						const isHost = Number(currentRoom.hostId) === Number(user?.id);
 						const playersCount = currentRoom.joinedPlayers.length;
@@ -161,49 +231,7 @@ export default function RemoteTournamentPage() {
 		};
 
 		initTournament();
-	}, [tournamentId, user]);
-
-	const createTournamentInternal = async (roomData: any) => {
-		if (creationLock.current) return;
-		creationLock.current = true;
-		setIsCreatingTournament(true);
-		
-		console.log("[RemoteTournament] create: Sending POST /api/tournament/create");
-		try {
-			const players = roomData.joinedPlayers.map((p: any) => ({
-				id: String(p.id),
-				name: p.username,
-				isTemp: false,
-			}));
-
-			const response = await axios.post('/api/tournament/create', {
-				players,
-				tournamentId: tournamentId,
-			});
-
-			console.log("[RemoteTournament] create: Success!", response.data);
-			setTournament({
-				tournamentId: tournamentId,
-				format: response.data.format,
-				playerCount: players.length,
-				currentRound: response.data.currentRound || 1,
-				totalRounds: response.data.totalRounds,
-				matches: response.data.matches,
-				leaderboard: response.data.leaderboard,
-				isComplete: false,
-			});
-
-			const nextMatch = getNextMatch(response.data.matches, response.data.currentRound || 1);
-			setCurrentMatch(nextMatch);
-			setLoading(false);
-		} catch (error) {
-			console.error("[RemoteTournament] create: Failed:", error);
-			creationLock.current = false; // Allow retry on failure
-			setLoading(false);
-		} finally {
-			setIsCreatingTournament(false);
-		}
-	};
+	}, [tournamentId, user, loadingAuth, router, getNextMatch, createTournamentInternal]);
 
 	// Cleanup when leaving the page (if tournament is complete)
 	useEffect(() => {
@@ -230,9 +258,6 @@ export default function RemoteTournamentPage() {
 		};
 	}, [tournament?.isComplete, sendSocketMessage, user, roomId]);
 
-	// Deprecated in favor of createTournamentInternal
-	const createTournament = async () => {};
-
 	// Refresh tournament data
 	const fetchTournament = useCallback(async () => {
 		try {
@@ -243,9 +268,12 @@ export default function RemoteTournamentPage() {
 			const nextMatch = getNextMatch(response.data.matches, response.data.currentRound || 1);
 			setCurrentMatch(nextMatch);
 		} catch (error) {
+			if (handleSessionExpiredRedirect(error, router, `/game/remote/tournament/${tournamentId}`)) {
+				return;
+			}
 			console.error("Failed to refresh tournament:", error);
 		}
-	}, [tournamentId, getNextMatch]);
+	}, [tournamentId, getNextMatch, router]);
 
     // Listen for real-time tournament updates
     useEffect(() => {
@@ -312,24 +340,6 @@ export default function RemoteTournamentPage() {
 		// Navigation will happen when we receive GAME_MATCH_START event
 	};
 
-	// Handle bye processing
-	const handleProcessBye = async () => {
-		if (!currentMatch) return;
-
-		try {
-			await axios.post(`/api/tournament/${tournamentId}/match-result`, {
-				matchId: currentMatch.matchId,
-				player1Id: currentMatch.player1.id,
-				player2Id: null,
-				score: { p1: 0, p2: 0 },
-				outcome: 'bye'
-			});
-			await fetchTournament();
-		} catch (error) {
-			console.error("Failed to process bye:", error);
-		}
-	};
-
 	const leaveRoom = () => {
 		// Send LEAVE_ROOM event to backend for proper cleanup
 		if (user && roomId) {
@@ -348,8 +358,13 @@ export default function RemoteTournamentPage() {
 		// Default redirect to tournament list
 		router.push("/game/remote/tournament");
 	};
+	const isWaitingForNextMatch = Boolean(isMeReady && currentMatch?.status !== "inprogress");
 
 	const watchMatch = (matchId: string) => {
+		if (isWaitingForNextMatch) {
+			toast.info("You are ready. Please wait for your next match to start.");
+			return;
+		}
 		sendSocketMessage({
 			event: "VIEW_MATCH",
 			payload: { matchId }
@@ -398,13 +413,13 @@ export default function RemoteTournamentPage() {
 		return (
 			<div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background">
 				<Card className="max-w-md w-full border-destructive/20 bg-destructive/5">
-					<CardContent className="flex flex-col items-center p-8 text-center space-y-4">
-						<History className="h-12 w-12 text-destructive/50" />
-						<h2 className="text-2xl font-bold">Tournament Not Found</h2>
-						<p className="text-muted-foreground">This tournament doesn't exist or has ended.</p>
-						<Button onClick={handleExit}>Return to Game Menu</Button>
-					</CardContent>
-				</Card>
+						<CardContent className="flex flex-col items-center p-8 text-center space-y-4">
+							<History className="h-12 w-12 text-destructive/50" />
+							<h2 className="text-2xl font-bold">Tournament Not Found</h2>
+							<p className="text-muted-foreground">This tournament does not exist or has ended.</p>
+							<Button onClick={handleExit}>Return to Game Menu</Button>
+						</CardContent>
+					</Card>
 			</div>
 		);
 	}
@@ -588,14 +603,19 @@ export default function RemoteTournamentPage() {
 												</div>
 
 												{/* Spectator Options for Bye Player */}
-												<div className="w-full space-y-4">
-													<h4 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wider">
-														<Eye className="w-4 h-4" /> Available Matches to Watch
-													</h4>
-													
-													{tournament.matches.filter(m => m.status === 'inprogress').length > 0 ? (
-														<div className="grid gap-3">
-															{tournament.matches
+													<div className="w-full space-y-4">
+														<h4 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wider">
+															<Eye className="w-4 h-4" /> Available Matches to Watch
+														</h4>
+														{isWaitingForNextMatch && (
+															<p className="text-xs text-yellow-500">
+																You are ready for your next match. Spectating is disabled while waiting.
+															</p>
+														)}
+														
+														{tournament.matches.filter(m => m.status === 'inprogress').length > 0 ? (
+															<div className="grid gap-3">
+																{tournament.matches
 																.filter(m => m.status === 'inprogress')
 																.map(match => (
 																	<div 
@@ -613,15 +633,21 @@ export default function RemoteTournamentPage() {
 																				<span className="text-xs text-muted-foreground">Player 2</span>
 																			</div>
 																		</div>
-																		<Button
-																			onClick={() => watchMatch(match.matchId)}
-																			className="bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/20 opacity-0 group-hover/match:opacity-100 transition-opacity"
-																		>
-																			<Eye className="mr-2 h-4 w-4" /> Watch
-																		</Button>
-																	</div>
-																))}
-														</div>
+																			<Button
+																				onClick={() => watchMatch(match.matchId)}
+																				disabled={isWaitingForNextMatch}
+																				className={cn(
+																					"shadow-lg transition-opacity",
+																					isWaitingForNextMatch
+																						? "bg-muted text-muted-foreground opacity-60 cursor-not-allowed"
+																						: "bg-red-500 hover:bg-red-600 shadow-red-500/20 opacity-0 group-hover/match:opacity-100"
+																				)}
+																			>
+																				<Eye className="mr-2 h-4 w-4" /> {isWaitingForNextMatch ? "Waiting..." : "Watch"}
+																			</Button>
+																		</div>
+																	))}
+															</div>
 													) : (
 														<div className="p-6 text-center border border-dashed rounded-xl bg-muted/10 text-muted-foreground">
 															No matches currently in progress.
@@ -691,18 +717,23 @@ export default function RemoteTournamentPage() {
 						)}
 
 						{/* Live Matches Section */}
-						{tournament.matches.filter(m => m.status === 'inprogress').length > 0 && (
-							<Card className="bg-card/50 backdrop-blur-sm border-red-500/20">
-								<CardHeader>
-									<CardTitle className="flex items-center gap-2 text-lg">
+							{tournament.matches.filter(m => m.status === 'inprogress').length > 0 && (
+								<Card className="bg-card/50 backdrop-blur-sm border-red-500/20">
+									<CardHeader>
+										<CardTitle className="flex items-center gap-2 text-lg">
 										<div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
 										Live Matches
 									</CardTitle>
-								</CardHeader>
-								<CardContent className="space-y-3">
-									{tournament.matches
-										.filter(m => m.status === 'inprogress')
-										.map(match => (
+									</CardHeader>
+									<CardContent className="space-y-3">
+										{isWaitingForNextMatch && (
+											<p className="text-xs text-yellow-500">
+												You are ready for your next match. Watch Live is disabled until your match starts.
+											</p>
+										)}
+										{tournament.matches
+											.filter(m => m.status === 'inprogress')
+											.map(match => (
 											<div 
 												key={match.matchId} 
 												className="flex items-center justify-between p-4 bg-background/60 border rounded-xl hover:bg-background/80 transition-colors"
@@ -713,16 +744,21 @@ export default function RemoteTournamentPage() {
 													</div>
 													<div className="text-xs text-muted-foreground">Round {match.round}</div>
 												</div>
-												<Button
-													onClick={() => watchMatch(match.matchId)}
-													size="sm"
-													className="bg-red-500 hover:bg-red-600"
-												>
-													<Eye className="mr-2 h-4 w-4" /> Watch Live
-												</Button>
-											</div>
-										))}
-								</CardContent>
+													<Button
+														onClick={() => watchMatch(match.matchId)}
+														disabled={isWaitingForNextMatch}
+														size="sm"
+														className={cn(
+															isWaitingForNextMatch
+																? "bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted"
+																: "bg-red-500 hover:bg-red-600"
+														)}
+													>
+														<Eye className="mr-2 h-4 w-4" /> {isWaitingForNextMatch ? "Waiting..." : "Watch Live"}
+													</Button>
+												</div>
+											))}
+									</CardContent>
 							</Card>
 						)}
 
