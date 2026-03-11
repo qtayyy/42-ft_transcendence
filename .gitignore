@@ -1,3 +1,4 @@
 *.db
 .env
 uploads/
+docs/notes/*
