@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import SearchBar from "@/components/search-bar";
 import axios from "axios";
@@ -20,11 +20,31 @@ import { useFriends } from "@/hooks/use-friends";
 import { Badge } from "@/components/ui/badge";
 import { CapybaraIcon } from "@/components/icons/capybara-icon";
 
+interface MatchEntry {
+  id: number;
+  opponent: string;
+  playerScore: number;
+  opponentScore: number;
+  result: "win" | "loss" | "draw";
+  mode: string;
+  date: string;
+}
+
+const MODE_LABEL: Record<string, string> = {
+  local: "Local 1v1",
+  "local-tournament": "Local Tournament",
+  remote: "Remote 1v1",
+  "remote-tournament": "Remote Tournament",
+  ai: "vs AI",
+};
+
 
 export default function DashboardPage() {
   const router = useRouter();
   const [userFound, setUserFound] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [matchHistory, setMatchHistory] = useState<MatchEntry[]>([]);
+  const [recentMatchesLoading, setRecentMatchesLoading] = useState(true);
   const { onlineFriends } = useGame();
   const { t } = useLanguage();
   const { friends: allFriends } = useFriends();
@@ -33,22 +53,21 @@ export default function DashboardPage() {
   const offlineFriends = allFriends.filter(
     friend => !onlineFriends.some(onlineFriend => String(onlineFriend.id) === String(friend.id))
   );
-  const tournaments = [
-    {
-      id: 1,
-      date: "2024-01-15",
-      time: "14:30",
-      players: "Alice, Bob, Charlie, Diana",
-      winner: "Alice",
-    },
-    {
-      id: 2,
-      date: "2024-01-10",
-      time: "10:00",
-      players: "Bob, Charlie",
-      winner: "Bob",
-    },
-  ];
+  useEffect(() => {
+    async function fetchRecentMatches() {
+      try {
+        const response = await axios.get<MatchEntry[]>("/api/game/match-history");
+        setMatchHistory(response.data || []);
+      } catch (error) {
+        console.error("Failed to load recent matches", error);
+        setMatchHistory([]);
+      } finally {
+        setRecentMatchesLoading(false);
+      }
+    }
+
+    fetchRecentMatches();
+  }, []);
 
   async function handleSearchUser(query) {
     try {
@@ -104,6 +123,20 @@ export default function DashboardPage() {
   function handleMatchHistoryNavigation() {
     router.push("/match");
   }
+
+  const recentMatches = matchHistory.slice(0, 3);
+  const wins = matchHistory.filter((match) => match.result === "win").length;
+  const losses = matchHistory.filter((match) => match.result === "loss").length;
+  const draws = matchHistory.filter((match) => match.result === "draw").length;
+  const totalGames = matchHistory.length;
+
+  const winPercentage = totalGames > 0 ? (wins / totalGames) * 100 : 0;
+  const lossPercentage = totalGames > 0 ? (losses / totalGames) * 100 : 0;
+  const drawPercentage = totalGames > 0 ? (draws / totalGames) * 100 : 0;
+
+  const winSegmentEnd = winPercentage;
+  const lossSegmentEnd = winPercentage + lossPercentage;
+  const pieBackground = `conic-gradient(#22c55e 0% ${winSegmentEnd}%, #ef4444 ${winSegmentEnd}% ${lossSegmentEnd}%, #f59e0b ${lossSegmentEnd}% 100%)`;
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
@@ -270,10 +303,38 @@ export default function DashboardPage() {
                     <CardDescription>{t.Dashboard["Performance Stats"]}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-48 flex items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg">
-                      <p className="text-muted-foreground text-sm text-center px-4">
-                        {t.Dashboard["Pie chart on Win-Loss (Incl. total games) - Placeholder"]}
-                      </p>
+                    <div className="h-48 flex items-center justify-center rounded-lg bg-muted/20 border border-border/50 p-4">
+                      {recentMatchesLoading ? (
+                        <p className="text-muted-foreground text-sm">Loading stats...</p>
+                      ) : totalGames === 0 ? (
+                        <p className="text-muted-foreground text-sm text-center px-4">No matches yet.</p>
+                      ) : (
+                        <div className="w-full flex items-center justify-center gap-6">
+                          <div className="relative h-28 w-28 shrink-0 rounded-full" style={{ background: pieBackground }}>
+                            <div className="absolute inset-4 rounded-full bg-card flex items-center justify-center border border-border/60">
+                              <div className="text-center leading-tight">
+                                <p className="text-xs text-muted-foreground">Total</p>
+                                <p className="text-base font-bold">{totalGames}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 text-sm">
+                            <p className="font-medium flex items-center gap-2">
+                              <span className="h-2.5 w-2.5 rounded-full bg-green-500"></span>
+                              Win: {wins} ({winPercentage.toFixed(1)}%)
+                            </p>
+                            <p className="font-medium flex items-center gap-2">
+                              <span className="h-2.5 w-2.5 rounded-full bg-red-500"></span>
+                              Loss: {losses} ({lossPercentage.toFixed(1)}%)
+                            </p>
+                            <p className="font-medium flex items-center gap-2">
+                              <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
+                              Draw: {draws} ({drawPercentage.toFixed(1)}%)
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -294,46 +355,44 @@ export default function DashboardPage() {
                   <div className="mx-auto p-3 rounded-xl bg-yellow-500/10 mb-3">
                     <Trophy className="h-8 w-8 text-yellow-500" />
                   </div>
-                  <CardTitle className="text-2xl">{t.Dashboard["Tournament History"]}</CardTitle>
-                  <CardDescription>{t.Dashboard["Your Tournament Records"]}</CardDescription>
+                  <CardTitle className="text-2xl">Recent Game History</CardTitle>
+                  <CardDescription>Top 3 latest matches from your full history</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {tournaments.length > 0 ? (
-                      tournaments.map((tournament) => (
+                    {recentMatchesLoading ? (
+                      <p className="text-muted-foreground text-center py-8">Loading recent matches...</p>
+                    ) : recentMatches.length > 0 ? (
+                      recentMatches.map((match) => (
                         <div
-                          key={tournament.id}
+                          key={match.id}
                           className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 hover:border-primary/20 transition-all duration-300 hover:scale-[1.01] bg-muted/20"
                         >
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
                               <span className="text-muted-foreground">
-                                {t.Dashboard["Tournament ID:"]}{" "}
+                                Match ID:{" "}
                               </span>
-                              <span className="font-medium">#{tournament.id}</span>
+                              <span className="font-medium">#{match.id}</span>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">{t.Dashboard.Date}: </span>
-                              <span className="font-medium">{tournament.date}</span>
+                              <span className="text-muted-foreground">Date: </span>
+                              <span className="font-medium">
+                                {new Date(match.date).toLocaleDateString()}
+                              </span>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">{t.Dashboard.Time}: </span>
-                              <span className="font-medium">{tournament.time}</span>
+                              <span className="text-muted-foreground">Mode: </span>
+                              <span className="font-medium">{MODE_LABEL[match.mode] || match.mode}</span>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">
-                                {t.Dashboard.Winner}:{" "}
-                              </span>
-                              <span className="font-medium text-primary">
-                                {tournament.winner}
-                              </span>
+                              <span className="text-muted-foreground">Result: </span>
+                              <span className="font-medium text-primary capitalize">{match.result}</span>
                             </div>
                             <div className="md:col-span-4">
-                              <span className="text-muted-foreground">
-                                {t.Dashboard.Player}:{" "}
-                              </span>
+                              <span className="text-muted-foreground">Overview: </span>
                               <span className="font-medium">
-                                {tournament.players}
+                                You {match.playerScore} - {match.opponentScore} {match.opponent}
                               </span>
                             </div>
                           </div>
@@ -341,7 +400,7 @@ export default function DashboardPage() {
                       ))
                     ) : (
                       <p className="text-muted-foreground text-center py-8">
-                        {t.Dashboard["Tournament History"]}
+                        No matches yet.
                       </p>
                     )}
                   </div>
