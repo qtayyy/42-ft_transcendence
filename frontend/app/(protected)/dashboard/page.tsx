@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SearchBar from "@/components/search-bar";
 import axios from "axios";
@@ -10,14 +10,12 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useGame } from "@/hooks/use-game";
 import { useLanguage } from '@/context/languageContext';
-import { Users, BarChart3, PieChart, Trophy, Search, Zap, Activity, MessageCircle } from "lucide-react";
+import { Users, BarChart3, PieChart, Trophy, Activity, MessageCircle } from "lucide-react";
 import { useFriends } from "@/hooks/use-friends";
 import { Badge } from "@/components/ui/badge";
 import { CapybaraIcon } from "@/components/icons/capybara-icon";
@@ -27,7 +25,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [userFound, setUserFound] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { gameRoom, onlineFriends } = useGame();
+  const { onlineFriends } = useGame();
   const { t } = useLanguage();
   const { friends: allFriends } = useFriends();
 
@@ -99,6 +97,14 @@ export default function DashboardPage() {
     }
   }
 
+  function handleFriendsNavigation() {
+    router.push("/friend-request");
+  }
+
+  function handleMatchHistoryNavigation() {
+    router.push("/match");
+  }
+
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
       {/* Floating Chat Button - Modern Design */}
@@ -159,7 +165,10 @@ export default function DashboardPage() {
               <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                 <Users className="h-32 w-32 -mr-8 -mt-8" />
               </div>
-              <CardHeader className="text-center pb-2">
+              <CardHeader
+                className="text-center pb-2 cursor-pointer"
+                onClick={handleFriendsNavigation}
+              >
                 <div className="mx-auto p-4 rounded-2xl bg-blue-500/10 mb-4 group-hover:bg-blue-500/20 transition-colors">
                   <Users className="h-10 w-10 text-blue-500" />
                 </div>
@@ -167,7 +176,9 @@ export default function DashboardPage() {
                 <CardDescription className="text-base">{t.Dashboard["Connect & Play Together"]}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <SearchBar searchUser={handleSearchUser}></SearchBar>
+                {/* <div onClick={(event) => event.stopPropagation()}>
+                  <SearchBar searchUser={handleSearchUser}></SearchBar>
+                </div> */}
                 {/* Online Friends */}
                 <div>
                   <h3 className="font-semibold mb-2 text-sm uppercase text-center">{t.Dashboard.Online}</h3>
@@ -177,6 +188,7 @@ export default function DashboardPage() {
                         <div
                           key={`${friend.id}-${index}`}
                           className="flex items-center gap-2 p-2 hover:bg-accent/50 rounded-md cursor-pointer transition-colors"
+                          onClick={handleFriendsNavigation}
                         >
                           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                           <span className="text-sm">{friend.username}</span>
@@ -201,6 +213,7 @@ export default function DashboardPage() {
                         <div
                           key={friend.id}
                           className="flex items-center gap-2 p-2 hover:bg-accent/50 rounded-md cursor-pointer transition-colors"
+                          onClick={handleFriendsNavigation}
                         >
                           <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                           <span className="text-sm">{friend.username}</span>
@@ -270,7 +283,10 @@ export default function DashboardPage() {
             {/* Tournament History */}
             <div className="group relative">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
-              <Card className="relative border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.01]">
+              <Card
+                className="relative cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.01]"
+                onClick={handleMatchHistoryNavigation}
+              >
                 <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                   <Trophy className="h-32 w-32 -mr-8 -mt-8" />
                 </div>

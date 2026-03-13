@@ -3,26 +3,29 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
-  User, 
   Mail, 
   Calendar, 
   MapPin, 
   FileText, 
   Trophy, 
-  XCircle, 
   ArrowLeft,
-  Loader2
+  Loader2,
+  UserPlus,
+  Users
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useFriends } from "@/hooks/use-friends";
 import { useLanguage } from "@/context/languageContext";
 
 interface UserProfile {
   id: number;
   username: string;
+  fullname: string;
   email: string;
   avatar: string | null;
   region: string | null;
@@ -30,19 +33,23 @@ interface UserProfile {
   dob: string | null;
   wins: number;
   losses: number;
-  createdAt: string;
+  createdAt?: string;
 }
 
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { friends, pending } = useFriends();
   const { t } = useLanguage();
   const username = params.username as string;
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [relationshipStatus, setRelationshipStatus] = useState<"friends" | "pending" | "not-friends">("not-friends");
+  const [sendingRequest, setSendingRequest] = useState(false);
+  const [requestFeedback, setRequestFeedback] = useState("");
 
   // Redirect to own profile if viewing self
   useEffect(() => {
@@ -78,6 +85,71 @@ export default function UserProfilePage() {
       fetchUserProfile();
     }
   }, [username, user]);
+
+  useEffect(() => {
+    if (!profile) return;
+
+    const isFriend = friends.some((friend) => String(friend.id) === String(profile.id));
+    if (isFriend) {
+      setRelationshipStatus("friends");
+      return;
+    }
+
+    const hasIncomingPendingRequest = pending.some(
+      (request) => String(request.requester.id) === String(profile.id)
+    );
+
+    if (hasIncomingPendingRequest) {
+      setRelationshipStatus("pending");
+      return;
+    }
+
+    setRelationshipStatus("not-friends");
+  }, [friends, pending, profile]);
+
+  async function handleSendFriendRequest() {
+    if (!profile) return;
+
+    try {
+      setSendingRequest(true);
+      setRequestFeedback("");
+
+      const response = await fetch("/api/friends/request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username: profile.username }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const message = data.error || "Failed to send friend request";
+
+        if (message === "Request already sent") {
+          setRelationshipStatus("pending");
+          setRequestFeedback(message);
+          return;
+        }
+
+        if (message === "Already friends") {
+          setRelationshipStatus("friends");
+          setRequestFeedback(message);
+          return;
+        }
+
+        throw new Error(message);
+      }
+
+      setRelationshipStatus("pending");
+      setRequestFeedback(data.message || "Friend request sent");
+    } catch (err: any) {
+      setRequestFeedback(err.message || "Failed to send friend request");
+    } finally {
+      setSendingRequest(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -140,7 +212,29 @@ export default function UserProfilePage() {
               </div>
 
               <div className="flex-1 text-center md:text-left">
-                <h1 className="text-3xl font-bold mb-2">{profile.username}</h1>
+                <h1 className="text-3xl font-bold mb-1">{profile.fullname}</h1>
+                <p className="text-muted-foreground text-lg mb-2">@{profile.username}</p>
+                <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
+                  {relationshipStatus === "friends" ? (
+                    <Badge className="gap-2 bg-green-500/15 text-green-700 hover:bg-green-500/15 dark:text-green-400 border border-green-500/30">
+                      <Users className="h-3.5 w-3.5" />
+                      Friends
+                    </Badge>
+                  ) : relationshipStatus === "pending" ? (
+                    <Badge className="bg-yellow-500/15 text-yellow-700 hover:bg-yellow-500/15 dark:text-yellow-400 border border-yellow-500/30">
+                      Request Pending
+                    </Badge>
+                  ) : (
+                    <Button
+                      onClick={handleSendFriendRequest}
+                      disabled={sendingRequest}
+                      className="gap-2"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      {sendingRequest ? "Sending..." : "Send Friend Request"}
+                    </Button>
+                  )}
+                </div>
                 
                 <div className="space-y-2 mt-4">
                   <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground">
@@ -155,24 +249,30 @@ export default function UserProfilePage() {
                     </div>
                   )}
                   
-                  <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>
-                      Joined {new Date(profile.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
+                  {profile.createdAt && (
+                    <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>
+                        Joined {new Date(profile.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
                 </div>
+
+                {requestFeedback && (
+                  <p className="mt-3 text-sm text-muted-foreground">{requestFeedback}</p>
+                )}
               </div>
             </div>
 
-            {profile.bio && (
-              <div className="mt-6 pt-6 border-t">
-                <div className="flex items-start gap-2">
-                  <FileText className="h-4 w-4 mt-1 text-muted-foreground" />
-                  <p className="text-muted-foreground">{profile.bio}</p>
-                </div>
+            <div className="mt-6 pt-6 border-t">
+              <div className="flex items-start gap-2">
+                <FileText className="h-4 w-4 mt-1 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  {profile.bio || "No bio yet."}
+                </p>
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 
