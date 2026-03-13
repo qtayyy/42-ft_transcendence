@@ -21,12 +21,12 @@ export default async function (fastify, opts) {
           select: {
             id: true,
             username: true,
+            fullname: true,
             email: true,
             avatar: true,
             region: true,
             bio: true,
             dob: true,
-            createdAt: true,
             matchesAsPlayer1: {
               select: {
                 score1: true,
