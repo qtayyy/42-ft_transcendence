@@ -643,19 +643,19 @@ export default function ChatPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button
+                          {/* <Button
                             variant="outline"
                             size="sm"
                             onClick={handleGameInvite}
                             disabled={!isReady}
                             className="gap-2"
                           >
-                            {/* <Gamepad2 className="w-4 h-4" />
-                            <span className="hidden sm:inline">Invite to Game</span> */}
-                          </Button>
+                            <Gamepad2 className="w-4 h-4" />
+                            <span className="hidden sm:inline">Invite to Game</span>
+                          </Button> */}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
+                              <Button variant="ghost" size="sm" suppressHydrationWarning>
                                 <MoreVertical className="w-4 h-4" />
                               </Button>
                             </DropdownMenuTrigger>
