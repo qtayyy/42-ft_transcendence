@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 export default async function (fastify, opts) {
   // Block a user
   fastify.post(
-    "/",
+    "/block",
     { onRequest: [fastify.authenticate] },
     async (request, reply) => {
       try {
@@ -66,7 +66,7 @@ export default async function (fastify, opts) {
 
   // Unblock a user
   fastify.delete(
-    "/:userId",
+    "/block/:userId",
     { onRequest: [fastify.authenticate] },
     async (request, reply) => {
       try {
@@ -101,7 +101,7 @@ export default async function (fastify, opts) {
 
   // Get list of blocked users
   fastify.get(
-    "/",
+    "/block",
     { onRequest: [fastify.authenticate] },
     async (request, reply) => {
       try {

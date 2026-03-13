@@ -1,8 +1,21 @@
 import { PrismaClient } from "../../../generated/prisma/index.js";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const prisma = new PrismaClient();
 
 export default async function (fastify, opts) {
+  // Register block routes
+  const blockModule = await import("./block.js");
+  await fastify.register(blockModule.default);
+
+  // Register read routes  
+  const readModule = await import("./read.js");
+  await fastify.register(readModule.default);
+
   fastify.get(
     "/:friendId",
     { onRequest: [fastify.authenticate] },
