@@ -175,6 +175,28 @@ export function createWsEventHandlers({
             return;
           }
 
+          // Check if either user has blocked the other
+          const blockExists = await prisma.block.findFirst({
+            where: {
+              OR: [
+                { blockerId: userId, blockedId: recipientId },
+                { blockerId: recipientId, blockedId: userId },
+              ],
+            },
+          });
+
+          if (blockExists) {
+            safeSend(
+              connection,
+              {
+                event: "CHAT_MESSAGE",
+                error: "Cannot send message to blocked user",
+              },
+              userId,
+            );
+            return;
+          }
+
           // Verify friendship exists
           const friendship = await prisma.friendship.findFirst({
             where: {
@@ -223,6 +245,8 @@ export function createWsEventHandlers({
             avatar: savedMessage.sender.avatar || null,
             message: savedMessage.content,
             timestamp: savedMessage.createdAt.toISOString(),
+            read: savedMessage.read,
+            readAt: savedMessage.readAt?.toISOString() || null,
           };
 
           // Send message to recipient if online
@@ -266,6 +290,184 @@ export function createWsEventHandlers({
             {
               event: "CHAT_MESSAGE",
               error: "Failed to send message",
+            },
+            userId,
+          );
+        }
+      })();
+    },
+
+    TYPING_INDICATOR: (payload) => {
+      // Handle typing indicator
+      const recipientId = parseInt(payload.recipientId);
+      const isTyping = payload.isTyping;
+
+      if (!recipientId || isNaN(recipientId)) {
+        return;
+      }
+
+      // Send typing indicator to recipient if online
+      const recipientSocket = fastify.onlineUsers.get(Number(recipientId));
+      if (recipientSocket) {
+        safeSend(
+          recipientSocket,
+          {
+            event: "TYPING_INDICATOR",
+            payload: {
+              userId: userId,
+              isTyping: isTyping,
+            },
+          },
+          recipientId,
+        );
+      }
+    },
+
+    MESSAGE_READ: (payload) => {
+      // Handle message read receipt
+      (async () => {
+        try {
+          const messageId = parseInt(payload.messageId);
+
+          if (!messageId || isNaN(messageId)) {
+            return;
+          }
+
+          // Update message as read
+          const updatedMessage = await prisma.message.updateMany({
+            where: {
+              id: messageId,
+              recipientId: userId,
+            },
+            data: {
+              read: true,
+              readAt: new Date(),
+            },
+          });
+
+          if (updatedMessage.count > 0) {
+            // Notify sender that message was read
+            const message = await prisma.message.findUnique({
+              where: { id: messageId },
+            });
+
+            if (message) {
+              const senderSocket = fastify.onlineUsers.get(Number(message.senderId));
+              if (senderSocket) {
+                safeSend(
+                  senderSocket,
+                  {
+                    event: "MESSAGE_READ",
+                    payload: {
+                      messageId: messageId,
+                      readAt: new Date().toISOString(),
+                    },
+                  },
+                  message.senderId,
+                );
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Error marking message as read:", err);
+        }
+      })();
+    },
+
+    GAME_INVITE: (payload) => {
+      // Handle game invite
+      (async () => {
+        try {
+          const recipientId = parseInt(payload.recipientId);
+          const inviteType = payload.inviteType || "normal"; // normal, tournament
+
+          if (!recipientId || isNaN(recipientId)) {
+            safeSend(
+              connection,
+              {
+                event: "GAME_INVITE",
+                error: "Invalid recipient ID",
+              },
+              userId,
+            );
+            return;
+          }
+
+          // Check if recipient is blocked
+          const blockExists = await prisma.block.findFirst({
+            where: {
+              OR: [
+                { blockerId: userId, blockedId: recipientId },
+                { blockerId: recipientId, blockedId: userId },
+              ],
+            },
+          });
+
+          if (blockExists) {
+            safeSend(
+              connection,
+              {
+                event: "GAME_INVITE",
+                error: "Cannot invite blocked user",
+              },
+              userId,
+            );
+            return;
+          }
+
+          // Get sender info
+          const sender = await prisma.profile.findUnique({
+            where: { id: userId },
+            select: { username: true, avatar: true },
+          });
+
+          // Send invite to recipient if online
+          const recipientSocket = fastify.onlineUsers.get(Number(recipientId));
+          if (recipientSocket) {
+            safeSend(
+              recipientSocket,
+              {
+                event: "GAME_INVITE",
+                payload: {
+                  inviterId: userId,
+                  inviterName: sender?.username || "Unknown",
+                  inviterAvatar: sender?.avatar,
+                  inviteType: inviteType,
+                  timestamp: new Date().toISOString(),
+                },
+              },
+              recipientId,
+            );
+
+            // Confirm invite sent to sender
+            safeSend(
+              connection,
+              {
+                event: "GAME_INVITE_SENT",
+                payload: {
+                  recipientId: recipientId,
+                  inviteType: inviteType,
+                },
+              },
+              userId,
+            );
+          } else {
+            safeSend(
+              connection,
+              {
+                event: "GAME_INVITE",
+                error: "User is offline",
+              },
+              userId,
+            );
+          }
+        } catch (err) {
+          console.error("Error sending game invite:", err);
+          safeSend(
+            connection,
+            {
+              event: "GAME_INVITE",
+              error: "Failed to send invite",
             },
             userId,
           );
