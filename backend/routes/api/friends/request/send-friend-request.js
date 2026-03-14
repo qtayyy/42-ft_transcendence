@@ -30,6 +30,20 @@ export default async function (fastify, opts) {
         if (addresseeId === myId)
           return reply.code(400).send({ error: "Cannot add yourself" });
 
+        // Check if either user has blocked the other
+        const blockExists = await prisma.block.findFirst({
+          where: {
+            OR: [
+              { blockerId: myId, blockedId: addresseeId },
+              { blockerId: addresseeId, blockedId: myId },
+            ],
+          },
+        });
+
+        if (blockExists) {
+          return reply.code(403).send({ error: "Cannot send friend request to this user" });
+        }
+
         const existing = await prisma.friendship.findFirst({
           where: {
             OR: [

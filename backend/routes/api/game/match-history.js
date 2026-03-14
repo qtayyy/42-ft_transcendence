@@ -57,6 +57,7 @@ export default async function (fastify, opts) {
             opponentScore,
             result,
             mode: MODE_LABEL[match.mode] ?? match.mode.toLowerCase(),
+            durationSeconds: match.durationSeconds,
             date: match.createdAt,
           };
         });
