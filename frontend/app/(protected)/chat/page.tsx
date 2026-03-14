@@ -9,7 +9,26 @@ import { useLanguage } from '@/context/languageContext';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Users, UserPlus } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Send, Users, UserPlus, Search, MessageSquare, Smile, ChevronLeft, Zap, Ban, UserCircle, Gamepad2, MoreVertical, Check, CheckCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Message {
   id?: number;
@@ -18,6 +37,8 @@ interface Message {
   avatar?: string | null;
   message: string;
   timestamp: string;
+  read?: boolean;
+  readAt?: string | null;
 }
 
 export default function ChatPage() {
@@ -25,62 +46,87 @@ export default function ChatPage() {
   const { user } = useAuth();
   const { friends, pending, loading: friendsLoading, error: friendsError } = useFriends();
   const { onlineFriends } = useGame();
+  const router = useRouter();
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [friendIsTyping, setFriendIsTyping] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
+  const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [gameInvite, setGameInvite] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { t } = useLanguage();
 
+  // Load blocked users
   useEffect(() => {
-    const body = document.body;
-    const html = document.documentElement;
-    
-    // Store original overflow values
-    const originalBodyOverflow = body.style.overflow;
-    const originalHtmlOverflow = html.style.overflow;
-    
-    // Prevent scrolling on body and html
-    body.style.overflow = 'hidden';
-    html.style.overflow = 'hidden';
-    
-    // Calculate header height and position chat container below it
-    const updateChatPosition = () => {
-      if (chatContainerRef.current) {
-        // Find the header element by looking for fixed top-0 element
-        const allDivs = Array.from(document.querySelectorAll('div'));
-        const header = allDivs.find(
-          el => {
-            const classes = el.className || '';
-            return classes.includes('fixed') && 
-                   classes.includes('top-0') && 
-                   (classes.includes('z-50') || classes.includes('z-40'));
-          }
-        ) as HTMLElement | undefined;
+    const fetchBlockedUsers = async () => {
+      try {
+        const response = await fetch('/api/chat/block');
+        if (response.ok) {
+          const data = await response.json();
+          setBlockedUsers(data.map((u: any) => u.id));
+        }
+      } catch (error) {
+        console.error("Error fetching blocked users:", error);
+      }
+    };
+    fetchBlockedUsers();
+  }, []);
+
+  // Listen for typing indicators
+  useEffect(() => {
+    const handleTyping = (event: CustomEvent) => {
+      const data = event.detail;
+      if (selectedFriend && data.userId === parseInt(selectedFriend.id)) {
+        setFriendIsTyping(data.isTyping);
         
-        if (header) {
-          const headerHeight = header.offsetHeight;
-          // Add small buffer to prevent overlap
-          chatContainerRef.current.style.top = `${headerHeight + 4}px`;
-        } else {
-          // Fallback: use pt-28 value (112px) from protected layout plus small buffer
-          // Header logo (90px) + padding (12px top) ≈ 102px, but protected layout uses 112px
-          chatContainerRef.current.style.top = '116px';
+        // Auto-clear typing indicator after 3 seconds
+        if (data.isTyping) {
+          setTimeout(() => setFriendIsTyping(false), 3000);
         }
       }
     };
-    
-    // Update position on mount and window resize
-    updateChatPosition();
-    window.addEventListener('resize', updateChatPosition);
-    
+
+    window.addEventListener("typingIndicator", handleTyping as EventListener);
     return () => {
-      // Restore original overflow values
-      body.style.overflow = originalBodyOverflow;
-      html.style.overflow = originalHtmlOverflow;
-      window.removeEventListener('resize', updateChatPosition);
+      window.removeEventListener("typingIndicator", handleTyping as EventListener);
+    };
+  }, [selectedFriend]);
+
+  // Listen for read receipts
+  useEffect(() => {
+    const handleReadReceipt = (event: CustomEvent) => {
+      const data = event.detail;
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === data.messageId
+            ? { ...msg, read: true, readAt: data.readAt }
+            : msg
+        )
+      );
+    };
+
+    window.addEventListener("messageRead", handleReadReceipt as EventListener);
+    return () => {
+      window.removeEventListener("messageRead", handleReadReceipt as EventListener);
+    };
+  }, []);
+
+  // Listen for game invites
+  useEffect(() => {
+    const handleGameInvite = (event: CustomEvent) => {
+      const data = event.detail;
+      setGameInvite(data);
+    };
+
+    window.addEventListener("gameInvite", handleGameInvite as EventListener);
+    return () => {
+      window.removeEventListener("gameInvite", handleGameInvite as EventListener);
     };
   }, []);
 
@@ -90,7 +136,6 @@ export default function ChatPage() {
       const container = messagesContainerRef.current;
       const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 200;
       
-      // Only auto-scroll if user is already near the bottom
       if (isNearBottom) {
         // Use setTimeout to ensure DOM has updated
         setTimeout(() => {
@@ -100,7 +145,6 @@ export default function ChatPage() {
     }
   }, [messages]);
 
-  // Scroll to bottom when friend changes or history loads
   useEffect(() => {
     if (messagesContainerRef.current && selectedFriend && !loadingHistory) {
       // Small delay to ensure messages are rendered
@@ -133,13 +177,11 @@ export default function ChatPage() {
         console.log("Loading chat history for friend:", friendId);
         const response = await fetch(`/api/chat/${friendId}`);
         if (!response.ok) {
-          // Try to get error message from response
           let errorMessage = "Failed to load chat history";
           try {
             const errorData = await response.json();
             errorMessage = errorData.error || errorMessage;
           } catch {
-            // If response is not JSON, use status text
             errorMessage = response.statusText || errorMessage;
           }
           console.error("Error loading chat history:", {
@@ -265,168 +307,411 @@ export default function ChatPage() {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
       handleSend();
     }
   };
 
-  return (
-    <div 
-      ref={chatContainerRef}
-      className="fixed left-0 right-0 flex bg-background overflow-hidden" 
-      style={{ 
-        top: '116px', // Default: Account for header (pt-28 = 112px) + small buffer, will be updated dynamically
-        bottom: '24px', // Add spacing from bottom of viewport to lift input bar
-        width: '100vw' 
-      }}
-    >
-      {/* Sidebar */}
-      <aside className="w-72 border-r border-border bg-card flex flex-col shrink-0 overflow-hidden h-full">
-        {/* Sidebar Header */}
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-2 mb-1">
-            <Users className="w-5 h-5 text-muted-foreground" />
-            <h2 className="text-lg font-semibold">{t.Dashboard.Friends}</h2>
-          </div>
-          <p className="text-sm text-muted-foreground">{friends.length} {friends.length === 1 ? 'friend' : 'friends'}</p>
-        </div>
+  // Handle typing indicator
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
 
-        {/* Friends List - Scrollable */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0">
-          {friendsLoading ? (
-            <div className="p-4 text-center text-muted-foreground">{t.chat.loading}</div>
-          ) : friendsError ? (
-            <div className="p-4 text-center text-destructive">{friendsError}</div>
-          ) : (
-            <div className="p-2">
-              {friends.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground text-sm">
-                  {t.chat["No friends"]}
-                </div>
-              ) : (
-                friends.map(friend => (
-                  <div
-                    key={friend.id}
-                    onClick={() => handleFriendClick(friend)}
-                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all mb-1 ${
-                      selectedFriend?.id === friend.id
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "hover:bg-muted/50"
-                    }`}
-                  >
-                    <Avatar className="w-10 h-10 shrink-0">
-                      {friend.avatar ? (
-                        <AvatarImage src={friend.avatar} alt={friend.username} />
-                      ) : null}
-                      <AvatarFallback className={`font-semibold text-sm ${
-                        selectedFriend?.id === friend.id
-                          ? "bg-primary-foreground/20 text-primary-foreground"
-                          : "bg-primary/20 text-primary"
-                      }`}>
-                        {friend.username[0]?.toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-medium truncate ${
-                        selectedFriend?.id === friend.id ? "text-primary-foreground" : ""
-                      }`}>
-                        {friend.username}
-                      </p>
+    if (!selectedFriend || !isReady) return;
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Send typing indicator
+    if (!isTyping && e.target.value.length > 0) {
+      setIsTyping(true);
+      sendSocketMessage({
+        event: "TYPING_INDICATOR",
+        payload: {
+          recipientId: parseInt(selectedFriend.id),
+          isTyping: true,
+        },
+      });
+    }
+
+    // Auto-stop typing after 2 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      sendSocketMessage({
+        event: "TYPING_INDICATOR",
+        payload: {
+          recipientId: parseInt(selectedFriend.id),
+          isTyping: false,
+        },
+      });
+    }, 2000);
+  };
+
+  // Mark messages as read when viewing them
+  useEffect(() => {
+    if (selectedFriend && messages.length > 0) {
+      const unreadMessages = messages.filter(
+        (msg) => !msg.read && msg.senderId !== user?.id && msg.id
+      );
+
+      unreadMessages.forEach((msg) => {
+        if (msg.id) {
+          sendSocketMessage({
+            event: "MESSAGE_READ",
+            payload: { messageId: msg.id },
+          });
+        }
+      });
+    }
+  }, [messages, selectedFriend, user, sendSocketMessage]);
+
+  // Block user
+  const handleBlockUser = async () => {
+    if (!selectedFriend) return;
+
+    try {
+      const response = await fetch('/api/chat/block', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: selectedFriend.id }),
+      });
+
+      if (response.ok) {
+        setBlockedUsers((prev) => [...prev, selectedFriend.id]);
+        setSelectedFriend(null);
+        setShowBlockDialog(false);
+      } else {
+        const error = await response.json();
+        alert(error.error || "Failed to block user");
+      }
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      alert("Failed to block user");
+    }
+  };
+
+  // Unblock user
+  const handleUnblockUser = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/chat/block/${userId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setBlockedUsers((prev) => prev.filter((id) => id !== userId));
+      } else {
+        const error = await response.json();
+        alert(error.error || "Failed to unblock user");
+      }
+    } catch (error) {
+      console.error("Error unblocking user:", error);
+      alert("Failed to unblock user");
+    }
+  };
+
+  // Send game invite
+  const handleGameInvite = () => {
+    if (!selectedFriend || !isReady) return;
+
+    sendSocketMessage({
+      event: "GAME_INVITE",
+      payload: {
+        recipientId: parseInt(selectedFriend.id),
+        inviteType: "normal",
+      },
+    });
+  };
+
+  // View profile
+  const handleViewProfile = () => {
+    if (selectedFriend) {
+      router.push(`/profile/${selectedFriend.username}`);
+    }
+  };
+
+  const filteredFriends = friends
+    .filter(friend => !blockedUsers.includes(friend.id))
+    .filter(friend =>
+      friend.username.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+  return (
+    <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4 md:p-6 bg-gradient-to-b from-background to-muted/20">
+      <div className="w-full max-w-7xl h-[calc(100vh-12rem)] animate-in fade-in slide-in-from-bottom-4 duration-700">
+        {/* Chat Container with Dashboard-style Card Layout */}
+        <div className="group relative h-full">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-500"></div>
+          <Card className="relative h-full border-0 bg-card/95 backdrop-blur-sm overflow-hidden shadow-2xl">
+            <div className="h-full flex">
+              {/* Sidebar */}
+              <div className="w-80 border-r border-border/50 flex flex-col shrink-0 overflow-hidden h-full bg-gradient-to-b from-card/50 to-transparent">
+                {/* Sidebar Header */}
+                <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 to-transparent">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20">
+                      <MessageSquare className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="text-xl font-black tracking-tight">{t.Dashboard.Friends}</h2>
+                      <p className="text-xs text-muted-foreground font-medium">{friends.length} {friends.length === 1 ? 'contact' : 'contacts'}</p>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Pending Requests Section */}
-        {pending.length > 0 && (
-          <div className="border-t border-border">
-            <div className="p-4 border-b border-border">
-              <div className="flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-muted-foreground" />
-                <h3 className="text-sm font-medium">{t.chat["Pending Requests"]}</h3>
-                <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
-                  {pending.length}
-                </span>
-              </div>
-            </div>
-            <div className="p-2 max-h-40 overflow-y-auto scrollbar-hide">
-              {pending.map(req => (
-                <div
-                  key={req.id}
-                  className="flex items-center gap-3 p-2 rounded-lg opacity-70 hover:opacity-100 transition-opacity"
-                >
-                  <div className="w-8 h-8 rounded-full bg-muted-foreground/30 flex items-center justify-center text-xs font-semibold shrink-0">
-                    {req.requester.username[0]?.toUpperCase()}
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Search friends..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 bg-background/60 border-border/50 focus:border-primary/50 transition-all"
+                    />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{req.requester.username}</p>
-                    <p className="text-xs text-muted-foreground">Pending</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </aside>
+                </CardHeader>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden" style={{ height: '100%' }}>
-        {selectedFriend ? (
-          <>
-            {/* Chat Header - Fixed at top */}
-            <div className="h-16 border-b border-border bg-card flex items-center px-6 shrink-0 z-10">
-              <div className="flex items-center gap-3">
-                <Avatar className="w-10 h-10">
-                  {selectedFriend.avatar ? (
-                    <AvatarImage src={selectedFriend.avatar} alt={selectedFriend.username} />
-                  ) : null}
-                  <AvatarFallback className="bg-primary/20 text-primary font-semibold">
-                    {selectedFriend.username[0]?.toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <h1 className="font-semibold text-lg">{selectedFriend.username}</h1>
-                  {isReady ? (
-                    <div className="flex items-center gap-1.5">
-                      {onlineFriends.some(f => Number(f.id) === Number(selectedFriend.id)) ? (
-                        <>
-                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                          <p className="text-xs text-muted-foreground">Online</p>
-                        </>
+                {/* Friends List - Scrollable */}
+                <ScrollArea className="flex-1 min-h-0">
+                  {friendsLoading ? (
+                    <div className="p-4 text-center text-muted-foreground">{t.chat.loading}</div>
+                  ) : friendsError ? (
+                    <div className="p-4 text-center text-destructive">{friendsError}</div>
+                  ) : (
+                    <div className="p-3">
+                      {filteredFriends.length === 0 ? (
+                        <div className="p-8 text-center">
+                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center mx-auto mb-3 ring-1 ring-border/50">
+                            <Users className="w-8 h-8 text-muted-foreground" />
+                          </div>
+                          <p className="text-muted-foreground text-sm font-medium">
+                            {searchQuery ? 'No friends found' : t.chat["No friends"]}
+                          </p>
+                        </div>
                       ) : (
-                        <p className="text-xs text-muted-foreground">Offline</p>
+                        filteredFriends.map(friend => (
+                          <div
+                            key={friend.id}
+                            onClick={() => handleFriendClick(friend)}
+                            className={`relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all mb-2 group overflow-hidden ${
+                              selectedFriend?.id === friend.id
+                                ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg scale-[1.02]"
+                                : "hover:bg-muted/50 hover:scale-[1.01] border border-transparent hover:border-primary/20"
+                            }`}
+                          >
+                            {selectedFriend?.id !== friend.id && (
+                              <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            )}
+                            <div className="relative z-10">
+                              <Avatar className={`w-12 h-12 shrink-0 ring-2 ring-offset-2 transition-all ${
+                                selectedFriend?.id === friend.id 
+                                  ? 'ring-primary-foreground/30 ring-offset-primary' 
+                                  : 'ring-transparent group-hover:ring-primary/20 ring-offset-card'
+                              }`}>
+                                {friend.avatar ? (
+                                  <AvatarImage src={friend.avatar} alt={friend.username} />
+                                ) : null}
+                                <AvatarFallback className={`font-bold text-sm transition-all ${
+                                  selectedFriend?.id === friend.id
+                                    ? "bg-primary-foreground/20 text-primary-foreground"
+                                    : "bg-gradient-to-br from-primary/30 to-primary/10 text-primary group-hover:from-primary/40 group-hover:to-primary/20"
+                                }`}>
+                                  {friend.username[0]?.toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              {onlineFriends.some(f => Number(f.id) === Number(friend.id)) && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-card shadow-lg">
+                                  <div className="w-full h-full bg-green-400 rounded-full animate-ping opacity-75"></div>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 relative z-10">
+                              <p className={`font-semibold truncate transition-colors ${
+                                selectedFriend?.id === friend.id ? "text-primary-foreground" : ""
+                              }`}>
+                                {friend.username}
+                              </p>
+                              <p className={`text-xs truncate transition-colors ${
+                                selectedFriend?.id === friend.id ? "text-primary-foreground/70" : "text-muted-foreground"
+                              }`}>
+                                {onlineFriends.some(f => Number(f.id) === Number(friend.id)) 
+                                  ? "● Active now" 
+                                  : "Offline"
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        ))
                       )}
                     </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">{t.chat["Connecting to chat..."]}</p>
                   )}
-                </div>
-              </div>
-            </div>
+                </ScrollArea>
 
-            {/* Messages Display - Scrollable container with fixed height */}
-            <div
-              ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto bg-muted/30 p-4 scrollbar-hide min-h-0"
-              style={{ scrollBehavior: 'smooth' }}
-            >
-              {loadingHistory ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">{t.chat.loading}...</p>
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full">
-                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                    <span className="text-2xl">💬</span>
+                {/* Pending Requests Section */}
+                {pending.length > 0 && (
+                  <div className="border-t border-border/50 bg-gradient-to-r from-orange-500/5 to-transparent">
+                    <div className="p-3 border-b border-border/50">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-gradient-to-br from-orange-500/20 to-orange-500/5 ring-1 ring-orange-500/20">
+                          <UserPlus className="w-4 h-4 text-orange-500" />
+                        </div>
+                        <h3 className="text-sm font-bold flex-1">{t.chat["Pending Requests"]}</h3>
+                        <Badge variant="secondary" className="bg-orange-500/20 text-orange-700 dark:text-orange-400 border-orange-500/30">{pending.length}</Badge>
+                      </div>
+                    </div>
+                    <ScrollArea className="max-h-40">
+                      <div className="p-2">
+                      {pending.map(req => (
+                        <div
+                          key={req.id}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-orange-500/10 transition-all border border-transparent hover:border-orange-500/20"
+                        >
+                          <Avatar className="w-8 h-8 shrink-0">
+                            <AvatarFallback className="bg-gradient-to-br from-orange-500/30 to-orange-500/10 text-orange-600 dark:text-orange-400 font-bold text-xs">
+                              {req.requester.username[0]?.toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">{req.requester.username}</p>
+                            <p className="text-xs text-muted-foreground">Pending request</p>
+                          </div>
+                        </div>
+                      ))}
+                      </div>
+                    </ScrollArea>
                   </div>
-                  <p className="text-muted-foreground text-center">
-                    {t.chat["No messages yet. Start chatting!"]}
-                  </p>
-                </div>
-              ) : (
+                )}
+              </div>
+
+              {/* Main Chat Area */}
+              <div className="flex-1 flex flex-col min-w-0 overflow-hidden" style={{ height: '100%' }}>
+                {selectedFriend ? (
+                  <>
+                    {/* Chat Header */}
+                    <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-transparent to-purple-500/5">
+                      <div className="flex items-center gap-4 flex-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="md:hidden -ml-2"
+                          onClick={() => setSelectedFriend(null)}
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </Button>
+                        <div className="relative cursor-pointer" onClick={handleViewProfile}>
+                          <div className="absolute -inset-1 bg-gradient-to-br from-primary via-purple-500 to-pink-500 rounded-full blur opacity-30"></div>
+                          <Avatar className="relative w-12 h-12 ring-2 ring-primary/30 ring-offset-2 ring-offset-card">
+                            {selectedFriend.avatar ? (
+                              <AvatarImage src={selectedFriend.avatar} alt={selectedFriend.username} />
+                            ) : null}
+                            <AvatarFallback className="bg-gradient-to-br from-primary/30 to-primary/10 text-primary font-black text-sm">
+                              {selectedFriend.username[0]?.toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          {onlineFriends.some(f => Number(f.id) === Number(selectedFriend.id)) && (
+                            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-card shadow-lg">
+                              <div className="w-full h-full bg-green-400 rounded-full animate-ping opacity-75"></div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h1 className="font-black text-xl truncate tracking-tight">{selectedFriend.username}</h1>
+                          {isReady ? (
+                            <div className="flex items-center gap-1.5">
+                              {friendIsTyping ? (
+                                <div className="flex items-center gap-1">
+                                  <div className="flex space-x-1">
+                                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                  </div>
+                                  <p className="text-xs text-primary font-semibold ml-1">typing...</p>
+                                </div>
+                              ) : onlineFriends.some(f => Number(f.id) === Number(selectedFriend.id)) ? (
+                                <>
+                                  <div className="w-2 h-2 rounded-full bg-green-500">
+                                    <div className="w-full h-full bg-green-400 rounded-full animate-ping"></div>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground font-semibold">Active now</p>
+                                </>
+                              ) : (
+                                <p className="text-xs text-muted-foreground font-medium">Offline</p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">{t.chat["Connecting to chat..."]}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {/* <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleGameInvite}
+                            disabled={!isReady}
+                            className="gap-2"
+                          >
+                            <Gamepad2 className="w-4 h-4" />
+                            <span className="hidden sm:inline">Invite to Game</span>
+                          </Button> */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" suppressHydrationWarning>
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={handleViewProfile}>
+                                <UserCircle className="w-4 h-4 mr-2" />
+                                View Profile
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => setShowBlockDialog(true)}
+                                className="text-destructive"
+                              >
+                                <Ban className="w-4 h-4 mr-2" />
+                                Block User
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    {/* Messages Display  */}
+                    <ScrollArea className="flex-1 min-h-0 bg-gradient-to-b from-muted/20 to-muted/30">
+                      <div
+                        ref={messagesContainerRef}
+                        className="p-6"
+                        style={{ scrollBehavior: 'smooth' }}
+                      >
+                      {loadingHistory ? (
+                        <div className="flex items-center justify-center h-full min-h-[400px]">
+                          <div className="text-center">
+                            <div className="relative w-16 h-16 mx-auto mb-4">
+                              <div className="absolute inset-0 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                              <div className="absolute inset-2 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1s' }}></div>
+                            </div>
+                            <p className="text-muted-foreground text-sm font-medium">{t.chat.loading}...</p>
+                          </div>
+                        </div>
+                      ) : messages.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full min-h-[400px]">
+                          <div className="relative mb-8">
+                            <div className="absolute -inset-4 bg-gradient-to-br from-primary/20 via-purple-500/20 to-pink-500/20 rounded-full blur-xl"></div>
+                            <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center ring-1 ring-primary/20 shadow-xl">
+                              <MessageSquare className="w-12 h-12 text-primary" />
+                            </div>
+                            <div className="absolute -bottom-2 -right-2 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-2xl ring-2 ring-card">
+                              <Smile className="w-6 h-6 text-white" />
+                            </div>
+                          </div>
+                          <h3 className="text-2xl font-black tracking-tight mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">No messages yet</h3>
+                          <p className="text-muted-foreground text-center text-sm max-w-sm font-medium">
+                            Start the conversation by sending a message below!
+                          </p>
+                        </div>
+                      ) : (
                 <div className="space-y-4 max-w-4xl mx-auto pb-2">
                   {messages.map((msg, idx) => {
                     const isOwnMessage = msg.senderId?.toString() === user?.id?.toString();
@@ -438,10 +723,14 @@ export default function ChatPage() {
                     return (
                       <div key={`${msg.id ?? "local"}-${idx}`}>
                         {showDate && (
-                          <div className="flex items-center justify-center my-4">
-                            <span className="text-xs text-muted-foreground bg-background px-3 py-1 rounded-full">
-                              {time.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                            </span>
+                          <div className="flex items-center justify-center my-6">
+                            <div className="flex items-center gap-3">
+                              <div className="h-px flex-1 bg-border max-w-[100px]"></div>
+                              <span className="text-xs font-medium text-muted-foreground bg-muted/50 px-4 py-1.5 rounded-full border border-border">
+                                {time.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                              </span>
+                              <div className="h-px flex-1 bg-border max-w-[100px]"></div>
+                            </div>
                           </div>
                         )}
                         <div className={`flex gap-3 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -462,19 +751,30 @@ export default function ChatPage() {
                               </span>
                             )}
                             <div
-                              className={`rounded-2xl px-4 py-2 shadow-sm ${
+                              className={`rounded-2xl px-4 py-3 shadow-lg transition-all hover:shadow-xl group-hover:scale-[1.01] ${
                                 isOwnMessage
-                                  ? "bg-primary text-primary-foreground rounded-br-sm"
-                                  : "bg-card border border-border rounded-bl-sm"
+                                  ? "bg-gradient-to-br from-primary via-primary/95 to-primary/90 text-primary-foreground rounded-br-md"
+                                  : "bg-card/90 backdrop-blur-sm border border-border/50 rounded-bl-md hover:border-primary/40"
                               }`}
                             >
-                              <p className="text-sm break-words whitespace-pre-wrap">{msg.message}</p>
+                              <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{msg.message}</p>
                             </div>
-                            <span className={`text-xs text-muted-foreground mt-1 px-1 ${
-                              isOwnMessage ? 'text-right' : 'text-left'
+                            <div className={`flex items-center gap-1 mt-1 px-1 ${
+                              isOwnMessage ? 'justify-end' : 'justify-start'
                             }`}>
-                              {time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                              <span className="text-xs text-muted-foreground">
+                                {time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              {isOwnMessage && (
+                                <span className="text-xs text-muted-foreground">
+                                  {msg.read ? (
+                                    <CheckCheck className="w-3 h-3 text-primary" />
+                                  ) : (
+                                    <Check className="w-3 h-3" />
+                                  )}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -483,46 +783,123 @@ export default function ChatPage() {
                   <div ref={messagesEndRef} />
                 </div>
               )}
-            </div>
+                      </div>
+                    </ScrollArea>
 
-            {/* Input Area - Fixed at bottom with spacing */}
-            <div className="border-t border-border bg-card px-4 py-4 shrink-0 z-10">
-              <div className="flex gap-2 max-w-4xl mx-auto">
-                <Input
-                  type="text"
-                  placeholder={t.chat["Type a message..."]}
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  disabled={!isReady}
-                  className="flex-1"
-                />
-                <Button
-                  onClick={handleSend}
-                  disabled={!inputValue.trim() || !isReady}
-                  size="default"
-                  className="shrink-0"
-                >
-                  <Send className="w-4 h-4 mr-2" />
-                  {t.chat.Send}
-                </Button>
+                    {/* Input Area */}
+                    <CardContent className="border-t border-border/50 bg-gradient-to-r from-primary/5 via-transparent to-purple-500/5 p-4">
+                      <div className="flex gap-3 max-w-4xl mx-auto">
+                        <div className="flex-1 relative group">
+                          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-purple-500/20 rounded-xl blur opacity-0 group-focus-within:opacity-100 transition duration-300"></div>
+                          <Input
+                            type="text"
+                            placeholder={t.chat["Type a message..."]}
+                            value={inputValue}
+                            onChange={handleInputChange}
+                            onKeyPress={handleKeyPress}
+                            disabled={!isReady}
+                            className="relative h-12 bg-background/80 backdrop-blur-sm border-border/50 focus:border-primary/50 transition-all rounded-xl"
+                          />
+                        </div>
+                        <div className="relative group">
+                          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary via-purple-500 to-primary rounded-xl blur opacity-50 group-hover:opacity-100 transition duration-300"></div>
+                          <Button
+                            onClick={handleSend}
+                            disabled={!inputValue.trim() || !isReady}
+                            size="lg"
+                            className="relative px-6 h-12 shadow-lg hover:shadow-xl transition-all font-bold"
+                          >
+                            <Send className="w-4 h-4 mr-2" />
+                            {t.chat.Send}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center overflow-hidden bg-gradient-to-br from-background/50 to-muted/30">
+                    <div className="text-center p-8">
+                      <div className="relative inline-block mb-8">
+                        <div className="absolute -inset-4 bg-gradient-to-br from-primary/30 via-purple-500/30 to-pink-500/30 rounded-full blur-2xl"></div>
+                        <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center mx-auto ring-1 ring-primary/20 shadow-2xl">
+                          <MessageSquare className="w-14 h-14 text-primary" />
+                        </div>
+                        <div className="absolute -top-2 -right-2 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-2xl animate-bounce ring-2 ring-card">
+                          <Users className="w-7 h-7 text-white" />
+                        </div>
+                      </div>
+                      <h2 className="text-3xl font-black tracking-tight mb-3 bg-gradient-to-r from-foreground via-primary/70 to-foreground bg-clip-text text-transparent">Select a friend to start chatting</h2>
+                      <p className="text-muted-foreground max-w-md mx-auto text-sm font-medium">
+                        Choose someone from your friends list to begin a conversation and stay connected!
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center overflow-hidden">
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                <Users className="w-10 h-10 text-muted-foreground" />
-              </div>
-              <h2 className="text-xl font-semibold mb-2">Select a friend to start chatting</h2>
-              <p className="text-muted-foreground">
-                Choose someone from your friends list to begin a conversation
-              </p>
-            </div>
-          </div>
-        )}
+          </Card>
+        </div>
       </div>
+
+      {/* Block User Confirmation Dialog */}
+      <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Block User</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to block {selectedFriend?.username}? You won't be able to send or receive messages from this user.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBlockDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBlockUser}>
+              Block
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Game Invite Notification */}
+      {gameInvite && (
+        <Dialog open={!!gameInvite} onOpenChange={() => setGameInvite(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Game Invitation</DialogTitle>
+              <DialogDescription>
+                <div className="flex items-center gap-3 my-4">
+                  <Avatar className="w-12 h-12">
+                    {gameInvite.inviterAvatar ? (
+                      <AvatarImage src={gameInvite.inviterAvatar} alt={gameInvite.inviterName} />
+                    ) : null}
+                    <AvatarFallback className="bg-primary/20 text-primary font-bold">
+                      {gameInvite.inviterName?.[0]?.toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold">{gameInvite.inviterName}</p>
+                    <p className="text-sm text-muted-foreground">wants to play a game with you</p>
+                  </div>
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setGameInvite(null)}>
+                Decline
+              </Button>
+              <Button 
+                onClick={() => {
+                  router.push('/game/new');
+                  setGameInvite(null);
+                }}
+              >
+                Accept & Play
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -477,6 +477,10 @@ class Game {
           player2Id: p2Id,
           score1: this.gameState.score.p1,
           score2: this.gameState.score.p2,
+          durationSeconds: Math.max(
+            0,
+            Math.round((this.gameState.timer?.timeElapsed ?? 0) / 1000),
+          ),
           mode: this.mode === "local" ? "LOCAL" : "REMOTE",
           tournamentId: this.tournamentId || null,
         },

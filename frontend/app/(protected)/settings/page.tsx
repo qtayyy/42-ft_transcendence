@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircleIcon, Eye, EyeOff, Shield, Lock, Trash2, Settings as SettingsIcon, KeyRound } from "lucide-react";
+import { AlertCircleIcon, Eye, EyeOff, Shield, Lock, Trash2, Settings as SettingsIcon, KeyRound, UserX, Users } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import React, { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import Image from "next/image";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,8 @@ export default function SettingsPage() {
     "disable"
   );
   const [twoFADialogOpen, setTwoFADialogOpen] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
+  const [loadingBlocked, setLoadingBlocked] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -79,6 +82,38 @@ export default function SettingsPage() {
     }
     get2FA();
   }, []);
+
+  // Fetch blocked users
+  useEffect(() => {
+    fetchBlockedUsers();
+  }, []);
+
+  const fetchBlockedUsers = async () => {
+    try {
+      setLoadingBlocked(true);
+      const response = await axios.get("/api/chat/block");
+      setBlockedUsers(response.data);
+    } catch (error: any) {
+      console.error("Error fetching blocked users:", error);
+    } finally {
+      setLoadingBlocked(false);
+    }
+  };
+
+  const handleUnblock = async (userId: string) => {
+    try {
+      await axios.delete(`/api/chat/block/${userId}`);
+      setSuccess("User unblocked successfully");
+      setError("");
+      // Remove from local state
+      setBlockedUsers(blockedUsers.filter((user) => user.id !== userId));
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (error: any) {
+      const backendError = error.response?.data?.error;
+      setError(backendError || "Failed to unblock user");
+      setTimeout(() => setError(""), 3000);
+    }
+  };
 
   const handleSwitch = async (checked: boolean) => {
     setTwoFA(checked);
@@ -539,6 +574,79 @@ export default function SettingsPage() {
                       </Button>
                     </div>
                   </form>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Blocked Users Card */}
+            <div className="group relative">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
+              <Card className="relative border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.01]">
+                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <UserX className="h-32 w-32 -mr-8 -mt-8" />
+                </div>
+                <CardHeader>
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-xl bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
+                      <UserX className="h-8 w-8 text-purple-500" />
+                    </div>
+                    <div className="flex-1">
+                      <CardTitle className="text-2xl mb-2">
+                        {t?.Setting?.["Blocked Users"] || "Blocked Users"}
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Manage users you have blocked
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loadingBlocked ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    </div>
+                  ) : blockedUsers.length === 0 ? (
+                    <div className="text-center py-8 px-4 bg-muted/30 rounded-lg border border-border/50">
+                      <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground">
+                        {t?.Setting?.["No blocked users"] || "No blocked users"}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {blockedUsers.map((blockedUser) => (
+                        <div
+                          key={blockedUser.id}
+                          className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors"
+                        >
+                          <Avatar className="h-10 w-10">
+                            {blockedUser.avatar && (
+                              <AvatarImage src={blockedUser.avatar} alt={blockedUser.username} />
+                            )}
+                            <AvatarFallback>
+                              {blockedUser.username?.[0]?.toUpperCase() || "?"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">
+                              {blockedUser.username}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Blocked {new Date(blockedUser.blockedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUnblock(blockedUser.id)}
+                            className="hover:bg-primary hover:text-primary-foreground transition-colors"
+                          >
+                            Unblock
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
