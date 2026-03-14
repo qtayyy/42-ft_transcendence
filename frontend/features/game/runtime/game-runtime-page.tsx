@@ -642,6 +642,7 @@ export default function GameRuntimePage() {
 
 	const handleGameOver = async (winner: number | null, score: { p1: number; p2: number }, result: string) => {
 		console.log(`Game Over! Result: ${result}`, { winner, score });
+		const durationSeconds = Math.max(0, Math.round(((gameState as any)?.timer?.timeElapsed ?? 0) / 1000));
 
 		if (matchData) {
 			try {
@@ -653,6 +654,7 @@ export default function GameRuntimePage() {
 						player2Id: matchData.player2?.id || null,
 						score,
 						outcome,
+						durationSeconds,
 					};
 					const pendingKey = `${LOCAL_TOURNAMENT_PENDING_RESULT_PREFIX}${matchData.tournamentId}:${matchData.matchId}`;
 					// Write-through outbox: store first, then attempt network submit.
@@ -691,6 +693,7 @@ export default function GameRuntimePage() {
 							score2: score.p2,
 							winner: winner,
 							mode: "LOCAL",
+							durationSeconds,
 						});
 					}
 				}

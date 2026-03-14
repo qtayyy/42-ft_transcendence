@@ -20,7 +20,8 @@ export default async function (fastify, opts) {
 					score2,
 					winner,
 					mode,
-					tournamentId
+					tournamentId,
+					durationSeconds,
 				} = request.body;
 
 				// Validation
@@ -35,6 +36,9 @@ export default async function (fastify, opts) {
 						player2Id: player2Id || null,
 						score1: score1,
 						score2: score2,
+						durationSeconds: typeof durationSeconds === "number"
+							? Math.max(0, Math.round(durationSeconds))
+							: null,
 						mode: mode || "LOCAL",
 						tournamentId: tournamentId || null,
 					}

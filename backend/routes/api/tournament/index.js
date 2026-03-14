@@ -176,7 +176,15 @@ export default async function (fastify, opts) {
     async (request, reply) => {
       try {
         const { id } = request.params;
-        const { matchId, player1Id, player2Id, score, outcome, winnerId } =
+        const {
+          matchId,
+          player1Id,
+          player2Id,
+          score,
+          outcome,
+          winnerId,
+          durationSeconds,
+        } =
           request.body;
 
         const tournament = activeTournaments.get(id);
@@ -213,6 +221,10 @@ export default async function (fastify, opts) {
                 player2Id: player2Id || null,
                 score1: score.p1,
                 score2: score.p2,
+                durationSeconds:
+                  typeof durationSeconds === "number"
+                    ? Math.max(0, Math.round(durationSeconds))
+                    : null,
                 mode: "LOCAL_TOURNAMENT",
               },
             });
