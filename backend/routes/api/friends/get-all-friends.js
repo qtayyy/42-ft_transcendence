@@ -11,6 +11,29 @@ export default async function (fastify, opts) {
       try {
         const myId = request.user.userId;
 
+        // Get all blocked user IDs (both ways)
+        const blockedUsers = await prisma.block.findMany({
+          where: {
+            OR: [
+              { blockerId: myId },
+              { blockedId: myId },
+            ],
+          },
+          select: {
+            blockerId: true,
+            blockedId: true,
+          },
+        });
+
+        const blockedIds = new Set();
+        blockedUsers.forEach((block) => {
+          if (block.blockerId === myId) {
+            blockedIds.add(block.blockedId);
+          } else {
+            blockedIds.add(block.blockerId);
+          }
+        });
+
         const friends = await prisma.friendship.findMany({
           where: {
             status: "ACCEPTED",
@@ -21,9 +44,12 @@ export default async function (fastify, opts) {
             addressee: { select: { id: true, username: true, avatar: true } },
           },
         });
-        const cleanedFriends = friends.map((f) =>
-          f.requesterId === myId ? f.addressee : f.requester
-        );
+        
+        // Filter out blocked users
+        const cleanedFriends = friends
+          .map((f) => f.requesterId === myId ? f.addressee : f.requester)
+          .filter((friend) => !blockedIds.has(friend.id));
+        
         return reply.code(200).send(cleanedFriends);
       } catch (error) {
         console.error("Error fetching friends:", error);
