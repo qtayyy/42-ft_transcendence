@@ -107,6 +107,9 @@ model Match {
   score1 Int
   score2 Int
 
+  // Duration of the match in seconds (null for matches recorded before this field was added)
+  durationSeconds Int?
+
   // Track if it is local/remote/ai
   mode MatchMode @default(REMOTE)
 

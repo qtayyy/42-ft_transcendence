@@ -101,6 +101,10 @@ export function createGameLifecycle({
     }
     const left = gameState.leftPlayer;
     const right = gameState.rightPlayer;
+    const elapsedMs = Number.isFinite(gameState.timer?.timeElapsed)
+      ? gameState.timer.timeElapsed
+      : MATCH_DURATION - (gameState.timer?.timeRemaining ?? MATCH_DURATION);
+    const durationSeconds = Math.max(0, Math.round(elapsedMs / 1000));
 
     // Save match to database
     try {
@@ -110,6 +114,7 @@ export function createGameLifecycle({
           player2Id: right.id,
           score1: left.score,
           score2: right.score,
+          durationSeconds,
           mode: gameState.tournamentId ? "REMOTE_TOURNAMENT" : "REMOTE",
         },
       });

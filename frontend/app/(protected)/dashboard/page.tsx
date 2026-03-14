@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useGame } from "@/hooks/use-game";
 import { useLanguage } from '@/context/languageContext';
-import { Users, BarChart3, PieChart, Trophy, Activity, MessageCircle } from "lucide-react";
+import { Users, BarChart3, PieChart, Trophy, Activity, MessageCircle, Clock, Calendar } from "lucide-react";
 import { useFriends } from "@/hooks/use-friends";
 import { Badge } from "@/components/ui/badge";
 import { CapybaraIcon } from "@/components/icons/capybara-icon";
@@ -27,6 +27,7 @@ interface MatchEntry {
   opponentScore: number;
   result: "win" | "loss" | "draw";
   mode: string;
+  durationSeconds?: number | null;
   date: string;
 }
 
@@ -125,10 +126,69 @@ export default function DashboardPage() {
   }
 
   const recentMatches = matchHistory.slice(0, 3);
+
+  // ── Activity chart data ─────────────────────────────────────────────
+  const [activityView, setActivityView] = useState<"day" | "week" | "month">("week");
+
+  const activityBars = (() => {
+    const now = new Date();
+
+    if (activityView === "day") {
+      // Last 7 days
+      return Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(now);
+        d.setDate(now.getDate() - (6 - i));
+        const label = d.toLocaleDateString(undefined, { weekday: "short" });
+        const count = matchHistory.filter((m) => {
+          const md = new Date(m.date);
+          return md.toDateString() === d.toDateString();
+        }).length;
+        return { label, count };
+      });
+    }
+
+    if (activityView === "week") {
+      // Last 8 weeks
+      return Array.from({ length: 8 }, (_, i) => {
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay() - (7 - i) * 7);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        const label = weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        const count = matchHistory.filter((m) => {
+          const md = new Date(m.date);
+          return md >= weekStart && md <= weekEnd;
+        }).length;
+        return { label, count };
+      });
+    }
+
+    // month — last 6 months
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      const label = d.toLocaleDateString(undefined, { month: "short" });
+      const count = matchHistory.filter((m) => {
+        const md = new Date(m.date);
+        return md.getFullYear() === d.getFullYear() && md.getMonth() === d.getMonth();
+      }).length;
+      return { label, count };
+    });
+  })();
+
+  const maxActivityCount = Math.max(...activityBars.map((b) => b.count), 1);
+
+  const lastPlayed = matchHistory.length > 0 ? new Date(matchHistory[0].date) : null;
+  // ── End activity chart data ─────────────────────────────────────────
+
   const wins = matchHistory.filter((match) => match.result === "win").length;
   const losses = matchHistory.filter((match) => match.result === "loss").length;
   const draws = matchHistory.filter((match) => match.result === "draw").length;
   const totalGames = matchHistory.length;
+  const totalTrackedSeconds = matchHistory.reduce(
+    (sum, match) => sum + (match.durationSeconds ?? 0),
+    0,
+  );
+  const totalTrackedHours = totalTrackedSeconds / 3600;
 
   const winPercentage = totalGames > 0 ? (wins / totalGames) * 100 : 0;
   const lossPercentage = totalGames > 0 ? (losses / totalGames) * 100 : 0;
@@ -269,20 +329,69 @@ export default function DashboardPage() {
               {/* Activity Bar Chart */}
               <div className="group relative">
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
-                <Card className="relative cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]">
+                <Card className="relative border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]">
                   <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                     <BarChart3 className="h-32 w-32 -mr-8 -mt-8" />
                   </div>
-                  <CardHeader className="text-center">
+                  <CardHeader className="text-center pb-2">
                     <div className="mx-auto p-3 rounded-xl bg-purple-500/10 mb-3">
                       <Activity className="h-8 w-8 text-purple-500" />
                     </div>
                     <CardTitle className="text-2xl">{t.Dashboard.Activity}</CardTitle>
                     <CardDescription>{t.Dashboard["Your Game Activity"]}</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="h-48 flex items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg">
-                      <p className="text-muted-foreground text-sm">{t.Dashboard["Chart (placeholder)"]}</p>
+                  <CardContent className="space-y-3">
+                    {/* View toggle */}
+                    <div className="flex justify-center gap-1 bg-muted/40 rounded-lg p-1">
+                      {(["day", "week", "month"] as const).map((v) => (
+                        <button
+                          key={v}
+                          onClick={() => setActivityView(v)}
+                          className={`flex-1 rounded-md px-2 py-1 text-xs font-semibold transition-all capitalize ${
+                            activityView === v
+                              ? "bg-card shadow text-foreground"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {v === "day" ? "7 Days" : v === "week" ? "8 Wks" : "6 Mo"}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Bar chart */}
+                    {recentMatchesLoading ? (
+                      <p className="text-muted-foreground text-center text-xs py-4">Loading...</p>
+                    ) : (
+                      <div className="flex items-end justify-between gap-1 h-28 px-1">
+                        {activityBars.map((bar, i) => (
+                          <div key={i} className="flex flex-col items-center gap-1 flex-1 h-full justify-end">
+                            <span className="text-[10px] font-semibold text-muted-foreground">
+                              {bar.count > 0 ? bar.count : ""}
+                            </span>
+                            <div
+                              className="w-full rounded-t-sm bg-purple-500/70 transition-all duration-500"
+                              style={{ height: `${(bar.count / maxActivityCount) * 80}%`, minHeight: bar.count > 0 ? "4px" : "2px", opacity: bar.count === 0 ? 0.2 : 1 }}
+                            />
+                            <span className="text-[9px] text-muted-foreground truncate w-full text-center">{bar.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Meta info */}
+                    <div className="border-t border-border/40 pt-2 space-y-1">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calendar className="h-3.5 w-3.5 shrink-0" />
+                        <span className="font-medium text-foreground">Last played:</span>
+                        {lastPlayed
+                          ? lastPlayed.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+                          : "Never"}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                        <span className="font-medium text-foreground">Total hours:</span>
+                        {totalTrackedHours.toFixed(1)} h
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -290,7 +399,7 @@ export default function DashboardPage() {
 
               {/* Win-Loss Pie Chart */}
               <div className="group relative">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl blur opacity-10 group-hover:opacity-30 transition duration-500"></div>
                 <Card className="relative cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]">
                   <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                     <PieChart className="h-32 w-32 -mr-8 -mt-8" />
