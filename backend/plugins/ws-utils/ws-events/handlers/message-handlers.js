@@ -38,11 +38,11 @@ export function createWsEventHandlers({
 
     RESPOND_INVITE: (payload) => {
       fastify.respondInvite(
+        payload.response,
         payload.roomId,
         payload.hostId,
         payload.inviteeId,
         payload.inviteeUsername,
-        payload.response,
       );
     },
 

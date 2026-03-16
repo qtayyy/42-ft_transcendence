@@ -154,14 +154,25 @@ export const SocketProvider = ({ children }) => {
 								break;
 
 							case "GAME_INVITE":
-								stableDeps.current.setInvitesReceived((prev) => [
-									...prev,
-									{
-										roomId: payload.roomId,
-										hostId: payload.hostId,
-										hostUsername: payload.hostUsername,
-									},
-								]);
+								console.log("Received GAME_INVITE via WebSocket:", payload);
+								if (payload?.roomId && payload?.hostId) {
+									// Room-based invite flow used by private lobby invites.
+									stableDeps.current.setInvitesReceived((prev) => [
+										...prev,
+										{
+											roomId: payload.roomId,
+											hostId: payload.hostId,
+											hostUsername: payload.hostUsername,
+										},
+									]);
+									toast.info(`${payload.hostUsername || "A friend"} invited you to a room`);
+								} else {
+									// Chat-triggered invite notification (no room yet).
+									window.dispatchEvent(
+										new CustomEvent("gameInvite", { detail: payload })
+									);
+									toast.info(`${payload.inviterName || "A friend"} invited you to play a game!`);
+								}
 								break;
 
 							case "JOIN_ROOM":
@@ -256,6 +267,9 @@ export const SocketProvider = ({ children }) => {
 								break;
 
 							case "TOURNAMENT_START":
+								window.dispatchEvent(
+									new CustomEvent("TOURNAMENT_START", { detail: payload })
+								);
 								stableDeps.current.setGameRoom({
 									roomId: payload.roomId,
 									joinedPlayers: payload.players,
@@ -426,16 +440,11 @@ export const SocketProvider = ({ children }) => {
 								);
 								break;
 
-							case "GAME_INVITE":
-								console.log("Received GAME_INVITE via WebSocket:", payload);
-								window.dispatchEvent(
-									new CustomEvent("gameInvite", { detail: payload })
-								);
-								toast.info(`${payload.inviterName} invited you to play a game!`);
-								break;
-
 							case "GAME_INVITE_SENT":
 								console.log("Game invite sent successfully:", payload);
+								window.dispatchEvent(
+									new CustomEvent("gameInviteSent", { detail: payload })
+								);
 								toast.success("Game invite sent!");
 								break;
 

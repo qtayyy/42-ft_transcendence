@@ -39,13 +39,20 @@ interface Message {
   timestamp: string;
   read?: boolean;
   readAt?: string | null;
+  type?: "text" | "game-invite" | "game-invite-sent" | "notification";
+  meta?: {
+    inviteType?: string;
+    tournamentId?: string;
+    roomId?: string;
+    hostId?: number;
+  };
 }
 
 export default function ChatPage() {
   const { sendSocketMessage, isReady } = useSocketContext();
   const { user } = useAuth();
   const { friends, pending, loading: friendsLoading, error: friendsError } = useFriends();
-  const { onlineFriends } = useGame();
+  const { onlineFriends, invitesReceived, setInvitesReceived } = useGame();
   const router = useRouter();
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -56,11 +63,23 @@ export default function ChatPage() {
   const [friendIsTyping, setFriendIsTyping] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
   const [showBlockDialog, setShowBlockDialog] = useState(false);
-  const [gameInvite, setGameInvite] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { t } = useLanguage();
+
+  const pushNotificationMessage = (text: string, meta: Message["meta"] = {}) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        username: "System",
+        message: text,
+        timestamp: new Date().toISOString(),
+        type: "notification",
+        meta,
+      },
+    ]);
+  };
 
   // Load blocked users
   useEffect(() => {
@@ -117,18 +136,139 @@ export default function ChatPage() {
     };
   }, []);
 
-  // Listen for game invites
+  // Listen for chat-style game invite notifications.
   useEffect(() => {
     const handleGameInvite = (event: CustomEvent) => {
       const data = event.detail;
-      setGameInvite(data);
+      const selectedFriendId = selectedFriend?.id ? parseInt(selectedFriend.id) : null;
+
+      if (selectedFriendId && Number(data?.inviterId) === selectedFriendId) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            username: data.inviterName || "Unknown",
+            senderId: Number(data.inviterId),
+            avatar: data.inviterAvatar || null,
+            message: `${data.inviterName || "A friend"} invited you to play a game`,
+            timestamp: data.timestamp || new Date().toISOString(),
+            type: "game-invite",
+            meta: {
+              inviteType: data.inviteType || "normal",
+              roomId: data.roomId,
+              hostId: data.hostId ? Number(data.hostId) : undefined,
+            },
+          },
+        ]);
+        return;
+      }
+
+      pushNotificationMessage(`${data.inviterName || "A friend"} sent you a game invite`);
     };
 
     window.addEventListener("gameInvite", handleGameInvite as EventListener);
     return () => {
       window.removeEventListener("gameInvite", handleGameInvite as EventListener);
     };
-  }, []);
+  }, [selectedFriend]);
+
+  // Mirror room-based invites into chat thread so user can accept/decline directly in chat.
+  useEffect(() => {
+    if (!selectedFriend) return;
+
+    const roomInviteFromSelectedFriend = invitesReceived.find(
+      (invite) => Number(invite.hostId) === Number(selectedFriend.id)
+    );
+
+    if (!roomInviteFromSelectedFriend) return;
+
+    setMessages((prev) => {
+      const alreadyExists = prev.some(
+        (msg) =>
+          msg.type === "game-invite" &&
+          msg.meta?.roomId === roomInviteFromSelectedFriend.roomId
+      );
+
+      if (alreadyExists) return prev;
+
+      return [
+        ...prev,
+        {
+          username: roomInviteFromSelectedFriend.hostUsername,
+          senderId: Number(roomInviteFromSelectedFriend.hostId),
+          message: `${roomInviteFromSelectedFriend.hostUsername} invited you to join a private game room`,
+          timestamp: new Date().toISOString(),
+          type: "game-invite",
+          meta: {
+            inviteType: "room",
+            roomId: roomInviteFromSelectedFriend.roomId,
+            hostId: Number(roomInviteFromSelectedFriend.hostId),
+          },
+        },
+      ];
+    });
+  }, [invitesReceived, selectedFriend]);
+
+  // Listen for sent game invite acknowledgements and tournament events.
+  useEffect(() => {
+    const handleGameInviteSent = (event: CustomEvent) => {
+      const data = event.detail;
+      if (!selectedFriend?.id || Number(selectedFriend.id) !== Number(data?.recipientId)) {
+        return;
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          username: user?.username || "You",
+          senderId: user?.id ? parseInt(user.id) : undefined,
+          message: `You invited ${selectedFriend.username} to play`,
+          timestamp: new Date().toISOString(),
+          type: "game-invite-sent",
+          meta: {
+            inviteType: data?.inviteType || "normal",
+          },
+        },
+      ]);
+    };
+
+    const handleTournamentFound = (event: CustomEvent) => {
+      const data = event.detail;
+      pushNotificationMessage(
+        `Tournament found (${data?.tournamentId || "pending id"}). Opening lobby...`,
+        { tournamentId: data?.tournamentId }
+      );
+    };
+
+    const handleTournamentStart = (event: CustomEvent) => {
+      const data = event.detail;
+      pushNotificationMessage(
+        `Tournament started (${data?.tournamentId || "no id"}). Good luck!`,
+        { tournamentId: data?.tournamentId }
+      );
+    };
+
+    const handleTournamentPlayerLeft = () => {
+      pushNotificationMessage("Tournament update: a player left the tournament.");
+    };
+
+    const handleTournamentUpdate = () => {
+      pushNotificationMessage("Tournament standings were updated.");
+    };
+
+    window.addEventListener("gameInviteSent", handleGameInviteSent as EventListener);
+    window.addEventListener("TOURNAMENT_FOUND", handleTournamentFound as EventListener);
+    window.addEventListener("TOURNAMENT_START", handleTournamentStart as EventListener);
+    window.addEventListener("tournamentPlayerLeft", handleTournamentPlayerLeft as EventListener);
+    window.addEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener("gameInviteSent", handleGameInviteSent as EventListener);
+      window.removeEventListener("TOURNAMENT_FOUND", handleTournamentFound as EventListener);
+      window.removeEventListener("TOURNAMENT_START", handleTournamentStart as EventListener);
+      window.removeEventListener("tournamentPlayerLeft", handleTournamentPlayerLeft as EventListener);
+      window.removeEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
+    };
+  }, [selectedFriend, user]);
 
   // Auto-scroll to bottom when new messages arrive (only if user is near bottom)
   useEffect(() => {
@@ -411,17 +551,103 @@ export default function ChatPage() {
     }
   };
 
-  // Send game invite
-  const handleGameInvite = () => {
-    if (!selectedFriend || !isReady) return;
+  // Send room-based game invite from chat.
+  const handleGameInvite = async () => {
+    if (!selectedFriend || !isReady || !user?.id || !user?.username) return;
+
+    try {
+      const response = await fetch('/api/game/room/create?maxPlayers=2');
+      if (!response.ok) {
+        pushNotificationMessage("Failed to create room for invite.");
+        return;
+      }
+
+      const data = await response.json();
+      const roomId = data?.roomId;
+      if (!roomId) {
+        pushNotificationMessage("Room creation failed. Missing room id.");
+        return;
+      }
+
+      sendSocketMessage({
+        event: "SEND_GAME_INVITE",
+        payload: {
+          roomId,
+          hostId: Number(user.id),
+          hostUsername: user.username,
+          friendId: Number(selectedFriend.id),
+          friendUsername: selectedFriend.username,
+        },
+      });
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          username: user.username,
+          senderId: Number(user.id),
+          message: `You invited ${selectedFriend.username} to room ${roomId}`,
+          timestamp: new Date().toISOString(),
+          type: "game-invite-sent",
+          meta: { inviteType: "room", roomId, hostId: Number(user.id) },
+        },
+      ]);
+    } catch (error) {
+      console.error("Error sending room invite from chat:", error);
+      pushNotificationMessage("Failed to send room invite.");
+    }
+  };
+
+  const handleRespondInviteFromChat = (msg: Message, response: "accepted" | "rejected") => {
+    const roomId = msg.meta?.roomId;
+    const hostId = msg.meta?.hostId;
+
+    if (!roomId || !hostId || !user?.id || !user?.username || !isReady) {
+      pushNotificationMessage("Cannot respond to invite. Missing room details.");
+      return;
+    }
 
     sendSocketMessage({
-      event: "GAME_INVITE",
+      event: "RESPOND_INVITE",
       payload: {
-        recipientId: parseInt(selectedFriend.id),
-        inviteType: "normal",
+        response,
+        roomId,
+        hostId,
+        inviteeId: Number(user.id),
+        inviteeUsername: user.username,
       },
     });
+
+    setInvitesReceived((prev) => prev.filter((invite) => invite.roomId !== roomId));
+
+    if (response === "accepted") {
+      router.push(`/game/remote/single/join?roomId=${roomId}&invite=true`);
+    }
+  };
+
+  const handleOpenRoomFromChat = (msg: Message) => {
+    const roomId = msg.meta?.roomId;
+    if (!roomId) {
+      pushNotificationMessage("Missing room id for this invite.");
+      return;
+    }
+
+    router.push(`/game/remote/single/create?roomId=${roomId}&fromChatInvite=true`);
+  };
+
+  const handleHostStartGameFromChat = (msg: Message) => {
+    const roomId = msg.meta?.roomId;
+    if (!roomId || !isReady) {
+      pushNotificationMessage("Room is not ready to start yet.");
+      return;
+    }
+
+    sendSocketMessage({
+      event: "START_ROOM_GAME",
+      payload: { roomId },
+    });
+
+    // Keep host in sync with room state if match cannot start immediately.
+    router.push(`/game/remote/single/create?roomId=${roomId}&fromChatInvite=true`);
   };
 
   // View profile
@@ -643,7 +869,7 @@ export default function ChatPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          {/* <Button
+                          <Button
                             variant="outline"
                             size="sm"
                             onClick={handleGameInvite}
@@ -652,7 +878,7 @@ export default function ChatPage() {
                           >
                             <Gamepad2 className="w-4 h-4" />
                             <span className="hidden sm:inline">Invite to Game</span>
-                          </Button> */}
+                          </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" suppressHydrationWarning>
@@ -750,15 +976,50 @@ export default function ChatPage() {
                                 {msg.username}
                               </span>
                             )}
-                            <div
-                              className={`rounded-2xl px-4 py-3 shadow-lg transition-all hover:shadow-xl group-hover:scale-[1.01] ${
-                                isOwnMessage
-                                  ? "bg-gradient-to-br from-primary via-primary/95 to-primary/90 text-primary-foreground rounded-br-md"
-                                  : "bg-card/90 backdrop-blur-sm border border-border/50 rounded-bl-md hover:border-primary/40"
-                              }`}
-                            >
-                              <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{msg.message}</p>
-                            </div>
+                            {msg.type === "notification" ? (
+                              <div className="rounded-xl px-4 py-2 border border-primary/20 bg-primary/5 text-primary shadow-sm">
+                                <p className="text-xs font-semibold uppercase tracking-wide mb-1">Notification</p>
+                                <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{msg.message}</p>
+                              </div>
+                            ) : (
+                              <div
+                                className={`rounded-2xl px-4 py-3 shadow-lg transition-all hover:shadow-xl group-hover:scale-[1.01] ${
+                                  isOwnMessage
+                                    ? "bg-gradient-to-br from-primary via-primary/95 to-primary/90 text-primary-foreground rounded-br-md"
+                                    : "bg-card/90 backdrop-blur-sm border border-border/50 rounded-bl-md hover:border-primary/40"
+                                }`}
+                              >
+                                <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{msg.message}</p>
+                                {msg.type === "game-invite" && !isOwnMessage && (
+                                  <div className="flex gap-2 mt-3">
+                                    <Button size="sm" variant="default" onClick={() => handleRespondInviteFromChat(msg, "accepted")}>
+                                      Accept
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => handleRespondInviteFromChat(msg, "rejected")}>
+                                      Decline
+                                    </Button>
+                                  </div>
+                                )}
+                                {msg.type === "game-invite-sent" && isOwnMessage && msg.meta?.roomId && (
+                                  <div className="flex items-center gap-3 mt-3 text-xs">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenRoomFromChat(msg)}
+                                      className="underline underline-offset-4 opacity-90 hover:opacity-100"
+                                    >
+                                      Open room {msg.meta.roomId.slice(0, 8)}...
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleHostStartGameFromChat(msg)}
+                                      className="underline underline-offset-4 opacity-90 hover:opacity-100"
+                                    >
+                                      Start game now
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <div className={`flex items-center gap-1 mt-1 px-1 ${
                               isOwnMessage ? 'justify-end' : 'justify-start'
                             }`}>
@@ -860,46 +1121,6 @@ export default function ChatPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Game Invite Notification */}
-      {gameInvite && (
-        <Dialog open={!!gameInvite} onOpenChange={() => setGameInvite(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Game Invitation</DialogTitle>
-              <DialogDescription>
-                <div className="flex items-center gap-3 my-4">
-                  <Avatar className="w-12 h-12">
-                    {gameInvite.inviterAvatar ? (
-                      <AvatarImage src={gameInvite.inviterAvatar} alt={gameInvite.inviterName} />
-                    ) : null}
-                    <AvatarFallback className="bg-primary/20 text-primary font-bold">
-                      {gameInvite.inviterName?.[0]?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-semibold">{gameInvite.inviterName}</p>
-                    <p className="text-sm text-muted-foreground">wants to play a game with you</p>
-                  </div>
-                </div>
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setGameInvite(null)}>
-                Decline
-              </Button>
-              <Button 
-                onClick={() => {
-                  router.push('/game/new');
-                  setGameInvite(null);
-                }}
-              >
-                Accept & Play
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }

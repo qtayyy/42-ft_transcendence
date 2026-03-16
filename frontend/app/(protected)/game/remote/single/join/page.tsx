@@ -28,9 +28,12 @@ export default function JoinRoomPage() {
 	useEffect(() => {
 		const roomIdParam = searchParams.get("roomId");
 		const isMatchmaking = searchParams.get("matchmaking") === "true";
+		const isInviteFlow = searchParams.get("invite") === "true";
 
-		if (roomIdParam && isMatchmaking && isReady && user && !joined && !joining && !hasAttemptedAutoJoin.current) {
-			console.log("[JoinRoom] Auto-joining matched room:", roomIdParam);
+	// 	if (roomIdParam && isMatchmaking && isReady && user && !joined && !joining && !hasAttemptedAutoJoin.current) {
+	// console.log("[JoinRoom] Auto-joining matched room:", roomIdParam);
+		if (roomIdParam && (isMatchmaking || isInviteFlow) && isReady && user && !joined && !joining && !hasAttemptedAutoJoin.current) {
+			console.log("[JoinRoom] Auto-joining room:", roomIdParam, "flow:", isMatchmaking ? "matchmaking" : "invite");
 			hasAttemptedAutoJoin.current = true;
 			setRoomCode(roomIdParam);
 			setJoining(true);
