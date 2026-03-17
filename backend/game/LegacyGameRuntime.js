@@ -20,7 +20,7 @@ const POWERUP_SIZE = 20;
 const POWERUP_SPAWN_INTERVAL_MS = 10000; // Spawn every 10 seconds
 const POWERUP_DURATION_MS = 5000; // Effect duration
 
-class Game {
+class LegacyGameRuntime {
   constructor(matchId, mode, tournamentId = null) {
     this.matchId = matchId;
     this.mode = mode; // local or remote
@@ -651,4 +651,4 @@ class Game {
   }
 }
 
-export default Game;
+export default LegacyGameRuntime;

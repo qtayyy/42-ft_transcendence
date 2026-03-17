@@ -4,7 +4,7 @@ This change makes the backend the primary owner of Local 1v1 persistence while k
 
 # B. System Architecture & Context
 
-Local 1v1 uses the legacy WebSocket route at `/ws/game`, the in-memory `Game` runtime in [`backend/game/Game.js`](/home/pc/42-ft_transcendence/backend/game/Game.js), and the authenticated HTTP fallback at [`backend/routes/api/game/save-match.js`](/home/pc/42-ft_transcendence/backend/routes/api/game/save-match.js). The persistence contract now flows through the shared helper in [`backend/services/match-persistence.js`](/home/pc/42-ft_transcendence/backend/services/match-persistence.js), which normalizes player IDs, mode, duration, and `externalMatchId` before writing through Prisma.
+Local 1v1 uses the legacy WebSocket route at `/ws/game`, the in-memory runtime in [`backend/game/LegacyGameRuntime.js`](/home/pc/42-ft_transcendence/backend/game/LegacyGameRuntime.js), and the authenticated HTTP fallback at [`backend/routes/api/game/save-match.js`](/home/pc/42-ft_transcendence/backend/routes/api/game/save-match.js). The persistence contract now flows through the shared helper in [`backend/services/match-persistence.js`](/home/pc/42-ft_transcendence/backend/services/match-persistence.js), which normalizes player IDs, mode, duration, and `externalMatchId` before writing through Prisma.
 
 # C. Workflow & Data Flow
 
