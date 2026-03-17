@@ -4,17 +4,25 @@ export default async function (fastify, opts) {
 	fastify.get(
 		"/game",  // This will be /ws/game
 		{
+			onRequest: [fastify.authenticate],
 			websocket: true,
 		},
 		(connection, request) => {
 			const matchId = request.query.matchId;
-			const userId = request.user?.id || 'guest';
+			const userId = Number(request.user?.userId);
 
 			console.log(`[GAME WS] Client connected - matchId: ${matchId}, userId: ${userId}`);
 
 			if (!matchId) {
 				console.log("[GAME WS] Error: No matchId");
 				connection.send(JSON.stringify({ error: "matchId required" }));
+				connection.close();
+				return;
+			}
+
+			if (!Number.isInteger(userId) || userId <= 0) {
+				console.log("[GAME WS] Error: Invalid authenticated user");
+				connection.send(JSON.stringify({ error: "authenticated user required" }));
 				connection.close();
 				return;
 			}

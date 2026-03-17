@@ -1,12 +1,10 @@
 #!/bin/sh
-# Change to 'npx prisma migrate deploy' and remove npm run seed later
-if [ ! -f ../data/dev.db ]; then
-  echo "Database not found. Running migrations and seeding..."
-  npx prisma migrate dev --name init
-  # npm run seed
-else
-  npx prisma generate 
-  echo "Database already exists. Skipping migrations and seeding."
-fi
+# Keep the generated client and mounted SQLite schema in sync on every boot.
+# This is especially important for additive dev-schema changes on existing DBs.
+npx prisma generate
+npx prisma db push
+
+# Seed/migration bootstrapping can be added back here if the project later
+# moves from db push to an explicit Prisma migration workflow.
 
 npm run dev
