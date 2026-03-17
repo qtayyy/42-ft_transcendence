@@ -679,12 +679,13 @@ export default function GameRuntimePage() {
 					}
 
 				if (user) {
+					const externalMatchId = matchData.matchId;
 					const player1Id = matchData.player1?.isTemp ? null : matchData.player1?.id;
 					const player2Id = matchData.player2?.isTemp ? null : matchData.player2?.id;
 
 					if (player1Id || player2Id) {
 						await axios.post("/api/game/save-match", {
-							matchId: matchData.matchId,
+							matchId: externalMatchId,
 							player1Id: player1Id,
 							player2Id: player2Id,
 							player1Name: matchData.player1?.name,

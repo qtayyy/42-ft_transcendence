@@ -96,6 +96,9 @@ enum MatchMode {
 model Match {
   id Int @id @default(autoincrement())
 
+  // Stable runtime identifier used to dedupe repeated save attempts for the same logical match.
+  externalMatchId String? @unique
+
   // Player 1 is always the Host/LoggedIn user
   player1Id Int
   player1   Profile @relation("MatchPlayer1", fields: [player1Id], references: [id])

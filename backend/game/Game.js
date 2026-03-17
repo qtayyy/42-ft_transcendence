@@ -1,6 +1,5 @@
-import { PrismaClient } from "../generated/prisma/index.js";
 import { activeTournaments } from "./TournamentManager.js";
-const prisma = new PrismaClient();
+import { persistMatchRecord } from "../services/match-persistence.js";
 
 // Game Constants
 const CANVAS_WIDTH = 800;
@@ -107,16 +106,26 @@ class Game {
   // Returns the 'role' of the player ('host', 'p1', 'p2', or 'spectator')
   join(socket, userId) {
     if (this.mode === "local") {
-      // In Local mode, the first user (Host) controls the whole game
+      const canAttachAsHost =
+        !this.players.p1.id || String(this.players.p1.id) === String(userId);
+
+      // In Local mode, the authenticated host controls both paddles.
+      // Reconnects are allowed only for the same persisted host identity.
       if (!this.players.p1.socket) {
-        this.players.p1 = {
-          socket: socket,
-          id: userId,
-        };
-        console.log(`Local Game Hosted by (ID: ${userId})`);
-        // Send initial waiting state to the host
-        socket.send(JSON.stringify(this.gameState));
-        return `host`;
+        if (!canAttachAsHost) {
+          console.warn(
+            `Rejected local host reassignment for match ${this.matchId}: expected ${this.players.p1.id}, received ${userId}`,
+          );
+        } else {
+          this.players.p1 = {
+            socket: socket,
+            id: this.players.p1.id ?? userId,
+          };
+          console.log(`Local Game Hosted by (ID: ${userId})`);
+          // Send initial waiting state to the host
+          socket.send(JSON.stringify(this.gameState));
+          return `host`;
+        }
       }
     } else if (this.mode === "remote") {
       if (!this.players.p1.socket) {
@@ -471,21 +480,24 @@ class Game {
         return;
       }
 
-      await prisma.match.create({
-        data: {
-          player1Id: p1Id,
-          player2Id: p2Id,
-          score1: this.gameState.score.p1,
-          score2: this.gameState.score.p2,
-          durationSeconds: Math.max(
-            0,
-            Math.round((this.gameState.timer?.timeElapsed ?? 0) / 1000),
-          ),
-          mode: this.mode === "local" ? "LOCAL" : "REMOTE",
-          tournamentId: this.tournamentId || null,
-        },
+      const { match, reusedExisting } = await persistMatchRecord({
+        externalMatchId: this.matchId,
+        player1Id: p1Id,
+        player2Id: p2Id,
+        score1: this.gameState.score.p1,
+        score2: this.gameState.score.p2,
+        durationSeconds: (this.gameState.timer?.timeElapsed ?? 0) / 1000,
+        mode:
+          this.mode === "local"
+            ? "LOCAL"
+            : this.tournamentId
+              ? "REMOTE_TOURNAMENT"
+              : "REMOTE",
+        tournamentId: this.tournamentId || null,
       });
-      console.log("Match saved successfully!");
+      console.log(
+        `Match ${this.matchId} ${reusedExisting ? "updated" : "saved"} successfully as row ${match.id}!`,
+      );
     } catch (error) {
       console.error("Failed to save match:", error);
     }
