@@ -1,5 +1,7 @@
 import { gameManager } from "../../game/GameManager.js";
 
+// Legacy direct-game WebSocket route used by the shared local game runtime.
+
 export default async function (fastify, opts) {
 	fastify.get(
 		"/game",  // This will be /ws/game
