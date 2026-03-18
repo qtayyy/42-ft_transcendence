@@ -116,6 +116,16 @@ export default function PongGame({
 		}
 	};
 
+	const requestLocalPauseBeforeUnload = useCallback(() => {
+		if (mode !== "local" || wsUrl === undefined) return;
+		if (gameState?.status !== "playing") return;
+
+		const ws = socketRef.current;
+		if (ws?.readyState === WebSocket.OPEN) {
+			ws.send(JSON.stringify({ type: "PAUSE" }));
+		}
+	}, [gameState?.status, mode, socketRef, wsUrl]);
+
 	const requestLocalPauseForGuard = useCallback(() => {
 		if (guardPauseSentRef.current) return;
 
@@ -169,6 +179,24 @@ export default function PongGame({
 			window.removeEventListener("localGuardPauseRequested", handleLocalGuardPause as EventListener);
 		};
 	}, [mode, wsUrl, matchId, requestLocalPauseForGuard]);
+
+	// Best-effort pause for accidental refresh/tab-close on local matches.
+	// This complements recovery by freezing the runtime if the browser exits suddenly.
+	useEffect(() => {
+		if (mode !== "local" || wsUrl === undefined) return;
+
+		const handlePageUnload = () => {
+			requestLocalPauseBeforeUnload();
+		};
+
+		window.addEventListener("beforeunload", handlePageUnload);
+		window.addEventListener("pagehide", handlePageUnload);
+
+		return () => {
+			window.removeEventListener("beforeunload", handlePageUnload);
+			window.removeEventListener("pagehide", handlePageUnload);
+		};
+	}, [mode, wsUrl, requestLocalPauseBeforeUnload]);
 
 	if (layout === "canvasOnly") {
 		return (

@@ -301,9 +301,15 @@ export const SocketProvider = ({ children }) => {
 									const ballMovedSignificantly =
 										Math.abs((prev.ball?.posX || 0) - (payload.ball?.posX || 0)) > 0.1 ||
 										Math.abs((prev.ball?.posY || 0) - (payload.ball?.posY || 0)) > 0.1;
+									const disconnectStateChanged =
+										prev.disconnectedPlayer !== payload.disconnectedPlayer ||
+										prev.pausedAt !== payload.pausedAt ||
+										prev.disconnectCountdown?.disconnectedPlayer !== payload.disconnectCountdown?.disconnectedPlayer ||
+										prev.disconnectCountdown?.gracePeriodEndsAt !== payload.disconnectCountdown?.gracePeriodEndsAt;
 
 									if (prev.matchId === payload.matchId &&
 										!ballMovedSignificantly &&
+										!disconnectStateChanged &&
 										prev.leftPlayer?.score === payload.leftPlayer?.score &&
 										prev.rightPlayer?.score === payload.rightPlayer?.score &&
 										prev.leftPlayer?.gamePaused === payload.leftPlayer?.gamePaused &&

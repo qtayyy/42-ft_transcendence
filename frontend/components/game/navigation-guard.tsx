@@ -1,5 +1,6 @@
 "use client";
 
+import axios from "axios";
 import { useGame } from "@/hooks/use-game";
 import { useSocket } from "@/hooks/use-socket";
 import { useAuth } from "@/hooks/use-auth";
@@ -15,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 import { useMemo } from "react";
+import { handleSessionExpiredRedirect } from "@/lib/session-expired";
 
 export function NavigationGuard() {
 	const router = useRouter();
@@ -23,6 +25,8 @@ export function NavigationGuard() {
 	const {
 		gameState,
 		gameRoom,
+		setGameRoom,
+		setGameState,
 		showNavGuard,
 		setShowNavGuard,
 		pendingPath,
@@ -101,7 +105,7 @@ export function NavigationGuard() {
 		setPendingPath(null);
 	};
 
-	const handleLeaveGame = () => {
+	const handleLeaveGame = async () => {
 		if (pendingPath) {
 			// Send cleanup if spectating
 			if (isSpectator && matchId) {
@@ -110,9 +114,36 @@ export function NavigationGuard() {
 					payload: { matchId }
 				});
 			}
-			// Explicitly leave tournament room when user chooses "Leave Game"
+
+			const isRemoteTournamentMatch =
+				!isSpectator &&
+				isRuntimeMatchRoute &&
+				isRemoteRuntimeMatch &&
+				!!tournamentId;
+			const isRemoteMatch =
+				!isSpectator &&
+				isRuntimeMatchRoute &&
+				isRemoteRuntimeMatch;
+
+			if (isRemoteMatch && matchId && user?.id) {
+				try {
+					await axios.post(
+						"/api/game/leave",
+						{
+							matchId,
+							tournamentId: isRemoteTournamentMatch ? tournamentId : undefined,
+						},
+						{ withCredentials: true },
+					);
+				} catch (error) {
+					if (handleSessionExpiredRedirect(error, router)) return;
+					console.error("Failed to leave active remote match during navigation guard:", error);
+				}
+			}
+
+			// Explicitly leave tournament room when user chooses to leave tournament
 			// so backend can broadcast TOURNAMENT_PLAYER_LEFT / update standings.
-				if (tournamentRoomId && user?.id && (isTournamentLobby || !!tournamentId)) {
+			if (tournamentRoomId && user?.id && (isTournamentLobby || !!tournamentId)) {
 					sendSocketMessage({
 						event: "LEAVE_ROOM",
 					payload: {
@@ -121,6 +152,13 @@ export function NavigationGuard() {
 					},
 				});
 			}
+
+			if (!isRemoteRuntimeMatch && !isSpectator) {
+				localStorage.removeItem("current-match");
+			}
+
+			setGameState(null);
+			setGameRoom(null);
 
 			setShowNavGuard(false);
 			const path = pendingPath;
