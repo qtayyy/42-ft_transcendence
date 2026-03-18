@@ -640,18 +640,18 @@ export default function GameRuntimePage() {
 		}
 	}, [matchId, sendSocketMessage, gameState, inferredTournamentId, router]);
 
-	const handleGameOver = async (winner: number | null, score: { p1: number; p2: number }, result: string) => {
-		console.log(`Game Over! Result: ${result}`, { winner, score });
-		const durationSeconds = Math.max(0, Math.round(((gameState as any)?.timer?.timeElapsed ?? 0) / 1000));
+		const handleGameOver = async (winner: number | null, score: { p1: number; p2: number }, result: string) => {
+			console.log(`Game Over! Result: ${result}`, { winner, score });
+			const durationSeconds = Math.max(0, Math.round(((gameState as any)?.timer?.timeElapsed ?? 0) / 1000));
 
-		if (matchData) {
-			try {
-				if (matchData.isTournamentMatch && matchData.tournamentId) {
-					const outcome = result === "draw" || winner === null ? "draw" : "win";
-					const resultPayload = {
-						matchId: matchData.matchId,
-						player1Id: matchData.player1?.id,
-						player2Id: matchData.player2?.id || null,
+			if (matchData) {
+				try {
+					if (matchData.isTournamentMatch && matchData.tournamentId) {
+						const outcome = result === "draw" || winner === null ? "draw" : "win";
+						const resultPayload = {
+							matchId: matchData.matchId,
+							player1Id: matchData.player1?.id,
+							player2Id: matchData.player2?.id || null,
 						score,
 						outcome,
 						durationSeconds,
@@ -659,14 +659,14 @@ export default function GameRuntimePage() {
 					const pendingKey = `${LOCAL_TOURNAMENT_PENDING_RESULT_PREFIX}${matchData.tournamentId}:${matchData.matchId}`;
 					// Write-through outbox: store first, then attempt network submit.
 					// This keeps tournament progression recoverable if tab closes/disconnects mid-request.
-					localStorage.setItem(
-						pendingKey,
-						JSON.stringify({
-							tournamentId: matchData.tournamentId,
-							...resultPayload,
+						localStorage.setItem(
+							pendingKey,
+							JSON.stringify({
+								tournamentId: matchData.tournamentId,
+								...resultPayload,
 							recordedAt: Date.now(),
-						})
-					);
+							})
+						);
 						try {
 							await axios.post(`/api/tournament/${matchData.tournamentId}/match-result`, resultPayload);
 							localStorage.removeItem(pendingKey);
@@ -678,26 +678,8 @@ export default function GameRuntimePage() {
 						}
 					}
 
-				if (user) {
-					const externalMatchId = matchData.matchId;
-					const player1Id = matchData.player1?.isTemp ? null : matchData.player1?.id;
-					const player2Id = matchData.player2?.isTemp ? null : matchData.player2?.id;
-
-					if (player1Id || player2Id) {
-						await axios.post("/api/game/save-match", {
-							matchId: externalMatchId,
-							player1Id: player1Id,
-							player2Id: player2Id,
-							player1Name: matchData.player1?.name,
-							player2Name: matchData.player2?.name,
-							score1: score.p1,
-							score2: score.p2,
-							winner: winner,
-							mode: "LOCAL",
-							durationSeconds,
-						});
-					}
-				}
+					// WS-driven matches persist on the backend runtime to keep a single
+					// source of truth for match history writes.
 				} catch (error: any) {
 					if (handleSessionExpiredRedirect(error, router)) {
 						return;
@@ -706,7 +688,7 @@ export default function GameRuntimePage() {
 					toast.error("Failed to save match result.");
 				}
 			}
-	};
+		};
 
 	const handleExit = () => {
 		localStorage.removeItem("current-match");

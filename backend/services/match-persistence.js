@@ -68,6 +68,20 @@ function toExternalMatchId(value) {
 }
 
 /**
+ * Tournament identifiers in this codebase are runtime strings such as
+ * "local-tournament-..." or "RT-...". Keep that value for grouping/history even
+ * when it cannot populate Prisma's numeric Tournament relation.
+ */
+function toExternalTournamentId(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+/**
  * Keep duration storage stable across callers by coercing finite values to a
  * rounded non-negative number of seconds.
  */
@@ -104,6 +118,7 @@ export async function persistMatchRecord({
     score2: Math.max(0, Math.round(Number(score2) || 0)),
     durationSeconds: toDurationSeconds(durationSeconds),
     mode: toMatchMode(mode),
+    externalTournamentId: toExternalTournamentId(tournamentId),
     tournamentId: normalizedTournamentId,
   };
 

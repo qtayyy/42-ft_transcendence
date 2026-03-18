@@ -51,7 +51,7 @@ export default function RemoteSingleMatchPage() {
 						<div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl blur opacity-25 group-hover:opacity-75 transition duration-5100"></div>
 						<Card
 							className="relative h-full cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]"
-							onClick={() => handleNavigate("/game/remote/single/create?matchmaking=true")}
+							onClick={() => handleNavigate("/game/remote/single/matchmaking")}
 						>
 							<div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
 								<Zap className="h-24 w-24 -mr-6 -mt-6" />

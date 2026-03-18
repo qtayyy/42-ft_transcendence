@@ -99,6 +99,10 @@ model Match {
   // Stable runtime identifier used to dedupe repeated save attempts for the same logical match.
   externalMatchId String? @unique
 
+  // Runtime tournament key used by in-memory local/remote tournament flows.
+  // This preserves the actual tournament identifier even when no Prisma Tournament row exists.
+  externalTournamentId String?
+
   // Player 1 is always the Host/LoggedIn user
   player1Id Int
   player1   Profile @relation("MatchPlayer1", fields: [player1Id], references: [id])
@@ -121,6 +125,8 @@ model Match {
   tournamentId Int?
 
   createdAt DateTime @default(now())
+
+  @@index([externalTournamentId])
 }
 
 model Message {

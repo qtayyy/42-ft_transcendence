@@ -474,9 +474,22 @@ class LegacyGameRuntime {
       // Allow saving games with only p1 if mode is local
       const p1Id = this.players.p1.id;
       const p2Id = this.players.p2 ? this.players.p2.id : null;
+      const isLocalTournamentMatch =
+        this.mode === "local" &&
+        typeof this.matchId === "string" &&
+        this.matchId.startsWith("local-tournament-");
 
       if (!p1Id) {
         console.warn("Cannot save match: Missing Host ID");
+        return;
+      }
+
+      // Local tournament progression persists through the tournament result API.
+      // Skipping the legacy runtime write here avoids creating a second history row.
+      if (isLocalTournamentMatch) {
+        console.log(
+          `Skipping legacy match save for local tournament match ${this.matchId}`,
+        );
         return;
       }
 
