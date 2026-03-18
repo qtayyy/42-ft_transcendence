@@ -28,6 +28,7 @@ export interface SocketContextValue {
 	sendSocketMessage: (payload: Record<string, unknown>) => void;
 	isReady: boolean;
 	forceCleanup: () => void;
+	reconnectSocket: () => void;
 }
 
 export interface UserProfile {

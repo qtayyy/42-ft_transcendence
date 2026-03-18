@@ -19,6 +19,7 @@ const SocketContext = createContext<SocketContextValue | null>(null);
 
 export const SocketProvider = ({ children }) => {
 	const wsRef = useRef<WebSocket | null>(null);
+	const connectRef = useRef<(() => void) | null>(null);
 	const { user } = useAuth();
 	const gameDispatch = useGameDispatch();
 	const {
@@ -72,31 +73,39 @@ export const SocketProvider = ({ children }) => {
 
 	useEffect(() => {
 		let isMounted = true;
-		if (!user) return;
+		if (!user) {
+			connectRef.current = null;
+			return;
+		}
 
-		if (!wsRef.current) {
-			const connect = () => {
-				if (wsRef.current?.readyState === WebSocket.OPEN) return;
+		const connect = () => {
+			const currentSocket = wsRef.current;
+			if (
+				currentSocket?.readyState === WebSocket.OPEN ||
+				currentSocket?.readyState === WebSocket.CONNECTING
+			) {
+				return;
+			}
 
-				const websocket = new WebSocket(process.env.NEXT_PUBLIC_WS_URL || "wss://localhost:8443/ws");
-				wsRef.current = websocket;
+			const websocket = new WebSocket(process.env.NEXT_PUBLIC_WS_URL || "wss://localhost:8443/ws");
+			wsRef.current = websocket;
 
-				// Heartbeat
-				const interval = setInterval(
-					() => {
-						if (websocket.readyState === WebSocket.OPEN) {
-							websocket.send(JSON.stringify({ event: "PING" }));
-						}
-					},
-					30000
-				);
+			// Heartbeat
+			const interval = setInterval(
+				() => {
+					if (websocket.readyState === WebSocket.OPEN) {
+						websocket.send(JSON.stringify({ event: "PING" }));
+					}
+				},
+				30000
+			);
 
-				websocket.onopen = () => {
-					console.log("WebSocket connected");
-					setIsReady(true);
-				};
+			websocket.onopen = () => {
+				console.log("WebSocket connected");
+				setIsReady(true);
+			};
 
-				websocket.onmessage = (event) => {
+			websocket.onmessage = (event) => {
 					try {
 						const msg = JSON.parse(event.data);
 						if (msg.error) {
@@ -452,37 +461,35 @@ export const SocketProvider = ({ children }) => {
 						// think about how to handle errors
 						console.warn("Non-JSON WebSocket message or error handling message:", event.data, err);
 					}
-				};
-
-				websocket.onerror = (err) => {
-					if (websocket.readyState === WebSocket.CLOSING || websocket.readyState === WebSocket.CLOSED) return;
-					console.error("WebSocket error:", err);
-				};
-
-				websocket.onclose = (event) => {
-					setIsReady(false);
-					console.log("WebSocket closed", event.code, event.reason);
-					clearInterval(interval);
-					if (wsRef.current === websocket) wsRef.current = null;
-
-					// Attempt reconnection with exponential backoff if not closed intentionally
-					if (isMounted && event.code !== 1000 && event.code !== 1005) {
-						const timeoutId = setTimeout(() => {
-							console.log("Attempting to reconnect...");
-							connect();
-						}, 3000); // Simple 3s delay for now, or use exponential backoff
-
-						// Clean up timeout if component unmounts - handled by effect cleanup? 
-						// Actually, we are inside a function scope. 
-					}
-				};
 			};
 
-			connect();
-		}
+			websocket.onerror = (err) => {
+				if (websocket.readyState === WebSocket.CLOSING || websocket.readyState === WebSocket.CLOSED) return;
+				console.error("WebSocket error:", err);
+			};
+
+			websocket.onclose = (event) => {
+				setIsReady(false);
+				console.log("WebSocket closed", event.code, event.reason);
+				clearInterval(interval);
+				if (wsRef.current === websocket) wsRef.current = null;
+
+				// Attempt reconnection with exponential backoff if not closed intentionally
+				if (isMounted && event.code !== 1000 && event.code !== 1005) {
+					setTimeout(() => {
+						console.log("Attempting to reconnect...");
+						connect();
+					}, 3000);
+				}
+			};
+		};
+
+		connectRef.current = connect;
+		connect();
 
 		return () => {
 			isMounted = false;
+			connectRef.current = null;
 			if (wsRef.current) {
 				wsRef.current.close(1000, "User logged out");
 				wsRef.current = null;
@@ -490,13 +497,36 @@ export const SocketProvider = ({ children }) => {
 		};
 	}, [user?.id]);
 
+	useEffect(() => {
+		if (!user) return;
+
+		const reconnectIfNeeded = () => {
+			if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
+				connectRef.current?.();
+			}
+		};
+
+		window.addEventListener("focus", reconnectIfNeeded);
+		document.addEventListener("visibilitychange", reconnectIfNeeded);
+
+		return () => {
+			window.removeEventListener("focus", reconnectIfNeeded);
+			document.removeEventListener("visibilitychange", reconnectIfNeeded);
+		};
+	}, [user?.id]);
+
 	const sendSocketMessage = useCallback((payload: any) => {
 		const socket = wsRef.current;
 		if (!socket || socket.readyState !== WebSocket.OPEN) {
 			console.warn("Client socket isn't ready");
+			connectRef.current?.();
 			return;
 		}
 		socket.send(JSON.stringify(payload));
+	}, []);
+
+	const reconnectSocket = useCallback(() => {
+		connectRef.current?.();
 	}, []);
 
 	useEffect(() => {
@@ -561,6 +591,9 @@ export const SocketProvider = ({ children }) => {
 	}, [pathname, user?.id, sendSocketMessage]); // No longer depends on gameRoom or gameState!
 
 	const forceCleanup = useCallback(() => {
+		stableDeps.current.setGameRoom(null);
+		stableDeps.current.setGameState(null);
+		hasActiveGame.current = false;
 		if (wsRef.current?.readyState === WebSocket.OPEN) {
 			wsRef.current.send(JSON.stringify({ event: "FORCE_CLEANUP" }));
 		}
@@ -571,8 +604,9 @@ export const SocketProvider = ({ children }) => {
 			sendSocketMessage,
 			isReady,
 			forceCleanup,
+			reconnectSocket,
 		}),
-		[sendSocketMessage, isReady, forceCleanup]
+		[sendSocketMessage, isReady, forceCleanup, reconnectSocket]
 	);
 
 	return (

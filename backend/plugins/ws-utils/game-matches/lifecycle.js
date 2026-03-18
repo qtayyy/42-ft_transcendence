@@ -8,10 +8,12 @@ This module encapsulates remote match lifecycle behavior:
 ===============================================================================
 */
 
+import { persistMatchRecord } from "../../../services/match-persistence.js";
 import {
   MATCH_DURATION,
   POWERUP_SPAWN_INTERVAL,
   TICK_MS,
+  WIN_SCORE,
 } from "./constants.js";
 import {
   checkCollisionsAndScore,
@@ -25,20 +27,37 @@ import {
 
 export function createGameLifecycle({
   fastify,
-  prisma,
   gameLoops,
   matchSpectators,
   safeSend,
   activeTournaments,
   broadcastState,
 }) {
-  // Check if game should end (timer expired - highest score wins)
+  // Check if game should end (first to target score or timer expiry)
   function checkGameOver(gameState) {
+    const leftScore = gameState.leftPlayer.score;
+    const rightScore = gameState.rightPlayer.score;
+
+    if (leftScore >= WIN_SCORE || rightScore >= WIN_SCORE) {
+      if (leftScore > rightScore) {
+        return {
+          winner: "LEFT",
+          winnerId: gameState.leftPlayer.id,
+          result: "win",
+        };
+      }
+
+      if (rightScore > leftScore) {
+        return {
+          winner: "RIGHT",
+          winnerId: gameState.rightPlayer.id,
+          result: "win",
+        };
+      }
+    }
+
     // Check if timer has expired
     if (gameState.timer && gameState.timer.timeRemaining <= 0) {
-      const leftScore = gameState.leftPlayer.score;
-      const rightScore = gameState.rightPlayer.score;
-
       if (leftScore > rightScore) {
         return {
           winner: "LEFT",
@@ -108,17 +127,19 @@ export function createGameLifecycle({
 
     // Save match to database
     try {
-      await prisma.match.create({
-        data: {
-          player1Id: left.id,
-          player2Id: right.id,
-          score1: left.score,
-          score2: right.score,
-          durationSeconds,
-          mode: gameState.tournamentId ? "REMOTE_TOURNAMENT" : "REMOTE",
-        },
+      const { reusedExisting } = await persistMatchRecord({
+        externalMatchId: matchId,
+        player1Id: left.id,
+        player2Id: right.id,
+        score1: left.score,
+        score2: right.score,
+        durationSeconds,
+        mode: gameState.tournamentId ? "REMOTE_TOURNAMENT" : "REMOTE",
+        tournamentId: gameState.tournamentId ?? null,
       });
-      console.log(`Match ${matchId} saved to database`);
+      console.log(
+        `Match ${matchId} ${reusedExisting ? "updated" : "saved"} to database`,
+      );
     } catch (error) {
       console.error("Failed to save match:", error);
     }

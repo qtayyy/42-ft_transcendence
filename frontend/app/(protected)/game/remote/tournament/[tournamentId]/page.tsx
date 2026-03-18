@@ -271,6 +271,14 @@ export default function RemoteTournamentPage() {
 			if (handleSessionExpiredRedirect(error, router, `/game/remote/tournament/${tournamentId}`)) {
 				return;
 			}
+			const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+			if (status === 404) {
+				console.warn(`[RemoteTournament] Tournament ${tournamentId} is no longer available on the backend.`);
+				setTournament(null);
+				setCurrentMatch(null);
+				setLoading(false);
+				return;
+			}
 			console.error("Failed to refresh tournament:", error);
 		}
 	}, [tournamentId, getNextMatch, router]);
@@ -358,10 +366,14 @@ export default function RemoteTournamentPage() {
 		// Default redirect to tournament list
 		router.push("/game/remote/tournament");
 	};
-	const isWaitingForNextMatch = Boolean(isMeReady && currentMatch?.status !== "inprogress");
+	const hasLockedReadyForNextMatch = Boolean(
+		currentMatch?.player2 &&
+		isMeReady &&
+		currentMatch.status !== "inprogress"
+	);
 
 	const watchMatch = (matchId: string) => {
-		if (isWaitingForNextMatch) {
+		if (hasLockedReadyForNextMatch) {
 			toast.info("You are ready. Please wait for your next match to start.");
 			return;
 		}
@@ -607,7 +619,7 @@ export default function RemoteTournamentPage() {
 														<h4 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wider">
 															<Eye className="w-4 h-4" /> Available Matches to Watch
 														</h4>
-														{isWaitingForNextMatch && (
+														{hasLockedReadyForNextMatch && (
 															<p className="text-xs text-yellow-500">
 																You are ready for your next match. Spectating is disabled while waiting.
 															</p>
@@ -635,15 +647,15 @@ export default function RemoteTournamentPage() {
 																		</div>
 																			<Button
 																				onClick={() => watchMatch(match.matchId)}
-																				disabled={isWaitingForNextMatch}
+																				disabled={hasLockedReadyForNextMatch}
 																				className={cn(
 																					"shadow-lg transition-opacity",
-																					isWaitingForNextMatch
+																					hasLockedReadyForNextMatch
 																						? "bg-muted text-muted-foreground opacity-60 cursor-not-allowed"
 																						: "bg-red-500 hover:bg-red-600 shadow-red-500/20 opacity-0 group-hover/match:opacity-100"
 																				)}
 																			>
-																				<Eye className="mr-2 h-4 w-4" /> {isWaitingForNextMatch ? "Waiting..." : "Watch"}
+																				<Eye className="mr-2 h-4 w-4" /> {hasLockedReadyForNextMatch ? "Waiting..." : "Watch"}
 																			</Button>
 																		</div>
 																	))}
@@ -726,7 +738,7 @@ export default function RemoteTournamentPage() {
 									</CardTitle>
 									</CardHeader>
 									<CardContent className="space-y-3">
-										{isWaitingForNextMatch && (
+										{hasLockedReadyForNextMatch && (
 											<p className="text-xs text-yellow-500">
 												You are ready for your next match. Watch Live is disabled until your match starts.
 											</p>
@@ -746,15 +758,15 @@ export default function RemoteTournamentPage() {
 												</div>
 													<Button
 														onClick={() => watchMatch(match.matchId)}
-														disabled={isWaitingForNextMatch}
+														disabled={hasLockedReadyForNextMatch}
 														size="sm"
 														className={cn(
-															isWaitingForNextMatch
+															hasLockedReadyForNextMatch
 																? "bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted"
 																: "bg-red-500 hover:bg-red-600"
 														)}
 													>
-														<Eye className="mr-2 h-4 w-4" /> {isWaitingForNextMatch ? "Waiting..." : "Watch Live"}
+														<Eye className="mr-2 h-4 w-4" /> {hasLockedReadyForNextMatch ? "Waiting..." : "Watch Live"}
 													</Button>
 												</div>
 											))}

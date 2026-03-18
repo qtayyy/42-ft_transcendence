@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Trophy, Loader2, Users, X, Crown, User, Copy, Check } from "lucide-react";
+import { ArrowLeft, Trophy, Loader2, X, Crown, User, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TournamentRoom {
@@ -28,18 +28,24 @@ export default function TournamentMatchmakingPage() {
 	const [searchTime, setSearchTime] = useState(0);
 	const [tournamentRoom, setTournamentRoom] = useState<TournamentRoom | null>(null);
 	const [copied, setCopied] = useState(false);
+	const hasSentJoinRef = useRef(false);
+	const recoveredTournamentRoom = useMemo(() => {
+		if (!user || !gameRoom?.isTournament) return null;
 
-	// Search timer (only while searching)
-	useEffect(() => {
-		if (!searching || tournamentRoom) return;
-		const timer = setInterval(() => {
-			setSearchTime(prev => prev + 1);
-		}, 1000);
-		return () => clearInterval(timer);
-	}, [searching, tournamentRoom]);
+		const me = Number(user.id);
+		const isMember = gameRoom.joinedPlayers?.some((p) => Number(p.id) === me);
+		if (!isMember) return null;
 
-	// Join matchmaking on mount
-	useEffect(() => {
+		return {
+			roomId: gameRoom.roomId,
+			tournamentId: `RT-${gameRoom.roomId}`,
+			players: gameRoom.joinedPlayers,
+			isHost: Number(gameRoom.hostId) === me,
+		};
+	}, [user, gameRoom]);
+	const activeTournamentRoom = tournamentRoom ?? recoveredTournamentRoom;
+
+	const sendJoinMatchmaking = useCallback(() => {
 		if (!user || !isReady) return;
 		sendSocketMessage({
 			event: "JOIN_MATCHMAKING",
@@ -50,6 +56,33 @@ export default function TournamentMatchmakingPage() {
 			},
 		});
 	}, [user, isReady, sendSocketMessage]);
+
+	// Search timer (only while searching)
+	useEffect(() => {
+		if (!searching || activeTournamentRoom) return;
+		const timer = setInterval(() => {
+			setSearchTime(prev => prev + 1);
+		}, 1000);
+		return () => clearInterval(timer);
+	}, [searching, activeTournamentRoom]);
+
+	// Join matchmaking on mount
+	useEffect(() => {
+		if (!searching || !user || !isReady) return;
+		const me = Number(user.id);
+		const isTournamentRoom = gameRoom?.isTournament === true;
+		const isMember = isTournamentRoom && gameRoom?.joinedPlayers?.some((p) => Number(p.id) === me);
+		if (isMember) return;
+		if (hasSentJoinRef.current) return;
+		hasSentJoinRef.current = true;
+		sendJoinMatchmaking();
+	}, [searching, user, isReady, gameRoom, sendJoinMatchmaking]);
+
+	useEffect(() => {
+		if (!isReady) {
+			hasSentJoinRef.current = false;
+		}
+	}, [isReady]);
 
 	// Listen for TOURNAMENT_FOUND event
 	useEffect(() => {
@@ -73,17 +106,17 @@ export default function TournamentMatchmakingPage() {
 			}, 1000);
 		};
 
-		window.addEventListener("TOURNAMENT_FOUND" as any, handleTournamentFound);
-		window.addEventListener("JOIN_ROOM_ERROR" as any, handleRoomError);
+		window.addEventListener("TOURNAMENT_FOUND", handleTournamentFound as EventListener);
+		window.addEventListener("JOIN_ROOM_ERROR", handleRoomError as EventListener);
 		return () => {
-			window.removeEventListener("TOURNAMENT_FOUND" as any, handleTournamentFound);
-			window.removeEventListener("JOIN_ROOM_ERROR" as any, handleRoomError);
+			window.removeEventListener("TOURNAMENT_FOUND", handleTournamentFound as EventListener);
+			window.removeEventListener("JOIN_ROOM_ERROR", handleRoomError as EventListener);
 		};
 	}, [router]);
 
 	// Poll for room updates when in lobby
 	useEffect(() => {
-		if (!user || !isReady || !tournamentRoom) return;
+		if (!user || !isReady || !activeTournamentRoom) return;
 
 		// Initial fetch
 		sendSocketMessage({
@@ -100,16 +133,31 @@ export default function TournamentMatchmakingPage() {
 		}, 2000);
 
 		return () => clearInterval(interval);
-	}, [sendSocketMessage, user, isReady, tournamentRoom]);
+	}, [sendSocketMessage, user, isReady, activeTournamentRoom]);
+
+	useEffect(() => {
+		if (!searching || !user || !isReady || activeTournamentRoom) return;
+
+		const retry = setInterval(() => {
+			const me = Number(user.id);
+			const isTournamentRoom = gameRoom?.isTournament === true;
+			const isMember = isTournamentRoom && gameRoom?.joinedPlayers?.some((p) => Number(p.id) === me);
+			if (!isMember) {
+				sendJoinMatchmaking();
+			}
+		}, 5000);
+
+		return () => clearInterval(retry);
+	}, [searching, user, isReady, activeTournamentRoom, gameRoom, sendJoinMatchmaking]);
 
 	const handleCancel = () => {
 		setSearching(false);
 		if (user && isReady) {
-			if (tournamentRoom) {
+			if (activeTournamentRoom) {
 				// Leave the room
 				sendSocketMessage({
 					event: "LEAVE_ROOM",
-					payload: { roomId: tournamentRoom.roomId, userId: user.id },
+					payload: { roomId: activeTournamentRoom.roomId, userId: user.id },
 				});
 			} else {
 				// Leave matchmaking queue
@@ -123,26 +171,26 @@ export default function TournamentMatchmakingPage() {
 	};
 
 	const handleCopyCode = () => {
-		if (tournamentRoom?.roomId) {
-			navigator.clipboard.writeText(tournamentRoom.roomId);
+		if (activeTournamentRoom?.roomId) {
+			navigator.clipboard.writeText(activeTournamentRoom.roomId);
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
 		}
 	};
 
 	const handleStartTournament = () => {
-		const roomId = gameRoom?.roomId || tournamentRoom?.roomId;
-		const tournamentId = tournamentRoom?.tournamentId || (gameRoom?.roomId ? `RT-${gameRoom.roomId}` : "");
+		const roomId = gameRoom?.roomId || activeTournamentRoom?.roomId;
+		const tournamentId = activeTournamentRoom?.tournamentId || (gameRoom?.roomId ? `RT-${gameRoom.roomId}` : "");
 
 		console.log("[Tournament] Start requested", {
 			roomId,
 			tournamentId,
 			isReady,
-			hasTournamentRoom: !!tournamentRoom,
+			hasTournamentRoom: !!activeTournamentRoom,
 			hasGameRoom: !!gameRoom,
 			gameRoomId: gameRoom?.roomId,
-			tournamentRoomId: tournamentRoom?.roomId,
-			playerCount: gameRoom?.joinedPlayers.length || tournamentRoom?.players.length
+			tournamentRoomId: activeTournamentRoom?.roomId,
+			playerCount: gameRoom?.joinedPlayers.length || activeTournamentRoom?.players.length
 		});
 
 		if (!roomId || !isReady) {
@@ -173,12 +221,12 @@ export default function TournamentMatchmakingPage() {
 		return `${mins}:${secs.toString().padStart(2, '0')}`;
 	};
 
-	const playerCount = gameRoom?.joinedPlayers.length || tournamentRoom?.players.length || 1;
-	const isHost = gameRoom ? gameRoom.hostId === Number(user?.id) : tournamentRoom?.isHost;
+	const playerCount = gameRoom?.joinedPlayers.length || activeTournamentRoom?.players.length || 1;
+	const isHost = gameRoom ? gameRoom.hostId === Number(user?.id) : activeTournamentRoom?.isHost;
 	const canStart = playerCount >= 3;
 
 	// Show lobby if we have a tournament room
-	if (tournamentRoom) {
+	if (activeTournamentRoom) {
 		return (
 			<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
 				<div className="w-full max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
@@ -214,7 +262,7 @@ export default function TournamentMatchmakingPage() {
 									</label>
 									<div className="flex gap-2">
 										<Input
-											value={tournamentRoom.roomId}
+											value={activeTournamentRoom.roomId}
 											readOnly
 											className="font-mono text-lg text-center bg-muted/50 tracking-widest"
 										/>
@@ -238,7 +286,7 @@ export default function TournamentMatchmakingPage() {
 										Players ({playerCount}/8)
 									</label>
 									<div className="grid grid-cols-2 gap-2 max-h-[250px] overflow-y-auto pr-2">
-										{(gameRoom?.joinedPlayers || tournamentRoom.players).map((player, idx) => {
+										{(gameRoom?.joinedPlayers || activeTournamentRoom.players).map((player, idx) => {
 											const isPlayerHost = gameRoom ? Number(player.id) === gameRoom.hostId : idx === 0;
 											const isCurrentUser = Number(player.id) === Number(user?.id);
 											return (
