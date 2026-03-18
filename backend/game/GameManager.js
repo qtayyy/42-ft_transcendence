@@ -1,4 +1,4 @@
-import Game from './Game.js';
+import LegacyGameRuntime from "./LegacyGameRuntime.js";
 
 class GameManager {
 	constructor() {
@@ -6,7 +6,7 @@ class GameManager {
 	}
 
 	createGame(matchId, mode, tournamentId = null) {
-		const newGame = new Game(matchId, mode, tournamentId);
+		const newGame = new LegacyGameRuntime(matchId, mode, tournamentId);
 		this.activeGames.set(matchId, newGame);
 		return (newGame);
 	}

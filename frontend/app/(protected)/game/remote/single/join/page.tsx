@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
@@ -16,34 +16,66 @@ export default function JoinRoomPage() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const { user } = useAuth();
-	const { sendSocketMessage, isReady } = useSocket();
+	const { sendSocketMessage, isReady, reconnectSocket } = useSocket();
 	const { gameRoom } = useGame();
 	const [roomCode, setRoomCode] = useState("");
 	const [joining, setJoining] = useState(false);
 	const [joined, setJoined] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [pendingJoin, setPendingJoin] = useState(false);
 	const hasAttemptedAutoJoin = useRef(false);
+
+	useEffect(() => {
+		if (!user || isReady || joined) return;
+
+		reconnectSocket();
+		const interval = window.setInterval(() => {
+			reconnectSocket();
+		}, 1500);
+
+		return () => window.clearInterval(interval);
+	}, [user, isReady, joined, reconnectSocket]);
+
+	const attemptJoin = useCallback(
+		(targetRoomCode: string) => {
+			const trimmedCode = targetRoomCode.trim();
+			if (!trimmedCode || !user || !isReady) return;
+
+			setJoining(true);
+			setPendingJoin(false);
+			setError(null);
+
+			sendSocketMessage({
+				event: "JOIN_ROOM_BY_CODE",
+				payload: {
+					roomId: trimmedCode,
+					userId: user.id,
+					username: user.username,
+				},
+			});
+		},
+		[user, isReady, sendSocketMessage]
+	);
 
 	// Support auto-join from matchmaking redirect
 	useEffect(() => {
 		const roomIdParam = searchParams.get("roomId");
 		const isMatchmaking = searchParams.get("matchmaking") === "true";
 
-		if (roomIdParam && isMatchmaking && isReady && user && !joined && !joining && !hasAttemptedAutoJoin.current) {
+		if (roomIdParam && isMatchmaking && user && !joined && !joining && !hasAttemptedAutoJoin.current) {
+			if (!isReady) {
+				setRoomCode(roomIdParam);
+				setPendingJoin(true);
+				reconnectSocket();
+				return;
+			}
+
 			console.log("[JoinRoom] Auto-joining matched room:", roomIdParam);
 			hasAttemptedAutoJoin.current = true;
 			setRoomCode(roomIdParam);
-			setJoining(true);
-			sendSocketMessage({
-				event: "JOIN_ROOM_BY_CODE",
-				payload: {
-					roomId: roomIdParam,
-					userId: user.id,
-					username: user.username,
-				},
-			});
+			attemptJoin(roomIdParam);
 		}
-	}, [searchParams, isReady, user, joined, joining, sendSocketMessage]);
+	}, [searchParams, isReady, user, joined, joining, reconnectSocket, attemptJoin]);
 
 	// Poll for room updates after joining
 	useEffect(() => {
@@ -74,7 +106,7 @@ export default function JoinRoomPage() {
 	}, [gameRoom, joined]);
 
 	const handleJoin = () => {
-		if (!roomCode.trim() || !user || !isReady) return;
+		if (!roomCode.trim() || !user) return;
 
 		// Issue #26: Basic UUID validation for room code
 		const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -83,20 +115,14 @@ export default function JoinRoomPage() {
 			return;
 		}
 
-		setJoining(true);
-		setError(null);
+		if (!isReady) {
+			setError("Connecting to realtime server... joining as soon as it reconnects.");
+			setPendingJoin(true);
+			reconnectSocket();
+			return;
+		}
 
-
-		// Send join request via WebSocket calls
-		sendSocketMessage({
-			event: "JOIN_ROOM_BY_CODE",
-			payload: {
-				roomId: roomCode.trim(),
-				userId: user.id,
-				username: user.username,
-			},
-		});
-		// Do not setJoined(true) here immediately. Wait for JOIN_ROOM event.
+		attemptJoin(roomCode);
 	};
 
 	useEffect(() => {
@@ -119,6 +145,14 @@ export default function JoinRoomPage() {
 			window.removeEventListener("JOIN_ROOM_ERROR", handleJoinError as EventListener);
 		};
 	}, []);
+
+	useEffect(() => {
+		if (!pendingJoin || !isReady || joining || joined || !roomCode.trim()) return;
+		const retryId = window.setTimeout(() => {
+			attemptJoin(roomCode);
+		}, 0);
+		return () => window.clearTimeout(retryId);
+	}, [pendingJoin, isReady, joining, joined, roomCode, attemptJoin]);
 
 	const handleStartGame = () => {
 		if (!gameRoom || gameRoom.joinedPlayers.length < 2) return;

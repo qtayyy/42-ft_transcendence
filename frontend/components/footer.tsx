@@ -23,6 +23,7 @@ export default function Footer() {
 
   return (
     <div
+      suppressHydrationWarning
       className={cn(
         "z-40 w-full p-3 text-gray-100",
         "fixed inset-x-0 bottom-0 bg-background/60 backdrop-blur"

@@ -45,6 +45,9 @@ export default function MatchmakingPage() {
 	// Join matchmaking queue on mount
 	useEffect(() => {
 		if (!searching || !user || !isReady) return;
+		const isSingleRoom = gameRoom?.isTournament !== true;
+		const isMember = isSingleRoom && gameRoom?.joinedPlayers?.some((p) => Number(p.id) === Number(user.id));
+		if (isMember) return;
 		if (hasSentJoinRef.current) return;
 		hasSentJoinRef.current = true;
 		sendJoinMatchmaking();
@@ -98,7 +101,7 @@ export default function MatchmakingPage() {
 		if (!isMember) return;
 
 		if (Number(gameRoom.hostId) === me) {
-			router.push("/game/remote/single/create");
+			router.push("/game/remote/single/create?matchmaking=true");
 			return;
 		}
 
@@ -110,7 +113,8 @@ export default function MatchmakingPage() {
 		if (!searching || !user || !isReady) return;
 		const retry = setInterval(() => {
 			const me = Number(user.id);
-			const isMember = gameRoom?.joinedPlayers?.some((p) => Number(p.id) === me);
+			const isSingleRoom = gameRoom?.isTournament !== true;
+			const isMember = isSingleRoom && gameRoom?.joinedPlayers?.some((p) => Number(p.id) === me);
 			if (!isMember) {
 				sendJoinMatchmaking();
 			}

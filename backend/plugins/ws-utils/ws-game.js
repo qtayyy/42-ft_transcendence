@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 export default fp((fastify) => {
   fastify.decorate(
     "createGameRoom",
-    (hostId, hostUsername, maxPlayers, isPublic = false) => {
+    (hostId, hostUsername, maxPlayers, isPublic = false, isTournament = false) => {
       console.log(`[CREATE_ROOM_START] hostId: ${hostId} (${hostUsername})`);
       const roomId = crypto.randomUUID();
       const numericHostId = Number(hostId);
@@ -24,6 +24,8 @@ export default fp((fastify) => {
         joinedPlayers: [{ id: numericHostId, username: hostUsername }],
         maxPlayers,
         isPublic,
+        isTournament,
+        tournamentStarted: false,
         createdAt: Date.now(),
       };
       fastify.gameRooms.set(roomId, roomState);
@@ -220,6 +222,7 @@ export default fp((fastify) => {
     // Always clear the user from currentRoom regardless of whether the room still exists
     const numericUserId = Number(userId);
     fastify.currentRoom.delete(numericUserId);
+    const userSocket = fastify.onlineUsers.get(numericUserId);
 
     // Handle tournament player withdrawal if tournament has started
     // IMPORTANT: Do this before checking for room existence in gameRooms map
@@ -277,7 +280,16 @@ export default fp((fastify) => {
     }
 
     const room = fastify.gameRooms.get(roomId);
-    if (!room) return; // Not throwing error as we always run leave room when user log outs
+    if (!room) {
+      safeSend(
+        userSocket,
+        {
+          event: "LEAVE_ROOM",
+        },
+        numericUserId,
+      );
+      return; // Not throwing error as we always run leave room when user log outs
+    }
 
     // Remove the user from joinedPlayers, invitedPlayers
     room.joinedPlayers = room.joinedPlayers.filter(
@@ -360,7 +372,6 @@ export default fp((fastify) => {
       }
     } else {
       const hostSocket = fastify.onlineUsers.get(Number(room.hostId));
-      const userSocket = fastify.onlineUsers.get(numericUserId);
       const payload = {
         roomId: roomId,
         hostId: room.hostId,
@@ -744,6 +755,19 @@ export default fp((fastify) => {
           `[Matchmaking] User ${numericUserId} matched into room ${availableRoomId}`,
         );
 
+        const roomSyncPayload = {
+          event: "GAME_ROOM",
+          payload: {
+            roomId: availableRoomId,
+            hostId: availableRoom.hostId,
+            invitedPlayers: availableRoom.invitedPlayers,
+            joinedPlayers: availableRoom.joinedPlayers,
+            maxPlayers: availableRoom.maxPlayers,
+            isTournament: availableRoom.isTournament || false,
+            tournamentStarted: availableRoom.tournamentStarted || false,
+          },
+        };
+
         // Notify BOTH players that a match was found
         // They should be redirected to the lobby, NOT auto-start the game
         const payload = {
@@ -758,7 +782,9 @@ export default fp((fastify) => {
 
         availableRoom.joinedPlayers.forEach((p) => {
           const s = fastify.onlineUsers.get(Number(p.id));
-          if (s) safeSend(s, payload, Number(p.id));
+          if (!s) return;
+          safeSend(s, roomSyncPayload, Number(p.id));
+          safeSend(s, payload, Number(p.id));
         });
         return;
       }
