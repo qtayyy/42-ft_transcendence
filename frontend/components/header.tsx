@@ -109,10 +109,13 @@ export default function Header() {
   }, [isGameActive, router, setShowNavGuard, setPendingPath]);
 
   return (
-    <div className={cn(
-      "z-50 flex w-full items-center justify-between p-3",
-      "fixed top-0 inset-x-0 bg-transparent" 
-    )}>
+    <div
+      suppressHydrationWarning
+      className={cn(
+        "z-50 flex w-full items-center justify-between p-3",
+        "fixed top-0 inset-x-0 bg-transparent"
+      )}
+    >
       <div>
         <button
           type="button"
