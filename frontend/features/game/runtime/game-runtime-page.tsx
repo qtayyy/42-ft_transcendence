@@ -192,6 +192,7 @@ export default function GameRuntimePage() {
 	const handleDisconnect = useCallback((event: CustomEvent) => {
 		const { disconnectedPlayer, gracePeriodEndsAt } = event.detail;
 		const countdown = Math.ceil((gracePeriodEndsAt - Date.now()) / 1000);
+		setPauseInfo(null);
 		setDisconnectInfo({ disconnectedPlayer, gracePeriodEndsAt, countdown });
 		toast.warning("Opponent disconnected! Waiting for reconnection...");
 		setOpponentConnected(false);
@@ -262,7 +263,12 @@ export default function GameRuntimePage() {
 		const disconnectCountdown = (gameState as any)?.disconnectCountdown;
 		if (disconnectCountdown && disconnectCountdown.gracePeriodEndsAt) {
 			const countdown = Math.ceil((disconnectCountdown.gracePeriodEndsAt - Date.now()) / 1000);
-			if (countdown > 0 && !disconnectInfo) {
+			const countdownChanged =
+				disconnectInfo?.gracePeriodEndsAt !== disconnectCountdown.gracePeriodEndsAt ||
+				disconnectInfo?.disconnectedPlayer !==
+					(disconnectCountdown.disconnectedPlayer || (gameState as any)?.disconnectedPlayer);
+			if (countdown > 0 && (!disconnectInfo || countdownChanged)) {
+				setPauseInfo(null);
 				setDisconnectInfo({
 					disconnectedPlayer: disconnectCountdown.disconnectedPlayer || (gameState as any)?.disconnectedPlayer,
 					gracePeriodEndsAt: disconnectCountdown.gracePeriodEndsAt,
@@ -273,13 +279,17 @@ export default function GameRuntimePage() {
 		}
 
 		// Also check if game is paused due to disconnect (from disconnectedPlayer field)
-		if ((gameState as any)?.paused && (gameState as any)?.disconnectedPlayer && !disconnectInfo) {
+		if ((gameState as any)?.paused && (gameState as any)?.disconnectedPlayer) {
 			// Calculate remaining time based on pausedAt (30 second grace period)
 			const pausedAt = (gameState as any)?.pausedAt;
 			if (pausedAt) {
 				const gracePeriodEndsAt = pausedAt + 30000;
 				const countdown = Math.ceil((gracePeriodEndsAt - Date.now()) / 1000);
-				if (countdown > 0) {
+				const countdownChanged =
+					disconnectInfo?.gracePeriodEndsAt !== gracePeriodEndsAt ||
+					disconnectInfo?.disconnectedPlayer !== (gameState as any).disconnectedPlayer;
+				if (countdown > 0 && (!disconnectInfo || countdownChanged)) {
+					setPauseInfo(null);
 					setDisconnectInfo({
 						disconnectedPlayer: (gameState as any).disconnectedPlayer,
 						gracePeriodEndsAt,
@@ -290,8 +300,14 @@ export default function GameRuntimePage() {
 			}
 		}
 
-		// Clear disconnect info if game is no longer paused or no disconnected player
-		if (gameState && !(gameState as any)?.paused && disconnectInfo) {
+		// Once the backend clears disconnectedPlayer, the match is no longer in
+		// grace-period forfeit mode even if it intentionally stays paused waiting
+		// for players to press resume. Clear the stale countdown overlay in both
+		// cases: resumed game or paused-but-reconnected game.
+		const hasActiveDisconnect =
+			!!disconnectCountdown?.gracePeriodEndsAt ||
+			!!(gameState as any)?.disconnectedPlayer;
+		if (gameState && !hasActiveDisconnect && disconnectInfo) {
 			setDisconnectInfo(null);
 			setOpponentConnected(true);
 		}

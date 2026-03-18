@@ -21,6 +21,7 @@ interface ReconnectionModalProps {
     tournamentId?: string;
     opponent: string;
     message?: string;
+    gracePeriodEndsAt?: number | null;
   } | null;
   onContinue: () => void;
   onLeave: () => void;
@@ -39,7 +40,10 @@ export function ReconnectionModal({
   // Reset countdown when modal opens
   useEffect(() => {
     if (isOpen && activeMatch) {
-      setCountdown(COUNTDOWN_SECONDS);
+      const nextCountdown = activeMatch.gracePeriodEndsAt
+        ? Math.max(0, Math.ceil((activeMatch.gracePeriodEndsAt - Date.now()) / 1000))
+        : COUNTDOWN_SECONDS;
+      setCountdown(nextCountdown);
     }
   }, [isOpen, activeMatch]);
 

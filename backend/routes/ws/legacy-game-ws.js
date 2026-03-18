@@ -87,9 +87,15 @@ export default async function (fastify, opts) {
 			connection.on("close", () => {
 				console.log(`[GAME WS] ${userId} disconnected`);
 
-				// For local games, allow reconnection by clearing the player slot
+				// Local games should freeze immediately when the host tab disappears.
+				// Browser unload messages are best-effort, so the server backs that up here.
+				// We still keep the host identity so the same user can reconnect later.
 				if (game.mode === 'local') {
 					if (game.players.p1.socket === connection) {
+						if (game.running && game.gameState.status === "playing") {
+							console.log(`[GAME WS] Pausing local game ${matchId} on host disconnect`);
+							game.pause();
+						}
 						console.log(`[GAME WS] Clearing local host slot for reconnection`);
 						game.players.p1.socket = null;
 						// Don't clear the id to allow same user to reconnect
