@@ -14,6 +14,7 @@ export const PADDLE_SPEED = 10;
 export const FPS = 60;
 export const TICK_MS = 1000 / FPS;
 export const BALL_SIZE = 12;
+export const WIN_SCORE = 5;
 export const MATCH_DURATION = 120000; // 2 minutes in milliseconds
 export const POWERUP_SPAWN_INTERVAL = 10000; // Spawn power-up every 10 seconds
 export const POWERUP_EFFECT_DURATION = 5000; // Effects last 5 seconds

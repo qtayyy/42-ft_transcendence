@@ -11,12 +11,9 @@ This Fastify plugin manages remote WebSocket game matches:
 
 import fp from "fastify-plugin";
 import { safeSend, serializeGameState } from "../../utils/ws-utils.js";
-import { PrismaClient } from "../../generated/prisma/index.js";
 import { activeTournaments } from "../../game/TournamentManager.js";
 import { createGameLifecycle } from "./game-matches/lifecycle.js";
 import { createGameMatchHandlers } from "./game-matches/handlers/index.js";
-
-const prisma = new PrismaClient();
 
 // Track running game loops per match
 const gameLoops = new Map(); // matchId -> intervalHandle
@@ -96,7 +93,6 @@ export default fp(async (fastify) => {
 
   const { endGame, startGameLoop } = createGameLifecycle({
     fastify,
-    prisma,
     gameLoops,
     matchSpectators,
     safeSend,

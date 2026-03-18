@@ -17,6 +17,87 @@ export function createPlayerPresenceHandlers({
   broadcastState,
   endGame,
 }) {
+  const markPlayerDisconnected = (gameState, disconnectedPlayer, matchId, userId) => {
+    // A disconnect starts its own grace window even if the match was already
+    // paused for manual resume. This keeps reconnect UI timers accurate.
+    gameState.paused = true;
+    gameState.pausedAt = Date.now();
+    gameState.resumeReady = { LEFT: false, RIGHT: false };
+
+    if (!gameState.disconnectedPlayers) {
+      gameState.disconnectedPlayers = new Set();
+    }
+    gameState.disconnectedPlayers.add(disconnectedPlayer);
+    gameState.disconnectedPlayer = disconnectedPlayer;
+
+    const opponentSide = disconnectedPlayer === "LEFT" ? "RIGHT" : "LEFT";
+    const opponentId =
+      opponentSide === "LEFT"
+        ? gameState.leftPlayer?.id
+        : gameState.rightPlayer?.id;
+    const opponentSocket = fastify.onlineUsers.get(Number(opponentId));
+
+    safeSend(
+      opponentSocket,
+      {
+        event: "OPPONENT_DISCONNECTED",
+        payload: {
+          matchId,
+          disconnectedPlayer,
+          userId,
+          gracePeriodEndsAt: gameState.pausedAt + DISCONNECT_GRACE_PERIOD,
+        },
+      },
+      opponentId,
+    );
+  };
+
+  const resetDisconnectTimeout = (
+    gameState,
+    disconnectedPlayer,
+    matchId,
+    onExpire,
+  ) => {
+    const timeoutKey =
+      disconnectedPlayer === "LEFT"
+        ? "leftDisconnectTimeout"
+        : "rightDisconnectTimeout";
+
+    if (gameState[timeoutKey]) {
+      clearTimeout(gameState[timeoutKey]);
+      gameState[timeoutKey] = null;
+    }
+
+    gameState[timeoutKey] = setTimeout(() => {
+      console.log(
+        `[Disconnect] Grace period expired for ${disconnectedPlayer} in match ${matchId}`,
+      );
+
+      const bothDisconnected = gameState.disconnectedPlayers?.size >= 2;
+      if (bothDisconnected) {
+        gameState.gameOver = true;
+        gameState.winner = null;
+        gameState.winnerId = null;
+        gameState.doubleForfeit = true;
+        gameState.forfeit = true;
+      } else {
+        const winner = disconnectedPlayer === "LEFT" ? "RIGHT" : "LEFT";
+        const winnerId =
+          disconnectedPlayer === "LEFT"
+            ? gameState.rightPlayer?.id
+            : gameState.leftPlayer?.id;
+        gameState.gameOver = true;
+        gameState.winner = winner;
+        gameState.winnerId = winnerId;
+        gameState.forfeit = true;
+      }
+
+      endGame(gameState).catch(console.error);
+      gameState[timeoutKey] = null;
+      if (onExpire) onExpire();
+    }, DISCONNECT_GRACE_PERIOD);
+  };
+
   /**
    * Handle player navigating away from game page
    * Pauses the game and starts disconnect timer
@@ -52,18 +133,7 @@ export function createPlayerPresenceHandlers({
       `[Navigate Away] User ${userId} (${disconnectedPlayer}) left match ${matchId}`,
     );
 
-    // Pause the game
-    if (!gameState.paused) {
-      gameState.paused = true;
-      gameState.pausedAt = Date.now();
-    }
-
-    // Track disconnected player
-    if (!gameState.disconnectedPlayers) {
-      gameState.disconnectedPlayers = new Set();
-    }
-    gameState.disconnectedPlayers.add(disconnectedPlayer);
-    gameState.disconnectedPlayer = disconnectedPlayer;
+    markPlayerDisconnected(gameState, disconnectedPlayer, matchId, userId);
 
     // Notify ALL participants (including this player's other tabs and spectators)
     broadcastState(gameState, fastify);
@@ -82,43 +152,11 @@ export function createPlayerPresenceHandlers({
     }
 
     // Set timeout for auto-forfeit
-    const timeoutKey =
-      disconnectedPlayer === "LEFT"
-        ? "leftDisconnectTimeout"
-        : "rightDisconnectTimeout";
-    if (!gameState[timeoutKey]) {
-      gameState[timeoutKey] = setTimeout(() => {
-        console.log(
-          `[Navigate Away] Grace period expired for ${disconnectedPlayer} in match ${matchId}`,
-        );
-
-        // Check if both disconnected
-        const bothDisconnected = gameState.disconnectedPlayers?.size >= 2;
-
-        if (bothDisconnected) {
-          console.log(`[Navigate Away] Both players forfeited - double forfeit`);
-          gameState.gameOver = true;
-          gameState.winner = null;
-          gameState.winnerId = null;
-          gameState.doubleForfeit = true;
-          gameState.forfeit = true;
-        } else {
-          // Only this player forfeited
-          const winner = disconnectedPlayer === "LEFT" ? "RIGHT" : "LEFT";
-          const winnerId =
-            disconnectedPlayer === "LEFT"
-              ? gameState.rightPlayer?.id
-              : gameState.leftPlayer?.id;
-
-          gameState.gameOver = true;
-          gameState.winner = winner;
-          gameState.winnerId = winnerId;
-          gameState.forfeit = true;
-        }
-
-        endGame(gameState);
-        gameState[timeoutKey] = null;
-
+    resetDisconnectTimeout(
+      gameState,
+      disconnectedPlayer,
+      matchId,
+      () => {
         // Properly clean up disconnected user from server state since they won't trigger LEAVE_ROOM
         const disconnectedId =
           disconnectedPlayer === "LEFT"
@@ -130,8 +168,8 @@ export function createPlayerPresenceHandlers({
           );
           fastify.leaveRoom(gameState.roomId, disconnectedId);
         }
-      }, DISCONNECT_GRACE_PERIOD);
-    }
+      },
+    );
   };
 
   /**
@@ -157,52 +195,9 @@ export function createPlayerPresenceHandlers({
       `[Disconnect] Hard disconnect for user ${userId} (${disconnectedPlayer}) from match ${matchId}`,
     );
 
-    // Pause the game
-    if (!gameState.paused) {
-      gameState.paused = true;
-      gameState.pausedAt = Date.now();
-    }
+    markPlayerDisconnected(gameState, disconnectedPlayer, matchId, userId);
 
-    // Track disconnected player
-    if (!gameState.disconnectedPlayers) {
-      gameState.disconnectedPlayers = new Set();
-    }
-    gameState.disconnectedPlayers.add(disconnectedPlayer);
-    gameState.disconnectedPlayer = disconnectedPlayer;
-
-    // Set timeout for auto-forfeit if not already set
-    const timeoutKey =
-      disconnectedPlayer === "LEFT"
-        ? "leftDisconnectTimeout"
-        : "rightDisconnectTimeout";
-    if (!gameState[timeoutKey]) {
-      gameState[timeoutKey] = setTimeout(() => {
-        console.log(
-          `[Disconnect] Grace period expired for ${disconnectedPlayer} in match ${matchId}`,
-        );
-
-        const bothDisconnected = gameState.disconnectedPlayers?.size >= 2;
-        if (bothDisconnected) {
-          gameState.gameOver = true;
-          gameState.winner = null;
-          gameState.winnerId = null;
-          gameState.doubleForfeit = true;
-          gameState.forfeit = true;
-        } else {
-          const winner = disconnectedPlayer === "LEFT" ? "RIGHT" : "LEFT";
-          const winnerId =
-            disconnectedPlayer === "LEFT"
-              ? gameState.rightPlayer?.id
-              : gameState.leftPlayer?.id;
-          gameState.gameOver = true;
-          gameState.winner = winner;
-          gameState.winnerId = winnerId;
-          gameState.forfeit = true;
-        }
-        endGame(gameState).catch(console.error);
-        gameState[timeoutKey] = null;
-      }, DISCONNECT_GRACE_PERIOD);
-    }
+    resetDisconnectTimeout(gameState, disconnectedPlayer, matchId);
 
     // Broadcast update to everyone
     broadcastState(gameState, fastify);

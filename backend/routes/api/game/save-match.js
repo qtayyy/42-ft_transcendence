@@ -1,6 +1,4 @@
-import { PrismaClient } from "../../../generated/prisma/index.js";
-
-const prisma = new PrismaClient();
+import { persistMatchRecord } from "../../../services/match-persistence.js";
 
 export default async function (fastify, opts) {
 	fastify.post(
@@ -10,6 +8,7 @@ export default async function (fastify, opts) {
 		},
 		async (request, reply) => {
 			try {
+				const authenticatedUserId = Number(request.user.userId);
 				const {
 					matchId,
 					player1Id,
@@ -23,31 +22,35 @@ export default async function (fastify, opts) {
 					tournamentId,
 					durationSeconds,
 				} = request.body;
+				const normalizedMode =
+					typeof mode === "string" ? mode.trim().toUpperCase().replace(/-/g, "_") : "LOCAL";
+				const resolvedPlayer1Id =
+					normalizedMode === "LOCAL" || normalizedMode === "LOCAL_TOURNAMENT"
+						? authenticatedUserId
+						: (player1Id ?? authenticatedUserId);
 
 				// Validation
 				if (score1 === undefined || score2 === undefined) {
 					return reply.code(400).send({ error: "Scores are required" });
 				}
 
-				// Save match - allow null player IDs for temporary players
-				const match = await prisma.match.create({
-					data: {
-						player1Id: player1Id || null,
-						player2Id: player2Id || null,
-						score1: score1,
-						score2: score2,
-						durationSeconds: typeof durationSeconds === "number"
-							? Math.max(0, Math.round(durationSeconds))
-							: null,
-						mode: mode || "LOCAL",
-						tournamentId: tournamentId || null,
-					}
+				const { match, reusedExisting } = await persistMatchRecord({
+					externalMatchId: matchId,
+					player1Id: resolvedPlayer1Id,
+					player2Id: player2Id ?? null,
+					score1,
+					score2,
+					durationSeconds,
+					mode: normalizedMode,
+					tournamentId: tournamentId || null,
 				});
 
 				return reply.code(200).send({
 					success: true,
 					matchId: match.id,
-					message: "Match saved successfully"
+					externalMatchId: match.externalMatchId,
+					reusedExisting,
+					message: reusedExisting ? "Match already persisted; existing row reused" : "Match saved successfully"
 				});
 
 			} catch (error) {
