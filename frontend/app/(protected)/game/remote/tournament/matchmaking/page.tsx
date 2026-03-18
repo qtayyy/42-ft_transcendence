@@ -23,7 +23,7 @@ export default function TournamentMatchmakingPage() {
 	const router = useRouter();
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
-	const { gameRoom } = useGame();
+	const { gameRoom, setGameRoom } = useGame();
 	const [searching, setSearching] = useState(true);
 	const [searchTime, setSearchTime] = useState(0);
 	const [tournamentRoom, setTournamentRoom] = useState<TournamentRoom | null>(null);
@@ -31,6 +31,7 @@ export default function TournamentMatchmakingPage() {
 	const hasSentJoinRef = useRef(false);
 	const recoveredTournamentRoom = useMemo(() => {
 		if (!user || !gameRoom?.isTournament) return null;
+		if (gameRoom.tournamentStarted) return null;
 
 		const me = Number(user.id);
 		const isMember = gameRoom.joinedPlayers?.some((p) => Number(p.id) === me);
@@ -98,6 +99,10 @@ export default function TournamentMatchmakingPage() {
 		};
 
 		const handleRoomError = (event: CustomEvent) => {
+			if (!searching || activeTournamentRoom) {
+				console.warn("Ignoring generic room error after tournament lobby was already created:", event.detail);
+				return;
+			}
 			console.error("Failed to join tournament matchmaking:", event.detail);
 			setSearching(false);
 			// The socket-context already shows a toast.error, so we just need to route back
@@ -112,7 +117,7 @@ export default function TournamentMatchmakingPage() {
 			window.removeEventListener("TOURNAMENT_FOUND", handleTournamentFound as EventListener);
 			window.removeEventListener("JOIN_ROOM_ERROR", handleRoomError as EventListener);
 		};
-	}, [router]);
+	}, [router, searching, activeTournamentRoom]);
 
 	// Poll for room updates when in lobby
 	useEffect(() => {
@@ -152,6 +157,8 @@ export default function TournamentMatchmakingPage() {
 
 	const handleCancel = () => {
 		setSearching(false);
+		setTournamentRoom(null);
+		setGameRoom(null);
 		if (user && isReady) {
 			if (activeTournamentRoom) {
 				// Leave the room
@@ -179,8 +186,8 @@ export default function TournamentMatchmakingPage() {
 	};
 
 	const handleStartTournament = () => {
-		const roomId = gameRoom?.roomId || activeTournamentRoom?.roomId;
-		const tournamentId = activeTournamentRoom?.tournamentId || (gameRoom?.roomId ? `RT-${gameRoom.roomId}` : "");
+		const roomId = activeTournamentRoom?.roomId || gameRoom?.roomId;
+		const tournamentId = activeTournamentRoom?.tournamentId || (roomId ? `RT-${roomId}` : "");
 
 		console.log("[Tournament] Start requested", {
 			roomId,
