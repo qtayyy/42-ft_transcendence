@@ -222,6 +222,7 @@ export default fp((fastify) => {
     // Always clear the user from currentRoom regardless of whether the room still exists
     const numericUserId = Number(userId);
     fastify.currentRoom.delete(numericUserId);
+    const userSocket = fastify.onlineUsers.get(numericUserId);
 
     // Handle tournament player withdrawal if tournament has started
     // IMPORTANT: Do this before checking for room existence in gameRooms map
@@ -279,7 +280,16 @@ export default fp((fastify) => {
     }
 
     const room = fastify.gameRooms.get(roomId);
-    if (!room) return; // Not throwing error as we always run leave room when user log outs
+    if (!room) {
+      safeSend(
+        userSocket,
+        {
+          event: "LEAVE_ROOM",
+        },
+        numericUserId,
+      );
+      return; // Not throwing error as we always run leave room when user log outs
+    }
 
     // Remove the user from joinedPlayers, invitedPlayers
     room.joinedPlayers = room.joinedPlayers.filter(
@@ -362,7 +372,6 @@ export default fp((fastify) => {
       }
     } else {
       const hostSocket = fastify.onlineUsers.get(Number(room.hostId));
-      const userSocket = fastify.onlineUsers.get(numericUserId);
       const payload = {
         roomId: roomId,
         hostId: room.hostId,

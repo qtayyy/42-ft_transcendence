@@ -38,7 +38,7 @@ export default function RemoteTournamentPage() {
 	const router = useRouter();
 	const { user, loadingAuth } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
-	const { gameRoom } = useGame();
+	const { gameRoom, setGameRoom, setGameState } = useGame();
 	const tournamentId = params.tournamentId as string;
 
 	const [tournament, setTournament] = useState<RemoteTournamentState | null>(null);
@@ -349,6 +349,9 @@ export default function RemoteTournamentPage() {
 	};
 
 	const leaveRoom = () => {
+		setGameRoom(null);
+		setGameState(null);
+
 		// Send LEAVE_ROOM event to backend for proper cleanup
 		if (user && roomId) {
 			sendSocketMessage({

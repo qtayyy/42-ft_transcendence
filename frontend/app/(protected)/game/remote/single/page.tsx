@@ -4,14 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Gamepad2, Plus, LogIn, Shuffle, Swords, Users, Zap } from "lucide-react";
-import { useSocketContext } from "@/context/socket-context";
 
 export default function RemoteSingleMatchPage() {
 	const router = useRouter();
-	const { forceCleanup } = useSocketContext();
 
 	const handleNavigate = (path: string) => {
-		forceCleanup();
 		router.push(path);
 	};
 
