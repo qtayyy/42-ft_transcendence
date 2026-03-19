@@ -13,6 +13,7 @@ import {
   MATCH_DURATION,
   PADDLE_HEIGHT,
   PADDLE_WIDTH,
+  WIN_SCORE,
 } from "../constants.js";
 
 export function createStartRoomGameHandler({
@@ -94,6 +95,7 @@ export function createStartRoomGameHandler({
         paddleWidth: PADDLE_WIDTH,
         paddleHeight: PADDLE_HEIGHT,
         ballSize: BALL_SIZE,
+        winScore: WIN_SCORE,
         matchDuration: MATCH_DURATION,
       },
     };

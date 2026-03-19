@@ -38,38 +38,82 @@ export default async function (fastify, opts) {
           }
         }
 
-        // Delete all related data in correct order to avoid foreign key constraints
-        // 1. Delete Matches related to user's tournaments
-        const tournaments = await prisma.tournaments.findMany({
-          where: { userId },
-          select: { id: true }
-        });
-        const tournamentIds = tournaments.map(t => t.id);
-        
-        if (tournamentIds.length > 0) {
-          await prisma.matches.deleteMany({
-            where: { tournamentId: { in: tournamentIds } }
+        await prisma.$transaction(async (tx) => {
+          // Remove tournament membership and winner links without deleting
+          // tournaments that may also belong to other players.
+          const tournaments = await tx.tournament.findMany({
+            where: {
+              OR: [
+                { winnerId: userId },
+                { players: { some: { id: userId } } },
+              ],
+            },
+            select: { id: true },
           });
-        }
 
-        // 2. Delete Tournaments
-        await prisma.tournaments.deleteMany({
-          where: { userId }
-        });
+          if (tournaments.length > 0) {
+            await tx.tournament.updateMany({
+              where: { winnerId: userId },
+              data: { winnerId: null },
+            });
 
-        // 3. Delete Friends
-        await prisma.friends.deleteMany({
-          where: { userId }
-        });
+            for (const tournament of tournaments) {
+              await tx.tournament.update({
+                where: { id: tournament.id },
+                data: {
+                  players: {
+                    disconnect: { id: userId },
+                  },
+                },
+              });
+            }
+          }
 
-        // 4. Delete Profile
-        await prisma.profile.deleteMany({
-          where: { userId }
-        });
+          // Delete records that directly reference the profile/user.
+          await tx.match.deleteMany({
+            where: {
+              OR: [
+                { player1Id: userId },
+                { player2Id: userId },
+              ],
+            },
+          });
 
-        // 5. Delete User (this will also delete the email)
-        await prisma.user.delete({
-          where: { id: userId }
+          await tx.friendship.deleteMany({
+            where: {
+              OR: [
+                { requesterId: userId },
+                { addresseeId: userId },
+              ],
+            },
+          });
+
+          await tx.block.deleteMany({
+            where: {
+              OR: [
+                { blockerId: userId },
+                { blockedId: userId },
+              ],
+            },
+          });
+
+          await tx.message.deleteMany({
+            where: {
+              OR: [
+                { senderId: userId },
+                { recipientId: userId },
+              ],
+            },
+          });
+
+          await tx.profile.delete({
+            where: { id: userId },
+          });
+
+          // Delete User after Profile because Profile.id references User.id.
+          await tx.user.delete({
+            where: { id: userId },
+          });
         });
 
         return reply.code(200).send({ 
@@ -83,4 +127,3 @@ export default async function (fastify, opts) {
     }
   );
 }
-

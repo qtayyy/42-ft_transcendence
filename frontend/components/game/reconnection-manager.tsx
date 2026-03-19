@@ -14,7 +14,13 @@ interface GameStatusResponse {
   tournamentId?: string;
   opponent?: string;
   message?: string;
+  gracePeriodEndsAt?: number | null;
 }
+
+type LocalRecoveryCandidate = {
+  localMatchId?: string;
+  localTournamentId?: string;
+};
 
 export function ReconnectionManager() {
   const router = useRouter();
@@ -28,24 +34,79 @@ export function ReconnectionManager() {
     routerRef.current = router;
   }, [router]);
 
+  const getLocalRecoveryCandidate = (): LocalRecoveryCandidate | null => {
+    if (typeof window === "undefined") return null;
+
+    try {
+      const raw = window.localStorage.getItem("current-match");
+      if (!raw) return null;
+
+      const parsed = JSON.parse(raw) as {
+        matchId?: string;
+        runtimeMatchId?: string;
+        tournamentId?: string;
+      };
+
+      const localTournamentId =
+        typeof parsed.tournamentId === "string" &&
+        parsed.tournamentId.startsWith("local-tournament-")
+          ? parsed.tournamentId
+          : undefined;
+      const runtimeId =
+        typeof parsed.runtimeMatchId === "string"
+          ? parsed.runtimeMatchId
+          : typeof parsed.matchId === "string" && parsed.matchId.startsWith("local-")
+            ? parsed.matchId
+            : undefined;
+
+      if (!runtimeId && !localTournamentId) return null;
+
+      return {
+        localMatchId: runtimeId,
+        localTournamentId: runtimeId ? undefined : localTournamentId,
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const getContinuePath = (match: GameStatusResponse): string | null => {
+    if (match.matchId) {
+      return `/game/${match.matchId}`;
+    }
+
+    if (!match.tournamentId) return null;
+
+    if (match.tournamentId.startsWith("local-tournament-")) {
+      return `/game/local/tournament/${match.tournamentId}`;
+    }
+
+    if (match.tournamentId.startsWith("RT-")) {
+      return `/game/remote/tournament/${match.tournamentId}`;
+    }
+
+    return null;
+  };
+
   useEffect(() => {
     if (!user) return;
 
     const checkStatus = async () => {
       try {
         console.log("ReconnectionManager: Checking status...");
-        const res = await axios.get("/api/game/status", { withCredentials: true });
+        const localCandidate = getLocalRecoveryCandidate();
+        const res = await axios.get("/api/game/status", {
+          withCredentials: true,
+          params: localCandidate ?? undefined,
+        });
         console.log("ReconnectionManager: Status response:", res.data);
 
         if (res.data.active) {
             const match = res.data;
-            let isOnCorrectPage = false;
-            
-            // Should match: /game/[matchId]
-            // Note: pathname might be null during SSR?
-            if (match.matchId && pathname) {
-                isOnCorrectPage = pathname.includes(`/game/${match.matchId}`);
-            }
+            const continuePath = getContinuePath(match);
+            const isOnCorrectPage = Boolean(
+              continuePath && pathname && pathname.includes(continuePath),
+            );
 
             console.log(`ReconnectionManager: Active match found. Type: ${match.type}, MatchId: ${match.matchId}. Current Path: ${pathname}. On Correct Page: ${isOnCorrectPage}`);
 
@@ -71,20 +132,34 @@ export function ReconnectionManager() {
 
     // Check status on mount and when path changes
     checkStatus();
-    
   }, [user, pathname]);
 
   const handleContinue = () => {
     if (!activeMatch) return;
     
     setShowModal(false);
-    if (activeMatch.matchId) {
-        router.push(`/game/${activeMatch.matchId}`);
+    const continuePath = getContinuePath(activeMatch);
+    if (continuePath) {
+        router.push(continuePath);
     }
   };
 
   const handleLeave = async () => {
     if (!activeMatch) return;
+
+    const isLocalRecovery =
+      (activeMatch.matchId?.startsWith("local-") ?? false) ||
+      (activeMatch.tournamentId?.startsWith("local-tournament-") ?? false);
+
+    if (isLocalRecovery) {
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem("current-match");
+        }
+        setShowModal(false);
+        setActiveMatch(null);
+        router.push("/dashboard");
+        return;
+    }
 
     try {
         await axios.post("/api/game/leave", {
@@ -107,6 +182,7 @@ export function ReconnectionManager() {
         tournamentId: activeMatch.tournamentId,
         opponent: activeMatch.opponent ?? "Opponent",
         message: activeMatch.message,
+        gracePeriodEndsAt: activeMatch.gracePeriodEndsAt,
       }
     : null;
 
