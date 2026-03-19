@@ -17,7 +17,7 @@ export default function CreateRoomPage() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const { user } = useAuth();
-	const { sendSocketMessage, isReady } = useSocket();
+	const { sendSocketMessage, isReady, reconnectSocket } = useSocket();
 	const { gameRoom, onlineFriends } = useGame();
 	const [roomId, setRoomId] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
@@ -26,8 +26,23 @@ export default function CreateRoomPage() {
 	const hasSentMatchmakingJoinRef = useRef(false);
 	const isMatchmakingMode = searchParams.get("matchmaking") === "true";
 
+	useEffect(() => {
+		if (!user || isReady) return;
+
+		reconnectSocket();
+		const interval = window.setInterval(() => {
+			reconnectSocket();
+		}, 1500);
+
+		return () => window.clearInterval(interval);
+	}, [user, isReady, reconnectSocket]);
+
 	const sendJoinMatchmaking = useCallback(() => {
-		if (!user || !isReady) return;
+		if (!user) return;
+		if (!isReady) {
+			reconnectSocket();
+			return;
+		}
 		sendSocketMessage({
 			event: "JOIN_MATCHMAKING",
 			payload: {
@@ -36,15 +51,26 @@ export default function CreateRoomPage() {
 				mode: "single",
 			},
 		});
-	}, [user, isReady, sendSocketMessage]);
+	}, [user, isReady, sendSocketMessage, reconnectSocket]);
 
 	// Public matchmaking mode: join queue directly from create page.
 	useEffect(() => {
 		if (!isMatchmakingMode || !user || !isReady) return;
+		const me = Number(user.id);
+		const isSingleRoom = gameRoom?.isTournament !== true;
+		const isMember = isSingleRoom && gameRoom?.joinedPlayers?.some((p) => Number(p.id) === me);
+		if (isMember) return;
 		if (hasSentMatchmakingJoinRef.current) return;
 		hasSentMatchmakingJoinRef.current = true;
 		sendJoinMatchmaking();
-	}, [isMatchmakingMode, user, isReady, sendJoinMatchmaking]);
+	}, [isMatchmakingMode, user, isReady, gameRoom, sendJoinMatchmaking]);
+
+	// If the shared socket reconnects while we're still queueing, allow requeue.
+	useEffect(() => {
+		if (!isReady) {
+			hasSentMatchmakingJoinRef.current = false;
+		}
+	}, [isReady]);
 
 	// Keep room info in sync and redirect non-hosts to join lobby.
 	useEffect(() => {
@@ -58,6 +84,22 @@ export default function CreateRoomPage() {
 			router.push(`/game/remote/single/join?roomId=${gameRoom.roomId}&matchmaking=true`);
 		}
 	}, [isMatchmakingMode, gameRoom, user, router]);
+
+	// Keep nudging the queue join while we have no room assignment yet.
+	useEffect(() => {
+		if (!isMatchmakingMode || !user || !isReady || roomId) return;
+
+		const retry = setInterval(() => {
+			const me = Number(user.id);
+			const isSingleRoom = gameRoom?.isTournament !== true;
+			const isMember = isSingleRoom && gameRoom?.joinedPlayers?.some((p) => Number(p.id) === me);
+			if (!isMember) {
+				sendJoinMatchmaking();
+			}
+		}, 5000);
+
+		return () => clearInterval(retry);
+	}, [isMatchmakingMode, user, isReady, roomId, gameRoom, sendJoinMatchmaking]);
 
 	// Create room on mount
 	useEffect(() => {
@@ -109,7 +151,7 @@ export default function CreateRoomPage() {
 		}, 2000);
 
 		return () => clearInterval(interval);
-	}, [user, isReady, roomId]);
+	}, [user, isReady, roomId, sendSocketMessage]);
 
 	const handleCopyCode = () => {
 		if (roomId) {

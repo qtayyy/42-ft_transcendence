@@ -1,20 +1,30 @@
 import { gameManager } from "../../game/GameManager.js";
 
+// Legacy direct-game WebSocket route used by the shared local game runtime.
+
 export default async function (fastify, opts) {
 	fastify.get(
 		"/game",  // This will be /ws/game
 		{
+			onRequest: [fastify.authenticate],
 			websocket: true,
 		},
 		(connection, request) => {
 			const matchId = request.query.matchId;
-			const userId = request.user?.id || 'guest';
+			const userId = Number(request.user?.userId);
 
 			console.log(`[GAME WS] Client connected - matchId: ${matchId}, userId: ${userId}`);
 
 			if (!matchId) {
 				console.log("[GAME WS] Error: No matchId");
 				connection.send(JSON.stringify({ error: "matchId required" }));
+				connection.close();
+				return;
+			}
+
+			if (!Number.isInteger(userId) || userId <= 0) {
+				console.log("[GAME WS] Error: Invalid authenticated user");
+				connection.send(JSON.stringify({ error: "authenticated user required" }));
 				connection.close();
 				return;
 			}
@@ -77,9 +87,15 @@ export default async function (fastify, opts) {
 			connection.on("close", () => {
 				console.log(`[GAME WS] ${userId} disconnected`);
 
-				// For local games, allow reconnection by clearing the player slot
+				// Local games should freeze immediately when the host tab disappears.
+				// Browser unload messages are best-effort, so the server backs that up here.
+				// We still keep the host identity so the same user can reconnect later.
 				if (game.mode === 'local') {
 					if (game.players.p1.socket === connection) {
+						if (game.running && game.gameState.status === "playing") {
+							console.log(`[GAME WS] Pausing local game ${matchId} on host disconnect`);
+							game.pause();
+						}
 						console.log(`[GAME WS] Clearing local host slot for reconnection`);
 						game.players.p1.socket = null;
 						// Don't clear the id to allow same user to reconnect

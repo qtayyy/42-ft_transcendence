@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
@@ -22,7 +22,14 @@ export default function CreateTournamentRoomPage() {
 	const [copied, setCopied] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [maxPlayers, setMaxPlayers] = useState(8);
+	const maxPlayers = 8;
+	const syncRoomState = useCallback(() => {
+		if (!user || !isReady) return;
+		sendSocketMessage({
+			event: "GET_GAME_ROOM",
+			payload: { userId: user.id },
+		});
+	}, [sendSocketMessage, user, isReady]);
 
 	// Create room on mount
 	useEffect(() => {
@@ -30,7 +37,7 @@ export default function CreateTournamentRoomPage() {
 			if (!user || creating || roomId) return;
 			setCreating(true);
 			try {
-				const res = await axios.get("/api/game/room/create");
+				const res = await axios.get(`/api/game/room/create?maxPlayers=${maxPlayers}&tournament=true`);
 				setRoomId(res.data.roomId);
 				setError(null);
 			} catch (err: unknown) {
@@ -45,28 +52,31 @@ export default function CreateTournamentRoomPage() {
 			}
 		};
 		createRoom();
-	}, [user]);
+	}, [user, maxPlayers]);
 
-	// Poll for room updates every 2 seconds
+	// Keep the host lobby warm so missed socket pushes self-heal quickly.
 	useEffect(() => {
 		if (!user || !isReady || !roomId) return;
-		
-		// Initial fetch
-		sendSocketMessage({
-			event: "GET_GAME_ROOM",
-			payload: { userId: user.id },
-		});
-		
-		// Poll every 2 seconds
-		const interval = setInterval(() => {
-			sendSocketMessage({
-				event: "GET_GAME_ROOM",
-				payload: { userId: user.id },
-			});
-		}, 2000);
-		
-		return () => clearInterval(interval);
-	}, [sendSocketMessage, user, isReady, roomId]);
+
+		syncRoomState();
+
+		const interval = setInterval(syncRoomState, 1000);
+		const handleFocus = () => syncRoomState();
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === "visible") {
+				syncRoomState();
+			}
+		};
+
+		window.addEventListener("focus", handleFocus);
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+
+		return () => {
+			clearInterval(interval);
+			window.removeEventListener("focus", handleFocus);
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+		};
+	}, [syncRoomState, user, isReady, roomId]);
 
 	const handleCopyCode = () => {
 		if (roomId) {

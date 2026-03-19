@@ -69,16 +69,20 @@ export default function Header() {
   const shouldShowProfileIcon = hasMounted && user && !isNonAuthenticatedPage;
 
   const handleLogout = useCallback(async () => {
-    if (!user || !isReady) return;
-    sendSocketMessage({
-      event: "LEAVE_ROOM",
-      payload: {
-        roomId: gameRoom?.roomId,
-        userId: user.id,
-      },
-    });
-    logout();
-    router.push("/");
+    if (!user) return;
+
+    if (isReady && gameRoom?.roomId) {
+      sendSocketMessage({
+        event: "LEAVE_ROOM",
+        payload: {
+          roomId: gameRoom.roomId,
+          userId: user.id,
+        },
+      });
+    }
+
+    await logout();
+    router.replace("/");
   }, [router, logout, user, isReady, sendSocketMessage, gameRoom]);
 
   function handleLogoClick() {
@@ -105,10 +109,13 @@ export default function Header() {
   }, [isGameActive, router, setShowNavGuard, setPendingPath]);
 
   return (
-    <div className={cn(
-      "z-50 flex w-full items-center justify-between p-3",
-      "fixed top-0 inset-x-0 bg-transparent" 
-    )}>
+    <div
+      suppressHydrationWarning
+      className={cn(
+        "z-50 flex w-full items-center justify-between p-3",
+        "fixed top-0 inset-x-0 bg-transparent"
+      )}
+    >
       <div>
         <button
           type="button"
