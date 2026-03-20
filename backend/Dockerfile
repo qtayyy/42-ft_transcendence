@@ -6,7 +6,8 @@ COPY package*.json ./
 # USER root
 # RUN chown -R app:app .
 # USER app
-RUN npm install
+# RUN npm install
+RUN npx prisma generate
 COPY . .
 ENV DATABASE_URL="file:/data/dev.db"
 RUN chmod +x /app/init_db.sh

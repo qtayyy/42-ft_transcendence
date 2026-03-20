@@ -283,9 +283,6 @@ export default function SettingsPage() {
       <div className="w-full max-w-7xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Header Section */}
         <div className="text-center space-y-4">
-          <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 mb-4 ring-1 ring-primary/20">
-            <SettingsIcon className="h-6 w-6 text-primary animate-pulse" />
-          </div>
           <h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-white via-primary/50 to-white bg-clip-text text-transparent pb-2">
             {t?.DropDown?.Settings || "Settings"}
           </h1>
