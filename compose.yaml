@@ -1,10 +1,28 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: transcendence
+      POSTGRES_PASSWORD: transcendence
+      POSTGRES_DB: transcendence
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - capybara
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U transcendence"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   nginx:
     container_name: nginx
     build: ./nginx
     networks:
       - capybara
-    # restart: always
+    restart: unless-stopped
     depends_on:
       - frontend
       - backend
@@ -20,7 +38,7 @@ services:
     build: ./frontend
     networks:
       - capybara
-    # restart: always
+    restart: unless-stopped
     develop:
       watch:
         - path: ./frontend/package.json
@@ -38,14 +56,18 @@ services:
     build: ./backend
     networks:
       - capybara
-    # restart: always
+    restart: unless-stopped
     env_file:
       - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://transcendence:transcendence@db:5432/transcendence
     volumes:
-      - ./data:/data
       - ./uploads:/app/uploads
     ports:
       - 3001:3001
+    depends_on:
+      db:
+        condition: service_healthy
     develop:
       watch:
         - path: ./backend/package.json
@@ -61,3 +83,6 @@ services:
 networks:
   capybara:
     driver: bridge
+
+volumes:
+  postgres_data:
