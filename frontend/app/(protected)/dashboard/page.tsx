@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import SearchBar from "@/components/search-bar";
 import axios from "axios";
+import SearchBar from "@/components/search-bar";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,6 @@ import { useLanguage } from '@/context/languageContext';
 import { Users, BarChart3, PieChart, Trophy, Activity, MessageCircle, Clock, Calendar } from "lucide-react";
 import { useFriends } from "@/hooks/use-friends";
 import { Badge } from "@/components/ui/badge";
-import { CapybaraIcon } from "@/components/icons/capybara-icon";
 
 interface MatchEntry {
   id: number;
@@ -223,9 +222,6 @@ export default function DashboardPage() {
       <div className="w-full max-w-7xl space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Header Section */}
         <div className="text-center space-y-4">
-          <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 mb-4 ring-1 ring-primary/20">
-            <CapybaraIcon className="h-6 w-6 text-primary animate-pulse" />
-          </div>
           <h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-white via-primary/50 to-white bg-clip-text text-transparent pb-2">
             {t.Dashboard.Dashboard}
           </h1>
@@ -269,9 +265,9 @@ export default function DashboardPage() {
                 <CardDescription className="text-base">{t.Dashboard["Connect & Play Together"]}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* <div onClick={(event) => event.stopPropagation()}>
+                <div onClick={(event) => event.stopPropagation()}>
                   <SearchBar searchUser={handleSearchUser}></SearchBar>
-                </div> */}
+                </div>
                 {/* Online Friends */}
                 <div>
                   <h3 className="font-semibold mb-2 text-sm uppercase text-center">{t.Dashboard.Online}</h3>

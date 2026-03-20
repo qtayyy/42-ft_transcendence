@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
@@ -8,18 +8,78 @@ import { useGame } from "@/hooks/use-game";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, LogIn, Loader2, AlertCircle, Trophy, Crown, User, Play } from "lucide-react";
+import { ArrowLeft, LogIn, Loader2, AlertCircle, Trophy, Crown, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function JoinTournamentPage() {
 	const router = useRouter();
 	const { user } = useAuth();
-	const { sendSocketMessage, isReady } = useSocket();
+	const { sendSocketMessage, isReady, reconnectSocket } = useSocket();
 	const { gameRoom } = useGame();
 	const [roomCode, setRoomCode] = useState("");
 	const [joining, setJoining] = useState(false);
 	const [joined, setJoined] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [pendingJoin, setPendingJoin] = useState(false);
+
+	useEffect(() => {
+		if (!user || isReady || joined) return;
+
+		reconnectSocket();
+		const interval = window.setInterval(() => {
+			reconnectSocket();
+		}, 1500);
+
+		return () => window.clearInterval(interval);
+	}, [user, isReady, joined, reconnectSocket]);
+
+	const attemptJoin = useCallback(() => {
+		const trimmedCode = roomCode.trim();
+		if (!trimmedCode || !user || !isReady) return;
+
+		setJoining(true);
+		setPendingJoin(false);
+		setError(null);
+
+		let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+		const cleanupJoinListener = () => {
+			window.removeEventListener("JOIN_ROOM", onJoinSuccess as EventListener);
+			if (timeoutId) {
+				clearTimeout(timeoutId);
+			}
+		};
+
+		const onJoinSuccess = (e: CustomEvent) => {
+			const data = e.detail;
+			console.log("[JOIN_ROOM_SUCCESS] detail:", data);
+			if (data.roomId === trimmedCode) {
+				cleanupJoinListener();
+				setJoined(true);
+			} else {
+				console.warn(`[JOIN_ROOM_MISMATCH] Joined ${data.roomId} but wanted ${trimmedCode}`);
+			}
+		};
+
+		window.addEventListener("JOIN_ROOM", onJoinSuccess as EventListener);
+
+		timeoutId = setTimeout(() => {
+			cleanupJoinListener();
+			setJoining((prev) => {
+				if (prev) setError("Join timed out — room may not exist. Please check the code.");
+				return false;
+			});
+		}, 5000);
+
+		sendSocketMessage({
+			event: "JOIN_ROOM_BY_CODE",
+			payload: {
+				roomId: trimmedCode,
+				userId: user.id,
+				username: user.username,
+			},
+		});
+	}, [roomCode, user, isReady, sendSocketMessage]);
 
 	// Poll for room updates after joining
 	useEffect(() => {
@@ -42,13 +102,6 @@ export default function JoinTournamentPage() {
 		return () => clearInterval(interval);
 	}, [joined, user, isReady, sendSocketMessage]);
 
-	// Stop joining spinner when room data received
-	useEffect(() => {
-		if (gameRoom && joined) {
-			setJoining(false);
-		}
-	}, [gameRoom, joined]);
-
 	// Listen for join errors
 	useEffect(() => {
 		const handleError = (e: CustomEvent) => {
@@ -62,51 +115,23 @@ export default function JoinTournamentPage() {
 	}, []);
 
 	const handleJoin = () => {
-		if (!roomCode.trim() || !user || !isReady) return;
-		
-		setJoining(true);
-		setError(null);
-
-		// Listen for server confirmation BEFORE sending join request
-		// This prevents showing the lobby with stale data if the join fails
-		const onJoinSuccess = (e: any) => {
-			const data = e.detail;
-			console.log("[JOIN_ROOM_SUCCESS] detail:", data);
-			if (data.roomId === roomCode.trim()) {
-				setJoined(true);
-				window.removeEventListener("JOIN_ROOM", onJoinSuccess as EventListener);
-			} else {
-				console.warn(`[JOIN_ROOM_MISMATCH] Joined ${data.roomId} but wanted ${roomCode.trim()}`);
-			}
-		};
-		window.addEventListener("JOIN_ROOM", onJoinSuccess as EventListener);
-
-		// Set a timeout to clean up the listener if the server never responds
-		const timeout = setTimeout(() => {
-			window.removeEventListener("JOIN_ROOM", onJoinSuccess as EventListener);
-			// If we're still in joining state, show error
-			setJoining(prev => {
-				if (prev) setError("Join timed out — room may not exist. Please check the code.");
-				return false;
-			});
-		}, 5000);
-
-		try {
-			sendSocketMessage({
-				event: "JOIN_ROOM_BY_CODE",
-				payload: {
-					roomId: roomCode.trim(),
-					userId: user.id,
-					username: user.username,
-				},
-			});
-		} catch (err: any) {
-			clearTimeout(timeout);
-			window.removeEventListener("JOIN_ROOM", onJoinSuccess as EventListener);
-			setError(err.message || "Failed to join tournament");
-			setJoining(false);
+		if (!roomCode.trim() || !user) return;
+		if (!isReady) {
+			setError("Connecting to realtime server... joining as soon as it reconnects.");
+			setPendingJoin(true);
+			reconnectSocket();
+			return;
 		}
+		attemptJoin();
 	};
+
+	useEffect(() => {
+		if (!pendingJoin || !isReady || joining || joined) return;
+		const retryId = window.setTimeout(() => {
+			attemptJoin();
+		}, 0);
+		return () => window.clearTimeout(retryId);
+	}, [pendingJoin, isReady, joining, joined, attemptJoin]);
 
 	const handleStartTournament = () => {
 		if (!gameRoom || gameRoom.joinedPlayers.length < 3 || !isReady) return;
