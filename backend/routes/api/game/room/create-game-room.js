@@ -13,13 +13,15 @@ export default async function (fastify, opts) {
       try {
         const hostId = Number(request.user.userId);
         const maxPlayers = request.query.maxPlayers ? Number(request.query.maxPlayers) : MAX_PLAYERS;
+        const isTournament =
+          String(request.query.tournament || "").toLowerCase() === "true";
         
         const profile = await prisma.profile.findUnique({
           where: { id: hostId },
         });
 
         console.log(
-          `[createGameRoom API] hostId: ${hostId} (type: ${typeof hostId}), maxPlayers: ${maxPlayers}`,
+          `[createGameRoom API] hostId: ${hostId} (type: ${typeof hostId}), maxPlayers: ${maxPlayers}, isTournament: ${isTournament}`,
         );
 
         const existing = fastify.currentRoom.get(hostId);
@@ -32,6 +34,8 @@ export default async function (fastify, opts) {
           hostId,
           profile.username,
           maxPlayers,
+          false,
+          isTournament,
         );
         return reply.code(200).send({
           roomId,

@@ -192,6 +192,7 @@ export default function GameRuntimePage() {
 	const handleDisconnect = useCallback((event: CustomEvent) => {
 		const { disconnectedPlayer, gracePeriodEndsAt } = event.detail;
 		const countdown = Math.ceil((gracePeriodEndsAt - Date.now()) / 1000);
+		setPauseInfo(null);
 		setDisconnectInfo({ disconnectedPlayer, gracePeriodEndsAt, countdown });
 		toast.warning("Opponent disconnected! Waiting for reconnection...");
 		setOpponentConnected(false);
@@ -262,7 +263,12 @@ export default function GameRuntimePage() {
 		const disconnectCountdown = (gameState as any)?.disconnectCountdown;
 		if (disconnectCountdown && disconnectCountdown.gracePeriodEndsAt) {
 			const countdown = Math.ceil((disconnectCountdown.gracePeriodEndsAt - Date.now()) / 1000);
-			if (countdown > 0 && !disconnectInfo) {
+			const countdownChanged =
+				disconnectInfo?.gracePeriodEndsAt !== disconnectCountdown.gracePeriodEndsAt ||
+				disconnectInfo?.disconnectedPlayer !==
+					(disconnectCountdown.disconnectedPlayer || (gameState as any)?.disconnectedPlayer);
+			if (countdown > 0 && (!disconnectInfo || countdownChanged)) {
+				setPauseInfo(null);
 				setDisconnectInfo({
 					disconnectedPlayer: disconnectCountdown.disconnectedPlayer || (gameState as any)?.disconnectedPlayer,
 					gracePeriodEndsAt: disconnectCountdown.gracePeriodEndsAt,
@@ -273,13 +279,17 @@ export default function GameRuntimePage() {
 		}
 
 		// Also check if game is paused due to disconnect (from disconnectedPlayer field)
-		if ((gameState as any)?.paused && (gameState as any)?.disconnectedPlayer && !disconnectInfo) {
+		if ((gameState as any)?.paused && (gameState as any)?.disconnectedPlayer) {
 			// Calculate remaining time based on pausedAt (30 second grace period)
 			const pausedAt = (gameState as any)?.pausedAt;
 			if (pausedAt) {
 				const gracePeriodEndsAt = pausedAt + 30000;
 				const countdown = Math.ceil((gracePeriodEndsAt - Date.now()) / 1000);
-				if (countdown > 0) {
+				const countdownChanged =
+					disconnectInfo?.gracePeriodEndsAt !== gracePeriodEndsAt ||
+					disconnectInfo?.disconnectedPlayer !== (gameState as any).disconnectedPlayer;
+				if (countdown > 0 && (!disconnectInfo || countdownChanged)) {
+					setPauseInfo(null);
 					setDisconnectInfo({
 						disconnectedPlayer: (gameState as any).disconnectedPlayer,
 						gracePeriodEndsAt,
@@ -290,8 +300,14 @@ export default function GameRuntimePage() {
 			}
 		}
 
-		// Clear disconnect info if game is no longer paused or no disconnected player
-		if (gameState && !(gameState as any)?.paused && disconnectInfo) {
+		// Once the backend clears disconnectedPlayer, the match is no longer in
+		// grace-period forfeit mode even if it intentionally stays paused waiting
+		// for players to press resume. Clear the stale countdown overlay in both
+		// cases: resumed game or paused-but-reconnected game.
+		const hasActiveDisconnect =
+			!!disconnectCountdown?.gracePeriodEndsAt ||
+			!!(gameState as any)?.disconnectedPlayer;
+		if (gameState && !hasActiveDisconnect && disconnectInfo) {
 			setDisconnectInfo(null);
 			setOpponentConnected(true);
 		}
@@ -640,18 +656,18 @@ export default function GameRuntimePage() {
 		}
 	}, [matchId, sendSocketMessage, gameState, inferredTournamentId, router]);
 
-	const handleGameOver = async (winner: number | null, score: { p1: number; p2: number }, result: string) => {
-		console.log(`Game Over! Result: ${result}`, { winner, score });
-		const durationSeconds = Math.max(0, Math.round(((gameState as any)?.timer?.timeElapsed ?? 0) / 1000));
+		const handleGameOver = async (winner: number | null, score: { p1: number; p2: number }, result: string) => {
+			console.log(`Game Over! Result: ${result}`, { winner, score });
+			const durationSeconds = Math.max(0, Math.round(((gameState as any)?.timer?.timeElapsed ?? 0) / 1000));
 
-		if (matchData) {
-			try {
-				if (matchData.isTournamentMatch && matchData.tournamentId) {
-					const outcome = result === "draw" || winner === null ? "draw" : "win";
-					const resultPayload = {
-						matchId: matchData.matchId,
-						player1Id: matchData.player1?.id,
-						player2Id: matchData.player2?.id || null,
+			if (matchData) {
+				try {
+					if (matchData.isTournamentMatch && matchData.tournamentId) {
+						const outcome = result === "draw" || winner === null ? "draw" : "win";
+						const resultPayload = {
+							matchId: matchData.matchId,
+							player1Id: matchData.player1?.id,
+							player2Id: matchData.player2?.id || null,
 						score,
 						outcome,
 						durationSeconds,
@@ -659,14 +675,14 @@ export default function GameRuntimePage() {
 					const pendingKey = `${LOCAL_TOURNAMENT_PENDING_RESULT_PREFIX}${matchData.tournamentId}:${matchData.matchId}`;
 					// Write-through outbox: store first, then attempt network submit.
 					// This keeps tournament progression recoverable if tab closes/disconnects mid-request.
-					localStorage.setItem(
-						pendingKey,
-						JSON.stringify({
-							tournamentId: matchData.tournamentId,
-							...resultPayload,
+						localStorage.setItem(
+							pendingKey,
+							JSON.stringify({
+								tournamentId: matchData.tournamentId,
+								...resultPayload,
 							recordedAt: Date.now(),
-						})
-					);
+							})
+						);
 						try {
 							await axios.post(`/api/tournament/${matchData.tournamentId}/match-result`, resultPayload);
 							localStorage.removeItem(pendingKey);
@@ -678,25 +694,8 @@ export default function GameRuntimePage() {
 						}
 					}
 
-				if (user) {
-					const player1Id = matchData.player1?.isTemp ? null : matchData.player1?.id;
-					const player2Id = matchData.player2?.isTemp ? null : matchData.player2?.id;
-
-					if (player1Id || player2Id) {
-						await axios.post("/api/game/save-match", {
-							matchId: matchData.matchId,
-							player1Id: player1Id,
-							player2Id: player2Id,
-							player1Name: matchData.player1?.name,
-							player2Name: matchData.player2?.name,
-							score1: score.p1,
-							score2: score.p2,
-							winner: winner,
-							mode: "LOCAL",
-							durationSeconds,
-						});
-					}
-				}
+					// WS-driven matches persist on the backend runtime to keep a single
+					// source of truth for match history writes.
 				} catch (error: any) {
 					if (handleSessionExpiredRedirect(error, router)) {
 						return;
@@ -705,7 +704,7 @@ export default function GameRuntimePage() {
 					toast.error("Failed to save match result.");
 				}
 			}
-	};
+		};
 
 	const handleExit = () => {
 		localStorage.removeItem("current-match");

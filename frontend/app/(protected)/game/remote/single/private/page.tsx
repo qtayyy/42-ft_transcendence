@@ -4,14 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, UserPlus, LogIn, Swords, Users, ShieldQuestion } from "lucide-react";
-import { useSocketContext } from "@/context/socket-context";
 
 export default function RemoteSinglePrivatePage() {
 	const router = useRouter();
-	const { forceCleanup } = useSocketContext();
 
 	const handleNavigate = (path: string) => {
-		forceCleanup();
 		router.push(path);
 	};
 
