@@ -1,6 +1,9 @@
 FROM node:22-bullseye
 WORKDIR /app
 COPY package*.json ./
+# USER root
+# RUN chown -R app:app .
+# USER app
 RUN npm install
 COPY . .
 RUN npx prisma generate

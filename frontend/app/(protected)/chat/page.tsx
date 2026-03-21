@@ -255,11 +255,21 @@ export default function ChatPage() {
       pushNotificationMessage("Tournament standings were updated.");
     };
 
+    const handleGameNotification = (event: CustomEvent) => {
+      const data = event.detail;
+      if (!data?.message) return;
+      pushNotificationMessage(data.message, {
+        roomId: data.roomId,
+        tournamentId: data.tournamentId,
+      });
+    };
+
     window.addEventListener("gameInviteSent", handleGameInviteSent as EventListener);
     window.addEventListener("TOURNAMENT_FOUND", handleTournamentFound as EventListener);
     window.addEventListener("TOURNAMENT_START", handleTournamentStart as EventListener);
     window.addEventListener("tournamentPlayerLeft", handleTournamentPlayerLeft as EventListener);
     window.addEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
+    window.addEventListener("gameNotification", handleGameNotification as EventListener);
 
     return () => {
       window.removeEventListener("gameInviteSent", handleGameInviteSent as EventListener);
@@ -267,6 +277,7 @@ export default function ChatPage() {
       window.removeEventListener("TOURNAMENT_START", handleTournamentStart as EventListener);
       window.removeEventListener("tournamentPlayerLeft", handleTournamentPlayerLeft as EventListener);
       window.removeEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
+      window.removeEventListener("gameNotification", handleGameNotification as EventListener);
     };
   }, [selectedFriend, user]);
 
