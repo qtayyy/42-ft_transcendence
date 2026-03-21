@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useGame } from "@/hooks/use-game";
 import { useLanguage } from '@/context/languageContext';
-import { Users, BarChart3, PieChart, Trophy, Activity, MessageCircle, Clock, Calendar } from "lucide-react";
+import { Users, BarChart3, PieChart, Trophy, Activity, MessageCircle, Clock, Calendar, Download, FileSpreadsheet, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { useFriends } from "@/hooks/use-friends";
 import { Badge } from "@/components/ui/badge";
 
@@ -46,9 +46,34 @@ export default function DashboardPage() {
   const [matchHistory, setMatchHistory] = useState<MatchEntry[]>([]);
   const [recentMatchesLoading, setRecentMatchesLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [modeFilter, setModeFilter] = useState<string>("all");
+  const [resultFilter, setResultFilter] = useState<"all" | "win" | "loss" | "draw">("all");
+  const [showAnalyticsControls, setShowAnalyticsControls] = useState(false);
   const { onlineFriends } = useGame();
   const { t } = useLanguage();
   const { friends: allFriends } = useFriends();
+
+  const escapeCsvCell = (value: string | number | null | undefined) => {
+    const safeValue = value == null ? "" : String(value);
+    return `"${safeValue.replace(/"/g, '""')}"`;
+  };
+
+  const setQuickRange = (days: number) => {
+    const now = new Date();
+    const start = new Date();
+    start.setDate(now.getDate() - (days - 1));
+    setFromDate(start.toISOString().slice(0, 10));
+    setToDate(now.toISOString().slice(0, 10));
+  };
+
+  const clearFilters = () => {
+    setFromDate("");
+    setToDate("");
+    setModeFilter("all");
+    setResultFilter("all");
+  };
 
   // Calculate offline friends by filtering out online friends
   const offlineFriends = allFriends.filter(
@@ -150,7 +175,142 @@ export default function DashboardPage() {
     router.push("/match");
   }
 
-  const recentMatches = matchHistory.slice(0, 3);
+  const filteredMatchHistory = matchHistory.filter((match) => {
+    const matchDate = new Date(match.date);
+    const fromBoundary = fromDate ? new Date(`${fromDate}T00:00:00`) : null;
+    const toBoundary = toDate ? new Date(`${toDate}T23:59:59.999`) : null;
+
+    const withinFrom = !fromBoundary || matchDate >= fromBoundary;
+    const withinTo = !toBoundary || matchDate <= toBoundary;
+    const modeMatches = modeFilter === "all" || match.mode === modeFilter;
+    const resultMatches = resultFilter === "all" || match.result === resultFilter;
+
+    return withinFrom && withinTo && modeMatches && resultMatches;
+  });
+
+  const sortedFilteredMatches = [...filteredMatchHistory].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  );
+
+  const recentMatches = sortedFilteredMatches.slice(0, 3);
+  const modeOptions = Array.from(new Set(matchHistory.map((match) => match.mode)));
+
+  const handleExportCsv = () => {
+    if (sortedFilteredMatches.length === 0) {
+      alert("No filtered data to export.");
+      return;
+    }
+
+    const headers = [
+      "Match ID",
+      "Date",
+      "Mode",
+      "Opponent",
+      "Result",
+      "Player Score",
+      "Opponent Score",
+      "Duration (seconds)",
+    ];
+
+    const rows = sortedFilteredMatches.map((match) => [
+      match.id,
+      new Date(match.date).toLocaleString(),
+      MODE_LABEL[match.mode] || match.mode,
+      match.opponent,
+      match.result,
+      match.playerScore,
+      match.opponentScore,
+      match.durationSeconds ?? "",
+    ]);
+
+    const csvText = [headers, ...rows]
+      .map((row) => row.map((cell) => escapeCsvCell(cell)).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `dashboard-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPdf = () => {
+    if (sortedFilteredMatches.length === 0) {
+      alert("No filtered data to export.");
+      return;
+    }
+
+    const filtersSummary = [
+      fromDate ? `From: ${fromDate}` : "From: Any",
+      toDate ? `To: ${toDate}` : "To: Any",
+      `Mode: ${modeFilter === "all" ? "All" : MODE_LABEL[modeFilter] || modeFilter}`,
+      `Result: ${resultFilter === "all" ? "All" : resultFilter}`,
+    ].join(" | ");
+
+    const rowsHtml = sortedFilteredMatches
+      .map(
+        (match) => `
+          <tr>
+            <td>${match.id}</td>
+            <td>${new Date(match.date).toLocaleString()}</td>
+            <td>${MODE_LABEL[match.mode] || match.mode}</td>
+            <td>${match.opponent}</td>
+            <td style="text-transform: capitalize;">${match.result}</td>
+            <td>${match.playerScore}</td>
+            <td>${match.opponentScore}</td>
+          </tr>
+        `,
+      )
+      .join("");
+
+    const popup = window.open("", "_blank", "noopener,noreferrer");
+    if (!popup) {
+      alert("Unable to open print window. Please allow popups and try again.");
+      return;
+    }
+
+    popup.document.write(`
+      <html>
+        <head>
+          <title>Dashboard Export</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
+            h1 { margin: 0 0 8px; }
+            p { margin: 0 0 12px; color: #4b5563; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 12px; }
+            th { background: #f3f4f6; }
+          </style>
+        </head>
+        <body>
+          <h1>Dashboard Match Export</h1>
+          <p>Generated at: ${new Date().toLocaleString()}</p>
+          <p>${filtersSummary}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Match ID</th>
+                <th>Date</th>
+                <th>Mode</th>
+                <th>Opponent</th>
+                <th>Result</th>
+                <th>Player Score</th>
+                <th>Opponent Score</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    popup.document.close();
+    popup.focus();
+    popup.print();
+  };
 
   // ── Activity chart data ─────────────────────────────────────────────
   const [activityView, setActivityView] = useState<"day" | "week" | "month">("week");
@@ -164,7 +324,7 @@ export default function DashboardPage() {
         const d = new Date(now);
         d.setDate(now.getDate() - (6 - i));
         const label = d.toLocaleDateString(undefined, { weekday: "short" });
-        const count = matchHistory.filter((m) => {
+        const count = filteredMatchHistory.filter((m) => {
           const md = new Date(m.date);
           return md.toDateString() === d.toDateString();
         }).length;
@@ -180,7 +340,7 @@ export default function DashboardPage() {
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 6);
         const label = weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-        const count = matchHistory.filter((m) => {
+        const count = filteredMatchHistory.filter((m) => {
           const md = new Date(m.date);
           return md >= weekStart && md <= weekEnd;
         }).length;
@@ -192,7 +352,7 @@ export default function DashboardPage() {
     return Array.from({ length: 6 }, (_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
       const label = d.toLocaleDateString(undefined, { month: "short" });
-      const count = matchHistory.filter((m) => {
+      const count = filteredMatchHistory.filter((m) => {
         const md = new Date(m.date);
         return md.getFullYear() === d.getFullYear() && md.getMonth() === d.getMonth();
       }).length;
@@ -202,18 +362,18 @@ export default function DashboardPage() {
 
   const maxActivityCount = Math.max(...activityBars.map((b) => b.count), 1);
 
-  const lastPlayed = matchHistory.length > 0 ? new Date(matchHistory[0].date) : null;
+  const lastPlayed = sortedFilteredMatches.length > 0 ? new Date(sortedFilteredMatches[0].date) : null;
   // ── End activity chart data ─────────────────────────────────────────
 
-  const wins = matchHistory.filter((match) => match.result === "win").length;
-  const losses = matchHistory.filter((match) => match.result === "loss").length;
-  const draws = matchHistory.filter((match) => match.result === "draw").length;
-  const totalGames = matchHistory.length;
-  const totalTrackedSeconds = matchHistory.reduce(
+  const wins = filteredMatchHistory.filter((match) => match.result === "win").length;
+  const losses = filteredMatchHistory.filter((match) => match.result === "loss").length;
+  const draws = filteredMatchHistory.filter((match) => match.result === "draw").length;
+  const totalGames = filteredMatchHistory.length;
+  const totalTrackedSeconds = filteredMatchHistory.reduce(
     (sum, match) => sum + (match.durationSeconds ?? 0),
     0,
   );
-  const totalTrackedHours = totalTrackedSeconds / 3600;
+  const totalTrackedMinutes = Math.round(totalTrackedSeconds / 60);
 
   const winPercentage = totalGames > 0 ? (wins / totalGames) * 100 : 0;
   const lossPercentage = totalGames > 0 ? (losses / totalGames) * 100 : 0;
@@ -269,6 +429,113 @@ export default function DashboardPage() {
               {t.Dashboard["New Game"]}
             </Button>
           </div>
+        </div>
+
+        <div className="w-full max-w-6xl mx-auto space-y-3">
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              onClick={() => setShowAnalyticsControls((prev) => !prev)}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              {showAnalyticsControls ? "Hide Filters & Export" : "Show Filters & Export"}
+              {showAnalyticsControls ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
+
+          {showAnalyticsControls && (
+            <div className="group relative">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-500 rounded-2xl blur opacity-20 group-hover:opacity-50 transition duration-500"></div>
+              <Card className="relative border-0 bg-card/95 backdrop-blur-sm overflow-hidden">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-2xl flex items-center gap-2">
+                    <Download className="h-6 w-6 text-sky-500" />
+                    Analytics Controls
+                  </CardTitle>
+                  <CardDescription>
+                    Custom date range and filters for dashboard stats, with CSV/PDF export.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground font-medium">From</label>
+                      <input
+                        type="date"
+                        value={fromDate}
+                        onChange={(e) => setFromDate(e.target.value)}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground font-medium">To</label>
+                      <input
+                        type="date"
+                        value={toDate}
+                        onChange={(e) => setToDate(e.target.value)}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground font-medium">Mode</label>
+                      <select
+                        value={modeFilter}
+                        onChange={(e) => setModeFilter(e.target.value)}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="all">All modes</option>
+                        {modeOptions.map((mode) => (
+                          <option key={mode} value={mode}>
+                            {MODE_LABEL[mode] || mode}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground font-medium">Result</label>
+                      <select
+                        value={resultFilter}
+                        onChange={(e) => setResultFilter(e.target.value as "all" | "win" | "loss" | "draw")}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="all">All results</option>
+                        <option value="win">Win</option>
+                        <option value="loss">Loss</option>
+                        <option value="draw">Draw</option>
+                      </select>
+                    </div>
+                    <div className="flex items-end">
+                      <Button variant="outline" className="w-full" onClick={clearFilters}>
+                        Reset Filters
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" size="sm" onClick={() => setQuickRange(7)}>Last 7 days</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setQuickRange(30)}>Last 30 days</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setQuickRange(90)}>Last 90 days</Button>
+                    <Button variant="ghost" size="sm" onClick={clearFilters}>All time</Button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                    <Badge variant="secondary" className="px-3 py-1">
+                      {sortedFilteredMatches.length} match{sortedFilteredMatches.length === 1 ? "" : "es"} in current view
+                    </Badge>
+                    <Button onClick={handleExportCsv} disabled={sortedFilteredMatches.length === 0} className="gap-2">
+                      <FileSpreadsheet className="h-4 w-4" />
+                      Export CSV
+                    </Button>
+                    <Button variant="outline" onClick={handleExportPdf} disabled={sortedFilteredMatches.length === 0} className="gap-2">
+                      <FileText className="h-4 w-4" />
+                      Export PDF
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
 
         {/* Main Content Grid */}
@@ -409,8 +676,8 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3.5 w-3.5 shrink-0" />
-                        <span className="font-medium text-foreground">Total hours:</span>
-                        {totalTrackedHours.toFixed(1)} h
+                        <span className="font-medium text-foreground">Total minutes:</span>
+                        {totalTrackedMinutes} min
                       </div>
                     </div>
                   </CardContent>
