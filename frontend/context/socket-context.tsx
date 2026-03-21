@@ -510,6 +510,17 @@ export const SocketProvider = ({ children }) => {
 								toast.success("Game invite sent!");
 								break;
 
+							case "GAME_INVITE_RESPONSE":
+								window.dispatchEvent(
+									new CustomEvent("gameInviteResponse", { detail: payload })
+								);
+								if (payload?.response === "rejected") {
+									toast.info(`${payload?.inviteeUsername || "A player"} declined your invite`);
+								} else if (payload?.response === "accepted") {
+									toast.success(`${payload?.inviteeUsername || "A player"} accepted your invite`);
+								}
+								break;
+
 							case "PLAYER_READY_STATE":
 								// Dispatch custom event for ready state persistence
 								window.dispatchEvent(new CustomEvent("PLAYER_READY_STATE", { detail: payload }));

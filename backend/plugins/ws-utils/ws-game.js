@@ -223,6 +223,14 @@ export default fp((fastify) => {
         maxPlayers: room.maxPlayers,
       });
 
+      const inviteResponsePayload = {
+        roomId,
+        hostId: numericHostId,
+        inviteeId: numericInviteeId,
+        inviteeUsername: username,
+        response,
+      };
+
       if (response === "accepted") {
         // If room is full, remove extra "pending" players from
         // host's page and inform invitee that room is full.
@@ -247,6 +255,12 @@ export default fp((fastify) => {
         (p) => Number(p.id) !== numericInviteeId,
       );
 
+      const shouldCloseRoomAfterReject =
+        response === "rejected" &&
+        Number(room.hostId) === numericHostId &&
+        room.joinedPlayers.length <= 1 &&
+        room.invitedPlayers.length === 0;
+
       // Send update to invitee ONLY if accepted
       if (response === "accepted") {
         safeSend(
@@ -259,6 +273,24 @@ export default fp((fastify) => {
           { event: "GAME_ROOM", payload: buildPayload() },
           numericInviteeId,
         );
+      }
+
+      // Notify both sides of invite response for chat state updates
+      safeSend(
+        inviteeSocket,
+        { event: "GAME_INVITE_RESPONSE", payload: inviteResponsePayload },
+        numericInviteeId,
+      );
+
+      safeSend(
+        hostSocket,
+        { event: "GAME_INVITE_RESPONSE", payload: inviteResponsePayload },
+        numericHostId,
+      );
+
+      if (shouldCloseRoomAfterReject) {
+        fastify.leaveRoom(roomId, numericHostId);
+        return;
       }
 
       // Notify host to update game room
