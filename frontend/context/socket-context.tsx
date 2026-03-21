@@ -191,12 +191,30 @@ export const SocketProvider = ({ children }) => {
 								window.dispatchEvent(
 									new CustomEvent("JOIN_ROOM", { detail: payload })
 								);
+								window.dispatchEvent(
+									new CustomEvent("gameNotification", {
+										detail: {
+											event: "JOIN_ROOM",
+											message: `Joined room ${payload?.roomId || ""}`.trim(),
+											roomId: payload?.roomId,
+										},
+									})
+								);
 								break;
 
 							case "JOIN_ROOM_ERROR":
 								toast.error(payload.message || "Failed to join room");
 								window.dispatchEvent(
 									new CustomEvent("JOIN_ROOM_ERROR", { detail: payload })
+								);
+								window.dispatchEvent(
+									new CustomEvent("gameNotification", {
+										detail: {
+											event: "JOIN_ROOM_ERROR",
+											message: payload.message || "Failed to join room",
+											roomId: payload?.roomId,
+										},
+									})
 								);
 								break;
 
@@ -224,6 +242,17 @@ export const SocketProvider = ({ children }) => {
 											stableDeps.current.router.push(`/game/remote/single/join?roomId=${payload.roomId}&matchmaking=true`);
 										}
 									}
+
+									window.dispatchEvent(
+										new CustomEvent("gameNotification", {
+											detail: {
+												event: "MATCH_FOUND",
+												message: `Match found. Room ${payload?.roomId || "ready"}`,
+												roomId: payload?.roomId,
+												hostId: payload?.hostId,
+											},
+										})
+									);
 								}
 								break;
 
@@ -265,10 +294,28 @@ export const SocketProvider = ({ children }) => {
 								stableDeps.current.setGameState(null);
 								hasActiveGame.current = false;
 								toast.info("You're removed from the game room");
+								window.dispatchEvent(
+									new CustomEvent("gameNotification", {
+										detail: {
+											event: "LEAVE_ROOM",
+											message: "You were removed from the game room",
+											roomId: payload?.roomId,
+										},
+									})
+								);
 								break;
 
 							case "GAME_MATCH_START":
 								stableDeps.current.setGameState(payload);
+								window.dispatchEvent(
+									new CustomEvent("gameNotification", {
+										detail: {
+											event: "GAME_MATCH_START",
+											message: "Game started. Good luck!",
+											matchId: payload?.matchId,
+										},
+									})
+								);
 								// Navigate to game page for the match
 								if (payload.matchId) {
 									stableDeps.current.router.push(`/game/${payload.matchId}`);

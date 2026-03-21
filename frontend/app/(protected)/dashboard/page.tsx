@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [matchHistory, setMatchHistory] = useState<MatchEntry[]>([]);
   const [recentMatchesLoading, setRecentMatchesLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { onlineFriends } = useGame();
   const { t } = useLanguage();
   const { friends: allFriends } = useFriends();
@@ -67,6 +68,31 @@ export default function DashboardPage() {
     }
 
     fetchRecentMatches();
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await fetch("/api/chat/unread");
+        if (!response.ok) return;
+        const data = await response.json();
+        if (isMounted) {
+          setUnreadCount(Number(data?.unreadCount) || 0);
+        }
+      } catch (error) {
+        console.error("Failed to load unread chat count", error);
+      }
+    };
+
+    fetchUnreadCount();
+    const intervalId = setInterval(fetchUnreadCount, 10000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
   }, []);
 
   async function handleSearchUser(query) {
@@ -210,9 +236,9 @@ export default function DashboardPage() {
         >
           <MessageCircle className="h-6 w-6 text-primary" />
           <span className="font-semibold text-lg">Chat</span>
-          {onlineFriends.length > 0 && (
+          {unreadCount > 0 && (
             <Badge variant="destructive" className="ml-1 animate-bounce">
-              {onlineFriends.length}
+              {unreadCount}
             </Badge>
           )}
         </Button>
@@ -265,9 +291,7 @@ export default function DashboardPage() {
                 <CardDescription className="text-base">{t.Dashboard["Connect & Play Together"]}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div onClick={(event) => event.stopPropagation()}>
-                  <SearchBar searchUser={handleSearchUser}></SearchBar>
-                </div>
+                
                 {/* Online Friends */}
                 <div>
                   <h3 className="font-semibold mb-2 text-sm uppercase text-center">{t.Dashboard.Online}</h3>

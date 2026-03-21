@@ -44,6 +44,21 @@ export function createStartRoomGameHandler({
 
     if (room.joinedPlayers.length < 2) {
       console.error(`❌ [START_ROOM_GAME] Not enough players! Only ${room.joinedPlayers.length} player(s) in room`);
+
+      // Release stale pre-game room binding so players can receive/send new invites.
+      const affectedUserIds = new Set([
+        Number(room.hostId),
+        ...room.joinedPlayers.map((p) => Number(p.id)),
+        ...room.invitedPlayers.map((p) => Number(p.id)),
+      ]);
+
+      affectedUserIds.forEach((uid) => {
+        fastify.currentRoom.delete(uid);
+        const socket = fastify.onlineUsers.get(uid);
+        safeSend(socket, { event: "LEAVE_ROOM" }, uid);
+      });
+
+      fastify.gameRooms.delete(roomId);
       throw new Error("Need at least 2 players");
     }
 

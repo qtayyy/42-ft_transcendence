@@ -6,6 +6,45 @@ import { safeSend } from "../../utils/ws-utils.js";
 const prisma = new PrismaClient();
 
 export default fp((fastify) => {
+  const resolveRoomMembership = (userId) => {
+    const numericUserId = Number(userId);
+    const mappedRoomId = fastify.currentRoom.get(numericUserId);
+    if (!mappedRoomId) return null;
+
+    const mappedRoom = fastify.gameRooms.get(mappedRoomId);
+    if (!mappedRoom) {
+      fastify.currentRoom.delete(numericUserId);
+      return null;
+    }
+
+    const isJoined = mappedRoom.joinedPlayers.some(
+      (p) => Number(p.id) === numericUserId,
+    );
+    const isInvited = mappedRoom.invitedPlayers.some(
+      (p) => Number(p.id) === numericUserId,
+    );
+
+    // If map points to a room that doesn't actually reference this user, clear stale entry.
+    if (!isJoined && !isInvited) {
+      fastify.currentRoom.delete(numericUserId);
+      return null;
+    }
+
+    // If user is alone in a pre-game room, treat it as abandoned and release them.
+    if (
+      isJoined &&
+      Number(mappedRoom.hostId) === numericUserId &&
+      mappedRoom.joinedPlayers.length <= 1 &&
+      !mappedRoom.tournamentStarted
+    ) {
+      fastify.currentRoom.delete(numericUserId);
+      fastify.gameRooms.delete(mappedRoomId);
+      return null;
+    }
+
+    return mappedRoomId;
+  };
+
   fastify.decorate(
     "createGameRoom",
     (hostId, hostUsername, maxPlayers, isPublic = false, isTournament = false) => {
@@ -105,7 +144,7 @@ export default fp((fastify) => {
       const numericFriendId = Number(friendId);
       const numericHostId = Number(hostId);
 
-      const inviteeInRoom = fastify.currentRoom.get(numericFriendId);
+      const inviteeInRoom = resolveRoomMembership(numericFriendId);
       if (inviteeInRoom) throw new Error("Player already in another room");
 
       const room = fastify.gameRooms.get(roomId);
@@ -124,6 +163,19 @@ export default fp((fastify) => {
         },
         numericFriendId,
       );
+
+      // Persist invite in chat history so it survives page reloads.
+      prisma.message
+        .create({
+          data: {
+            senderId: numericHostId,
+            recipientId: numericFriendId,
+            content: `${hostUsername} invited you to join private room ${roomId}`,
+          },
+        })
+        .catch((err) => {
+          console.error("Failed to persist room invite message:", err);
+        });
 
       // Send updated game room to host
       const hostSocket = fastify.onlineUsers.get(numericHostId);
@@ -158,7 +210,7 @@ export default fp((fastify) => {
         throw new Error("Player not invited to this room");
       }
 
-      if (fastify.currentRoom.get(numericInviteeId))
+      if (resolveRoomMembership(numericInviteeId))
         throw new Error("Already in another game room");
 
       const hostSocket = fastify.onlineUsers.get(numericHostId);
