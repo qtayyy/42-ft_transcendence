@@ -45,6 +45,7 @@ interface Message {
     tournamentId?: string;
     roomId?: string;
     hostId?: number;
+    inviteStatus?: "pending" | "accepted" | "rejected";
   };
 }
 
@@ -61,12 +62,20 @@ export default function ChatPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [friendIsTyping, setFriendIsTyping] = useState(false);
+  const [unreadByFriend, setUnreadByFriend] = useState<Record<string, number>>({});
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
   const [showBlockDialog, setShowBlockDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { t } = useLanguage();
+
+  const clearUnreadForFriend = (friendId: string) => {
+    setUnreadByFriend((prev) => {
+      if (!prev[friendId]) return prev;
+      return { ...prev, [friendId]: 0 };
+    });
+  };
 
   const pushNotificationMessage = (text: string, meta: Message["meta"] = {}) => {
     setMessages((prev) => [
@@ -136,6 +145,32 @@ export default function ChatPage() {
     };
   }, []);
 
+  // Load unread counts per friend for sidebar badges
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchUnreadByFriend = async () => {
+      try {
+        const response = await fetch('/api/chat/unread/by-friend');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (isMounted) {
+          setUnreadByFriend(data?.unreadByFriend || {});
+        }
+      } catch (error) {
+        console.error('Failed to load unread counts by friend', error);
+      }
+    };
+
+    fetchUnreadByFriend();
+    const intervalId = setInterval(fetchUnreadByFriend, 10000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, []);
+
   // Listen for chat-style game invite notifications.
   useEffect(() => {
     const handleGameInvite = (event: CustomEvent) => {
@@ -156,6 +191,7 @@ export default function ChatPage() {
               inviteType: data.inviteType || "normal",
               roomId: data.roomId,
               hostId: data.hostId ? Number(data.hostId) : undefined,
+              inviteStatus: "pending",
             },
           },
         ]);
@@ -202,6 +238,7 @@ export default function ChatPage() {
             inviteType: "room",
             roomId: roomInviteFromSelectedFriend.roomId,
             hostId: Number(roomInviteFromSelectedFriend.hostId),
+            inviteStatus: "pending",
           },
         },
       ];
@@ -264,12 +301,78 @@ export default function ChatPage() {
       });
     };
 
+    const handleGameInviteResponse = (event: CustomEvent) => {
+      const data = event.detail;
+      const roomId = data?.roomId;
+      const response = data?.response;
+      if (!roomId || !response) return;
+
+      const isHost = Number(user?.id) === Number(data?.hostId);
+      const selectedFriendMatchesInvitee = selectedFriend?.id
+        ? Number(selectedFriend.id) === Number(data?.inviteeId)
+        : false;
+
+      if (response === "rejected") {
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.meta?.roomId !== roomId) return msg;
+
+            if (isHost) {
+              return {
+                ...msg,
+                type: "notification",
+                message: `${data?.inviteeUsername || "Your friend"} declined your game invite. Room closed.`,
+                meta: {
+                  ...msg.meta,
+                  inviteStatus: "rejected",
+                },
+              };
+            }
+
+            return {
+              ...msg,
+              type: "notification",
+              message: "You declined the game invite. You were not added to the room.",
+              meta: {
+                ...msg.meta,
+                inviteStatus: "rejected",
+              },
+            };
+          })
+        );
+
+        if (isHost && !selectedFriendMatchesInvitee) {
+          pushNotificationMessage(`${data?.inviteeUsername || "Your friend"} declined your game invite. Room closed.`, {
+            roomId,
+            inviteStatus: "rejected",
+          });
+        }
+      }
+
+      if (response === "accepted") {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            (msg.type === "game-invite" || msg.type === "game-invite-sent") && msg.meta?.roomId === roomId
+              ? {
+                  ...msg,
+                  meta: {
+                    ...msg.meta,
+                    inviteStatus: "accepted",
+                  },
+                }
+              : msg
+          )
+        );
+      }
+    };
+
     window.addEventListener("gameInviteSent", handleGameInviteSent as EventListener);
     window.addEventListener("TOURNAMENT_FOUND", handleTournamentFound as EventListener);
     window.addEventListener("TOURNAMENT_START", handleTournamentStart as EventListener);
     window.addEventListener("tournamentPlayerLeft", handleTournamentPlayerLeft as EventListener);
     window.addEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
     window.addEventListener("gameNotification", handleGameNotification as EventListener);
+    window.addEventListener("gameInviteResponse", handleGameInviteResponse as EventListener);
 
     return () => {
       window.removeEventListener("gameInviteSent", handleGameInviteSent as EventListener);
@@ -278,6 +381,7 @@ export default function ChatPage() {
       window.removeEventListener("tournamentPlayerLeft", handleTournamentPlayerLeft as EventListener);
       window.removeEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
       window.removeEventListener("gameNotification", handleGameNotification as EventListener);
+      window.removeEventListener("gameInviteResponse", handleGameInviteResponse as EventListener);
     };
   }, [selectedFriend, user]);
 
@@ -366,15 +470,23 @@ export default function ChatPage() {
       
       const senderIdStr = data.senderId.toString();
       const currentUserIdStr = user?.id?.toString();
+      const selectedFriendIdStr = selectedFriend?.id?.toString();
+
+      if (senderIdStr !== currentUserIdStr && senderIdStr !== selectedFriendIdStr) {
+        setUnreadByFriend((prev) => ({
+          ...prev,
+          [senderIdStr]: (prev[senderIdStr] || 0) + 1,
+        }));
+      }
       
       // Only process messages if we have a selected friend (chat is open)
       if (selectedFriend) {
-        const selectedFriendIdStr = selectedFriend.id.toString();
+        const activeFriendIdStr = selectedFriend.id.toString();
         
         // Check if message is relevant to current conversation:
         // 1. Message from selected friend (to current user) - always show
         // 2. Message from current user (confirming our sent message) - show if for this conversation
-        const isFromSelectedFriend = senderIdStr === selectedFriendIdStr;
+        const isFromSelectedFriend = senderIdStr === activeFriendIdStr;
         const isFromCurrentUser = senderIdStr === currentUserIdStr;
         
         // Only show messages in current conversation
@@ -421,6 +533,13 @@ export default function ChatPage() {
   // Handle friend selection
   const handleFriendClick = (friend: Friend) => {
     setSelectedFriend(friend);
+    clearUnreadForFriend(friend.id);
+
+    fetch(`/api/chat/read/${friend.id}`, {
+      method: 'POST',
+    }).catch((error) => {
+      console.error('Failed to mark friend messages as read', error);
+    });
   };
 
   // Send message
@@ -506,6 +625,10 @@ export default function ChatPage() {
       const unreadMessages = messages.filter(
         (msg) => !msg.read && msg.senderId !== user?.id && msg.id
       );
+
+      if (unreadMessages.length > 0) {
+        clearUnreadForFriend(selectedFriend.id);
+      }
 
       unreadMessages.forEach((msg) => {
         if (msg.id) {
@@ -615,6 +738,24 @@ export default function ChatPage() {
     if (!roomId || !hostId || !user?.id || !user?.username || !isReady) {
       pushNotificationMessage("Cannot respond to invite. Missing room details.");
       return;
+    }
+
+    if (response === "rejected") {
+      setMessages((prev) =>
+        prev.map((entry) =>
+          entry.type === "game-invite" && entry.meta?.roomId === roomId
+            ? {
+                ...entry,
+                type: "notification",
+                message: "You declined the game invite. You were not added to the room.",
+                meta: {
+                  ...entry.meta,
+                  inviteStatus: "rejected",
+                },
+              }
+            : entry
+        )
+      );
     }
 
     sendSocketMessage({
@@ -768,14 +909,24 @@ export default function ChatPage() {
                               }`}>
                                 {friend.username}
                               </p>
-                              <p className={`text-xs truncate transition-colors ${
-                                selectedFriend?.id === friend.id ? "text-primary-foreground/70" : "text-muted-foreground"
-                              }`}>
-                                {onlineFriends.some(f => Number(f.id) === Number(friend.id)) 
-                                  ? "● Active now" 
-                                  : "Offline"
-                                }
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className={`text-xs truncate transition-colors ${
+                                  selectedFriend?.id === friend.id ? "text-primary-foreground/70" : "text-muted-foreground"
+                                }`}>
+                                  {onlineFriends.some(f => Number(f.id) === Number(friend.id)) 
+                                    ? "● Active now" 
+                                    : "Offline"
+                                  }
+                                </p>
+                                {(unreadByFriend[friend.id] || 0) > 0 && (
+                                  <Badge
+                                    variant="destructive"
+                                    className="h-5 min-w-5 px-1.5 text-[10px] font-bold leading-none rounded-full"
+                                  >
+                                    {unreadByFriend[friend.id]}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))
@@ -1001,7 +1152,10 @@ export default function ChatPage() {
                                 }`}
                               >
                                 <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{msg.message}</p>
-                                {msg.type === "game-invite" && !isOwnMessage && (
+                                {msg.type === "game-invite" &&
+                                  !isOwnMessage &&
+                                  msg.meta?.inviteStatus !== "accepted" &&
+                                  msg.meta?.inviteStatus !== "rejected" && (
                                   <div className="flex gap-2 mt-3">
                                     <Button size="sm" variant="default" onClick={() => handleRespondInviteFromChat(msg, "accepted")}>
                                       Accept
