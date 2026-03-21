@@ -1,11 +1,14 @@
-FROM node:22-bullseye
-# RUN addgroup app && adduser -S -G app app
-# USER app
+FROM node:22-bullseye AS builder
 WORKDIR /app
 COPY package*.json ./
-# USER root
-# RUN chown -R app:app .
-# USER app
 RUN npm install
 COPY . .
-CMD npm run dev
+RUN npm run build
+
+FROM node:22-bullseye-slim
+WORKDIR /app
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+EXPOSE 3000
+CMD ["node", "server.js"]
