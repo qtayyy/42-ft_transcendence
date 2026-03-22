@@ -38,11 +38,11 @@ export function createWsEventHandlers({
 
     RESPOND_INVITE: (payload) => {
       fastify.respondInvite(
+        payload.response,
         payload.roomId,
         payload.hostId,
         payload.inviteeId,
         payload.inviteeUsername,
-        payload.response,
       );
     },
 
@@ -438,6 +438,15 @@ export function createWsEventHandlers({
               },
               recipientId,
             );
+
+            // Store invite as a chat message so it appears in history after reload.
+            await prisma.message.create({
+              data: {
+                senderId: userId,
+                recipientId: recipientId,
+                content: `${sender?.username || "A friend"} invited you to play a game`,
+              },
+            });
 
             // Confirm invite sent to sender
             safeSend(

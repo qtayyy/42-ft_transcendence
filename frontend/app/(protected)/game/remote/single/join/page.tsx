@@ -61,6 +61,7 @@ export default function JoinRoomPage() {
 	useEffect(() => {
 		const roomIdParam = searchParams.get("roomId");
 		const isMatchmaking = searchParams.get("matchmaking") === "true";
+		const isInviteFlow = searchParams.get("invite") === "true";
 
 		if (roomIdParam && isMatchmaking && user && !joined && !joining && !hasAttemptedAutoJoin.current) {
 			if (!isReady) {

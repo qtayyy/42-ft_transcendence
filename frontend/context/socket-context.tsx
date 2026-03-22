@@ -163,14 +163,25 @@ export const SocketProvider = ({ children }) => {
 								break;
 
 							case "GAME_INVITE":
-								stableDeps.current.setInvitesReceived((prev) => [
-									...prev,
-									{
-										roomId: payload.roomId,
-										hostId: payload.hostId,
-										hostUsername: payload.hostUsername,
-									},
-								]);
+								console.log("Received GAME_INVITE via WebSocket:", payload);
+								if (payload?.roomId && payload?.hostId) {
+									// Room-based invite flow used by private lobby invites.
+									stableDeps.current.setInvitesReceived((prev) => [
+										...prev,
+										{
+											roomId: payload.roomId,
+											hostId: payload.hostId,
+											hostUsername: payload.hostUsername,
+										},
+									]);
+									toast.info(`${payload.hostUsername || "A friend"} invited you to a room`);
+								} else {
+									// Chat-triggered invite notification (no room yet).
+									window.dispatchEvent(
+										new CustomEvent("gameInvite", { detail: payload })
+									);
+									toast.info(`${payload.inviterName || "A friend"} invited you to play a game!`);
+								}
 								break;
 
 							case "JOIN_ROOM":
@@ -180,12 +191,30 @@ export const SocketProvider = ({ children }) => {
 								window.dispatchEvent(
 									new CustomEvent("JOIN_ROOM", { detail: payload })
 								);
+								window.dispatchEvent(
+									new CustomEvent("gameNotification", {
+										detail: {
+											event: "JOIN_ROOM",
+											message: `Joined room ${payload?.roomId || ""}`.trim(),
+											roomId: payload?.roomId,
+										},
+									})
+								);
 								break;
 
 							case "JOIN_ROOM_ERROR":
 								toast.error(payload.message || "Failed to join room");
 								window.dispatchEvent(
 									new CustomEvent("JOIN_ROOM_ERROR", { detail: payload })
+								);
+								window.dispatchEvent(
+									new CustomEvent("gameNotification", {
+										detail: {
+											event: "JOIN_ROOM_ERROR",
+											message: payload.message || "Failed to join room",
+											roomId: payload?.roomId,
+										},
+									})
 								);
 								break;
 
@@ -213,6 +242,17 @@ export const SocketProvider = ({ children }) => {
 											stableDeps.current.router.push(`/game/remote/single/join?roomId=${payload.roomId}&matchmaking=true`);
 										}
 									}
+
+									window.dispatchEvent(
+										new CustomEvent("gameNotification", {
+											detail: {
+												event: "MATCH_FOUND",
+												message: `Match found. Room ${payload?.roomId || "ready"}`,
+												roomId: payload?.roomId,
+												hostId: payload?.hostId,
+											},
+										})
+									);
 								}
 								break;
 
@@ -254,10 +294,28 @@ export const SocketProvider = ({ children }) => {
 								stableDeps.current.setGameState(null);
 								hasActiveGame.current = false;
 								toast.info("You're removed from the game room");
+								window.dispatchEvent(
+									new CustomEvent("gameNotification", {
+										detail: {
+											event: "LEAVE_ROOM",
+											message: "You were removed from the game room",
+											roomId: payload?.roomId,
+										},
+									})
+								);
 								break;
 
 							case "GAME_MATCH_START":
 								stableDeps.current.setGameState(payload);
+								window.dispatchEvent(
+									new CustomEvent("gameNotification", {
+										detail: {
+											event: "GAME_MATCH_START",
+											message: "Game started. Good luck!",
+											matchId: payload?.matchId,
+										},
+									})
+								);
 								// Navigate to game page for the match
 								if (payload.matchId) {
 									stableDeps.current.router.push(`/game/${payload.matchId}`);
@@ -265,6 +323,9 @@ export const SocketProvider = ({ children }) => {
 								break;
 
 							case "TOURNAMENT_START":
+								window.dispatchEvent(
+									new CustomEvent("TOURNAMENT_START", { detail: payload })
+								);
 								stableDeps.current.setGameRoom({
 									roomId: payload.roomId,
 									joinedPlayers: payload.players,
@@ -441,17 +502,30 @@ export const SocketProvider = ({ children }) => {
 								);
 								break;
 
-							case "GAME_INVITE":
-								console.log("Received GAME_INVITE via WebSocket:", payload);
-								window.dispatchEvent(
-									new CustomEvent("gameInvite", { detail: payload })
-								);
-								toast.info(`${payload.inviterName} invited you to play a game!`);
-								break;
-
 							case "GAME_INVITE_SENT":
 								console.log("Game invite sent successfully:", payload);
+								window.dispatchEvent(
+									new CustomEvent("gameInviteSent", { detail: payload })
+								);
 								toast.success("Game invite sent!");
+								break;
+
+							case "GAME_INVITE_RESPONSE":
+								window.dispatchEvent(
+									new CustomEvent("gameInviteResponse", { detail: payload })
+								);
+								if (payload?.response === "rejected") {
+									toast.info(`${payload?.inviteeUsername || "A player"} declined your invite`);
+								} else if (payload?.response === "accepted") {
+									toast.success(`${payload?.inviteeUsername || "A player"} accepted your invite`);
+								}
+								break;
+
+							case "GAME_INVITE_PENDING":
+								window.dispatchEvent(
+									new CustomEvent("gameInvitePending", { detail: payload })
+								);
+								toast.info("Invitation already sent. Waiting for response.");
 								break;
 
 							case "PLAYER_READY_STATE":

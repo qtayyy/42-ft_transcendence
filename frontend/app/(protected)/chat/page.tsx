@@ -39,13 +39,21 @@ interface Message {
   timestamp: string;
   read?: boolean;
   readAt?: string | null;
+  type?: "text" | "game-invite" | "game-invite-sent" | "notification";
+  meta?: {
+    inviteType?: string;
+    tournamentId?: string;
+    roomId?: string;
+    hostId?: number;
+    inviteStatus?: "pending" | "accepted" | "rejected";
+  };
 }
 
 export default function ChatPage() {
   const { sendSocketMessage, isReady } = useSocketContext();
   const { user } = useAuth();
   const { friends, pending, loading: friendsLoading, error: friendsError } = useFriends();
-  const { onlineFriends } = useGame();
+  const { onlineFriends, invitesReceived, setInvitesReceived } = useGame();
   const router = useRouter();
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -54,13 +62,47 @@ export default function ChatPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [friendIsTyping, setFriendIsTyping] = useState(false);
+  const [unreadByFriend, setUnreadByFriend] = useState<Record<string, number>>({});
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
+  const [pendingInviteByFriend, setPendingInviteByFriend] = useState<Record<string, boolean>>({});
   const [showBlockDialog, setShowBlockDialog] = useState(false);
-  const [gameInvite, setGameInvite] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { t } = useLanguage();
+
+  const clearUnreadForFriend = (friendId: string) => {
+    setUnreadByFriend((prev) => {
+      if (!prev[friendId]) return prev;
+      return { ...prev, [friendId]: 0 };
+    });
+  };
+
+  const pushNotificationMessage = (text: string, meta: Message["meta"] = {}) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        username: "System",
+        message: text,
+        timestamp: new Date().toISOString(),
+        type: "notification",
+        meta,
+      },
+    ]);
+  };
+
+  const markInvitePendingForFriend = (friendId: string | number) => {
+    const key = String(friendId);
+    setPendingInviteByFriend((prev) => ({ ...prev, [key]: true }));
+  };
+
+  const clearInvitePendingForFriend = (friendId: string | number) => {
+    const key = String(friendId);
+    setPendingInviteByFriend((prev) => {
+      if (!prev[key]) return prev;
+      return { ...prev, [key]: false };
+    });
+  };
 
   // Load blocked users
   useEffect(() => {
@@ -117,18 +159,265 @@ export default function ChatPage() {
     };
   }, []);
 
-  // Listen for game invites
+  // Load unread counts per friend for sidebar badges
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchUnreadByFriend = async () => {
+      try {
+        const response = await fetch('/api/chat/unread/by-friend');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (isMounted) {
+          setUnreadByFriend(data?.unreadByFriend || {});
+        }
+      } catch (error) {
+        console.error('Failed to load unread counts by friend', error);
+      }
+    };
+
+    fetchUnreadByFriend();
+    const intervalId = setInterval(fetchUnreadByFriend, 10000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  // Listen for chat-style game invite notifications.
   useEffect(() => {
     const handleGameInvite = (event: CustomEvent) => {
       const data = event.detail;
-      setGameInvite(data);
+      const selectedFriendId = selectedFriend?.id ? parseInt(selectedFriend.id) : null;
+
+      if (selectedFriendId && Number(data?.inviterId) === selectedFriendId) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            username: data.inviterName || "Unknown",
+            senderId: Number(data.inviterId),
+            avatar: data.inviterAvatar || null,
+            message: `${data.inviterName || "A friend"} invited you to play a game`,
+            timestamp: data.timestamp || new Date().toISOString(),
+            type: "game-invite",
+            meta: {
+              inviteType: data.inviteType || "normal",
+              roomId: data.roomId,
+              hostId: data.hostId ? Number(data.hostId) : undefined,
+              inviteStatus: "pending",
+            },
+          },
+        ]);
+        return;
+      }
+
+      pushNotificationMessage(`${data.inviterName || "A friend"} sent you a game invite`);
     };
 
     window.addEventListener("gameInvite", handleGameInvite as EventListener);
     return () => {
       window.removeEventListener("gameInvite", handleGameInvite as EventListener);
     };
-  }, []);
+  }, [selectedFriend]);
+
+  // Mirror room-based invites into chat thread so user can accept/decline directly in chat.
+  useEffect(() => {
+    if (!selectedFriend) return;
+
+    const roomInviteFromSelectedFriend = invitesReceived.find(
+      (invite) => Number(invite.hostId) === Number(selectedFriend.id)
+    );
+
+    if (!roomInviteFromSelectedFriend) return;
+
+    setMessages((prev) => {
+      const alreadyExists = prev.some(
+        (msg) =>
+          msg.type === "game-invite" &&
+          msg.meta?.roomId === roomInviteFromSelectedFriend.roomId
+      );
+
+      if (alreadyExists) return prev;
+
+      return [
+        ...prev,
+        {
+          username: roomInviteFromSelectedFriend.hostUsername,
+          senderId: Number(roomInviteFromSelectedFriend.hostId),
+          message: `${roomInviteFromSelectedFriend.hostUsername} invited you to join a private game room`,
+          timestamp: new Date().toISOString(),
+          type: "game-invite",
+          meta: {
+            inviteType: "room",
+            roomId: roomInviteFromSelectedFriend.roomId,
+            hostId: Number(roomInviteFromSelectedFriend.hostId),
+            inviteStatus: "pending",
+          },
+        },
+      ];
+    });
+  }, [invitesReceived, selectedFriend]);
+
+  // Listen for sent game invite acknowledgements and tournament events.
+  useEffect(() => {
+    const handleGameInviteSent = (event: CustomEvent) => {
+      const data = event.detail;
+      if (!selectedFriend?.id || Number(selectedFriend.id) !== Number(data?.recipientId)) {
+        return;
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          username: user?.username || "You",
+          senderId: user?.id ? parseInt(user.id) : undefined,
+          message: `You invited ${selectedFriend.username} to play`,
+          timestamp: new Date().toISOString(),
+          type: "game-invite-sent",
+          meta: {
+            inviteType: data?.inviteType || "normal",
+          },
+        },
+      ]);
+    };
+
+    const handleTournamentFound = (event: CustomEvent) => {
+      const data = event.detail;
+      pushNotificationMessage(
+        `Tournament found (${data?.tournamentId || "pending id"}). Opening lobby...`,
+        { tournamentId: data?.tournamentId }
+      );
+    };
+
+    const handleTournamentStart = (event: CustomEvent) => {
+      const data = event.detail;
+      pushNotificationMessage(
+        `Tournament started (${data?.tournamentId || "no id"}). Good luck!`,
+        { tournamentId: data?.tournamentId }
+      );
+    };
+
+    const handleTournamentPlayerLeft = () => {
+      pushNotificationMessage("Tournament update: a player left the tournament.");
+    };
+
+    const handleTournamentUpdate = () => {
+      pushNotificationMessage("Tournament standings were updated.");
+    };
+
+    const handleGameNotification = (event: CustomEvent) => {
+      const data = event.detail;
+      if (!data?.message) return;
+      pushNotificationMessage(data.message, {
+        roomId: data.roomId,
+        tournamentId: data.tournamentId,
+      });
+    };
+
+    const handleGameInvitePending = (event: CustomEvent) => {
+      const data = event.detail;
+      if (!data?.friendId) return;
+
+      markInvitePendingForFriend(data.friendId);
+
+      if (selectedFriend?.id && Number(selectedFriend.id) === Number(data.friendId)) {
+        pushNotificationMessage("Invitation already sent. Waiting for response.", {
+          roomId: data.roomId,
+          inviteStatus: "pending",
+        });
+      }
+    };
+
+    const handleGameInviteResponse = (event: CustomEvent) => {
+      const data = event.detail;
+      const roomId = data?.roomId;
+      const response = data?.response;
+      if (!roomId || !response) return;
+
+      const isHost = Number(user?.id) === Number(data?.hostId);
+      const selectedFriendMatchesInvitee = selectedFriend?.id
+        ? Number(selectedFriend.id) === Number(data?.inviteeId)
+        : false;
+
+      if (response === "rejected") {
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.meta?.roomId !== roomId) return msg;
+
+            if (isHost) {
+              return {
+                ...msg,
+                type: "notification",
+                message: `${data?.inviteeUsername || "Your friend"} declined your game invite. Room closed.`,
+                meta: {
+                  ...msg.meta,
+                  inviteStatus: "rejected",
+                },
+              };
+            }
+
+            return {
+              ...msg,
+              type: "notification",
+              message: "You declined the game invite. You were not added to the room.",
+              meta: {
+                ...msg.meta,
+                inviteStatus: "rejected",
+              },
+            };
+          })
+        );
+
+        if (isHost && !selectedFriendMatchesInvitee) {
+          pushNotificationMessage(`${data?.inviteeUsername || "Your friend"} declined your game invite. Room closed.`, {
+            roomId,
+            inviteStatus: "rejected",
+          });
+        }
+      }
+
+      if (response === "accepted") {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            (msg.type === "game-invite" || msg.type === "game-invite-sent") && msg.meta?.roomId === roomId
+              ? {
+                  ...msg,
+                  meta: {
+                    ...msg.meta,
+                    inviteStatus: "accepted",
+                  },
+                }
+              : msg
+          )
+        );
+      }
+
+      if (isHost && data?.inviteeId) {
+        clearInvitePendingForFriend(data.inviteeId);
+      }
+    };
+
+    window.addEventListener("gameInviteSent", handleGameInviteSent as EventListener);
+    window.addEventListener("TOURNAMENT_FOUND", handleTournamentFound as EventListener);
+    window.addEventListener("TOURNAMENT_START", handleTournamentStart as EventListener);
+    window.addEventListener("tournamentPlayerLeft", handleTournamentPlayerLeft as EventListener);
+    window.addEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
+    window.addEventListener("gameNotification", handleGameNotification as EventListener);
+    window.addEventListener("gameInvitePending", handleGameInvitePending as EventListener);
+    window.addEventListener("gameInviteResponse", handleGameInviteResponse as EventListener);
+
+    return () => {
+      window.removeEventListener("gameInviteSent", handleGameInviteSent as EventListener);
+      window.removeEventListener("TOURNAMENT_FOUND", handleTournamentFound as EventListener);
+      window.removeEventListener("TOURNAMENT_START", handleTournamentStart as EventListener);
+      window.removeEventListener("tournamentPlayerLeft", handleTournamentPlayerLeft as EventListener);
+      window.removeEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
+      window.removeEventListener("gameNotification", handleGameNotification as EventListener);
+      window.removeEventListener("gameInvitePending", handleGameInvitePending as EventListener);
+      window.removeEventListener("gameInviteResponse", handleGameInviteResponse as EventListener);
+    };
+  }, [selectedFriend, user]);
 
   // Auto-scroll to bottom when new messages arrive (only if user is near bottom)
   useEffect(() => {
@@ -215,15 +504,23 @@ export default function ChatPage() {
       
       const senderIdStr = data.senderId.toString();
       const currentUserIdStr = user?.id?.toString();
+      const selectedFriendIdStr = selectedFriend?.id?.toString();
+
+      if (senderIdStr !== currentUserIdStr && senderIdStr !== selectedFriendIdStr) {
+        setUnreadByFriend((prev) => ({
+          ...prev,
+          [senderIdStr]: (prev[senderIdStr] || 0) + 1,
+        }));
+      }
       
       // Only process messages if we have a selected friend (chat is open)
       if (selectedFriend) {
-        const selectedFriendIdStr = selectedFriend.id.toString();
+        const activeFriendIdStr = selectedFriend.id.toString();
         
         // Check if message is relevant to current conversation:
         // 1. Message from selected friend (to current user) - always show
         // 2. Message from current user (confirming our sent message) - show if for this conversation
-        const isFromSelectedFriend = senderIdStr === selectedFriendIdStr;
+        const isFromSelectedFriend = senderIdStr === activeFriendIdStr;
         const isFromCurrentUser = senderIdStr === currentUserIdStr;
         
         // Only show messages in current conversation
@@ -270,6 +567,13 @@ export default function ChatPage() {
   // Handle friend selection
   const handleFriendClick = (friend: Friend) => {
     setSelectedFriend(friend);
+    clearUnreadForFriend(friend.id);
+
+    fetch(`/api/chat/read/${friend.id}`, {
+      method: 'POST',
+    }).catch((error) => {
+      console.error('Failed to mark friend messages as read', error);
+    });
   };
 
   // Send message
@@ -356,6 +660,10 @@ export default function ChatPage() {
         (msg) => !msg.read && msg.senderId !== user?.id && msg.id
       );
 
+      if (unreadMessages.length > 0) {
+        clearUnreadForFriend(selectedFriend.id);
+      }
+
       unreadMessages.forEach((msg) => {
         if (msg.id) {
           sendSocketMessage({
@@ -411,17 +719,122 @@ export default function ChatPage() {
     }
   };
 
-  // Send game invite
-  const handleGameInvite = () => {
-    if (!selectedFriend || !isReady) return;
+  // Send room-based game invite from chat.
+  const handleGameInvite = async () => {
+    if (!selectedFriend || !isReady || !user?.id || !user?.username) return;
+    const selectedFriendKey = String(selectedFriend.id);
+
+    if (pendingInviteByFriend[selectedFriendKey]) {
+      pushNotificationMessage("Invitation already sent. Waiting for response.");
+      return;
+    }
+
+    markInvitePendingForFriend(selectedFriend.id);
+
+    try {
+      const response = await fetch('/api/game/room/create?maxPlayers=2');
+      if (!response.ok) {
+        clearInvitePendingForFriend(selectedFriend.id);
+        pushNotificationMessage("Failed to create room for invite.");
+        return;
+      }
+
+      const data = await response.json();
+      const roomId = data?.roomId;
+      if (!roomId) {
+        clearInvitePendingForFriend(selectedFriend.id);
+        pushNotificationMessage("Room creation failed. Missing room id.");
+        return;
+      }
+
+      sendSocketMessage({
+        event: "SEND_GAME_INVITE",
+        payload: {
+          roomId,
+          hostId: Number(user.id),
+          hostUsername: user.username,
+          friendId: Number(selectedFriend.id),
+          friendUsername: selectedFriend.username,
+        },
+      });
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          username: user.username,
+          senderId: Number(user.id),
+          message: `You invited ${selectedFriend.username} to room ${roomId}`,
+          timestamp: new Date().toISOString(),
+          type: "game-invite-sent",
+          meta: { inviteType: "room", roomId, hostId: Number(user.id) },
+        },
+      ]);
+    } catch (error) {
+      console.error("Error sending room invite from chat:", error);
+      clearInvitePendingForFriend(selectedFriend.id);
+      pushNotificationMessage("Failed to send room invite.");
+    }
+  };
+
+  const handleRespondInviteFromChat = (msg: Message, response: "accepted" | "rejected") => {
+    const roomId = msg.meta?.roomId;
+    const hostId = msg.meta?.hostId;
+
+    if (!roomId || !hostId || !user?.id || !user?.username || !isReady) {
+      pushNotificationMessage("Cannot respond to invite. Missing room details.");
+      return;
+    }
+
+    if (response === "rejected") {
+      setMessages((prev) =>
+        prev.map((entry) =>
+          entry.type === "game-invite" && entry.meta?.roomId === roomId
+            ? {
+                ...entry,
+                type: "notification",
+                message: "You declined the game invite. You were not added to the room.",
+                meta: {
+                  ...entry.meta,
+                  inviteStatus: "rejected",
+                },
+              }
+            : entry
+        )
+      );
+    }
 
     sendSocketMessage({
-      event: "GAME_INVITE",
+      event: "RESPOND_INVITE",
       payload: {
-        recipientId: parseInt(selectedFriend.id),
-        inviteType: "normal",
+        response,
+        roomId,
+        hostId,
+        inviteeId: Number(user.id),
+        inviteeUsername: user.username,
       },
     });
+
+    setInvitesReceived((prev) => prev.filter((invite) => invite.roomId !== roomId));
+
+    if (response === "accepted") {
+      router.push(`/game/remote/single/join?roomId=${roomId}&invite=true`);
+    }
+  };
+
+  const handleHostStartGameFromChat = (msg: Message) => {
+    const roomId = msg.meta?.roomId;
+    if (!roomId || !isReady) {
+      pushNotificationMessage("Room is not ready to start yet.");
+      return;
+    }
+
+    sendSocketMessage({
+      event: "START_ROOM_GAME",
+      payload: { roomId },
+    });
+
+    // Keep host in sync with room state if match cannot start immediately.
+    router.push(`/game/remote/single/create?roomId=${roomId}&fromChatInvite=true`);
   };
 
   // View profile
@@ -436,6 +849,10 @@ export default function ChatPage() {
     .filter(friend =>
       friend.username.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+  const isSelectedFriendInvitePending = selectedFriend
+    ? !!pendingInviteByFriend[String(selectedFriend.id)]
+    : false;
 
   return (
     <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4 md:p-6 bg-gradient-to-b from-background to-muted/20">
@@ -531,14 +948,24 @@ export default function ChatPage() {
                               }`}>
                                 {friend.username}
                               </p>
-                              <p className={`text-xs truncate transition-colors ${
-                                selectedFriend?.id === friend.id ? "text-primary-foreground/70" : "text-muted-foreground"
-                              }`}>
-                                {onlineFriends.some(f => Number(f.id) === Number(friend.id)) 
-                                  ? "● Active now" 
-                                  : "Offline"
-                                }
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className={`text-xs truncate transition-colors ${
+                                  selectedFriend?.id === friend.id ? "text-primary-foreground/70" : "text-muted-foreground"
+                                }`}>
+                                  {onlineFriends.some(f => Number(f.id) === Number(friend.id)) 
+                                    ? "● Active now" 
+                                    : "Offline"
+                                  }
+                                </p>
+                                {(unreadByFriend[friend.id] || 0) > 0 && (
+                                  <Badge
+                                    variant="destructive"
+                                    className="h-5 min-w-5 px-1.5 text-[10px] font-bold leading-none rounded-full"
+                                  >
+                                    {unreadByFriend[friend.id]}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))
@@ -643,16 +1070,18 @@ export default function ChatPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          {/* <Button
+                          <Button
                             variant="outline"
                             size="sm"
                             onClick={handleGameInvite}
-                            disabled={!isReady}
+                            disabled={!isReady || isSelectedFriendInvitePending}
                             className="gap-2"
                           >
                             <Gamepad2 className="w-4 h-4" />
-                            <span className="hidden sm:inline">Invite to Game</span>
-                          </Button> */}
+                            <span className="hidden sm:inline">
+                              {isSelectedFriendInvitePending ? "Invitation Pending" : "Invite to Game"}
+                            </span>
+                          </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" suppressHydrationWarning>
@@ -750,15 +1179,46 @@ export default function ChatPage() {
                                 {msg.username}
                               </span>
                             )}
-                            <div
-                              className={`rounded-2xl px-4 py-3 shadow-lg transition-all hover:shadow-xl group-hover:scale-[1.01] ${
-                                isOwnMessage
-                                  ? "bg-gradient-to-br from-primary via-primary/95 to-primary/90 text-primary-foreground rounded-br-md"
-                                  : "bg-card/90 backdrop-blur-sm border border-border/50 rounded-bl-md hover:border-primary/40"
-                              }`}
-                            >
-                              <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{msg.message}</p>
-                            </div>
+                            {msg.type === "notification" ? (
+                              <div className="rounded-xl px-4 py-2 border border-primary/20 bg-primary/5 text-primary shadow-sm">
+                                <p className="text-xs font-semibold uppercase tracking-wide mb-1">Notification</p>
+                                <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{msg.message}</p>
+                              </div>
+                            ) : (
+                              <div
+                                className={`rounded-2xl px-4 py-3 shadow-lg transition-all hover:shadow-xl group-hover:scale-[1.01] ${
+                                  isOwnMessage
+                                    ? "bg-gradient-to-br from-primary via-primary/95 to-primary/90 text-primary-foreground rounded-br-md"
+                                    : "bg-card/90 backdrop-blur-sm border border-border/50 rounded-bl-md hover:border-primary/40"
+                                }`}
+                              >
+                                <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{msg.message}</p>
+                                {msg.type === "game-invite" &&
+                                  !isOwnMessage &&
+                                  msg.meta?.inviteStatus !== "accepted" &&
+                                  msg.meta?.inviteStatus !== "rejected" && (
+                                  <div className="flex gap-2 mt-3">
+                                    <Button size="sm" variant="default" onClick={() => handleRespondInviteFromChat(msg, "accepted")}>
+                                      Accept
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => handleRespondInviteFromChat(msg, "rejected")}>
+                                      Decline
+                                    </Button>
+                                  </div>
+                                )}
+                                {msg.type === "game-invite-sent" && isOwnMessage && msg.meta?.roomId && (
+                                  <div className="mt-3">
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={() => handleHostStartGameFromChat(msg)}
+                                    >
+                                      Start game now
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <div className={`flex items-center gap-1 mt-1 px-1 ${
                               isOwnMessage ? 'justify-end' : 'justify-start'
                             }`}>
@@ -860,46 +1320,6 @@ export default function ChatPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Game Invite Notification */}
-      {gameInvite && (
-        <Dialog open={!!gameInvite} onOpenChange={() => setGameInvite(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Game Invitation</DialogTitle>
-              <DialogDescription>
-                <div className="flex items-center gap-3 my-4">
-                  <Avatar className="w-12 h-12">
-                    {gameInvite.inviterAvatar ? (
-                      <AvatarImage src={gameInvite.inviterAvatar} alt={gameInvite.inviterName} />
-                    ) : null}
-                    <AvatarFallback className="bg-primary/20 text-primary font-bold">
-                      {gameInvite.inviterName?.[0]?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-semibold">{gameInvite.inviterName}</p>
-                    <p className="text-sm text-muted-foreground">wants to play a game with you</p>
-                  </div>
-                </div>
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setGameInvite(null)}>
-                Decline
-              </Button>
-              <Button 
-                onClick={() => {
-                  router.push('/game/new');
-                  setGameInvite(null);
-                }}
-              >
-                Accept & Play
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }
