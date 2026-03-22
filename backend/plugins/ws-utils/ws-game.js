@@ -148,6 +148,49 @@ export default fp((fastify) => {
       if (inviteeInRoom) throw new Error("Player already in another room");
 
       const room = fastify.gameRooms.get(roomId);
+      if (!room) throw new Error("Room does not exist");
+
+      const hostSocket = fastify.onlineUsers.get(numericHostId);
+      const alreadyJoined = room.joinedPlayers.some(
+        (p) => Number(p.id) === numericFriendId,
+      );
+      if (alreadyJoined) {
+        safeSend(
+          hostSocket,
+          {
+            event: "GAME_INVITE_PENDING",
+            payload: {
+              friendId: numericFriendId,
+              friendUsername,
+              roomId,
+              reason: "already-joined",
+            },
+          },
+          numericHostId,
+        );
+        return;
+      }
+
+      const alreadyInvited = room.invitedPlayers.some(
+        (p) => Number(p.id) === numericFriendId,
+      );
+      if (alreadyInvited) {
+        safeSend(
+          hostSocket,
+          {
+            event: "GAME_INVITE_PENDING",
+            payload: {
+              friendId: numericFriendId,
+              friendUsername,
+              roomId,
+              reason: "already-pending",
+            },
+          },
+          numericHostId,
+        );
+        return;
+      }
+
       room.invitedPlayers.push({
         id: numericFriendId,
         username: friendUsername,
@@ -178,7 +221,6 @@ export default fp((fastify) => {
         });
 
       // Send updated game room to host
-      const hostSocket = fastify.onlineUsers.get(numericHostId);
       const payload = {
         hostId: room.hostId,
         invitedPlayers: room.invitedPlayers,
