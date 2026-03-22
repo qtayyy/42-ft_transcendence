@@ -10,17 +10,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLanguage } from "@/context/languageContext";
-import { locales, type Locale } from "@/lib/i18n/locales";
+import { defaultLocale, locales, type Locale } from "@/lib/i18n/locales";
 
 export function LanguageSwitcher() {
   const { locale, setLocale } = useLanguage();
+  const [isMounted, setIsMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const currentLocaleLabel = locales[isMounted ? locale : defaultLocale];
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="gap-2" suppressHydrationWarning>
           <Languages className="h-4 w-4" />
-          <span className="hidden sm:inline">{locales[locale]}</span>
+          <span className="hidden sm:inline" suppressHydrationWarning>{currentLocaleLabel}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
