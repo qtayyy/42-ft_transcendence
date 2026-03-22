@@ -112,12 +112,22 @@ export default function DashboardPage() {
       }
     };
 
+    const handleRealtimeUnreadRefresh = () => {
+      fetchUnreadCount();
+    };
+
     fetchUnreadCount();
     const intervalId = setInterval(fetchUnreadCount, 10000);
+    window.addEventListener("chatMessage", handleRealtimeUnreadRefresh as EventListener);
+    window.addEventListener("messageRead", handleRealtimeUnreadRefresh as EventListener);
+    window.addEventListener("gameInvite", handleRealtimeUnreadRefresh as EventListener);
 
     return () => {
       isMounted = false;
       clearInterval(intervalId);
+      window.removeEventListener("chatMessage", handleRealtimeUnreadRefresh as EventListener);
+      window.removeEventListener("messageRead", handleRealtimeUnreadRefresh as EventListener);
+      window.removeEventListener("gameInvite", handleRealtimeUnreadRefresh as EventListener);
     };
   }, []);
 

@@ -521,6 +521,13 @@ export const SocketProvider = ({ children }) => {
 								}
 								break;
 
+							case "GAME_INVITE_PENDING":
+								window.dispatchEvent(
+									new CustomEvent("gameInvitePending", { detail: payload })
+								);
+								toast.info("Invitation already sent. Waiting for response.");
+								break;
+
 							case "PLAYER_READY_STATE":
 								// Dispatch custom event for ready state persistence
 								window.dispatchEvent(new CustomEvent("PLAYER_READY_STATE", { detail: payload }));
