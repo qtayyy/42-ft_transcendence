@@ -18,6 +18,7 @@ import { useLanguage } from '@/context/languageContext';
 import { Users, BarChart3, PieChart, Trophy, Activity, MessageCircle, Clock, Calendar, Download, FileSpreadsheet, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { useFriends } from "@/hooks/use-friends";
 import { Badge } from "@/components/ui/badge";
+import { jsPDF } from "jspdf";
 
 interface MatchEntry {
   id: number;
@@ -251,65 +252,102 @@ export default function DashboardPage() {
       `Result: ${resultFilter === "all" ? "All" : resultFilter}`,
     ].join(" | ");
 
-    const rowsHtml = sortedFilteredMatches
-      .map(
-        (match) => `
-          <tr>
-            <td>${match.id}</td>
-            <td>${new Date(match.date).toLocaleString()}</td>
-            <td>${MODE_LABEL[match.mode] || match.mode}</td>
-            <td>${match.opponent}</td>
-            <td style="text-transform: capitalize;">${match.result}</td>
-            <td>${match.playerScore}</td>
-            <td>${match.opponentScore}</td>
-          </tr>
-        `,
-      )
-      .join("");
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 40;
+    const lineHeight = 16;
+    const tableStartX = margin;
+    const colWidths = [60, 145, 100, 135, 80, 80, 95, 95];
+    const totalTableWidth = colWidths.reduce((sum, width) => sum + width, 0);
 
-    const popup = window.open("", "_blank", "noopener,noreferrer");
-    if (!popup) {
-      alert("Unable to open print window. Please allow popups and try again.");
-      return;
-    }
+    const fitCellText = (value: string, maxWidth: number) => {
+      if (doc.getTextWidth(value) <= maxWidth) return value;
+      let trimmed = value;
+      while (trimmed.length > 0 && doc.getTextWidth(`${trimmed}...`) > maxWidth) {
+        trimmed = trimmed.slice(0, -1);
+      }
+      return trimmed.length > 0 ? `${trimmed}...` : "...";
+    };
 
-    popup.document.write(`
-      <html>
-        <head>
-          <title>Dashboard Export</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
-            h1 { margin: 0 0 8px; }
-            p { margin: 0 0 12px; color: #4b5563; }
-            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 12px; }
-            th { background: #f3f4f6; }
-          </style>
-        </head>
-        <body>
-          <h1>Dashboard Match Export</h1>
-          <p>Generated at: ${new Date().toLocaleString()}</p>
-          <p>${filtersSummary}</p>
-          <table>
-            <thead>
-              <tr>
-                <th>Match ID</th>
-                <th>Date</th>
-                <th>Mode</th>
-                <th>Opponent</th>
-                <th>Result</th>
-                <th>Player Score</th>
-                <th>Opponent Score</th>
-              </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
-        </body>
-      </html>
-    `);
-    popup.document.close();
-    popup.focus();
-    popup.print();
+    let y = margin;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("Dashboard Match Export", margin, y);
+    y += 24;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Generated at: ${new Date().toLocaleString()}`, margin, y);
+    y += lineHeight;
+
+    const filterLines = doc.splitTextToSize(filtersSummary, pageWidth - margin * 2);
+    doc.text(filterLines, margin, y);
+    y += filterLines.length * lineHeight + 10;
+
+    const headers = [
+      "Match ID",
+      "Date",
+      "Mode",
+      "Opponent",
+      "Result",
+      "Player",
+      "Opponent",
+      "Duration(s)",
+    ];
+
+    const drawHeader = () => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      let x = tableStartX;
+      headers.forEach((header, index) => {
+        doc.text(header, x, y);
+        x += colWidths[index];
+      });
+
+      y += 8;
+      doc.setDrawColor(180);
+      doc.line(tableStartX, y, tableStartX + totalTableWidth, y);
+      y += 10;
+    };
+
+    drawHeader();
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+
+    sortedFilteredMatches.forEach((match) => {
+      if (y > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+        drawHeader();
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+      }
+
+      const row = [
+        String(match.id),
+        new Date(match.date).toLocaleString(),
+        MODE_LABEL[match.mode] || match.mode,
+        match.opponent,
+        match.result.charAt(0).toUpperCase() + match.result.slice(1),
+        String(match.playerScore),
+        String(match.opponentScore),
+        String(match.durationSeconds ?? ""),
+      ];
+
+      let x = tableStartX;
+      row.forEach((cell, index) => {
+        const text = fitCellText(cell, colWidths[index] - 6);
+        doc.text(text, x, y);
+        x += colWidths[index];
+      });
+
+      y += lineHeight;
+    });
+
+    doc.save(`dashboard-export-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   // ── Activity chart data ─────────────────────────────────────────────
