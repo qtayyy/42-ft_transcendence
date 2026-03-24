@@ -42,4 +42,15 @@ prune:
 
 re: stop down all
 
-.PHONY: all build start dev stop down logs clean prune re
+# Short-term public access via ngrok. Start the local stack first, then run:
+#   make ngrok
+# Copy the printed https://*.ngrok.app URL into backend/.env as PUBLIC_APP_URL,
+# then restart the backend so OAuth redirects use the current tunnel URL.
+ngrok:
+	@command -v ngrok >/dev/null 2>&1 || (echo "ngrok is not installed. Install it first, then run 'ngrok config add-authtoken <token>'."; exit 1)
+	@ngrok http https://localhost:8443 --upstream-tls-verify=false
+
+ngrok-restart-backend:
+	@docker compose -f ./compose.yaml up -d --force-recreate backend
+
+.PHONY: all build start dev stop down logs clean prune re ngrok ngrok-restart-backend
