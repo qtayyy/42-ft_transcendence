@@ -10,6 +10,7 @@ This module encapsulates remote match lifecycle behavior:
 
 import { finalizeMatchResult } from "../../../services/match-finalization.js";
 import {
+  BROADCAST_EVERY_N_TICKS,
   MATCH_DURATION,
   POWERUP_SPAWN_INTERVAL,
   TICK_MS,
@@ -364,8 +365,11 @@ export function createGameLifecycle({
       // Check power-up collisions
       checkPowerUpCollision(gameState);
 
-      // Broadcast state every tick (60 FPS) to eliminate client-side stutter
-      broadcastState(gameState, fastify);
+      // Simulate every tick, but only send routine snapshots at a lower rate to
+      // reduce websocket and serialization pressure during active matches.
+      if (gameState.tickCount % BROADCAST_EVERY_N_TICKS === 0) {
+        broadcastState(gameState, fastify);
+      }
 
       // Check for game over (timer expired)
       const result = checkGameOver(gameState);
