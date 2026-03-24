@@ -29,6 +29,26 @@ const DEFAULT_FPS = 60;
 const DEFAULT_TICK_MS = 1000 / DEFAULT_FPS;
 const DEFAULT_PADDLE_SPEED = 10;
 
+function getMovementDirectionForKey(key: string): "UP" | "DOWN" | null {
+	if (key === "w" || key === "W" || key === "ArrowUp") return "UP";
+	if (key === "s" || key === "S" || key === "ArrowDown") return "DOWN";
+	return null;
+}
+
+function getNextHeldDirection(
+	heldKeys: Set<string>,
+	currentDirection: "UP" | "DOWN" | null
+): "UP" | "DOWN" | null {
+	const hasUp = [...heldKeys].some((key) => getMovementDirectionForKey(key) === "UP");
+	const hasDown = [...heldKeys].some((key) => getMovementDirectionForKey(key) === "DOWN");
+
+	if (currentDirection === "UP" && hasUp) return "UP";
+	if (currentDirection === "DOWN" && hasDown) return "DOWN";
+	if (hasUp) return "UP";
+	if (hasDown) return "DOWN";
+	return null;
+}
+
 export default function GameRuntimePage() {
 	const params = useParams();
 	const pathname = usePathname();
@@ -51,6 +71,7 @@ export default function GameRuntimePage() {
 		myReadyToResume: boolean;
 		opponentReadyToResume: boolean;
 	} | null>(null);
+	const [optimisticPaddleY, setOptimisticPaddleY] = useState<number | null>(null);
 	const spectatorParam = searchParams.get('spectator') === 'true';
 	// Detect spectator mode from query param or gameState
 	const isSpectator = spectatorParam || (gameState as any)?.spectatorMode === true;
@@ -87,6 +108,16 @@ export default function GameRuntimePage() {
 	const isMountedRef = useRef(true);
 	// Prevent duplicate pause dispatches while the navigation guard stays open
 	const navGuardPauseSentRef = useRef(false);
+	const heldMovementKeysRef = useRef(new Set<string>());
+	const heldMovementRef = useRef<"UP" | "DOWN" | null>(null);
+
+	const currentPlayerSide = useMemo(() => {
+		if (!gameState || !user?.id) return null;
+		if (gameState.me === "LEFT" || gameState.me === "RIGHT") return gameState.me;
+		if (String(gameState.leftPlayer?.id) === String(user.id)) return "LEFT";
+		if (String(gameState.rightPlayer?.id) === String(user.id)) return "RIGHT";
+		return null;
+	}, [gameState, user?.id]);
 
 	// Notify server when player returns to game page (reconnection)
 	// Only send this if the game state shows we were disconnected, not on initial load
@@ -403,9 +434,40 @@ export default function GameRuntimePage() {
 			let keyEvent = "START";
 			// Both WASD and Arrow keys send generic UP/DOWN for the current user
 			// The backend determines which paddle to move based on userId
-			if (e.key === "w" || e.key === "W" || e.key === "ArrowUp") keyEvent = "UP";
-			else if (e.key === "s" || e.key === "S" || e.key === "ArrowDown") keyEvent = "DOWN";
+			const movementDirection = getMovementDirectionForKey(e.key);
+			if (movementDirection) keyEvent = movementDirection;
 			else if (e.key === " ") keyEvent = "PAUSE"; // Space = pause/resume game
+
+			if (movementDirection && e.repeat) {
+				return;
+			}
+
+			if (movementDirection) {
+				heldMovementKeysRef.current.add(e.key);
+			}
+
+			if ((keyEvent === "UP" || keyEvent === "DOWN") && heldMovementRef.current === keyEvent) {
+				return;
+			}
+			if ((keyEvent === "START" || keyEvent === "PAUSE") && e.repeat) {
+				return;
+			}
+
+			if (keyEvent === "UP" || keyEvent === "DOWN") {
+				heldMovementRef.current = keyEvent;
+
+				if (currentPlayerSide) {
+					const currentPlayer =
+						currentPlayerSide === "LEFT" ? gameState.leftPlayer : gameState.rightPlayer;
+					const currentY = currentPlayer?.paddleY ?? 0;
+					const paddleHeight = currentPlayer?.paddleHeight ?? DEFAULT_PADDLE_HEIGHT;
+					const nextY =
+						keyEvent === "UP"
+							? Math.max(0, currentY - DEFAULT_PADDLE_SPEED)
+							: Math.min(DEFAULT_CANVAS_HEIGHT - paddleHeight, currentY + DEFAULT_PADDLE_SPEED);
+					setOptimisticPaddleY(nextY);
+				}
+			}
 
 			sendSocketMessage({
 				event: "GAME_EVENTS",
@@ -421,12 +483,28 @@ export default function GameRuntimePage() {
 			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown", "Enter"];
 			if (!KEYS.includes(e.key)) return;
 
+			const releasedDirection = getMovementDirectionForKey(e.key);
+			if (releasedDirection) {
+				heldMovementKeysRef.current.delete(e.key);
+				const nextDirection = getNextHeldDirection(
+					heldMovementKeysRef.current,
+					heldMovementRef.current
+				);
+
+				if (nextDirection === heldMovementRef.current) {
+					return;
+				}
+
+				heldMovementRef.current = nextDirection;
+				setOptimisticPaddleY(null);
+			}
+
 			sendSocketMessage({
 				event: "GAME_EVENTS",
 				payload: {
 					matchId: gameState.matchId,
 					userId: user?.id,
-					keyEvent: "",
+					keyEvent: heldMovementRef.current || "",
 				},
 			});
 		};
@@ -435,10 +513,12 @@ export default function GameRuntimePage() {
 		window.addEventListener("keyup", onKeyUp);
 
 		return () => {
+			heldMovementKeysRef.current.clear();
+			heldMovementRef.current = null;
 			window.removeEventListener("keydown", onKeyDown);
 			window.removeEventListener("keyup", onKeyUp);
 		};
-	}, [isRemoteGame, isReady, sendSocketMessage, gameState, user, isSpectator]);
+	}, [isRemoteGame, isReady, sendSocketMessage, gameState, user, isSpectator, currentPlayerSide]);
 
 	// Refs for cleanup function to access latest state without re-running effect
 	const gameStateRef = useRef(gameState);
@@ -789,6 +869,34 @@ export default function GameRuntimePage() {
 		};
 	}, [isRemoteGame, gameState, gameOverResult]);
 
+	useEffect(() => {
+		if (!currentPlayerSide || optimisticPaddleY === null) return;
+		setOptimisticPaddleY(null);
+	}, [
+		currentPlayerSide,
+		optimisticPaddleY,
+		normalizedRemoteGameState?.paddles.p1.y,
+		normalizedRemoteGameState?.paddles.p2.y,
+	]);
+
+	const displayedRemoteGameState = useMemo(() => {
+		if (!normalizedRemoteGameState || optimisticPaddleY === null || !currentPlayerSide) {
+			return normalizedRemoteGameState;
+		}
+
+		const paddleKey = currentPlayerSide === "LEFT" ? "p1" : "p2";
+		return {
+			...normalizedRemoteGameState,
+			paddles: {
+				...normalizedRemoteGameState.paddles,
+				[paddleKey]: {
+					...normalizedRemoteGameState.paddles[paddleKey],
+					y: optimisticPaddleY,
+				},
+			},
+		};
+	}, [normalizedRemoteGameState, optimisticPaddleY, currentPlayerSide]);
+
 	// Remote game rendering
 	if (isRemoteGame) {
 		// Show loading state while waiting for game state to be restored via WebSocket
@@ -833,7 +941,7 @@ export default function GameRuntimePage() {
 				<RemoteGameRuntimeView
 					matchId={matchId}
 					gameState={gameState}
-					normalizedGameState={normalizedRemoteGameState}
+					normalizedGameState={displayedRemoteGameState}
 					gameOverResult={gameOverResult}
 					isSpectator={isSpectator}
 					returnToLobby={returnToLobby}
