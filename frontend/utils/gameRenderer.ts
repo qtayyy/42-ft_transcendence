@@ -1,5 +1,15 @@
 import { GameState } from "@/types/game";
-import { getPowerUpColor, getEffectColor, getPowerUpSymbol } from "./gameHelpers";
+import { getEffectColor, getPowerUpColor, getPowerUpSymbol } from "./gameHelpers";
+
+interface CanvasDimensions {
+	width: number;
+	height: number;
+}
+
+interface Scale {
+	x: number;
+	y: number;
+}
 
 export type BackgroundId = 'default' | 'neon' | 'retro' | 'space';
 
@@ -105,21 +115,145 @@ function lerp(start: number, end: number, alpha: number) {
 	return start + (end - start) * alpha;
 }
 
-export const interpolateGameState = (
+function getScale(gameState: GameState, canvasDimensions: CanvasDimensions): Scale {
+	return {
+		x: canvasDimensions.width / gameState.constant.canvasWidth,
+		y: canvasDimensions.height / gameState.constant.canvasHeight,
+	};
+}
+
+function drawPitch(
+	context: CanvasRenderingContext2D,
+	canvasDimensions: CanvasDimensions,
+	scale: Scale,
+	background: BackgroundId
+) {
+	switch (background) {
+		case 'neon':   drawNeonBackground(context, canvasDimensions.width, canvasDimensions.height); break;
+		case 'retro':  drawRetroBackground(context, canvasDimensions.width, canvasDimensions.height); break;
+		case 'space':  drawSpaceBackground(context, canvasDimensions.width, canvasDimensions.height); break;
+		default:       drawDefaultBackground(context, canvasDimensions.width, canvasDimensions.height); break;
+	}
+
+	context.setLineDash([10 * scale.x, 10 * scale.x]);
+	context.beginPath();
+	context.moveTo(canvasDimensions.width / 2, 0);
+	context.lineTo(canvasDimensions.width / 2, canvasDimensions.height);
+	context.strokeStyle = getCenterLineColor(background);
+	context.lineWidth = 2;
+	context.stroke();
+	context.setLineDash([]);
+}
+
+function drawPaddles(
+	context: CanvasRenderingContext2D,
+	gameState: GameState,
+	canvasDimensions: CanvasDimensions,
+	scale: Scale
+) {
+	const paddleWidth = gameState.constant.paddleWidth * scale.x;
+	const paddleHeight = gameState.constant.paddleHeight * scale.y;
+	const leftPaddleX = gameState.paddles.p1.x * scale.x;
+	const leftPaddleY = gameState.paddles.p1.y * scale.y;
+	const rightPaddleX = gameState.paddles.p2.x * scale.x;
+	const rightPaddleY = gameState.paddles.p2.y * scale.y;
+	const clampedRightPaddleX = Math.min(
+		rightPaddleX,
+		canvasDimensions.width - paddleWidth
+	);
+
+	context.fillStyle = "#FFFFFF";
+	context.fillRect(leftPaddleX, leftPaddleY, paddleWidth, paddleHeight);
+	context.fillRect(clampedRightPaddleX, rightPaddleY, paddleWidth, paddleHeight);
+}
+
+function drawBall(
+	context: CanvasRenderingContext2D,
+	gameState: GameState,
+	scale: Scale
+) {
+	const ballSize = gameState.constant.ballSize || 12;
+
+	context.beginPath();
+	context.arc(
+		(gameState.ball.x + ballSize / 2) * scale.x,
+		(gameState.ball.y + ballSize / 2) * scale.y,
+		(ballSize / 2) * scale.x,
+		0,
+		Math.PI * 2
+	);
+	context.fillStyle = gameState.activeEffect
+		? getEffectColor(gameState.activeEffect.type)
+		: "#FFFFFF";
+	context.fill();
+	context.closePath();
+}
+
+function drawPowerUps(
+	context: CanvasRenderingContext2D,
+	gameState: GameState,
+	scale: Scale
+) {
+	if (!gameState.powerUps?.length) return;
+
+	gameState.powerUps.forEach((powerUp) => {
+		const radius = 10 * scale.x;
+		const x = powerUp.x * scale.x;
+		const y = powerUp.y * scale.y;
+
+		context.beginPath();
+		context.arc(x, y, radius, 0, Math.PI * 2);
+		context.fillStyle = getPowerUpColor(powerUp.type);
+		context.fill();
+
+		context.strokeStyle = "#FFFFFF";
+		context.lineWidth = 1 * scale.x;
+		context.stroke();
+		context.closePath();
+
+		context.fillStyle = "#000000";
+		context.font = `bold ${10 * scale.x}px Arial`;
+		context.textAlign = "center";
+		context.textBaseline = "middle";
+		context.fillText(getPowerUpSymbol(powerUp.type), x, y);
+	});
+}
+
+function drawScores(
+	context: CanvasRenderingContext2D,
+	gameState: GameState,
+	canvasDimensions: CanvasDimensions,
+	scale: Scale
+) {
+	const fontSize = Math.max(32, 48 * scale.x);
+	const centerX = canvasDimensions.width / 2;
+
+	context.font = `bold ${fontSize}px Arial`;
+	context.fillStyle = "#FFFFFF";
+
+	context.textAlign = "right";
+	context.fillText(`${gameState.score.p1}`, centerX - 30 * scale.x, 60 * scale.y);
+
+	context.textAlign = "left";
+	context.fillText(`${gameState.score.p2}`, centerX + 30 * scale.x, 60 * scale.y);
+}
+
+export function interpolateGameState(
 	previousGameState: GameState | null,
 	nextGameState: GameState,
 	alpha: number
-) => {
+) {
 	if (!previousGameState) return nextGameState;
 
-	if (
+	const shouldSkipInterpolation =
 		previousGameState.status !== "playing" ||
 		nextGameState.status !== "playing" ||
 		previousGameState.score.p1 !== nextGameState.score.p1 ||
 		previousGameState.score.p2 !== nextGameState.score.p2 ||
 		previousGameState.winner !== nextGameState.winner ||
-		previousGameState.result !== nextGameState.result
-	) {
+		previousGameState.result !== nextGameState.result;
+
+	if (shouldSkipInterpolation) {
 		return nextGameState;
 	}
 
@@ -141,118 +275,19 @@ export const interpolateGameState = (
 			},
 		},
 	};
-};
+}
 
-export const renderGame = (
+export function renderGame(
 	context: CanvasRenderingContext2D,
 	gameState: GameState,
-	canvasDimensions: { width: number; height: number },
+	canvasDimensions: CanvasDimensions,
 	background: BackgroundId = 'default'
-) => {
-	const { width: w, height: h } = canvasDimensions;
+) {
+	const scale = getScale(gameState, canvasDimensions);
 
-	// Calculate scale factor based on actual canvas size vs game state size
-	const scaleX = w / gameState.constant.canvasWidth;
-	const scaleY = h / gameState.constant.canvasHeight;
-
-	// Draw background
-	switch (background) {
-		case 'neon':   drawNeonBackground(context, w, h);   break;
-		case 'retro':  drawRetroBackground(context, w, h);  break;
-		case 'space':  drawSpaceBackground(context, w, h);  break;
-		default:       drawDefaultBackground(context, w, h); break;
-	}
-
-	// Draw center line
-	context.setLineDash([10 * scaleX, 10 * scaleX]);
-	context.beginPath();
-	context.moveTo(w / 2, 0);
-	context.lineTo(w / 2, h);
-	context.strokeStyle = getCenterLineColor(background);
-	context.lineWidth = 2;
-	context.stroke();
-	context.setLineDash([]);
-
-	// Draw Paddles (white)
-	context.fillStyle = "white";
-
-	// P1 paddle (left)
-	const p1X = gameState.paddles.p1.x * scaleX;
-	const p1Y = gameState.paddles.p1.y * scaleY;
-	const paddleW = gameState.constant.paddleWidth * scaleX;
-	const paddleH = gameState.constant.paddleHeight * scaleY;
-
-	context.fillRect(p1X, p1Y, paddleW, paddleH);
-
-	// P2 paddle (right) - ensure it's drawn within canvas bounds
-	const p2X = gameState.paddles.p2.x * scaleX;
-	const p2Y = gameState.paddles.p2.y * scaleY;
-
-	// Clamp P2's X position to ensure paddle is fully visible
-	const p2XClamped = Math.min(p2X, w - paddleW);
-
-	context.fillRect(p2XClamped, p2Y, paddleW, paddleH);
-
-	// Draw Ball
-	context.beginPath();
-	const ballSize = gameState.constant.ballSize || 12; // Use dynamic size
-	context.arc(
-		(gameState.ball.x + ballSize / 2) * scaleX,
-		(gameState.ball.y + ballSize / 2) * scaleY,
-		(ballSize / 2) * scaleX,
-		0,
-		Math.PI * 2
-	);
-
-	// Color ball if buffed, otherwise white
-	context.fillStyle = gameState.activeEffect ? getEffectColor(gameState.activeEffect.type) : "#FFFFFF";
-	context.fill();
-	context.closePath();
-
-	// Power-Ups
-	if (gameState.powerUps) {
-		gameState.powerUps.forEach(pu => {
-			context.beginPath();
-			// Scale power-up position and size (base radius 10 = size 20)
-			const puRadius = 10 * scaleX;
-			context.arc(pu.x * scaleX, pu.y * scaleY, puRadius, 0, Math.PI * 2);
-			context.fillStyle = getPowerUpColor(pu.type);
-			context.fill();
-
-			// Hit box stroke
-			context.strokeStyle = "#fff";
-			context.lineWidth = 1 * scaleX;
-			context.stroke();
-			context.closePath();
-
-			// Icon/Text inner
-			context.fillStyle = "#000";
-			context.font = `bold ${10 * scaleX}px Arial`;
-			context.textAlign = "center";
-			context.textBaseline = "middle";
-			context.fillText(getPowerUpSymbol(pu.type), pu.x * scaleX, pu.y * scaleY);
-		});
-	}
-
-	// Draw Scores
-	const fontSize = Math.max(32, 48 * scaleX);
-	context.font = `bold ${fontSize}px Arial`;
-	context.fillStyle = "white";
-	const centerX = w / 2;
-
-	// Player 1 score (left)
-	context.textAlign = "right";
-	context.fillText(
-		`${gameState.score.p1}`,
-		centerX - 30 * scaleX,
-		60 * scaleY
-	);
-
-	// Player 2 score (right)
-	context.textAlign = "left";
-	context.fillText(
-		`${gameState.score.p2}`,
-		centerX + 30 * scaleX,
-		60 * scaleY
-	);
-};
+	drawPitch(context, canvasDimensions, scale, background);
+	drawPaddles(context, gameState, canvasDimensions, scale);
+	drawBall(context, gameState, scale);
+	drawPowerUps(context, gameState, scale);
+	drawScores(context, gameState, canvasDimensions, scale);
+}
