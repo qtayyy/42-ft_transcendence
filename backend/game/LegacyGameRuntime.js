@@ -10,7 +10,7 @@ const PADDLE_SPEED = 10;
 const BALL_SIZE = 12;
 const FPS = 60;
 const TICK_MS = 1000 / FPS;
-const BROADCAST_FPS = 30;
+const BROADCAST_FPS = 60;
 const BROADCAST_EVERY_N_TICKS = Math.max(1, Math.round(FPS / BROADCAST_FPS));
 const WIN_SCORE = 5;
 

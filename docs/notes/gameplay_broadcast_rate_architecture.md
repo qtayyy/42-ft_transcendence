@@ -2,32 +2,30 @@
 
 ## Overview
 
-This change keeps the game simulation tick at 60 FPS while reducing routine
-state broadcasts to 30 FPS.
+This change keeps routine gameplay broadcasts aligned with the 60 FPS
+simulation tick.
 
 ## Why It Helps
 
-The previous runtime sent a full match snapshot on every simulation tick. That
-meant the server was serializing and pushing gameplay state 60 times per second
-per active match.
+Power-up collisions and paddle movement are server-authoritative. When the
+client only receives routine snapshots at 30 FPS, abrupt server-side changes
+such as speed boosts or paddle-size updates can look jumpy and controls can
+feel less immediate.
 
-Reducing routine broadcast frequency lowers:
+Restoring routine snapshots to 60 FPS reduces the delay between:
 
-- WebSocket message volume
-- JSON serialization work
-- React state churn on the client
-- the chance that short event-loop hiccups turn into visible stutter
+- a key press reaching the backend and the next visible paddle update
+- a power-up being applied on the server and the next rendered ball/paddle state
 
 ## What Did Not Change
 
 - game rules
 - simulation tick rate
 - pause/resume/game-over logic
-- immediate event-driven state pushes already used by gameplay handlers
+- the overall WebSocket architecture
 
 ## Trade-off
 
-Routine visuals may now be based on 30 FPS snapshots instead of 60 FPS
-snapshots, but the server simulation still advances every 16.7ms. This is a
-deliberate trade-off to reduce transport overhead before adding any client-side
-interpolation layer.
+This increases routine WebSocket traffic compared with 30 FPS broadcasting, but
+it gives the client fresher authoritative state and is a better fit for the
+current no-interpolation renderer.
