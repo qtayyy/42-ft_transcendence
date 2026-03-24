@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { GameState, GameMode } from "@/types/game";
 import { usePongGame } from "@/hooks/usePongGame";
-import { renderGame } from "@/utils/gameRenderer";
+import { interpolateGameState, renderGame } from "@/utils/gameRenderer";
 import { GameOverOverlay } from "@/components/game/GameOverOverlay";
 import { ReadyOverlay } from "@/components/game/ReadyOverlay";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
@@ -57,6 +57,11 @@ export default function PongGame({
 		socketRef
 	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver, isAIEnabled });
 	const guardPauseSentRef = useRef(false);
+	const previousSnapshotRef = useRef<GameState | null>(null);
+	const latestSnapshotRef = useRef<GameState | null>(null);
+	const lastSnapshotAtRef = useRef(0);
+	const snapshotIntervalRef = useRef(1000 / 60);
+	const showDebugOverlay = process.env.NEXT_PUBLIC_DEBUG_GAME === "1";
 
 	// Determine Display ID & Suffix
 	let cleanId = matchId.replace(/^(local-|tournament-)/, '');
@@ -79,15 +84,75 @@ export default function PongGame({
 		? (isTournamentMatch ? `LT-${cleanId}` : `LS-${cleanId}`)
 		: cleanId;
 
+	useEffect(() => {
+		if (!gameState) return;
+
+		const now = performance.now();
+		const baseTickMs = gameState.constant?.TICK_MS || 16.67;
+		const maxInterpolationWindow = baseTickMs * 3;
+		if (
+			latestSnapshotRef.current &&
+			latestSnapshotRef.current !== gameState &&
+			latestSnapshotRef.current.status === "playing" &&
+			gameState.status === "playing"
+		) {
+			if (lastSnapshotAtRef.current > 0) {
+				const measuredInterval = now - lastSnapshotAtRef.current;
+				if (measuredInterval > maxInterpolationWindow) {
+					previousSnapshotRef.current = gameState;
+					snapshotIntervalRef.current = baseTickMs;
+				} else {
+					previousSnapshotRef.current = latestSnapshotRef.current;
+					snapshotIntervalRef.current = Math.max(8, measuredInterval);
+				}
+			} else {
+				previousSnapshotRef.current = latestSnapshotRef.current;
+			}
+		} else {
+			previousSnapshotRef.current = gameState;
+			snapshotIntervalRef.current = baseTickMs;
+		}
+
+		latestSnapshotRef.current = gameState;
+		lastSnapshotAtRef.current = now;
+	}, [gameState]);
+
 	// Game Loop / Rendering
 	useEffect(() => {
-		if (!gameState || !canvasRef.current) return;
-		const canvas = canvasRef.current;
-		const context = canvas.getContext("2d");
-		if (!context) return;
+		let frameId = 0;
 
-		renderGame(context, gameState, canvasDimensions);
-	}, [gameState, canvasDimensions]);
+		const drawFrame = (now: number) => {
+			const canvas = canvasRef.current;
+			const latestSnapshot = latestSnapshotRef.current;
+			if (!canvas || !latestSnapshot) {
+				frameId = requestAnimationFrame(drawFrame);
+				return;
+			}
+
+			const context = canvas.getContext("2d");
+			if (!context) {
+				frameId = requestAnimationFrame(drawFrame);
+				return;
+			}
+
+			const elapsedSinceSnapshot = now - lastSnapshotAtRef.current;
+			const alpha = Math.min(
+				1,
+				elapsedSinceSnapshot / Math.max(snapshotIntervalRef.current, latestSnapshot.constant.TICK_MS || 16.67)
+			);
+			const frameState = interpolateGameState(
+				previousSnapshotRef.current,
+				latestSnapshot,
+				alpha
+			);
+
+			renderGame(context, frameState, canvasDimensions);
+			frameId = requestAnimationFrame(drawFrame);
+		};
+
+		frameId = requestAnimationFrame(drawFrame);
+		return () => cancelAnimationFrame(frameId);
+	}, [canvasDimensions]);
 
 	const localGameOverResult =
 		gameState?.status === "finished"
@@ -234,7 +299,7 @@ export default function PongGame({
 			</div>
 
 			{/* DEBUG OVERLAY */}
-			{gameState && process.env.NODE_ENV === 'development' && (
+			{gameState && showDebugOverlay && (
 				<div className="absolute top-4 right-4 bg-black/80 text-white p-3 rounded-lg text-xs font-mono backdrop-blur-md z-50 border border-white/10 shadow-xl pointer-events-none mt-24">
 					<div className="flex items-center gap-2 mb-1 text-muted-foreground"><Zap className="h-3 w-3 text-yellow-500" /> Debug Info</div>
 					<div>Status: <span className="text-green-400">{gameState.status}</span></div>

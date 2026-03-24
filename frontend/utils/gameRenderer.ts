@@ -1,6 +1,48 @@
 import { GameState } from "@/types/game";
 import { getPowerUpColor, getEffectColor, getPowerUpSymbol } from "./gameHelpers";
 
+function lerp(start: number, end: number, alpha: number) {
+	return start + (end - start) * alpha;
+}
+
+export const interpolateGameState = (
+	previousGameState: GameState | null,
+	nextGameState: GameState,
+	alpha: number
+) => {
+	if (!previousGameState) return nextGameState;
+
+	if (
+		previousGameState.status !== "playing" ||
+		nextGameState.status !== "playing" ||
+		previousGameState.score.p1 !== nextGameState.score.p1 ||
+		previousGameState.score.p2 !== nextGameState.score.p2 ||
+		previousGameState.winner !== nextGameState.winner ||
+		previousGameState.result !== nextGameState.result
+	) {
+		return nextGameState;
+	}
+
+	return {
+		...nextGameState,
+		ball: {
+			...nextGameState.ball,
+			x: lerp(previousGameState.ball.x, nextGameState.ball.x, alpha),
+			y: lerp(previousGameState.ball.y, nextGameState.ball.y, alpha),
+		},
+		paddles: {
+			p1: {
+				...nextGameState.paddles.p1,
+				y: lerp(previousGameState.paddles.p1.y, nextGameState.paddles.p1.y, alpha),
+			},
+			p2: {
+				...nextGameState.paddles.p2,
+				y: lerp(previousGameState.paddles.p2.y, nextGameState.paddles.p2.y, alpha),
+			},
+		},
+	};
+};
+
 export const renderGame = (
 	context: CanvasRenderingContext2D,
 	gameState: GameState,
