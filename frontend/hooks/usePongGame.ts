@@ -28,8 +28,6 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 	const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 400 });
 
 	useEffect(() => {
-		console.log(`[usePongGame] Setting up canvas resize observer for match: ${matchId}`);
-
 		const updateCanvasSize = () => {
 			if (!containerRef.current) return;
 			const container = containerRef.current;
@@ -67,7 +65,6 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 		if (containerRef.current) resizeObserver.observe(containerRef.current);
 
 		return () => {
-			console.log(`[usePongGame] Cleaning up resize observer for match: ${matchId}`);
 			resizeObserver.disconnect();
 		};
 	}, [matchId, baseCanvasWidth, baseCanvasHeight]);
@@ -76,10 +73,7 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 	useEffect(() => {
 		if (!wsUrl) return;
 
-		console.log(`[usePongGame] Opening WebSocket connection for match: ${matchId}`);
 		const ws = new WebSocket(wsUrl);
-
-		ws.onopen = () => console.log(`[usePongGame] ✅ Connected to Game Server (Match: ${matchId})`);
 
 		ws.onmessage = (event) => {
 			try {
@@ -98,7 +92,6 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 
 		socketRef.current = ws;
 		return () => {
-			console.log(`[usePongGame] 🔌 Closing WebSocket connection for match: ${matchId}`);
 			ws.close();
 		};
 	}, [wsUrl, matchId]);
@@ -110,21 +103,16 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 	// Input Handling
 	useEffect(() => {
 		if (!wsUrl) return;
-		console.log(`[usePongGame] Registering keyboard input listeners for match: ${matchId}`);
 
 		const sendInput = (payload: object) => {
-			console.log('[usePongGame] 🎮 Attempting to send input:', payload);
-			console.log('[usePongGame] 🔌 WebSocket state:', socketRef.current?.readyState, '(1=OPEN, 0=CONNECTING, 2=CLOSING, 3=CLOSED)');
 			if (socketRef.current?.readyState === WebSocket.OPEN) {
 				socketRef.current.send(JSON.stringify(payload));
-				console.log('[usePongGame] ✅ Message sent successfully');
 			} else {
 				console.error('[usePongGame] ❌ WebSocket NOT READY! Cannot send message. State:', socketRef.current?.readyState);
 			}
 		};
 
 		const handleKeyDown = (e: KeyboardEvent) => {
-			console.log('[usePongGame] ⌨️ Key pressed:', e.key);
 			if (e.key === "w" || e.key === "W") sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 1 });
 			else if (e.key === "s" || e.key === "S") sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 1 });
 			else if (e.key === "ArrowUp") {
@@ -147,7 +135,6 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 		window.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("keyup", handleKeyUp);
 		return () => {
-			console.log(`[usePongGame] Removing keyboard input listeners for match: ${matchId}`);
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("keyup", handleKeyUp);
 		};
