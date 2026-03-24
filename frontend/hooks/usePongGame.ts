@@ -10,12 +10,136 @@ interface UsePongGameProps {
 	isAIEnabled?: boolean;
 }
 
-function getLocalMovementForKey(key: string): { player: 1 | 2; direction: "UP" | "DOWN" } | null {
-	if (key === "w" || key === "W") return { player: 1, direction: "UP" };
-	if (key === "s" || key === "S") return { player: 1, direction: "DOWN" };
-	if (key === "ArrowUp") return { player: 2, direction: "UP" };
-	if (key === "ArrowDown") return { player: 2, direction: "DOWN" };
+type LocalPlayer = 1 | 2;
+type LocalDirection = "UP" | "DOWN";
+type LocalPaddleKey = "p1" | "p2";
+type HeldDirectionState = Record<LocalPlayer, LocalDirection | null>;
+
+interface OptimisticPaddlePreview {
+	previewY: number;
+	sourceY: number;
+}
+
+type OptimisticPaddleState = Record<LocalPaddleKey, OptimisticPaddlePreview | null>;
+
+interface LocalMovement {
+	player: LocalPlayer;
+	direction: LocalDirection;
+	paddleKey: LocalPaddleKey;
+	shouldPreventDefault: boolean;
+}
+
+const DEFAULT_CANVAS_DIMENSIONS = { width: 800, height: 400 };
+const EMPTY_HELD_DIRECTIONS: HeldDirectionState = { 1: null, 2: null };
+const EMPTY_OPTIMISTIC_PADDLES: OptimisticPaddleState = { p1: null, p2: null };
+
+function getLocalMovementForKey(key: string): LocalMovement | null {
+	if (key === "w" || key === "W") {
+		return { player: 1, direction: "UP", paddleKey: "p1", shouldPreventDefault: false };
+	}
+	if (key === "s" || key === "S") {
+		return { player: 1, direction: "DOWN", paddleKey: "p1", shouldPreventDefault: false };
+	}
+	if (key === "ArrowUp") {
+		return { player: 2, direction: "UP", paddleKey: "p2", shouldPreventDefault: true };
+	}
+	if (key === "ArrowDown") {
+		return { player: 2, direction: "DOWN", paddleKey: "p2", shouldPreventDefault: true };
+	}
+
 	return null;
+}
+
+function withOptimisticPaddles(
+	baseGameState: GameState | null | undefined,
+	optimisticPaddles: OptimisticPaddleState,
+	wsUrl?: string
+) {
+	if (!wsUrl || !baseGameState) return baseGameState ?? null;
+
+	const { p1, p2 } = optimisticPaddles;
+	if (p1 === null && p2 === null) return baseGameState;
+
+	return {
+		...baseGameState,
+		paddles: {
+			...baseGameState.paddles,
+			p1: {
+				...baseGameState.paddles.p1,
+				y:
+					p1 && baseGameState.paddles.p1.y === p1.sourceY
+						? p1.previewY
+						: baseGameState.paddles.p1.y,
+			},
+			p2: {
+				...baseGameState.paddles.p2,
+				y:
+					p2 && baseGameState.paddles.p2.y === p2.sourceY
+						? p2.previewY
+						: baseGameState.paddles.p2.y,
+			},
+		},
+	};
+}
+
+function getNextOptimisticPaddleY(
+	gameState: GameState | null,
+	movement: LocalMovement
+) {
+	const currentY = gameState?.paddles[movement.paddleKey].y ?? 0;
+	const paddleHeight = gameState?.constant?.paddleHeight ?? 80;
+	const paddleSpeed = gameState?.constant?.paddleSpeed ?? 10;
+	const canvasHeight = gameState?.constant?.canvasHeight ?? 400;
+
+	if (movement.direction === "UP") {
+		return Math.max(0, currentY - paddleSpeed);
+	}
+
+	return Math.min(canvasHeight - paddleHeight, currentY + paddleSpeed);
+}
+
+function getCanvasDimensions(
+	container: HTMLDivElement,
+	baseCanvasWidth: number,
+	baseCanvasHeight: number
+) {
+	const aspectRatio = baseCanvasWidth / baseCanvasHeight;
+	const computedStyle = window.getComputedStyle(container);
+	const horizontalPadding =
+		(parseFloat(computedStyle.paddingLeft) || 0) +
+		(parseFloat(computedStyle.paddingRight) || 0);
+	const verticalPadding =
+		(parseFloat(computedStyle.paddingTop) || 0) +
+		(parseFloat(computedStyle.paddingBottom) || 0);
+
+	const maxWidth = Math.max(container.clientWidth - horizontalPadding, 0);
+	const maxHeight = Math.max(container.clientHeight - verticalPadding, 0);
+	if (!maxWidth || !maxHeight) return null;
+
+	let width = maxWidth;
+	let height = width / aspectRatio;
+
+	if (height > maxHeight) {
+		height = maxHeight;
+		width = height * aspectRatio;
+	}
+
+	width = Math.min(width, 1400);
+	height = width / aspectRatio;
+
+	return {
+		width: Math.round(width),
+		height: Math.round(height),
+	};
+}
+
+function isGameOverMessage(data: unknown): data is {
+	type: "GAME_OVER";
+	winner: number | null;
+	score: { p1: number; p2: number };
+	result?: string;
+} {
+	return typeof data === "object" && data !== null && (data as { type?: string }).type === "GAME_OVER";
 }
 
 export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isAIEnabled = false }: UsePongGameProps) {
@@ -24,94 +148,51 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 	const socketRef = useRef<WebSocket | null>(null);
 	const onGameOverRef = useRef(onGameOver);
 	const latestGameStateRef = useRef<GameState | null>(null);
-	const heldDirectionsRef = useRef<{ 1: "UP" | "DOWN" | null; 2: "UP" | "DOWN" | null }>({
-		1: null,
-		2: null,
-	});
+	const heldDirectionsRef = useRef<HeldDirectionState>({ ...EMPTY_HELD_DIRECTIONS });
 
-	// Local state for direct WebSocket mode
 	const [localGameState, setLocalGameState] = useState<GameState | null>(null);
-	const [optimisticPaddleY, setOptimisticPaddleY] = useState<{ p1: number | null; p2: number | null }>({
-		p1: null,
-		p2: null,
-	});
+	const [optimisticPaddles, setOptimisticPaddles] =
+		useState<OptimisticPaddleState>(EMPTY_OPTIMISTIC_PADDLES);
+	const [canvasDimensions, setCanvasDimensions] = useState(DEFAULT_CANVAS_DIMENSIONS);
 
-	// Determine active game state
-	const gameState = useMemo(() => {
-		const baseGameState = wsUrl ? localGameState : externalGameState;
-		if (!wsUrl || !baseGameState) return baseGameState;
+	const baseGameState = wsUrl ? localGameState : externalGameState;
+	const gameState = useMemo(
+		() => withOptimisticPaddles(baseGameState, optimisticPaddles, wsUrl),
+		[baseGameState, optimisticPaddles, wsUrl]
+	);
 
-		const { p1, p2 } = optimisticPaddleY;
-		if (p1 === null && p2 === null) return baseGameState;
-
-		return {
-			...baseGameState,
-			paddles: {
-				...baseGameState.paddles,
-				p1: {
-					...baseGameState.paddles.p1,
-					y: p1 ?? baseGameState.paddles.p1.y,
-				},
-				p2: {
-					...baseGameState.paddles.p2,
-					y: p2 ?? baseGameState.paddles.p2.y,
-				},
-			},
-		};
-	}, [wsUrl, localGameState, externalGameState, optimisticPaddleY]);
-	const baseCanvasWidth = gameState?.constant?.canvasWidth || 800;
-	const baseCanvasHeight = gameState?.constant?.canvasHeight || 400;
+	const baseCanvasWidth = gameState?.constant?.canvasWidth || DEFAULT_CANVAS_DIMENSIONS.width;
+	const baseCanvasHeight = gameState?.constant?.canvasHeight || DEFAULT_CANVAS_DIMENSIONS.height;
 
 	useEffect(() => {
 		latestGameStateRef.current = gameState;
 	}, [gameState]);
 
-	// Responsive canvas
-	const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 400 });
-
 	useEffect(() => {
 		const updateCanvasSize = () => {
 			if (!containerRef.current) return;
-			const container = containerRef.current;
-			const aspectRatio = baseCanvasWidth / baseCanvasHeight;
-			const computed = window.getComputedStyle(container);
-			const paddingX = (parseFloat(computed.paddingLeft) || 0) + (parseFloat(computed.paddingRight) || 0);
-			const paddingY = (parseFloat(computed.paddingTop) || 0) + (parseFloat(computed.paddingBottom) || 0);
 
-			// Use actual container padding to avoid mode-specific shrink differences.
-			const maxWidth = Math.max(container.clientWidth - paddingX, 0);
-			const maxHeight = Math.max(container.clientHeight - paddingY, 0);
-			if (!maxWidth || !maxHeight) return;
+			const nextDimensions = getCanvasDimensions(
+				containerRef.current,
+				baseCanvasWidth,
+				baseCanvasHeight
+			);
+			if (!nextDimensions) return;
 
-			let width = maxWidth;
-			let height = width / aspectRatio;
-
-			// If height exceeds container, scale down
-			if (height > maxHeight) {
-				height = maxHeight;
-				width = height * aspectRatio;
-			}
-
-			// Cap extremely large desktops, but allow small windows/mobile widths.
-			width = Math.min(width, 1400);
-			height = width / aspectRatio;
-
-			setCanvasDimensions({
-				width: Math.round(width),
-				height: Math.round(height),
-			});
+			setCanvasDimensions(nextDimensions);
 		};
 
 		updateCanvasSize();
 		const resizeObserver = new ResizeObserver(updateCanvasSize);
-		if (containerRef.current) resizeObserver.observe(containerRef.current);
+		if (containerRef.current) {
+			resizeObserver.observe(containerRef.current);
+		}
 
 		return () => {
 			resizeObserver.disconnect();
 		};
 	}, [matchId, baseCanvasWidth, baseCanvasHeight]);
 
-	// WebSocket Connection
 	useEffect(() => {
 		if (!wsUrl) return;
 
@@ -120,21 +201,31 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 		ws.onmessage = (event) => {
 			try {
 				const data = JSON.parse(event.data);
-				if (data.type === "GAME_OVER") {
-					if (onGameOverRef.current) onGameOverRef.current(data.winner, data.score, data.result || "win");
-					// Store final result
-					startTransition(() => {
+
+				startTransition(() => {
+					if (isGameOverMessage(data)) {
+						if (onGameOverRef.current) {
+							onGameOverRef.current(data.winner, data.score, data.result || "win");
+						}
+
 						setLocalGameState((prev) =>
-							prev ? ({ ...prev, status: "finished", winner: data.winner, score: data.score, result: data.result }) : null
+							prev
+								? {
+										...prev,
+										status: "finished",
+										winner: data.winner,
+										score: data.score,
+										result: data.result,
+								  }
+								: null
 						);
-					});
-				} else {
-					startTransition(() => {
-						setLocalGameState(data);
-					});
-				}
-			} catch (e) {
-				console.error("[usePongGame] WS Parse Error", e);
+						return;
+					}
+
+					setLocalGameState(data);
+				});
+			} catch (error) {
+				console.error("[usePongGame] WS Parse Error", error);
 			}
 		};
 
@@ -149,75 +240,86 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 	}, [onGameOver]);
 
 	useEffect(() => {
-		if (!wsUrl || !localGameState) return;
-		setOptimisticPaddleY({ p1: null, p2: null });
-	}, [wsUrl, localGameState?.paddles.p1.y, localGameState?.paddles.p2.y]);
-
-	// Input Handling
-	useEffect(() => {
 		if (!wsUrl) return;
 
 		const sendInput = (payload: object) => {
 			if (socketRef.current?.readyState === WebSocket.OPEN) {
 				socketRef.current.send(JSON.stringify(payload));
-			} else {
-				console.error('[usePongGame] ❌ WebSocket NOT READY! Cannot send message. State:', socketRef.current?.readyState);
+				return;
 			}
+
+			console.error(
+				"[usePongGame] WebSocket not ready. Cannot send message.",
+				socketRef.current?.readyState
+			);
 		};
 
-		const handleKeyDown = (e: KeyboardEvent) => {
-			const movement = getLocalMovementForKey(e.key);
+		const handleKeyDown = (event: KeyboardEvent) => {
+			const movement = getLocalMovementForKey(event.key);
 			if (movement) {
-				if (e.repeat) return;
-				if (movement.player === 2) e.preventDefault();
+				if (event.repeat) return;
+				if (movement.shouldPreventDefault) event.preventDefault();
 				if (movement.player === 2 && isAIEnabled) return;
 				if (heldDirectionsRef.current[movement.player] === movement.direction) return;
 
 				heldDirectionsRef.current[movement.player] = movement.direction;
+				const nextOptimisticY = getNextOptimisticPaddleY(
+					latestGameStateRef.current,
+					movement
+				);
 
-				const latestGameState = latestGameStateRef.current;
-				const paddleKey = movement.player === 1 ? "p1" : "p2";
-				const currentY = latestGameState?.paddles[paddleKey].y ?? 0;
-				const paddleHeight = latestGameState?.constant?.paddleHeight ?? 80;
-				const paddleSpeed = latestGameState?.constant?.paddleSpeed ?? 10;
-				const canvasHeight = latestGameState?.constant?.canvasHeight ?? 400;
-				const nextY =
-					movement.direction === "UP"
-						? Math.max(0, currentY - paddleSpeed)
-						: Math.min(canvasHeight - paddleHeight, currentY + paddleSpeed);
-
-				setOptimisticPaddleY((prev) => ({
-					...prev,
-					[paddleKey]: nextY,
+				setOptimisticPaddles((current) => ({
+					...current,
+					[movement.paddleKey]: {
+						previewY: nextOptimisticY,
+						sourceY:
+							latestGameStateRef.current?.paddles[movement.paddleKey].y ?? 0,
+					},
 				}));
 
-				sendInput({ type: "PADDLE_MOVE", direction: movement.direction, player: movement.player });
+				sendInput({
+					type: "PADDLE_MOVE",
+					direction: movement.direction,
+					player: movement.player,
+				});
 				return;
 			}
-			else if (e.key === "Enter") sendInput({ type: "START" });
-			else if (e.key === " ") { e.preventDefault(); sendInput({ type: "PAUSE" }); }
+
+			if (event.key === "Enter") {
+				sendInput({ type: "START" });
+				return;
+			}
+
+			if (event.key === " ") {
+				event.preventDefault();
+				sendInput({ type: "PAUSE" });
+			}
 		};
 
-		const handleKeyUp = (e: KeyboardEvent) => {
-			const movement = getLocalMovementForKey(e.key);
+		const handleKeyUp = (event: KeyboardEvent) => {
+			const movement = getLocalMovementForKey(event.key);
 			if (!movement) return;
 			if (movement.player === 2 && isAIEnabled) return;
-
 			if (heldDirectionsRef.current[movement.player] !== movement.direction) return;
-			heldDirectionsRef.current[movement.player] = null;
 
-			setOptimisticPaddleY((prev) => ({
-				...prev,
-				[movement.player === 1 ? "p1" : "p2"]: null,
+			heldDirectionsRef.current[movement.player] = null;
+			setOptimisticPaddles((current) => ({
+				...current,
+				[movement.paddleKey]: null,
 			}));
 
-			sendInput({ type: "PADDLE_MOVE", direction: null, player: movement.player });
+			sendInput({
+				type: "PADDLE_MOVE",
+				direction: null,
+				player: movement.player,
+			});
 		};
 
 		window.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("keyup", handleKeyUp);
+
 		return () => {
-			heldDirectionsRef.current = { 1: null, 2: null };
+			heldDirectionsRef.current = { ...EMPTY_HELD_DIRECTIONS };
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("keyup", handleKeyUp);
 		};
@@ -228,6 +330,6 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 		canvasRef,
 		containerRef,
 		canvasDimensions,
-		socketRef
+		socketRef,
 	};
 }
