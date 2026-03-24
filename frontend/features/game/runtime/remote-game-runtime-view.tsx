@@ -1,6 +1,8 @@
 "use client";
 
+import type { Dispatch, SetStateAction } from "react";
 import type { GameState } from "@/types/game";
+import type { GameStateValue, UserProfile } from "@/types/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, ArrowLeft, Timer, Hash, Loader2 } from "lucide-react";
@@ -11,22 +13,31 @@ import { GameControlsTray } from "@/components/game/GameControlsTray";
 import { ReadyOverlay } from "@/components/game/ReadyOverlay";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
 import { GameOverOverlay } from "@/components/game/GameOverOverlay";
+import type {
+	DisconnectInfo,
+	PauseInfo,
+	RuntimeGameOverResult,
+} from "@/features/game/runtime/runtime-helpers";
+
+interface RouterLike {
+	push: (path: string) => void;
+}
 
 interface RemoteGameRuntimeViewProps {
 	matchId: string;
-	gameState: any;
+	gameState: GameStateValue | null;
 	normalizedGameState: GameState | null;
-	gameOverResult: any;
+	gameOverResult: RuntimeGameOverResult | null;
 	isSpectator: boolean;
 	returnToLobby: () => void;
-	sendSocketMessage: (payload: any) => void;
-	user: any;
-	setGameOverResult: (value: any) => void;
+	sendSocketMessage: (payload: Record<string, unknown>) => void;
+	user: UserProfile | null;
+	setGameOverResult: Dispatch<SetStateAction<RuntimeGameOverResult | null>>;
 	opponentConnected: boolean;
-	router: any;
-	gameStart: any;
-	disconnectInfo: any;
-	pauseInfo: any;
+	router: RouterLike;
+	gameStart: boolean;
+	disconnectInfo: DisconnectInfo | null;
+	pauseInfo: PauseInfo | null;
 }
 
 export default function RemoteGameRuntimeView({
@@ -45,11 +56,61 @@ export default function RemoteGameRuntimeView({
 	disconnectInfo,
 	pauseInfo,
 }: RemoteGameRuntimeViewProps) {
+	const showWaitingOverlay =
+		!!gameState &&
+		!gameState.gameStarted &&
+		!gameStart &&
+		!gameState.paused &&
+		!gameOverResult;
+	const shouldShowSpectatorWaitingOverlay = showWaitingOverlay && isSpectator;
+	const shouldShowReadyOverlay = showWaitingOverlay && !isSpectator;
+	const mySide = gameState?.me;
+	const currentPlayer =
+		mySide === "LEFT" ? gameState?.leftPlayer : gameState?.rightPlayer;
+	const currentPlayerReady = currentPlayer ? !currentPlayer.gamePaused : false;
+	const player1Ready =
+		(pauseInfo?.myReadyToResume && gameState?.me === "LEFT") ||
+		(pauseInfo?.opponentReadyToResume && gameState?.me === "RIGHT") ||
+		gameState?.resumeReady?.LEFT ||
+		false;
+	const player2Ready =
+		(pauseInfo?.myReadyToResume && gameState?.me === "RIGHT") ||
+		(pauseInfo?.opponentReadyToResume && gameState?.me === "LEFT") ||
+		gameState?.resumeReady?.RIGHT ||
+		false;
+	const pauseCurrentPlayerReady = (() => {
+		if (pauseInfo?.myReadyToResume) return true;
+		if (!gameState) return false;
+
+		const currentSide =
+			gameState.me ||
+			(String(user?.id) === String(gameState.leftPlayer?.id) ? "LEFT" : "RIGHT");
+
+		return gameState.resumeReady?.[currentSide as "LEFT" | "RIGHT"] || false;
+	})();
+	const isPaused = !gameOverResult && !!(gameState?.paused || disconnectInfo || pauseInfo);
+
+	const sendGameEvent = (keyEvent: string) => {
+		if (!gameState) return;
+
+		sendSocketMessage({
+			event: "GAME_EVENTS",
+			payload: {
+				matchId: gameState.matchId,
+				userId: user?.id,
+				keyEvent,
+			},
+		});
+	};
+
 	return (
 		<div className="h-screen pt-32 pb-4 flex flex-col overflow-hidden bg-gradient-to-b from-background to-muted/20 relative">
 			<div className="absolute inset-0 overflow-hidden pointer-events-none">
 				<div className="absolute top-[20%] left-[10%] w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
-				<div className="absolute bottom-[20%] right-[10%] w-72 h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
+				<div
+					className="absolute bottom-[20%] right-[10%] w-72 h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse"
+					style={{ animationDelay: "1s" }}
+				/>
 			</div>
 
 			<div className="shrink-0 h-24 w-full max-w-7xl mx-auto grid grid-cols-3 items-center px-8 border-b border-white/5 bg-background/40 backdrop-blur-md z-10 transition-all duration-300">
@@ -58,7 +119,10 @@ export default function RemoteGameRuntimeView({
 						REMOTE MATCH
 					</h1>
 					<div className="flex items-center gap-2">
-						<Badge variant="outline" className="inline-flex items-center justify-center gap-1 font-mono text-[10px] tracking-widest text-muted-foreground border-white/10 bg-black/20 px-3 py-1 rounded-full leading-normal">
+						<Badge
+							variant="outline"
+							className="inline-flex items-center justify-center gap-1 font-mono text-[10px] tracking-widest text-muted-foreground border-white/10 bg-black/20 px-3 py-1 rounded-full leading-normal"
+						>
 							<Hash className="h-3 w-3 opacity-50" />
 							{matchId}
 						</Badge>
@@ -68,14 +132,16 @@ export default function RemoteGameRuntimeView({
 				<div className="flex justify-center">
 					{gameState?.timer && (
 						<div className="relative group">
-							<div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-500"></div>
+							<div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-500" />
 							<div className="relative px-8 py-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg flex flex-col items-center shadow-2xl">
-								<div className={cn(
-									"text-4xl font-mono font-bold tabular-nums tracking-widest leading-none drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]",
-									gameState.timer.timeRemaining < 30000
-										? "text-red-500 animate-pulse drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]"
-										: "bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70"
-								)}>
+								<div
+									className={cn(
+										"text-4xl font-mono font-bold tabular-nums tracking-widest leading-none drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]",
+										gameState.timer.timeRemaining < 30000
+											? "text-red-500 animate-pulse drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+											: "bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70"
+									)}
+								>
 									{formatTime(gameState.timer.timeRemaining)}
 								</div>
 								<div className="flex items-center gap-1.5 text-[9px] uppercase font-bold text-muted-foreground/80 tracking-[0.2em] mt-1">
@@ -104,107 +170,77 @@ export default function RemoteGameRuntimeView({
 					) : (
 						<div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/5 border border-green-500/20 rounded-full">
 							<div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-							<span className="text-xs font-bold text-green-500 tracking-wider">LIVE</span>
+							<span className="text-xs font-bold text-green-500 tracking-wider">
+								LIVE
+							</span>
 						</div>
 					)}
 				</div>
 			</div>
 
 			<div className="flex-1 w-full relative flex items-center justify-center p-4 overflow-hidden z-0">
-					<div className="relative h-full w-full">
-						<PongGame
-							matchId={matchId}
-							mode="remote"
-							gameState={normalizedGameState}
-							layout="canvasOnly"
-							showBuiltInOverlays={false}
-						/>
+				<div className="relative h-full w-full">
+					<PongGame
+						matchId={matchId}
+						mode="remote"
+						gameState={normalizedGameState}
+						layout="canvasOnly"
+						showBuiltInOverlays={false}
+					/>
 
-						{/* Waiting for players overlay - only show when not paused */}
-						{gameState && !gameState?.gameStarted && !gameStart && !(gameState as any)?.paused && !gameOverResult && isSpectator && (
+					{shouldShowSpectatorWaitingOverlay && (
 						<div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm p-8">
 							<div className="flex flex-col items-center justify-center space-y-4">
 								<Loader2 className="h-12 w-12 text-primary animate-spin" />
-								<h3 className="text-2xl font-bold text-white">Match Starting Soon</h3>
-								<p className="text-white/80">Waiting for players to get ready...</p>
+								<h3 className="text-2xl font-bold text-white">
+									Match Starting Soon
+								</h3>
+								<p className="text-white/80">
+									Waiting for players to get ready...
+								</p>
 							</div>
 						</div>
 					)}
-
 				</div>
 			</div>
 
 			{!isSpectator && <GameControlsTray mode="remote" />}
 
-			{/* ReadyOverlay for remote matches */}
-			{gameState && !gameState.gameStarted && !gameStart && !(gameState as any)?.paused && !isSpectator && !gameOverResult && (() => {
-				const mySide = gameState.me;
-				const me = mySide === "LEFT" ? gameState.leftPlayer : gameState.rightPlayer;
-				const currentPlayerReady = !me?.gamePaused;
+			{gameState && shouldShowReadyOverlay && (
+				<ReadyOverlay
+					isOpen
+					mode="remote"
+					player1Ready={!gameState.leftPlayer?.gamePaused}
+					player2Ready={!gameState.rightPlayer?.gamePaused}
+					player1Name={gameState.leftPlayer?.username || "Player 1"}
+					player2Name={gameState.rightPlayer?.username || "Player 2"}
+					currentPlayerReady={currentPlayerReady}
+					onReady={() => sendGameEvent("START")}
+					onStart={() => sendGameEvent("START")}
+				/>
+			)}
 
-				return (
-					<ReadyOverlay
-						isOpen={true}
-						mode="remote"
-						player1Ready={!gameState.leftPlayer?.gamePaused}
-						player2Ready={!gameState.rightPlayer?.gamePaused}
-						player1Name={gameState.leftPlayer?.username || "Player 1"}
-						player2Name={gameState.rightPlayer?.username || "Player 2"}
-						currentPlayerReady={currentPlayerReady}
-						onReady={() => {
-							sendSocketMessage({
-								event: "GAME_EVENTS",
-								payload: {
-									matchId: gameState.matchId,
-									userId: user?.id,
-									keyEvent: "START",
-								},
-							});
-						}}
-						onStart={() => {
-							sendSocketMessage({
-								event: "GAME_EVENTS",
-								payload: {
-									matchId: gameState.matchId,
-									userId: user?.id,
-									keyEvent: "START",
-								},
-							});
-						}}
-					/>
-				);
-			})()}
-
-			{/* Pause Overlay (now at root level to cover entire screen) */}
 			{gameState && (
 				<PauseOverlay
-					isOpen={!gameOverResult && !!((gameState as any)?.paused || disconnectInfo || pauseInfo)}
+					isOpen={isPaused}
 					mode="remote"
 					isSpectator={isSpectator}
 					onReturnToLobby={isSpectator ? returnToLobby : undefined}
-					disconnectInfo={disconnectInfo ? {
-						disconnectedPlayer: disconnectInfo.disconnectedPlayer as "LEFT" | "RIGHT",
-						countdown: disconnectInfo.countdown
-					} : null}
+					disconnectInfo={
+						disconnectInfo
+							? {
+									disconnectedPlayer:
+										disconnectInfo.disconnectedPlayer as "LEFT" | "RIGHT",
+									countdown: disconnectInfo.countdown,
+							  }
+							: null
+					}
 					player1Name={gameState.leftPlayer?.username || "Player 1"}
 					player2Name={gameState.rightPlayer?.username || "Player 2"}
-					player1Ready={pauseInfo?.myReadyToResume && (gameState.me === "LEFT") || pauseInfo?.opponentReadyToResume && (gameState.me === "RIGHT") || gameState.resumeReady?.LEFT || false}
-					player2Ready={pauseInfo?.myReadyToResume && (gameState.me === "RIGHT") || pauseInfo?.opponentReadyToResume && (gameState.me === "LEFT") || gameState.resumeReady?.RIGHT || false}
-					currentPlayerReady={(() => {
-						if (pauseInfo?.myReadyToResume) return true;
-						const mySide = gameState.me || (String(user?.id) === String(gameState.leftPlayer?.id) ? "LEFT" : "RIGHT");
-						return gameState.resumeReady?.[mySide as "LEFT" | "RIGHT"] || false;
-					})()}
-					onResume={() => {
-						sendSocketMessage({
-							event: "GAME_EVENTS",
-							payload: {
-								matchId: gameState.matchId,
-								userId: user?.id,
-								keyEvent: "PAUSE",
-							},
-						});
-					}}
+					player1Ready={player1Ready}
+					player2Ready={player2Ready}
+					currentPlayerReady={pauseCurrentPlayerReady}
+					onResume={() => sendGameEvent("PAUSE")}
 				/>
 			)}
 
