@@ -12,10 +12,7 @@ import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/context/languageContext";
-
-const GOOGLE_AUTH_URL =
-  (process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "") +
-  "/api/auth/google/login";
+import { getGoogleAuthUrl } from "@/lib/runtime-url";
 
 export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
@@ -127,7 +124,7 @@ export default function LoginPage() {
           className="w-full flex items-center justify-center gap-2 h-10"
           aria-label={`${t["Login & Sign up"]["Login with Google"]}`}
           onClick={() => {
-            window.location.href = GOOGLE_AUTH_URL;
+            window.location.href = getGoogleAuthUrl();
           }}
         >
           <Image

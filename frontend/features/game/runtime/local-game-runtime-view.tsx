@@ -4,6 +4,7 @@ import PongGame from "@/components/game/PongGame";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, ArrowLeft } from "lucide-react";
+import { getGameWebSocketUrl } from "@/lib/runtime-url";
 
 interface LocalGameRuntimeViewProps {
 	isSpectator: boolean;
@@ -28,12 +29,6 @@ export default function LocalGameRuntimeView({
 	isTournamentMatch,
 	pauseOnGuard,
 }: LocalGameRuntimeViewProps) {
-	const query = new URLSearchParams({ matchId });
-	if (isAI) {
-		query.set("isAI", "1");
-		query.set("aiDifficulty", aiDifficulty);
-	}
-
 	return (
 		<div className="relative">
 			{isSpectator && (
@@ -56,7 +51,10 @@ export default function LocalGameRuntimeView({
 			<PongGame
 				matchId={matchId}
 				mode="local"
-				wsUrl={`wss://localhost:8443/ws/game?${query.toString()}`}
+				wsUrl={getGameWebSocketUrl(matchId, {
+					isAI,
+					aiDifficulty,
+				})}
 				isAIEnabled={isAI}
 				onGameOver={handleGameOver}
 				onExit={handleExit}

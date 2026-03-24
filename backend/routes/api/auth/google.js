@@ -12,6 +12,8 @@ const prisma = new PrismaClient();
 export default async function (fastify, opts) {
 	// Google calls this route after user sign in
 	fastify.get('/google/callback', async function (request, reply) {
+		const publicAppUrl =
+			process.env.PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://localhost:8443';
 		
 		try {
 			// 1. Exchange the temporary CODE from Google for an ACCESS TOKEN
@@ -87,7 +89,7 @@ export default async function (fastify, opts) {
 			});
 
 			// Redirect user back to the frontend
-			return (reply.redirect('https://localhost:8443/dashboard'));
+			return (reply.redirect(`${publicAppUrl}/dashboard`));
 		} catch (error) {
 			console.error("Google Auth Error: ", error);
 			return (reply.code(500).send({ error: "Authentication failed" }));

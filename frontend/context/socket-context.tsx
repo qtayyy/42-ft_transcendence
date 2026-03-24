@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { SocketContextValue } from "@/types/types";
 import { useGameDispatch } from "@/hooks/use-game";
 import { usePathname, useRouter } from "next/navigation";
+import { getWebSocketBaseUrl } from "@/lib/runtime-url";
 
 const SocketContext = createContext<SocketContextValue | null>(null);
 
@@ -87,7 +88,7 @@ export const SocketProvider = ({ children }) => {
 				return;
 			}
 
-			const websocket = new WebSocket(process.env.NEXT_PUBLIC_WS_URL || "wss://localhost:8443/ws");
+			const websocket = new WebSocket(getWebSocketBaseUrl());
 			wsRef.current = websocket;
 
 			// Heartbeat
