@@ -36,6 +36,21 @@ make ngrok-restart-backend
 
 Now open the ngrok URL in your browser.
 
+### Faster option
+
+If ngrok is already running, you can automate the `.env` update and backend recreate:
+
+```bash
+make ngrok-sync
+```
+
+This will:
+
+- read the current HTTPS tunnel from the local ngrok API
+- update `PUBLIC_APP_URL` in `backend/.env`
+- print the exact Google OAuth callback URL
+- recreate the backend container
+
 ## Google OAuth
 
 If you want Google sign-in to work, update the Google OAuth redirect URI to:
@@ -64,7 +79,6 @@ make down
 ```text
 make start
 make ngrok
-copy ngrok URL into backend/.env as PUBLIC_APP_URL
-make ngrok-restart-backend
+make ngrok-sync
 update Google redirect URI if needed
 ```
