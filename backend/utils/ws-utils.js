@@ -1,9 +1,5 @@
 export function safeSend(socket, data, userId) {
   if (!socket) {
-    if (userId) {
-      console.warn(`WS missing for user ${userId}. Was trying to send:`);
-      console.warn(data);
-    }
     return;
   }
 
@@ -14,13 +10,10 @@ export function safeSend(socket, data, userId) {
   }
 
   if (socket.readyState !== (global.WebSocket?.OPEN || 1)) {
-    // console.warn(`WS for user ${userId} is not open`);
     return;
   }
 
   try {
-    console.log(`Sending to user ${userId}:`);
-    console.log(data);
     socket.send(JSON.stringify(data));
   } catch (err) {
     console.error(`Failed to send to user ${userId}`, err);

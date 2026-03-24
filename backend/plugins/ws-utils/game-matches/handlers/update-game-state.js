@@ -21,17 +21,9 @@ export function createUpdateGameStateHandler({
       return; // Early return to prevent crash, but log the issue
     }
 
-    console.log(
-      `[updateGameState] Received ${keyEvent} from user ${userId} for match ${matchId}. gameStarted=${gameState.gameStarted}`,
-    );
-
     const uid = Number(userId);
     const leftId = Number(gameState.leftPlayer.id);
     const rightId = Number(gameState.rightPlayer.id);
-
-    console.log(
-      `[updateGameState] Comparing uid ${uid} (${typeof uid}) with matchId ${matchId}: leftId=${leftId}, rightId=${rightId}. gameStarted=${gameState.gameStarted}`,
-    );
 
     let player;
     if (uid === leftId) player = "LEFT";
@@ -58,10 +50,6 @@ export function createUpdateGameStateHandler({
         }
         gameState.resumeReady[player] = true;
 
-        console.log(
-          `[Game] Player ${player} (${userId}) is ready to resume. Resume states: LEFT=${gameState.resumeReady.LEFT}, RIGHT=${gameState.resumeReady.RIGHT}`,
-        );
-
         // Check if BOTH players are ready to resume
         if (gameState.resumeReady.LEFT && gameState.resumeReady.RIGHT) {
           // Both players agreed to resume - actually resume the game
@@ -71,17 +59,11 @@ export function createUpdateGameStateHandler({
             // Adjust timer start time to effectively "freeze" the timer during pause
             if (gameState.timer && gameState.timer.startTime) {
               gameState.timer.startTime += pauseDuration;
-              console.log(
-                `[Game] Timer adjusted by ${pauseDuration}ms for pause duration`,
-              );
             }
 
             // Adjust active effect expiry time
             if (gameState.activeEffect && gameState.activeEffect.expiresAt) {
               gameState.activeEffect.expiresAt += pauseDuration;
-              console.log(
-                `[Game] Active effect expiry adjusted by ${pauseDuration}ms`,
-              );
             }
 
             gameState.pausedAt = null;
@@ -90,7 +72,6 @@ export function createUpdateGameStateHandler({
           gameState.paused = false;
           gameState.disconnectedPlayer = null;
           gameState.resumeReady = null; // Clear resume states
-          console.log(`[Game] Both players agreed. Game resumed!`);
 
           // Notify both players that game is resuming via specialized events
           // for tactical immediate feedback (e.g. toasts)
@@ -157,7 +138,6 @@ export function createUpdateGameStateHandler({
         // (Minimum 1 second between manual pause actions)
         const lastPauseAction = gameState.lastPauseActionAt || 0;
         if (Date.now() - lastPauseAction < 1000) {
-          console.log(`[Game] Ignoring rapid pause toggle from user ${userId}`);
           return;
         }
 
@@ -167,7 +147,6 @@ export function createUpdateGameStateHandler({
         gameState.lastPauseActionAt = gameState.pausedAt;
         gameState.pausedBy = player;
         gameState.resumeReady = { LEFT: false, RIGHT: false }; // Reset resume states
-        console.log(`[Game] Paused by user ${userId} (${player}) via SPACE`);
 
         // Notify both players about pause via specialized event
         const leftSocket = fastify.onlineUsers.get(
@@ -210,9 +189,6 @@ export function createUpdateGameStateHandler({
       // Once gameStarted is true, ENTER should not toggle ready state
       if (!gameState.gameStarted) {
         currentPlayer.gamePaused = !currentPlayer.gamePaused;
-        console.log(
-          `[updateGameState] Toggled ready state for ${player} (userId: ${uid}). Now gamePaused: ${currentPlayer.gamePaused}`,
-        );
         // Broadcast immediately so UI updates for both players
         broadcastState(gameState, fastify);
       }
@@ -230,17 +206,15 @@ export function createUpdateGameStateHandler({
       // Mark game as started - prevents ENTER from toggling ready state again
       if (!gameState.gameStarted) {
         gameState.gameStarted = true;
-        console.log(
-          `[updateGameState] STARTING GAME! Both players ready. matchId: ${matchId}`,
-        );
-      } else {
-        console.log(`[updateGameState] RESUMING GAME! matchId: ${matchId}`);
       }
       startGameLoop(gameState);
-    } else {
-      console.log(
-        `[updateGameState] Start condition not met: leftReady=${!gameState.leftPlayer.gamePaused}, rightReady=${!gameState.rightPlayer.gamePaused}, paused=${gameState.paused}`,
-      );
+    }
+
+    if (
+      gameState.leftPlayer.gamePaused ||
+      gameState.rightPlayer.gamePaused ||
+      gameState.paused
+    ) {
       // Broadcast state change (e.g. one player ready) so UI updates
       broadcastState(gameState, fastify);
     }
