@@ -50,7 +50,12 @@ ngrok:
 	@command -v ngrok >/dev/null 2>&1 || (echo "ngrok is not installed. Install it first, then run 'ngrok config add-authtoken <token>'."; exit 1)
 	@ngrok http https://localhost:8443 --upstream-tls-verify=false
 
+# make ngrok-sync GOOGLE_CONSOLE_URL='https://console.cloud.google.com/auth/clients/XXXXX'
+ngrok-sync:
+	@node ./scripts/sync-ngrok-url.mjs "$(GOOGLE_CONSOLE_URL)"
+	@docker compose -f ./compose.yaml up -d --force-recreate backend
+
 ngrok-restart-backend:
 	@docker compose -f ./compose.yaml up -d --force-recreate backend
 
-.PHONY: all build start dev stop down logs clean prune re ngrok ngrok-restart-backend
+.PHONY: all build start dev stop down logs clean prune re ngrok ngrok-sync ngrok-restart-backend
