@@ -2,6 +2,7 @@
 
 import {
 	createContext,
+	startTransition,
 	useRef,
 	useEffect,
 	useContext,
@@ -17,6 +18,27 @@ import { usePathname, useRouter } from "next/navigation";
 import { getWebSocketBaseUrl } from "@/lib/runtime-url";
 
 const SocketContext = createContext<SocketContextValue | null>(null);
+
+function hasSamePowerUps(prevPowerUps: any[] = [], nextPowerUps: any[] = []) {
+	if (prevPowerUps.length !== nextPowerUps.length) return false;
+
+	return prevPowerUps.every((powerUp, index) => {
+		const nextPowerUp = nextPowerUps[index];
+		return (
+			powerUp?.id === nextPowerUp?.id &&
+			powerUp?.type === nextPowerUp?.type &&
+			powerUp?.x === nextPowerUp?.x &&
+			powerUp?.y === nextPowerUp?.y
+		);
+	});
+}
+
+function hasSameActiveEffect(prevEffect: any, nextEffect: any) {
+	return (
+		prevEffect?.type === nextEffect?.type &&
+		prevEffect?.expiresAt === nextEffect?.expiresAt
+	);
+}
 
 export const SocketProvider = ({ children }) => {
 	const wsRef = useRef<WebSocket | null>(null);
@@ -356,36 +378,50 @@ export const SocketProvider = ({ children }) => {
 								}
 
 								// Only update if something actually changed to avoid excessive re-render loops
-								stableDeps.current.setGameState((prev: any) => {
-									if (!prev) return { ...payload };
+								startTransition(() => {
+									stableDeps.current.setGameState((prev: any) => {
+										if (!prev) return { ...payload };
 
-									// Increased threshold for ball movement to avoid jitter/loops if updates are too fast
-									const ballMovedSignificantly =
-										Math.abs((prev.ball?.posX || 0) - (payload.ball?.posX || 0)) > 0.1 ||
-										Math.abs((prev.ball?.posY || 0) - (payload.ball?.posY || 0)) > 0.1;
-									const disconnectStateChanged =
-										prev.disconnectedPlayer !== payload.disconnectedPlayer ||
-										prev.pausedAt !== payload.pausedAt ||
-										prev.disconnectCountdown?.disconnectedPlayer !== payload.disconnectCountdown?.disconnectedPlayer ||
-										prev.disconnectCountdown?.gracePeriodEndsAt !== payload.disconnectCountdown?.gracePeriodEndsAt;
+										// Remote matches are server-authoritative, so dedupe must still
+										// notice effect/power-up snapshots even when paddles barely move.
+										const ballMovedSignificantly =
+											Math.abs((prev.ball?.posX || 0) - (payload.ball?.posX || 0)) > 0.1 ||
+											Math.abs((prev.ball?.posY || 0) - (payload.ball?.posY || 0)) > 0.1;
+										const disconnectStateChanged =
+											prev.disconnectedPlayer !== payload.disconnectedPlayer ||
+											prev.pausedAt !== payload.pausedAt ||
+											prev.disconnectCountdown?.disconnectedPlayer !== payload.disconnectCountdown?.disconnectedPlayer ||
+											prev.disconnectCountdown?.gracePeriodEndsAt !== payload.disconnectCountdown?.gracePeriodEndsAt;
+										const powerUpsChanged = !hasSamePowerUps(prev.powerUps, payload.powerUps);
+										const activeEffectChanged = !hasSameActiveEffect(prev.activeEffect, payload.activeEffect);
+										const paddleSizingChanged =
+											prev.leftPlayer?.paddleHeight !== payload.leftPlayer?.paddleHeight ||
+											prev.rightPlayer?.paddleHeight !== payload.rightPlayer?.paddleHeight;
+										const ballSizingChanged =
+											prev.constant?.ballSize !== payload.constant?.ballSize;
 
-									if (prev.matchId === payload.matchId &&
-										!ballMovedSignificantly &&
-										!disconnectStateChanged &&
-										prev.leftPlayer?.score === payload.leftPlayer?.score &&
-										prev.rightPlayer?.score === payload.rightPlayer?.score &&
-										prev.leftPlayer?.gamePaused === payload.leftPlayer?.gamePaused &&
-										prev.rightPlayer?.gamePaused === payload.rightPlayer?.gamePaused &&
-										prev.gameStarted === payload.gameStarted &&
-										prev.paused === payload.paused &&
-										prev.resumeReady?.LEFT === payload.resumeReady?.LEFT &&
-										prev.resumeReady?.RIGHT === payload.resumeReady?.RIGHT &&
-										prev.leftPlayer?.paddleY === payload.leftPlayer?.paddleY &&
-										prev.rightPlayer?.paddleY === payload.rightPlayer?.paddleY
-									) {
-										return prev;
-									}
-									return { ...payload };
+										if (prev.matchId === payload.matchId &&
+											!ballMovedSignificantly &&
+											!disconnectStateChanged &&
+											!powerUpsChanged &&
+											!activeEffectChanged &&
+											!paddleSizingChanged &&
+											!ballSizingChanged &&
+											prev.leftPlayer?.score === payload.leftPlayer?.score &&
+											prev.rightPlayer?.score === payload.rightPlayer?.score &&
+											prev.leftPlayer?.gamePaused === payload.leftPlayer?.gamePaused &&
+											prev.rightPlayer?.gamePaused === payload.rightPlayer?.gamePaused &&
+											prev.gameStarted === payload.gameStarted &&
+											prev.paused === payload.paused &&
+											prev.resumeReady?.LEFT === payload.resumeReady?.LEFT &&
+											prev.resumeReady?.RIGHT === payload.resumeReady?.RIGHT &&
+											prev.leftPlayer?.paddleY === payload.leftPlayer?.paddleY &&
+											prev.rightPlayer?.paddleY === payload.rightPlayer?.paddleY
+										) {
+											return prev;
+										}
+										return { ...payload };
+									});
 								});
 								break;
 
