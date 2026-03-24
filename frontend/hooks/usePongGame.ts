@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { GameState, GameMode } from "@/types/game";
 
 export const defaultBindings = {
@@ -19,19 +19,65 @@ interface UsePongGameProps {
 	isAIEnabled?: boolean;
 }
 
+function isBoundKey(pressed: string, binding: string): boolean {
+	return pressed.toLowerCase() === binding.toLowerCase();
+}
+
+function getLocalMovementForKey(key: string, bindings: KeyBindings): { player: 1 | 2; direction: "UP" | "DOWN" } | null {
+	if (isBoundKey(key, bindings.p1Up)) return { player: 1, direction: "UP" };
+	if (isBoundKey(key, bindings.p1Down)) return { player: 1, direction: "DOWN" };
+	if (isBoundKey(key, bindings.p2Up)) return { player: 2, direction: "UP" };
+	if (isBoundKey(key, bindings.p2Down)) return { player: 2, direction: "DOWN" };
+	return null;
+}
+
 export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isAIEnabled = false }: UsePongGameProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const socketRef = useRef<WebSocket | null>(null);
 	const onGameOverRef = useRef(onGameOver);
+	const latestGameStateRef = useRef<GameState | null>(null);
+	const heldDirectionsRef = useRef<{ 1: "UP" | "DOWN" | null; 2: "UP" | "DOWN" | null }>({
+		1: null,
+		2: null,
+	});
 
 	// Local state for direct WebSocket mode
 	const [localGameState, setLocalGameState] = useState<GameState | null>(null);
+	const [optimisticPaddleY, setOptimisticPaddleY] = useState<{ p1: number | null; p2: number | null }>({
+		p1: null,
+		p2: null,
+	});
 
 	// Determine active game state
-	const gameState = wsUrl ? localGameState : externalGameState;
+	const gameState = useMemo(() => {
+		const baseGameState = wsUrl ? localGameState : externalGameState;
+		if (!wsUrl || !baseGameState) return baseGameState;
+
+		const { p1, p2 } = optimisticPaddleY;
+		if (p1 === null && p2 === null) return baseGameState;
+
+		return {
+			...baseGameState,
+			paddles: {
+				...baseGameState.paddles,
+				p1: {
+					...baseGameState.paddles.p1,
+					y: p1 ?? baseGameState.paddles.p1.y,
+				},
+				p2: {
+					...baseGameState.paddles.p2,
+					y: p2 ?? baseGameState.paddles.p2.y,
+				},
+			},
+		};
+	}, [wsUrl, localGameState, externalGameState, optimisticPaddleY]);
 	const baseCanvasWidth = gameState?.constant?.canvasWidth || 800;
 	const baseCanvasHeight = gameState?.constant?.canvasHeight || 400;
+
+	useEffect(() => {
+		latestGameStateRef.current = gameState;
+	}, [gameState]);
 
 	// Responsive canvas
 	const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 400 });
@@ -104,11 +150,17 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 			try {
 				const data = JSON.parse(event.data);
 				if (data.type === "GAME_OVER") {
-					if (onGameOverRef.current) onGameOverRef.current(data.winner, data.score, data.result || 'win');
+					if (onGameOverRef.current) onGameOverRef.current(data.winner, data.score, data.result || "win");
 					// Store final result
-					setLocalGameState(prev => prev ? ({ ...prev, status: 'finished', winner: data.winner, score: data.score, result: data.result }) : null);
+					startTransition(() => {
+						setLocalGameState((prev) =>
+							prev ? ({ ...prev, status: "finished", winner: data.winner, score: data.score, result: data.result }) : null
+						);
+					});
 				} else {
-					setLocalGameState(data);
+					startTransition(() => {
+						setLocalGameState(data);
+					});
 				}
 			} catch (e) {
 				console.error("[usePongGame] WS Parse Error", e);
@@ -125,6 +177,11 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 		onGameOverRef.current = onGameOver;
 	}, [onGameOver]);
 
+	useEffect(() => {
+		if (!wsUrl || !localGameState) return;
+		setOptimisticPaddleY({ p1: null, p2: null });
+	}, [wsUrl, localGameState?.paddles.p1.y, localGameState?.paddles.p2.y]);
+
 	// Input Handling
 	useEffect(() => {
 		if (!wsUrl) return;
@@ -137,34 +194,59 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 			}
 		};
 
-		const matchKey = (pressed: string, binding: string) =>
-			pressed.toLowerCase() === binding.toLowerCase();
-
 		const handleKeyDown = (e: KeyboardEvent) => {
-			if (matchKey(e.key, bindings.p1Up)) sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 1 });
-			else if (matchKey(e.key, bindings.p1Down)) sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 1 });
-			else if (matchKey(e.key, bindings.p2Up)) {
-				e.preventDefault();
-				if (!isAIEnabled) sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 2 });
-			}
-			else if (matchKey(e.key, bindings.p2Down)) {
-				e.preventDefault();
-				if (!isAIEnabled) sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 2 });
+			const movement = getLocalMovementForKey(e.key, bindings);
+			if (movement) {
+				if (e.repeat) return;
+				if (movement.player === 2 || e.key.startsWith("Arrow")) e.preventDefault();
+				if (movement.player === 2 && isAIEnabled) return;
+				if (heldDirectionsRef.current[movement.player] === movement.direction) return;
+
+				heldDirectionsRef.current[movement.player] = movement.direction;
+
+				const latestGameState = latestGameStateRef.current;
+				const paddleKey = movement.player === 1 ? "p1" : "p2";
+				const currentY = latestGameState?.paddles[paddleKey].y ?? 0;
+				const paddleHeight = latestGameState?.constant?.paddleHeight ?? 80;
+				const paddleSpeed = latestGameState?.constant?.paddleSpeed ?? 10;
+				const canvasHeight = latestGameState?.constant?.canvasHeight ?? 400;
+				const nextY =
+					movement.direction === "UP"
+						? Math.max(0, currentY - paddleSpeed)
+						: Math.min(canvasHeight - paddleHeight, currentY + paddleSpeed);
+
+				setOptimisticPaddleY((prev) => ({
+					...prev,
+					[paddleKey]: nextY,
+				}));
+
+				sendInput({ type: "PADDLE_MOVE", direction: movement.direction, player: movement.player });
+				return;
 			}
 			else if (e.key === "Enter") sendInput({ type: "START" });
 			else if (e.key === " " || e.key === "Escape") { e.preventDefault(); sendInput({ type: "PAUSE" }); }
 		};
 
 		const handleKeyUp = (e: KeyboardEvent) => {
-			if (matchKey(e.key, bindings.p1Up) || matchKey(e.key, bindings.p1Down))
-				sendInput({ type: "PADDLE_MOVE", direction: null, player: 1 });
-			else if ((matchKey(e.key, bindings.p2Up) || matchKey(e.key, bindings.p2Down)) && !isAIEnabled)
-				sendInput({ type: "PADDLE_MOVE", direction: null, player: 2 });
+			const movement = getLocalMovementForKey(e.key, bindings);
+			if (!movement) return;
+			if (movement.player === 2 && isAIEnabled) return;
+
+			if (heldDirectionsRef.current[movement.player] !== movement.direction) return;
+			heldDirectionsRef.current[movement.player] = null;
+
+			setOptimisticPaddleY((prev) => ({
+				...prev,
+				[movement.player === 1 ? "p1" : "p2"]: null,
+			}));
+
+			sendInput({ type: "PADDLE_MOVE", direction: null, player: movement.player });
 		};
 
 		window.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("keyup", handleKeyUp);
 		return () => {
+			heldDirectionsRef.current = { 1: null, 2: null };
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("keyup", handleKeyUp);
 		};
