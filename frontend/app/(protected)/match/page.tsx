@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useLanguage } from "@/context/languageContext";
 import axios from "axios";
+import Achievements from "@/components/game/Achievements";
 
 type MatchResult = "win" | "loss" | "draw";
 
@@ -277,6 +278,20 @@ export default function MatchHistoryPage() {
                   </div>
                 )}
               </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Achievements Section */}
+        <div className="group relative">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500" />
+          <Card className="relative border-0 bg-card/95 backdrop-blur-sm overflow-hidden">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-2xl">Achievements</CardTitle>
+              <CardDescription>Track your unlocked achievements as you progress</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Achievements />
             </CardContent>
           </Card>
         </div>

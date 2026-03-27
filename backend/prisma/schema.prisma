@@ -32,7 +32,14 @@ model Profile {
   dob      DateTime?
   region   String?
   bio      String?
-  
+
+  // XP and progression
+  totalXP    Int @default(0)
+  level      Int @default(1)
+  totalWins  Int @default(0)
+  totalLosses Int @default(0)
+  totalDraws Int @default(0)
+
   tournaments    Tournament[]
   tournamentsWon Tournament[] @relation("TournamentWinner")
 
@@ -53,6 +60,9 @@ model Profile {
   blockedUsers Block[] @relation("Blocker")
   // Users who have blocked this profile
   blockedBy Block[] @relation("Blocked")
+
+  // Achievements
+  achievements Achievement[]
 }
 
 enum FriendshipStatus {
@@ -159,4 +169,26 @@ model Block {
   createdAt DateTime @default(now())
 
   @@unique([blockerId, blockedId])
+}
+
+enum AchievementType {
+  FIRST_WIN
+  LEVEL_5
+  LEVEL_10
+  TOTAL_WINS_10
+  TOTAL_WINS_50
+  DRAW_MATCH
+  TOURNAMENT_WIN
+}
+
+model Achievement {
+  id Int @id @default(autoincrement())
+
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId Int
+
+  achievementKey AchievementType
+  unlockedAt DateTime @default(now())
+
+  @@unique([profileId, achievementKey])
 }
