@@ -1,5 +1,5 @@
 import { activeTournaments } from "./TournamentManager.js";
-import { persistMatchRecord } from "../services/match-persistence.js";
+import { finalizeMatchResult } from "../services/match-finalization.js";
 
 // Game Constants
 const CANVAS_WIDTH = 800;
@@ -278,10 +278,10 @@ class LegacyGameRuntime {
 
     // Paddle 1 Collision
     /*
-			Hit the Center: offset is 0. The ball goes straight.
-			Hit the Top: offset is negative. The ball flies up.
-			Hit the Bottom: offset is positive. The ball flies down.
-		*/
+      Hit the Center: offset is 0. The ball goes straight.
+      Hit the Top: offset is negative. The ball flies up.
+      Hit the Bottom: offset is positive. The ball flies down.
+    */
     if (
       ball.x <= p1.x + PADDLE_WIDTH && // LEFT ball touch RIGHT paddle
       ball.x + BALL_SIZE >= p1.x && // RIGHT ball touch LEFT paddle
@@ -336,7 +336,7 @@ class LegacyGameRuntime {
       const pu = this.gameState.powerUps[i];
       const dist = Math.sqrt(
         Math.pow(ball.x + BALL_SIZE / 2 - pu.x, 2) +
-          Math.pow(ball.y + BALL_SIZE / 2 - pu.y, 2),
+        Math.pow(ball.y + BALL_SIZE / 2 - pu.y, 2),
       );
 
       // Simple circular collision check
@@ -493,23 +493,24 @@ class LegacyGameRuntime {
         return;
       }
 
-      const { match, reusedExisting } = await persistMatchRecord({
-        externalMatchId: this.matchId,
-        player1Id: p1Id,
-        player2Id: p2Id,
-        score1: this.gameState.score.p1,
-        score2: this.gameState.score.p2,
-        durationSeconds: (this.gameState.timer?.timeElapsed ?? 0) / 1000,
-        mode:
-          this.mode === "local"
-            ? "LOCAL"
-            : this.tournamentId
-              ? "REMOTE_TOURNAMENT"
-              : "REMOTE",
-        tournamentId: this.tournamentId || null,
-      });
+      const { match, reusedExisting, progressionApplied } =
+        await finalizeMatchResult({
+          externalMatchId: this.matchId,
+          player1Id: p1Id,
+          player2Id: p2Id,
+          score1: this.gameState.score.p1,
+          score2: this.gameState.score.p2,
+          durationSeconds: (this.gameState.timer?.timeElapsed ?? 0) / 1000,
+          mode:
+            this.mode === "local"
+              ? "LOCAL"
+              : this.tournamentId
+                ? "REMOTE_TOURNAMENT"
+                : "REMOTE",
+          tournamentId: this.tournamentId || null,
+        });
       console.log(
-        `Match ${this.matchId} ${reusedExisting ? "updated" : "saved"} successfully as row ${match.id}!`,
+        `Match ${this.matchId} ${reusedExisting ? "updated" : "saved"} as row ${match.id}; progression ${progressionApplied ? "applied" : "skipped"}`,
       );
     } catch (error) {
       console.error("Failed to save match:", error);

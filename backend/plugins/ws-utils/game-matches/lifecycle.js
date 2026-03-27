@@ -8,7 +8,7 @@ This module encapsulates remote match lifecycle behavior:
 ===============================================================================
 */
 
-import { persistMatchRecord } from "../../../services/match-persistence.js";
+import { finalizeMatchResult } from "../../../services/match-finalization.js";
 import {
   MATCH_DURATION,
   POWERUP_SPAWN_INTERVAL,
@@ -127,7 +127,7 @@ export function createGameLifecycle({
 
     // Save match to database
     try {
-      const { reusedExisting } = await persistMatchRecord({
+      const { reusedExisting, progressionApplied } = await finalizeMatchResult({
         externalMatchId: matchId,
         player1Id: left.id,
         player2Id: right.id,
@@ -138,7 +138,7 @@ export function createGameLifecycle({
         tournamentId: gameState.tournamentId ?? null,
       });
       console.log(
-        `Match ${matchId} ${reusedExisting ? "updated" : "saved"} to database`,
+        `Match ${matchId} ${reusedExisting ? "updated" : "saved"}; progression ${progressionApplied ? "applied" : "skipped"}`,
       );
     } catch (error) {
       console.error("Failed to save match:", error);
