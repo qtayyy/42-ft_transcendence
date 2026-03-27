@@ -4,6 +4,9 @@ import { getByKey } from "../../../services/achievement-service.js";
 const prisma = new PrismaClient();
 
 export default async function (fastify, opts) {
+  const definitionsModule = await import("./definitions.js");
+  await fastify.register(definitionsModule.default, { prefix: "/definitions" });
+
   fastify.get(
     "/",
     { onRequest: [fastify.authenticate] },
