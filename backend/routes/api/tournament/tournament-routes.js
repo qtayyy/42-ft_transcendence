@@ -1,7 +1,7 @@
 import TournamentManager, {
   activeTournaments,
 } from "../../../game/TournamentManager.js";
-import { persistMatchRecord } from "../../../services/match-persistence.js";
+import { finalizeMatchResult } from "../../../services/match-finalization.js";
 
 // Keep the route base as /api/tournament even though this file no longer uses
 // the generic "index.js" name.
@@ -217,7 +217,7 @@ export default async function (fastify, opts) {
         // Persist match to database (only when at least player1 is a registered user)
         if (!wasAlreadyCompleted && player1Id) {
           try {
-            await persistMatchRecord({
+            await finalizeMatchResult({
               externalMatchId: matchId,
               player1Id,
               player2Id: player2Id || null,
