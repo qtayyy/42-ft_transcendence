@@ -19,6 +19,7 @@ import { Users, BarChart3, PieChart, Trophy, Activity, MessageCircle, Clock, Cal
 import { useFriends } from "@/hooks/use-friends";
 import { Badge } from "@/components/ui/badge";
 import { jsPDF } from "jspdf";
+import UserStats from "@/components/game/UserStats";
 
 interface MatchEntry {
   id: number;
@@ -464,17 +465,29 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* New Game Button */}
-        <div className="flex justify-center">
+        {/* New Game & Leaderboard Buttons */}
+        <div className="flex justify-center gap-4">
           <div className="group relative">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-primary via-purple-500 to-primary rounded-xl blur opacity-50 group-hover:opacity-100 transition duration-500"></div>
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               variant="default"
-              className="relative px-8 py-6 text-lg hover:scale-[1.02] transition-all duration-300 font-bold shadow-lg" 
+              className="relative px-8 py-6 text-lg hover:scale-[1.02] transition-all duration-300 font-bold shadow-lg"
               onClick={handleNewGame}
             >
               {t.Dashboard["New Game"]}
+            </Button>
+          </div>
+
+          <div className="group relative">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 rounded-xl blur opacity-50 group-hover:opacity-100 transition duration-500"></div>
+            <Button
+              size="lg"
+              variant="default"
+              className="relative px-8 py-6 text-lg hover:scale-[1.02] transition-all duration-300 font-bold shadow-lg bg-amber-600 hover:bg-amber-700"
+              onClick={() => router.push("/leaderboard")}
+            >
+              Leaderboard
             </Button>
           </div>
         </div>
@@ -587,7 +600,12 @@ export default function DashboardPage() {
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+          {/* User Stats */}
+          <div>
+            <UserStats />
+          </div>
+
           {/* Friends Section */}
           <div className="group relative">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur opacity-25 group-hover:opacity-100 transition duration-500"></div>
