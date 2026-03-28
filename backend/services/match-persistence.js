@@ -108,7 +108,8 @@ export async function persistMatchRecord({
   durationSeconds,
   mode,
   tournamentId,
-}) {
+}, options = {}) {
+  const prismaClient = options.prismaClient ?? prisma;
   const normalizedExternalMatchId = toExternalMatchId(externalMatchId);
   const normalizedTournamentId = toOptionalInt(tournamentId);
   const data = {
@@ -123,16 +124,16 @@ export async function persistMatchRecord({
   };
 
   if (!normalizedExternalMatchId) {
-    const match = await prisma.match.create({ data });
+    const match = await prismaClient.match.create({ data });
     return { match, reusedExisting: false };
   }
 
-  const existing = await prisma.match.findUnique({
+  const existing = await prismaClient.match.findUnique({
     where: { externalMatchId: normalizedExternalMatchId },
     select: { id: true },
   });
 
-  const match = await prisma.match.upsert({
+  const match = await prismaClient.match.upsert({
     where: { externalMatchId: normalizedExternalMatchId },
     update: data,
     create: {

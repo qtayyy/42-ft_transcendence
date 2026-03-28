@@ -9,6 +9,8 @@ interface LocalGameRuntimeViewProps {
 	isSpectator: boolean;
 	returnToLobby: () => void;
 	matchId: string;
+	isAI: boolean;
+	aiDifficulty: "easy" | "medium" | "hard";
 	handleGameOver: (winner: number | null, score: { p1: number; p2: number }, result: string) => Promise<void>;
 	handleExit: () => void;
 	isTournamentMatch: boolean;
@@ -19,11 +21,19 @@ export default function LocalGameRuntimeView({
 	isSpectator,
 	returnToLobby,
 	matchId,
+	isAI,
+	aiDifficulty,
 	handleGameOver,
 	handleExit,
 	isTournamentMatch,
 	pauseOnGuard,
 }: LocalGameRuntimeViewProps) {
+	const query = new URLSearchParams({ matchId });
+	if (isAI) {
+		query.set("isAI", "1");
+		query.set("aiDifficulty", aiDifficulty);
+	}
+
 	return (
 		<div className="relative">
 			{isSpectator && (
@@ -46,7 +56,8 @@ export default function LocalGameRuntimeView({
 			<PongGame
 				matchId={matchId}
 				mode="local"
-				wsUrl={`wss://localhost:8443/ws/game?matchId=${matchId}`}
+				wsUrl={`wss://localhost:8443/ws/game?${query.toString()}`}
+				isAIEnabled={isAI}
 				onGameOver={handleGameOver}
 				onExit={handleExit}
 				isTournamentMatch={isTournamentMatch}

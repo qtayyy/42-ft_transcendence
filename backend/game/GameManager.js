@@ -5,8 +5,8 @@ class GameManager {
 		this.activeGames = new Map(); // stores matchId -> game instance
 	}
 
-	createGame(matchId, mode, tournamentId = null) {
-		const newGame = new LegacyGameRuntime(matchId, mode, tournamentId);
+	createGame(matchId, mode, tournamentId = null, options = {}) {
+		const newGame = new LegacyGameRuntime(matchId, mode, tournamentId, options);
 		this.activeGames.set(matchId, newGame);
 		return (newGame);
 	}
