@@ -20,11 +20,63 @@ const POWERUP_SIZE = 20;
 const POWERUP_SPAWN_INTERVAL_MS = 10000; // Spawn every 10 seconds
 const POWERUP_DURATION_MS = 5000; // Effect duration
 
+const AI_DIFFICULTY_FALLBACK = "medium";
+const AI_DIFFICULTY_VALUES = new Set(["easy", "medium", "hard"]);
+const AI_PROFILES = {
+  easy: {
+    decisionIntervalMinMs: 130,
+    decisionIntervalMaxMs: 200,
+    deadzonePx: 26,
+    noisePx: 22,
+    mistakeChance: 0.12,
+    offscreenTrackingBias: 0.12,
+  },
+  medium: {
+    decisionIntervalMinMs: 90,
+    decisionIntervalMaxMs: 150,
+    deadzonePx: 16,
+    noisePx: 12,
+    mistakeChance: 0.07,
+    offscreenTrackingBias: 0.2,
+  },
+  hard: {
+    decisionIntervalMinMs: 55,
+    decisionIntervalMaxMs: 105,
+    deadzonePx: 9,
+    noisePx: 6,
+    mistakeChance: 0.03,
+    offscreenTrackingBias: 0.32,
+  },
+};
+
+function toAIDifficulty(value) {
+  if (typeof value !== "string") {
+    return AI_DIFFICULTY_FALLBACK;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return AI_DIFFICULTY_VALUES.has(normalized)
+    ? normalized
+    : AI_DIFFICULTY_FALLBACK;
+}
+
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min);
+}
+
 class LegacyGameRuntime {
-  constructor(matchId, mode, tournamentId = null) {
+  constructor(matchId, mode, tournamentId = null, options = {}) {
     this.matchId = matchId;
     this.mode = mode; // local or remote
     this.tournamentId = tournamentId;
+    this.isAIEnabled =
+      mode === "local" &&
+      Boolean(options?.isAI) &&
+      !(typeof matchId === "string" && matchId.startsWith("local-tournament-"));
+    this.aiDifficulty = toAIDifficulty(options?.aiDifficulty);
+    this.aiProfile = AI_PROFILES[this.aiDifficulty] ?? AI_PROFILES.medium;
+    this.aiNextDecisionAt = 0;
+    this.aiCurrentDirection = null;
     // Store connected sockets (Player 1 and Player 2)
     this.players = {
       p1: {
@@ -170,7 +222,7 @@ class LegacyGameRuntime {
     let targetPaddle = null;
     if (this.mode === "local" && role === "host") {
       if (data.player === 1) targetPaddle = "p1";
-      if (data.player === 2) targetPaddle = "p2";
+      if (data.player === 2 && !this.isAIEnabled) targetPaddle = "p2";
     } else if (this.mode === "remote") {
       if (role === "p1") targetPaddle = "p1";
       if (role === "p2") targetPaddle = "p2";
@@ -202,6 +254,7 @@ class LegacyGameRuntime {
 
     this.loopHandle = setInterval(() => {
       this._updateTimer(); // Update timer first
+      this._updateAIPaddle();
       this._updatePaddles();
       this._spawnPowerUp(); // Try spawning
       this._updateBall();
@@ -247,6 +300,85 @@ class LegacyGameRuntime {
     let ball = this.gameState.ball;
     ball.x += ball.dx;
     ball.y += ball.dy;
+  }
+
+  _predictAIP2InterceptY() {
+    const ball = this.gameState.ball;
+    const p2 = this.gameState.paddles.p2;
+    const targetX = p2.x;
+
+    // When ball is moving away, return to a slightly biased center position.
+    if (ball.dx <= 0) {
+      return CANVAS_HEIGHT * (0.5 + this.aiProfile.offscreenTrackingBias * (Math.random() - 0.5));
+    }
+
+    let simX = ball.x;
+    let simY = ball.y;
+    let dx = ball.dx;
+    let dy = ball.dy;
+    let safety = 0;
+
+    // Mirror-bounce simulation until the ball reaches the AI paddle x.
+    while (simX < targetX && safety < 1200) {
+      simX += dx;
+      simY += dy;
+
+      if (simY <= 0) {
+        simY = 0;
+        dy = Math.abs(dy);
+      } else if (simY + BALL_SIZE >= CANVAS_HEIGHT) {
+        simY = CANVAS_HEIGHT - BALL_SIZE;
+        dy = -Math.abs(dy);
+      }
+
+      safety += 1;
+    }
+
+    return simY + BALL_SIZE / 2;
+  }
+
+  _updateAIPaddle() {
+    if (!this.isAIEnabled || this.mode !== "local") {
+      return;
+    }
+
+    const now = Date.now();
+    if (now < this.aiNextDecisionAt) {
+      this.gameState.paddles.p2.moving = this.aiCurrentDirection;
+      return;
+    }
+
+    const predictedCenterY = this._predictAIP2InterceptY();
+    const noisyTargetY = predictedCenterY + randomBetween(-this.aiProfile.noisePx, this.aiProfile.noisePx);
+    const p2 = this.gameState.paddles.p2;
+    const paddleCenterY = p2.y + PADDLE_HEIGHT / 2;
+    const diff = noisyTargetY - paddleCenterY;
+
+    let direction = null;
+    if (Math.abs(diff) > this.aiProfile.deadzonePx) {
+      direction = diff > 0 ? "DOWN" : "UP";
+    }
+
+    // Human-like imperfection: occasional hesitation or wrong adjustment.
+    if (Math.random() < this.aiProfile.mistakeChance) {
+      const mistakeRoll = Math.random();
+      if (mistakeRoll < 0.6) {
+        direction = null;
+      } else if (direction === "UP") {
+        direction = "DOWN";
+      } else if (direction === "DOWN") {
+        direction = "UP";
+      }
+    }
+
+    this.aiCurrentDirection = direction;
+    this.gameState.paddles.p2.moving = direction;
+    this.aiNextDecisionAt =
+      now +
+      randomBetween(
+        this.aiProfile.decisionIntervalMinMs,
+        this.aiProfile.decisionIntervalMaxMs,
+      );
   }
 
   _resetBall(toRight = true) {

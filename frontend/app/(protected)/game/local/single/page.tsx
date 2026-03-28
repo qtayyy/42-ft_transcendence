@@ -9,11 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, UserPlus, X, Play, ArrowLeft, Gamepad2 } from "lucide-react";
 
+type AIDifficulty = "easy" | "medium" | "hard";
+
 export default function LocalSingleMatchPage() {
 	const router = useRouter();
 	const { user } = useAuth();
 	const [tempPlayerName, setTempPlayerName] = useState("");
-	const [player2, setPlayer2] = useState<{name: string; isTemp: boolean} | null>(null);
+	const [player2, setPlayer2] = useState<{ name: string; isTemp: boolean } | null>(null);
+	const [isAIOpponent, setIsAIOpponent] = useState(false);
+	const [aiDifficulty, setAIDifficulty] = useState<AIDifficulty>("medium");
 
 	const handleAddTempPlayer = () => {
 		if (tempPlayerName.trim()) {
@@ -30,18 +34,22 @@ export default function LocalSingleMatchPage() {
 	};
 
 	const handleStartMatch = () => {
-		if (!player2) return;
+		if (!isAIOpponent && !player2) return;
 
 		// Create match data
 		const matchData = {
 			matchId: `local-${Date.now()}`,
 			mode: "local",
+			isAI: isAIOpponent,
+			aiDifficulty,
 			player1: {
 				id: user?.id,
-				name: user?.username || "You", 
+				name: user?.username || "You",
 				isTemp: false
 			},
-			player2: player2
+			player2: isAIOpponent
+				? { name: `AI (${aiDifficulty})`, isTemp: true, isAI: true }
+				: player2
 		};
 
 		// Store match data
@@ -54,10 +62,10 @@ export default function LocalSingleMatchPage() {
 	return (
 		<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
 			<div className="w-full max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-8">
-				
+
 				<div className="flex items-center justify-between">
-					<Button 
-						variant="ghost" 
+					<Button
+						variant="ghost"
 						onClick={() => router.push("/game/new/local")}
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
@@ -87,6 +95,45 @@ export default function LocalSingleMatchPage() {
 						</CardHeader>
 
 						<CardContent className="space-y-8 relative z-10 pt-6">
+							<div className="space-y-4 rounded-xl border bg-background/40 p-4">
+								<div className="flex items-center justify-between">
+									<div>
+										<p className="text-sm font-semibold">AI Opponent Mode</p>
+										<p className="text-xs text-muted-foreground">
+											Toggle to play against a bot in Local 1v1.
+										</p>
+									</div>
+									<Button
+										type="button"
+										variant={isAIOpponent ? "default" : "outline"}
+										onClick={() => setIsAIOpponent((prev) => !prev)}
+									>
+										{isAIOpponent ? "Enabled" : "Disabled"}
+									</Button>
+								</div>
+
+								{isAIOpponent && (
+									<div className="space-y-2">
+										<Label className="text-xs uppercase tracking-wider text-muted-foreground">
+											AI Difficulty
+										</Label>
+										<div className="grid grid-cols-3 gap-2">
+											{(["easy", "medium", "hard"] as const).map((difficulty) => (
+												<Button
+													key={difficulty}
+													type="button"
+													variant={aiDifficulty === difficulty ? "default" : "outline"}
+													onClick={() => setAIDifficulty(difficulty)}
+													className="capitalize"
+												>
+													{difficulty}
+												</Button>
+											))}
+										</div>
+									</div>
+								)}
+							</div>
+
 							{/* Players Arena */}
 							<div className="grid gap-6">
 								{/* Player 1 */}
@@ -117,7 +164,23 @@ export default function LocalSingleMatchPage() {
 
 								{/* Player 2 */}
 								<div className="relative group/p2">
-									{!player2 ? (
+									{isAIOpponent ? (
+										<div className="relative group/card-p2">
+											<div className="absolute -inset-0.5 bg-gradient-to-r from-fuchsia-500/20 to-violet-500/20 rounded-xl blur opacity-0 group-hover/card-p2:opacity-100 transition duration-500"></div>
+											<div className="relative flex items-center gap-4 p-4 bg-background/50 border rounded-xl hover:bg-background/80 transition-colors">
+												<div className="relative">
+													<div className="absolute -inset-1 bg-gradient-to-br from-fuchsia-500 to-violet-500 rounded-full blur opacity-40"></div>
+													<div className="relative p-3 bg-card rounded-full border">
+														<Gamepad2 className="h-6 w-6 text-fuchsia-500" />
+													</div>
+												</div>
+												<div className="flex-1">
+													<Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Player 2 (AI)</Label>
+													<p className="font-bold text-lg leading-tight capitalize">{aiDifficulty} Bot</p>
+												</div>
+											</div>
+										</div>
+									) : !player2 ? (
 										<div className="space-y-4 p-6 border-2 border-dashed rounded-xl bg-muted/10 hover:bg-muted/20 transition-colors text-center">
 											<div className="space-y-2">
 												<h3 className="font-medium">Challenger Awaits</h3>
@@ -171,7 +234,7 @@ export default function LocalSingleMatchPage() {
 							<div className="space-y-6 pt-6">
 								<Button
 									onClick={handleStartMatch}
-									disabled={!player2}
+									disabled={!isAIOpponent && !player2}
 									size="lg"
 									className="w-full text-lg h-16 font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-xl shadow-purple-500/20 transition-all hover:scale-[1.02]"
 								>
@@ -187,9 +250,15 @@ export default function LocalSingleMatchPage() {
 									</div>
 									<div className="w-px bg-border"></div>
 									<div className="flex gap-2 items-center">
-										<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">↑</span>
-										<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">↓</span>
-										<span className="font-medium">Player 2</span>
+										{isAIOpponent ? (
+											<span className="font-medium capitalize">AI ({aiDifficulty}) controls Player 2</span>
+										) : (
+											<>
+												<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">↑</span>
+												<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">↓</span>
+												<span className="font-medium">Player 2</span>
+											</>
+										)}
 									</div>
 								</div>
 							</div>
