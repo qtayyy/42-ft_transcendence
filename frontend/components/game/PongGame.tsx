@@ -30,6 +30,7 @@ interface PongGameProps {
 	onStart?: () => void;
 	onPauseToggle?: () => void;
 	pauseOnGuard?: boolean;
+	isAIEnabled?: boolean;
 }
 
 export default function PongGame({
@@ -46,6 +47,7 @@ export default function PongGame({
 	onStart,
 	onPauseToggle,
 	pauseOnGuard = false,
+	isAIEnabled = false,
 }: PongGameProps) {
 	const {
 		gameState,
@@ -53,7 +55,7 @@ export default function PongGame({
 		containerRef,
 		canvasDimensions,
 		socketRef
-	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver });
+	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver, isAIEnabled });
 	const guardPauseSentRef = useRef(false);
 
 	// Determine Display ID & Suffix
@@ -224,7 +226,7 @@ export default function PongGame({
 
 	return (
 		<div className="h-screen pt-32 pb-4 flex flex-col overflow-hidden bg-gradient-to-b from-background to-muted/20 relative">
-			
+
 			{/* Decorative Background Elements */}
 			<div className="absolute inset-0 overflow-hidden pointer-events-none">
 				<div className="absolute top-[20%] left-[10%] w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
@@ -239,10 +241,10 @@ export default function PongGame({
 					<div>Ball: ({gameState.ball?.x?.toFixed(0)}, {gameState.ball?.y?.toFixed(0)})</div>
 				</div>
 			)}
-			
+
 			{/* Header (Fixed Height) */}
 			<div className="shrink-0 h-24 w-full max-w-7xl mx-auto grid grid-cols-3 items-center px-8 border-b border-white/5 bg-background/40 backdrop-blur-md z-10 transition-all duration-300">
-				
+
 				{/* Left: Match Info */}
 				<div className="flex flex-col items-start gap-1.5">
 					<h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 drop-shadow-sm">
@@ -269,8 +271,8 @@ export default function PongGame({
 							<div className="relative px-8 py-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg flex flex-col items-center shadow-2xl">
 								<div className={cn(
 									"text-4xl font-mono font-bold tabular-nums tracking-widest leading-none drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]",
-									gameState.timer.timeRemaining < 30000 
-										? 'text-red-500 animate-pulse drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]' 
+									gameState.timer.timeRemaining < 30000
+										? 'text-red-500 animate-pulse drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]'
 										: 'bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70'
 								)}>
 									{formatTime(gameState.timer.timeRemaining)}
@@ -294,7 +296,7 @@ export default function PongGame({
 
 			{/* Main Game Area (Flexible) */}
 			<div ref={containerRef} className="flex-1 w-full relative flex items-center justify-center p-4 overflow-hidden z-0">
-				
+
 				{/* Waiting Overlay */}
 				{showBuiltInOverlays && gameState?.status === "waiting" && (
 					<div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
@@ -316,7 +318,7 @@ export default function PongGame({
 					/>
 				)}
 
-			{/* Canvas */}
+				{/* Canvas */}
 				<div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group max-w-full">
 					<div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
 					<canvas

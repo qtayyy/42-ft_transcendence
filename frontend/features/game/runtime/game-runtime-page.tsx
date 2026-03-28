@@ -266,7 +266,7 @@ export default function GameRuntimePage() {
 			const countdownChanged =
 				disconnectInfo?.gracePeriodEndsAt !== disconnectCountdown.gracePeriodEndsAt ||
 				disconnectInfo?.disconnectedPlayer !==
-					(disconnectCountdown.disconnectedPlayer || (gameState as any)?.disconnectedPlayer);
+				(disconnectCountdown.disconnectedPlayer || (gameState as any)?.disconnectedPlayer);
 			if (countdown > 0 && (!disconnectInfo || countdownChanged)) {
 				setPauseInfo(null);
 				setDisconnectInfo({
@@ -541,27 +541,27 @@ export default function GameRuntimePage() {
 			const target = e.target as HTMLElement;
 			const link = target.closest('a[href]');
 
-				if (link) {
-					const href = link.getAttribute('href');
-					if (!href || href === '#' || href.startsWith('http')) {
-						// Allow external links, empty hrefs, and hash links
+			if (link) {
+				const href = link.getAttribute('href');
+				if (!href || href === '#' || href.startsWith('http')) {
+					// Allow external links, empty hrefs, and hash links
+					return;
+				}
+				if (href === pathname) return;
+
+				// For remote tournaments, allow moving between tournament lobby and match pages.
+				if (isRemoteGame && isTournamentMatch) {
+					const tournamentId = gameState?.tournamentId || inferredTournamentId;
+					const tournamentLobbyPath = tournamentId ? `/game/remote/tournament/${tournamentId}` : null;
+					if (
+						(tournamentLobbyPath && href.includes(tournamentLobbyPath)) ||
+						href.includes('/game/')
+					) {
 						return;
 					}
-					if (href === pathname) return;
+				}
 
-					// For remote tournaments, allow moving between tournament lobby and match pages.
-					if (isRemoteGame && isTournamentMatch) {
-						const tournamentId = gameState?.tournamentId || inferredTournamentId;
-						const tournamentLobbyPath = tournamentId ? `/game/remote/tournament/${tournamentId}` : null;
-						if (
-							(tournamentLobbyPath && href.includes(tournamentLobbyPath)) ||
-							href.includes('/game/')
-						) {
-							return;
-						}
-					}
-
-					// Block navigation to other pages and show confirmation dialog
+				// Block navigation to other pages and show confirmation dialog
 				e.preventDefault();
 				e.stopPropagation();
 
@@ -574,10 +574,10 @@ export default function GameRuntimePage() {
 		// Add click listener to catch navigation attempts
 		document.addEventListener('click', handleNavigationClick, true);
 
-			return () => {
-				window.removeEventListener("beforeunload", handleRouteChange);
-				document.removeEventListener('click', handleNavigationClick, true);
-			};
+		return () => {
+			window.removeEventListener("beforeunload", handleRouteChange);
+			document.removeEventListener('click', handleNavigationClick, true);
+		};
 	}, [
 		isTournamentMatch,
 		gameOverResult,
@@ -656,18 +656,18 @@ export default function GameRuntimePage() {
 		}
 	}, [matchId, sendSocketMessage, gameState, inferredTournamentId, router]);
 
-		const handleGameOver = async (winner: number | null, score: { p1: number; p2: number }, result: string) => {
-			console.log(`Game Over! Result: ${result}`, { winner, score });
-			const durationSeconds = Math.max(0, Math.round(((gameState as any)?.timer?.timeElapsed ?? 0) / 1000));
+	const handleGameOver = async (winner: number | null, score: { p1: number; p2: number }, result: string) => {
+		console.log(`Game Over! Result: ${result}`, { winner, score });
+		const durationSeconds = Math.max(0, Math.round(((gameState as any)?.timer?.timeElapsed ?? 0) / 1000));
 
-			if (matchData) {
-				try {
-					if (matchData.isTournamentMatch && matchData.tournamentId) {
-						const outcome = result === "draw" || winner === null ? "draw" : "win";
-						const resultPayload = {
-							matchId: matchData.matchId,
-							player1Id: matchData.player1?.id,
-							player2Id: matchData.player2?.id || null,
+		if (matchData) {
+			try {
+				if (matchData.isTournamentMatch && matchData.tournamentId) {
+					const outcome = result === "draw" || winner === null ? "draw" : "win";
+					const resultPayload = {
+						matchId: matchData.matchId,
+						player1Id: matchData.player1?.id,
+						player2Id: matchData.player2?.id || null,
 						score,
 						outcome,
 						durationSeconds,
@@ -675,36 +675,36 @@ export default function GameRuntimePage() {
 					const pendingKey = `${LOCAL_TOURNAMENT_PENDING_RESULT_PREFIX}${matchData.tournamentId}:${matchData.matchId}`;
 					// Write-through outbox: store first, then attempt network submit.
 					// This keeps tournament progression recoverable if tab closes/disconnects mid-request.
-						localStorage.setItem(
-							pendingKey,
-							JSON.stringify({
-								tournamentId: matchData.tournamentId,
-								...resultPayload,
+					localStorage.setItem(
+						pendingKey,
+						JSON.stringify({
+							tournamentId: matchData.tournamentId,
+							...resultPayload,
 							recordedAt: Date.now(),
-							})
-						);
-						try {
-							await axios.post(`/api/tournament/${matchData.tournamentId}/match-result`, resultPayload);
-							localStorage.removeItem(pendingKey);
-						} catch (submitError: any) {
-							if (handleSessionExpiredRedirect(submitError, router)) {
-								return;
-							}
-							console.error("Failed to submit tournament result immediately. Pending result kept for replay.", submitError);
+						})
+					);
+					try {
+						await axios.post(`/api/tournament/${matchData.tournamentId}/match-result`, resultPayload);
+						localStorage.removeItem(pendingKey);
+					} catch (submitError: any) {
+						if (handleSessionExpiredRedirect(submitError, router)) {
+							return;
 						}
+						console.error("Failed to submit tournament result immediately. Pending result kept for replay.", submitError);
 					}
-
-					// WS-driven matches persist on the backend runtime to keep a single
-					// source of truth for match history writes.
-				} catch (error: any) {
-					if (handleSessionExpiredRedirect(error, router)) {
-						return;
-					}
-					console.error("Failed to save match:", error);
-					toast.error("Failed to save match result.");
 				}
+
+				// WS-driven matches persist on the backend runtime to keep a single
+				// source of truth for match history writes.
+			} catch (error: any) {
+				if (handleSessionExpiredRedirect(error, router)) {
+					return;
+				}
+				console.error("Failed to save match:", error);
+				toast.error("Failed to save match result.");
 			}
-		};
+		}
+	};
 
 	const handleExit = () => {
 		localStorage.removeItem("current-match");
@@ -808,16 +808,16 @@ export default function GameRuntimePage() {
 						</p>
 						<Button
 							variant="outline"
-								onClick={async () => {
-									try {
-										await axios.post("/api/game/leave", { matchId });
-									} catch (e) {
-										if (handleSessionExpiredRedirect(e, router)) {
-											return;
-										}
-										console.error("Failed to leave game:", e);
+							onClick={async () => {
+								try {
+									await axios.post("/api/game/leave", { matchId });
+								} catch (e) {
+									if (handleSessionExpiredRedirect(e, router)) {
+										return;
 									}
-									router.push("/game/new");
+									console.error("Failed to leave game:", e);
+								}
+								router.push("/game/new");
 							}}
 							className="mt-4"
 						>
@@ -828,24 +828,24 @@ export default function GameRuntimePage() {
 			);
 		}
 
-			return (
-				<>
-					<RemoteGameRuntimeView
-						matchId={matchId}
-						gameState={gameState}
-						normalizedGameState={normalizedRemoteGameState}
-						gameOverResult={gameOverResult}
-						isSpectator={isSpectator}
-						returnToLobby={returnToLobby}
-						sendSocketMessage={sendSocketMessage}
-						user={user}
-						setGameOverResult={setGameOverResult}
-						opponentConnected={opponentConnected}
-						router={router}
-						gameStart={gameStart}
-						disconnectInfo={disconnectInfo}
-						pauseInfo={pauseInfo}
-					/>
+		return (
+			<>
+				<RemoteGameRuntimeView
+					matchId={matchId}
+					gameState={gameState}
+					normalizedGameState={normalizedRemoteGameState}
+					gameOverResult={gameOverResult}
+					isSpectator={isSpectator}
+					returnToLobby={returnToLobby}
+					sendSocketMessage={sendSocketMessage}
+					user={user}
+					setGameOverResult={setGameOverResult}
+					opponentConnected={opponentConnected}
+					router={router}
+					gameStart={gameStart}
+					disconnectInfo={disconnectInfo}
+					pauseInfo={pauseInfo}
+				/>
 				<NavigationGuard />
 			</>
 		);
@@ -853,10 +853,12 @@ export default function GameRuntimePage() {
 
 	return (
 		<>
-				<LocalGameRuntimeView
+			<LocalGameRuntimeView
 				isSpectator={isSpectator}
 				returnToLobby={returnToLobby}
 				matchId={matchId}
+				isAI={Boolean(matchData?.isAI)}
+				aiDifficulty={matchData?.aiDifficulty || "medium"}
 				handleGameOver={handleGameOver}
 				handleExit={handleExit}
 				isTournamentMatch={!!matchData?.isTournamentMatch}
