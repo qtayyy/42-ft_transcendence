@@ -2,6 +2,22 @@ import { gameManager } from "../../game/GameManager.js";
 
 // Legacy direct-game WebSocket route used by the shared local game runtime.
 
+function toAIDifficulty(value) {
+	if (typeof value !== "string") return "medium";
+	const normalized = value.trim().toLowerCase();
+	if (normalized === "easy" || normalized === "medium" || normalized === "hard") {
+		return normalized;
+	}
+	return "medium";
+}
+
+function toAIEnabled(value) {
+	if (typeof value === "boolean") return value;
+	if (typeof value !== "string") return false;
+	const normalized = value.trim().toLowerCase();
+	return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
 export default async function (fastify, opts) {
 	fastify.get(
 		"/game",  // This will be /ws/game
@@ -11,9 +27,11 @@ export default async function (fastify, opts) {
 		},
 		(connection, request) => {
 			const matchId = request.query.matchId;
+			const isAI = toAIEnabled(request.query.isAI);
+			const aiDifficulty = toAIDifficulty(request.query.aiDifficulty);
 			const userId = Number(request.user?.userId);
 
-			console.log(`[GAME WS] Client connected - matchId: ${matchId}, userId: ${userId}`);
+			console.log(`[GAME WS] Client connected - matchId: ${matchId}, userId: ${userId}, isAI: ${isAI}, aiDifficulty: ${aiDifficulty}`);
 
 			if (!matchId) {
 				console.log("[GAME WS] Error: No matchId");
@@ -45,8 +63,11 @@ export default async function (fastify, opts) {
 					}
 				}
 
-				console.log(`[GAME WS] Creating game: ${matchId} (Mode: ${mode}, Tournament: ${tournamentId})`);
-				game = gameManager.createGame(matchId, mode, tournamentId);
+				console.log(`[GAME WS] Creating game: ${matchId} (Mode: ${mode}, Tournament: ${tournamentId}, AI: ${isAI}, Difficulty: ${aiDifficulty})`);
+				game = gameManager.createGame(matchId, mode, tournamentId, {
+					isAI,
+					aiDifficulty,
+				});
 			}
 
 			const role = game.join(connection, userId);
