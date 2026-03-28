@@ -7,9 +7,10 @@ interface UsePongGameProps {
 	wsUrl?: string;
 	externalGameState?: GameState | null;
 	onGameOver?: (winner: number | null, score: { p1: number; p2: number }, result: string) => void;
+	isAIEnabled?: boolean;
 }
 
-export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: UsePongGameProps) {
+export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isAIEnabled = false }: UsePongGameProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const socketRef = useRef<WebSocket | null>(null);
@@ -65,10 +66,10 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 		const resizeObserver = new ResizeObserver(updateCanvasSize);
 		if (containerRef.current) resizeObserver.observe(containerRef.current);
 
-			return () => {
-				console.log(`[usePongGame] Cleaning up resize observer for match: ${matchId}`);
-				resizeObserver.disconnect();
-			};
+		return () => {
+			console.log(`[usePongGame] Cleaning up resize observer for match: ${matchId}`);
+			resizeObserver.disconnect();
+		};
 	}, [matchId, baseCanvasWidth, baseCanvasHeight]);
 
 	// WebSocket Connection
@@ -82,13 +83,13 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 
 		ws.onmessage = (event) => {
 			try {
-			const data = JSON.parse(event.data);
-			if (data.type === "GAME_OVER") {
-				if (onGameOverRef.current) onGameOverRef.current(data.winner, data.score, data.result || 'win');
-				// Store final result
-				setLocalGameState(prev => prev ? ({ ...prev, status: 'finished', winner: data.winner, score: data.score, result: data.result }) : null);
-			} else {
-				setLocalGameState(data);
+				const data = JSON.parse(event.data);
+				if (data.type === "GAME_OVER") {
+					if (onGameOverRef.current) onGameOverRef.current(data.winner, data.score, data.result || 'win');
+					// Store final result
+					setLocalGameState(prev => prev ? ({ ...prev, status: 'finished', winner: data.winner, score: data.score, result: data.result }) : null);
+				} else {
+					setLocalGameState(data);
 				}
 			} catch (e) {
 				console.error("[usePongGame] WS Parse Error", e);
@@ -126,25 +127,31 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver }: U
 			console.log('[usePongGame] ⌨️ Key pressed:', e.key);
 			if (e.key === "w" || e.key === "W") sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 1 });
 			else if (e.key === "s" || e.key === "S") sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 1 });
-			else if (e.key === "ArrowUp") { e.preventDefault(); sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 2 }); }
-			else if (e.key === "ArrowDown") { e.preventDefault(); sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 2 }); }
+			else if (e.key === "ArrowUp") {
+				e.preventDefault();
+				if (!isAIEnabled) sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 2 });
+			}
+			else if (e.key === "ArrowDown") {
+				e.preventDefault();
+				if (!isAIEnabled) sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 2 });
+			}
 			else if (e.key === "Enter") sendInput({ type: "START" });
 			else if (e.key === " ") { e.preventDefault(); sendInput({ type: "PAUSE" }); }
 		};
 
 		const handleKeyUp = (e: KeyboardEvent) => {
 			if (["w", "W", "s", "S"].includes(e.key)) sendInput({ type: "PADDLE_MOVE", direction: null, player: 1 });
-			else if (["ArrowUp", "ArrowDown"].includes(e.key)) sendInput({ type: "PADDLE_MOVE", direction: null, player: 2 });
+			else if (["ArrowUp", "ArrowDown"].includes(e.key) && !isAIEnabled) sendInput({ type: "PADDLE_MOVE", direction: null, player: 2 });
 		};
 
 		window.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("keyup", handleKeyUp);
-			return () => {
-				console.log(`[usePongGame] Removing keyboard input listeners for match: ${matchId}`);
-				window.removeEventListener("keydown", handleKeyDown);
-				window.removeEventListener("keyup", handleKeyUp);
-			};
-	}, [matchId, wsUrl]);
+		return () => {
+			console.log(`[usePongGame] Removing keyboard input listeners for match: ${matchId}`);
+			window.removeEventListener("keydown", handleKeyDown);
+			window.removeEventListener("keyup", handleKeyUp);
+		};
+	}, [matchId, wsUrl, isAIEnabled]);
 
 	return {
 		gameState,
