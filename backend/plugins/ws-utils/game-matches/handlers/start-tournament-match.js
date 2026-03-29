@@ -12,6 +12,7 @@ import {
   CANVAS_WIDTH,
   MATCH_DURATION,
   PADDLE_HEIGHT,
+  PADDLE_SPEED,
   PADDLE_WIDTH,
   WIN_SCORE,
 } from "../constants.js";
@@ -129,6 +130,7 @@ export function createStartTournamentMatchHandler({
         canvasHeight: CANVAS_HEIGHT,
         paddleWidth: PADDLE_WIDTH,
         paddleHeight: PADDLE_HEIGHT,
+        paddleSpeed: PADDLE_SPEED,
         ballSize: BALL_SIZE,
         winScore: WIN_SCORE,
         matchDuration: MATCH_DURATION,

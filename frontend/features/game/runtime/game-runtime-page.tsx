@@ -23,6 +23,7 @@ import {
 	shouldAllowTournamentNavigation,
 	type DisconnectInfo,
 	type LocalMatchData,
+	type MovementDirection,
 	type PauseInfo,
 	type RuntimeGameOverResult,
 } from "@/features/game/runtime/runtime-helpers";
@@ -32,6 +33,35 @@ import { handleSessionExpiredRedirect } from "@/lib/session-expired";
 const DEFAULT_PADDLE_HEIGHT = 80;
 const DEFAULT_CANVAS_HEIGHT = 350;
 const DEFAULT_PADDLE_SPEED = 10;
+const REMOTE_INPUT_PULSE_MS = Math.round(1000 / 60);
+
+interface OptimisticRemotePaddlePreview {
+	previewY: number;
+	direction: MovementDirection;
+}
+
+function getNextRemotePaddleY(
+	currentY: number,
+	direction: MovementDirection,
+	paddleHeight: number,
+	canvasHeight: number,
+	paddleSpeed: number
+) {
+	if (direction === "UP") {
+		return Math.max(0, currentY - paddleSpeed);
+	}
+
+	return Math.min(canvasHeight - paddleHeight, currentY + paddleSpeed);
+}
+
+function isRemotePreviewAhead(
+	authoritativeY: number,
+	preview: OptimisticRemotePaddlePreview
+) {
+	return preview.direction === "UP"
+		? authoritativeY > preview.previewY
+		: authoritativeY < preview.previewY;
+}
 
 export default function GameRuntimePage() {
 	const params = useParams();
@@ -51,10 +81,8 @@ export default function GameRuntimePage() {
 	const [gameOverResult, setGameOverResult] = useState<RuntimeGameOverResult | null>(null);
 	const [disconnectInfo, setDisconnectInfo] = useState<DisconnectInfo | null>(null);
 	const [pauseInfo, setPauseInfo] = useState<PauseInfo | null>(null);
-	const [optimisticPaddlePreview, setOptimisticPaddlePreview] = useState<{
-		previewY: number;
-		sourceY: number;
-	} | null>(null);
+	const [optimisticPaddlePreview, setOptimisticPaddlePreview] =
+		useState<OptimisticRemotePaddlePreview | null>(null);
 	const spectatorParam = searchParams.get("spectator") === "true";
 	// Detect spectator mode from query param or gameState
 	const isSpectator = spectatorParam || gameState?.spectatorMode === true;
@@ -88,6 +116,10 @@ export default function GameRuntimePage() {
 	const navGuardPauseSentRef = useRef(false);
 	const heldMovementKeysRef = useRef(new Set<string>());
 	const heldMovementRef = useRef<"UP" | "DOWN" | null>(null);
+	const remoteInputPulseRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
+	const remoteGameStateRef = useRef(gameState);
+	const remoteUserIdRef = useRef(user?.id);
+	const remoteCurrentPlayerSideRef = useRef<"LEFT" | "RIGHT" | null>(null);
 
 	const currentPlayerSide = useMemo(() => {
 		if (!gameState || !user?.id) return null;
@@ -96,6 +128,95 @@ export default function GameRuntimePage() {
 		if (String(gameState.rightPlayer?.id) === String(user.id)) return "RIGHT";
 		return null;
 	}, [gameState, user?.id]);
+
+	useEffect(() => {
+		remoteGameStateRef.current = gameState;
+		remoteUserIdRef.current = user?.id;
+		remoteCurrentPlayerSideRef.current = currentPlayerSide;
+	}, [gameState, user?.id, currentPlayerSide]);
+
+	const clearRemoteInputPulse = useCallback(() => {
+		if (remoteInputPulseRef.current !== null) {
+			window.clearInterval(remoteInputPulseRef.current);
+			remoteInputPulseRef.current = null;
+		}
+	}, []);
+
+	const advanceRemoteOptimisticPaddlePreview = useCallback(
+		(direction: MovementDirection) => {
+			const currentGameState = remoteGameStateRef.current;
+			const activePlayerSide = remoteCurrentPlayerSideRef.current;
+			if (!currentGameState || !activePlayerSide) return;
+
+			const currentPlayer =
+				activePlayerSide === "LEFT"
+					? currentGameState.leftPlayer
+					: currentGameState.rightPlayer;
+			const authoritativeY = currentPlayer?.paddleY ?? 0;
+			const paddleHeight =
+				currentPlayer?.paddleHeight ??
+				currentGameState.constant?.paddleHeight ??
+				DEFAULT_PADDLE_HEIGHT;
+			const canvasHeight =
+				currentGameState.constant?.canvasHeight ?? DEFAULT_CANVAS_HEIGHT;
+			const paddleSpeed =
+				currentGameState.constant?.paddleSpeed ?? DEFAULT_PADDLE_SPEED;
+
+			setOptimisticPaddlePreview((currentPreview) => {
+				const baseY =
+					currentPreview?.direction === direction
+						? direction === "UP"
+							? Math.min(currentPreview.previewY, authoritativeY)
+							: Math.max(currentPreview.previewY, authoritativeY)
+						: authoritativeY;
+
+				return {
+					previewY: getNextRemotePaddleY(
+						baseY,
+						direction,
+						paddleHeight,
+						canvasHeight,
+						paddleSpeed
+					),
+					direction,
+				};
+			});
+		},
+		[]
+	);
+
+	const sendRemoteMovementEvent = useCallback(
+		(keyEvent: string) => {
+			const currentGameState = remoteGameStateRef.current;
+			if (!currentGameState?.matchId) return;
+
+			sendSocketMessage({
+				event: "GAME_EVENTS",
+				payload: {
+					matchId: currentGameState.matchId,
+					userId: remoteUserIdRef.current,
+					keyEvent,
+				},
+			});
+		},
+		[sendSocketMessage]
+	);
+
+	const pulseRemoteMovement = useCallback(
+		(direction: MovementDirection) => {
+			advanceRemoteOptimisticPaddlePreview(direction);
+			sendRemoteMovementEvent(direction);
+		},
+		[advanceRemoteOptimisticPaddlePreview, sendRemoteMovementEvent]
+	);
+
+	const startRemoteInputPulse = useCallback(() => {
+		clearRemoteInputPulse();
+		remoteInputPulseRef.current = window.setInterval(() => {
+			if (!heldMovementRef.current) return;
+			pulseRemoteMovement(heldMovementRef.current);
+		}, REMOTE_INPUT_PULSE_MS);
+	}, [clearRemoteInputPulse, pulseRemoteMovement]);
 
 	// Notify server when player returns to game page (reconnection)
 	// Only send this if the game state shows we were disconnected, not on initial load
@@ -337,7 +458,7 @@ export default function GameRuntimePage() {
 
 	// Handle keyboard input for remote games
 	useEffect(() => {
-		if (!isRemoteGame || !isReady || !gameState || isSpectator) return;
+		if (!isRemoteGame || !isReady || isSpectator) return;
 
 		const onKeyDown = (e: KeyboardEvent) => {
 			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown", "Enter", " "];
@@ -372,35 +493,16 @@ export default function GameRuntimePage() {
 
 			if (keyEvent === "UP" || keyEvent === "DOWN") {
 				heldMovementRef.current = keyEvent;
-
-				if (currentPlayerSide) {
-					const currentPlayer =
-						currentPlayerSide === "LEFT" ? gameState.leftPlayer : gameState.rightPlayer;
-					const currentY = currentPlayer?.paddleY ?? 0;
-					const paddleHeight = currentPlayer?.paddleHeight ?? DEFAULT_PADDLE_HEIGHT;
-					const nextY =
-						keyEvent === "UP"
-							? Math.max(0, currentY - DEFAULT_PADDLE_SPEED)
-							: Math.min(DEFAULT_CANVAS_HEIGHT - paddleHeight, currentY + DEFAULT_PADDLE_SPEED);
-					setOptimisticPaddlePreview({
-						previewY: nextY,
-						sourceY: currentY,
-					});
-				}
+				pulseRemoteMovement(keyEvent);
+				startRemoteInputPulse();
+				return;
 			}
 
-			sendSocketMessage({
-				event: "GAME_EVENTS",
-				payload: {
-					matchId: gameState.matchId,
-					userId: user?.id,
-					keyEvent,
-				},
-			});
+			sendRemoteMovementEvent(keyEvent);
 		};
 
 		const onKeyUp = (e: KeyboardEvent) => {
-			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown", "Enter"];
+			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown"];
 			if (!KEYS.includes(e.key)) return;
 
 			const releasedDirection = getMovementDirectionForKey(e.key);
@@ -416,29 +518,37 @@ export default function GameRuntimePage() {
 				}
 
 				heldMovementRef.current = nextDirection;
-				setOptimisticPaddlePreview(null);
+				if (nextDirection) {
+					pulseRemoteMovement(nextDirection);
+					startRemoteInputPulse();
+					return;
+				}
 			}
 
-			sendSocketMessage({
-				event: "GAME_EVENTS",
-				payload: {
-					matchId: gameState.matchId,
-					userId: user?.id,
-					keyEvent: heldMovementRef.current || "",
-				},
-			});
+			clearRemoteInputPulse();
+			sendRemoteMovementEvent(heldMovementRef.current || "");
 		};
 
 		window.addEventListener("keydown", onKeyDown);
 		window.addEventListener("keyup", onKeyUp);
 
 		return () => {
+			clearRemoteInputPulse();
 			heldMovementKeysRef.current = new Set<string>();
 			heldMovementRef.current = null;
+			setOptimisticPaddlePreview(null);
 			window.removeEventListener("keydown", onKeyDown);
 			window.removeEventListener("keyup", onKeyUp);
 		};
-	}, [isRemoteGame, isReady, sendSocketMessage, gameState, user, isSpectator, currentPlayerSide]);
+	}, [
+		isRemoteGame,
+		isReady,
+		isSpectator,
+		clearRemoteInputPulse,
+		pulseRemoteMovement,
+		sendRemoteMovementEvent,
+		startRemoteInputPulse,
+	]);
 
 	// Refs for cleanup function to access latest state without re-running effect
 	const gameStateRef = useRef(gameState);
@@ -737,7 +847,7 @@ export default function GameRuntimePage() {
 
 		const paddleKey = currentPlayerSide === "LEFT" ? "p1" : "p2";
 		const authoritativeY = normalizedRemoteGameState.paddles[paddleKey].y;
-		if (authoritativeY !== optimisticPaddlePreview.sourceY) {
+		if (!isRemotePreviewAhead(authoritativeY, optimisticPaddlePreview)) {
 			return normalizedRemoteGameState;
 		}
 

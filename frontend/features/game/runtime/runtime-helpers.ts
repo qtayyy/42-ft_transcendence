@@ -253,6 +253,8 @@ export function normalizeRemoteGameState(
 			gameState.constant?.paddleWidth || REMOTE_RUNTIME_DEFAULTS.paddleWidth,
 		paddleHeight:
 			gameState.constant?.paddleHeight || REMOTE_RUNTIME_DEFAULTS.paddleHeight,
+		paddleSpeed:
+			gameState.constant?.paddleSpeed || REMOTE_RUNTIME_DEFAULTS.paddleSpeed,
 		ballSize: gameState.constant?.ballSize || REMOTE_RUNTIME_DEFAULTS.ballSize,
 		matchDuration:
 			gameState.constant?.matchDuration || REMOTE_RUNTIME_DEFAULTS.matchDuration,
@@ -273,7 +275,7 @@ export function normalizeRemoteGameState(
 			canvasHeight: constants.canvasHeight,
 			paddleWidth: constants.paddleWidth,
 			paddleHeight: constants.paddleHeight,
-			paddleSpeed: REMOTE_RUNTIME_DEFAULTS.paddleSpeed,
+			paddleSpeed: constants.paddleSpeed,
 			ballSize: constants.ballSize,
 			FPS: REMOTE_RUNTIME_DEFAULTS.fps,
 			TICK_MS: 1000 / REMOTE_RUNTIME_DEFAULTS.fps,

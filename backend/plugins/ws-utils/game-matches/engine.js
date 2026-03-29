@@ -40,21 +40,34 @@ export {
 // Power-up types
 const POWERUP_TYPES = ["SPEED_UP", "SPEED_DOWN", "SIZE_UP", "SIZE_DOWN"];
 
-export function updatePaddles(gameState, player) {
-  let currentPlayer = gameState.rightPlayer;
-  if (player === "LEFT") currentPlayer = gameState.leftPlayer;
-  if (currentPlayer.moving === "") return;
+function movePlayerPaddle(currentPlayer, direction) {
+  if (direction !== "UP" && direction !== "DOWN") return;
 
   // Use dynamic paddle height (may be modified by power-ups)
   const paddleHeight = currentPlayer.paddleHeight || PADDLE_HEIGHT;
 
-  if (currentPlayer.moving === "UP")
+  if (direction === "UP") {
     currentPlayer.paddleY = Math.max(0, currentPlayer.paddleY - PADDLE_SPEED);
-  else
-    currentPlayer.paddleY = Math.min(
-      CANVAS_HEIGHT - paddleHeight,
-      currentPlayer.paddleY + PADDLE_SPEED,
-    );
+    return;
+  }
+
+  currentPlayer.paddleY = Math.min(
+    CANVAS_HEIGHT - paddleHeight,
+    currentPlayer.paddleY + PADDLE_SPEED,
+  );
+}
+
+export function applyPaddleStep(gameState, player, direction) {
+  const currentPlayer =
+    player === "LEFT" ? gameState.leftPlayer : gameState.rightPlayer;
+  movePlayerPaddle(currentPlayer, direction);
+}
+
+export function updatePaddles(gameState, player) {
+  let currentPlayer = gameState.rightPlayer;
+  if (player === "LEFT") currentPlayer = gameState.leftPlayer;
+  if (currentPlayer.moving === "") return;
+  movePlayerPaddle(currentPlayer, currentPlayer.moving);
 }
 
 export function updateBall(gameState) {
