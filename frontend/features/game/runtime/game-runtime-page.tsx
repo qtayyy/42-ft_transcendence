@@ -75,7 +75,10 @@ export default function GameRuntimePage() {
 	const isRemoteGame = matchId.startsWith("RS-") || matchId.startsWith("RT-");
 
 	// For remote games, check if both players are ready
-	const gameStart = gameState && !gameState.leftPlayer?.gamePaused && !gameState.rightPlayer?.gamePaused;
+	const gameStart =
+		!!gameState &&
+		!gameState.leftPlayer?.gamePaused &&
+		!gameState.rightPlayer?.gamePaused;
 
 	// Track if we've already sent reconnection notification for this session
 	const hasNotifiedReconnection = useRef(false);
