@@ -13,13 +13,15 @@ export default function MatchmakingPage() {
 	const router = useRouter();
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
-	const { gameRoom } = useGame();
+	const { gameRoom, setGameRoom, setGameRoomLoaded } = useGame();
 	const [searching, setSearching] = useState(true);
 	const [searchTime, setSearchTime] = useState(0);
 	const [playersInQueue, setPlayersInQueue] = useState(1);
 	const hasSentJoinRef = useRef(false);
+	const isLeavingRef = useRef(false);
 
 	const sendJoinMatchmaking = useCallback(() => {
+		if (isLeavingRef.current) return;
 		if (!user || !isReady) return;
 		sendSocketMessage({
 			event: "JOIN_MATCHMAKING",
@@ -44,6 +46,7 @@ export default function MatchmakingPage() {
 
 	// Join matchmaking queue on mount
 	useEffect(() => {
+		if (isLeavingRef.current) return;
 		if (!searching || !user || !isReady) return;
 		const isSingleRoom = gameRoom?.isTournament !== true;
 		const isMember = isSingleRoom && gameRoom?.joinedPlayers?.some((p) => Number(p.id) === Number(user.id));
@@ -51,7 +54,7 @@ export default function MatchmakingPage() {
 		if (hasSentJoinRef.current) return;
 		hasSentJoinRef.current = true;
 		sendJoinMatchmaking();
-	}, [searching, user, isReady, sendJoinMatchmaking]);
+	}, [searching, user, isReady, gameRoom, sendJoinMatchmaking]);
 
 	// If socket drops, allow matchmaking request to be sent again on reconnect.
 	useEffect(() => {
@@ -93,6 +96,7 @@ export default function MatchmakingPage() {
 	// Recovery guard: if room state is already available (e.g. recovered socket/session),
 	// redirect to the correct lobby instead of staying on matchmaking spinner.
 	useEffect(() => {
+		if (isLeavingRef.current) return;
 		if (!searching || !user || !gameRoom) return;
 		if (gameRoom.isTournament) return;
 
@@ -110,6 +114,7 @@ export default function MatchmakingPage() {
 
 	// Watchdog: retry join request if still searching with no room assignment.
 	useEffect(() => {
+		if (isLeavingRef.current) return;
 		if (!searching || !user || !isReady) return;
 		const retry = setInterval(() => {
 			const me = Number(user.id);
@@ -124,14 +129,17 @@ export default function MatchmakingPage() {
 	}, [searching, user, isReady, gameRoom, sendJoinMatchmaking]);
 
 	const handleCancel = () => {
+		isLeavingRef.current = true;
 		setSearching(false);
+		setGameRoom(null);
+		setGameRoomLoaded(true);
 		if (user && isReady) {
 			sendSocketMessage({
 				event: "LEAVE_MATCHMAKING",
 				payload: { userId: user.id },
 			});
 		}
-		router.push("/game/remote/single");
+		router.replace("/game/remote/single");
 	};
 
 	const formatTime = (seconds: number) => {

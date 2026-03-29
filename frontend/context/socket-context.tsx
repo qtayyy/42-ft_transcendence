@@ -61,6 +61,7 @@ export const SocketProvider = ({ children }) => {
 	// Set this to NULL when a match ends
 	const hasActiveGame = useRef(false);
 	const prevPathname = useRef(pathname);
+	const suppressMatchmakingRedirectsUntil = useRef(0);
 
 	// STABLE DEPS REF: This pattern prevents the WebSocket from re-connecting
 	// whenever the router or context setters change identity/reference.
@@ -167,9 +168,13 @@ export const SocketProvider = ({ children }) => {
 								toast.info(`${username} is now ${status}!`);
 								break;
 
-							case "GAME_ROOM":
-								stableDeps.current.setGameRoom({
-									roomId: payload.roomId,
+								case "GAME_ROOM":
+									if (Date.now() < suppressMatchmakingRedirectsUntil.current) {
+										console.log("[SocketContext] Ignoring late GAME_ROOM after room exit");
+										break;
+									}
+									stableDeps.current.setGameRoom({
+										roomId: payload.roomId,
 									hostId: payload.hostId,
 									invitedPlayers: payload.invitedPlayers,
 									joinedPlayers: payload.joinedPlayers,
@@ -242,9 +247,13 @@ export const SocketProvider = ({ children }) => {
 								break;
 
 
-							case "MATCH_FOUND":
-								// Navigate to lobby based on actual host identity (more reliable than pathname checks).
-								{
+								case "MATCH_FOUND":
+									if (Date.now() < suppressMatchmakingRedirectsUntil.current) {
+										console.log("[SocketContext] Ignoring late MATCH_FOUND after room exit");
+										break;
+									}
+									// Navigate to lobby based on actual host identity (more reliable than pathname checks).
+									{
 									const hostId = Number(payload?.hostId);
 									const myId = Number(user?.id);
 									const hostKnown = !Number.isNaN(hostId);
@@ -294,15 +303,22 @@ export const SocketProvider = ({ children }) => {
 								);
 								break;
 
-							case "MATCHMAKING_HOST":
-								// User has been designated as host for a new matchmade room
-								// Redirect to the create page which acts as the lobby
-								stableDeps.current.router.push("/game/remote/single/create?matchmaking=true");
-								break;
+								case "MATCHMAKING_HOST":
+									if (Date.now() < suppressMatchmakingRedirectsUntil.current) {
+										console.log("[SocketContext] Ignoring late MATCHMAKING_HOST after room exit");
+										break;
+									}
+									// User has been designated as host for a new matchmade room
+									// Redirect to the create page which acts as the lobby
+									stableDeps.current.router.push("/game/remote/single/create?matchmaking=true");
+									break;
 
-							case "MATCHMAKING_LEFT":
-								// Confirm left queue
-								break;
+								case "MATCHMAKING_LEFT":
+									stableDeps.current.setGameRoom(null);
+									stableDeps.current.setGameRoomLoaded(true);
+									stableDeps.current.setGameState(null);
+									hasActiveGame.current = false;
+									break;
 
 							case "TOURNAMENT_UPDATE":
 								console.log("Socket Context: Dispatching TOURNAMENT_UPDATE", payload);
@@ -634,6 +650,15 @@ export const SocketProvider = ({ children }) => {
 
 	const sendSocketMessage = useCallback((payload: any) => {
 		const socket = wsRef.current;
+		if (payload?.event === "LEAVE_MATCHMAKING" || payload?.event === "LEAVE_ROOM") {
+			suppressMatchmakingRedirectsUntil.current = Date.now() + 3000;
+		}
+		if (
+			payload?.event === "JOIN_MATCHMAKING" ||
+			payload?.event === "JOIN_ROOM_BY_CODE"
+		) {
+			suppressMatchmakingRedirectsUntil.current = 0;
+		}
 		if (!socket || socket.readyState !== WebSocket.OPEN) {
 			console.warn("Client socket isn't ready");
 			connectRef.current?.();

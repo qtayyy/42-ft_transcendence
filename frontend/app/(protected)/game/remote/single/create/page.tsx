@@ -8,7 +8,7 @@ import { useGame } from "@/hooks/use-game";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Copy, Check, Users, Loader2, Play, Crown, User, X } from "lucide-react";
+import { ArrowLeft, Copy, Check, Users, Loader2, Play, Crown, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
@@ -18,12 +18,13 @@ export default function CreateRoomPage() {
 	const searchParams = useSearchParams();
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady, reconnectSocket } = useSocket();
-	const { gameRoom, onlineFriends } = useGame();
+	const { gameRoom, setGameRoom, setGameRoomLoaded } = useGame();
 	const [roomId, setRoomId] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const hasSentMatchmakingJoinRef = useRef(false);
+	const isLeavingRef = useRef(false);
 	const isMatchmakingMode = searchParams.get("matchmaking") === "true";
 
 	useEffect(() => {
@@ -38,6 +39,7 @@ export default function CreateRoomPage() {
 	}, [user, isReady, reconnectSocket]);
 
 	const sendJoinMatchmaking = useCallback(() => {
+		if (isLeavingRef.current) return;
 		if (!user) return;
 		if (!isReady) {
 			reconnectSocket();
@@ -55,6 +57,7 @@ export default function CreateRoomPage() {
 
 	// Public matchmaking mode: join queue directly from create page.
 	useEffect(() => {
+		if (isLeavingRef.current) return;
 		if (!isMatchmakingMode || !user || !isReady) return;
 		const me = Number(user.id);
 		const isSingleRoom = gameRoom?.isTournament !== true;
@@ -74,6 +77,7 @@ export default function CreateRoomPage() {
 
 	// Keep room info in sync and redirect non-hosts to join lobby.
 	useEffect(() => {
+		if (isLeavingRef.current) return;
 		if (!isMatchmakingMode || !gameRoom || !user) return;
 		const me = Number(user.id);
 		const isMember = gameRoom.joinedPlayers?.some((p) => Number(p.id) === me);
@@ -87,6 +91,7 @@ export default function CreateRoomPage() {
 
 	// Keep nudging the queue join while we have no room assignment yet.
 	useEffect(() => {
+		if (isLeavingRef.current) return;
 		if (!isMatchmakingMode || !user || !isReady || roomId) return;
 
 		const retry = setInterval(() => {
@@ -190,19 +195,25 @@ export default function CreateRoomPage() {
 	};
 
 	const handleLeave = () => {
+		const currentRoomId = gameRoom?.roomId ?? roomId;
+		isLeavingRef.current = true;
+		setRoomId(null);
+		setGameRoom(null);
+		setGameRoomLoaded(true);
+
 		if (isMatchmakingMode && user && isReady) {
 			sendSocketMessage({
 				event: "LEAVE_MATCHMAKING",
 				payload: { userId: user.id },
 			});
 		}
-		if (roomId && user && isReady) {
+		if (currentRoomId && user && isReady) {
 			sendSocketMessage({
 				event: "LEAVE_ROOM",
-				payload: { roomId, userId: user.id },
+				payload: { roomId: currentRoomId, userId: user.id },
 			});
 		}
-		router.push("/game/remote/single");
+		router.replace("/game/remote/single");
 	};
 
 	const canStart = gameRoom && gameRoom.joinedPlayers.length >= 2;
