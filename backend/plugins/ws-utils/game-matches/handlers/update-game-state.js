@@ -1,3 +1,5 @@
+import { applyPaddleStep } from "../engine.js";
+
 /*
 ===============================================================================
 FILE PURPOSE
@@ -194,7 +196,14 @@ export function createUpdateGameStateHandler({
       }
       // Note: ENTER no longer resumes from pause - use SPACE instead
     } else if (keyEvent !== "PAUSE") {
-      currentPlayer.moving = keyEvent;
+      const canMovePaddle = gameState.gameStarted && !gameState.paused;
+
+      if (canMovePaddle && (keyEvent === "UP" || keyEvent === "DOWN")) {
+        applyPaddleStep(gameState, player, keyEvent);
+      }
+
+      currentPlayer.moving = "";
+      currentPlayer.movingExpiresAt = 0;
     }
 
     // Start game ONLY when both unpaused (= ready)

@@ -122,6 +122,7 @@ export interface RemoteGameConstants {
 	canvasHeight: number;
 	paddleWidth: number;
 	paddleHeight: number;
+	paddleSpeed?: number;
 	ballSize: number;
 	matchDuration: number;
 }
