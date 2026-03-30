@@ -13,10 +13,19 @@ export const PADDLE_HEIGHT = 80;
 export const PADDLE_SPEED = 10;
 export const FPS = 60;
 export const TICK_MS = 1000 / FPS;
-export const BROADCAST_FPS = 60;
+// Keep simulation authoritative at 60 Hz, but ship fewer routine snapshots so
+// tunneled connections such as ngrok spend less time on websocket overhead.
+export const BROADCAST_FPS = 30;
 export const BROADCAST_EVERY_N_TICKS = Math.max(
   1,
   Math.round(FPS / BROADCAST_FPS),
+);
+// Spectators still need smooth ball motion, so they share the routine tick
+// cadence with players while using the lighter compact tick payload.
+export const SPECTATOR_BROADCAST_FPS = 30;
+export const SPECTATOR_BROADCAST_EVERY_N_TICKS = Math.max(
+  1,
+  Math.round(FPS / SPECTATOR_BROADCAST_FPS),
 );
 export const BALL_SIZE = 12;
 export const WIN_SCORE = 5;

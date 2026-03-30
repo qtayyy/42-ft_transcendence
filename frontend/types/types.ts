@@ -1,4 +1,5 @@
 import React from "react";
+import type { GameState } from "@/types/game";
 
 export interface FriendRequest {
 	id: number;
@@ -63,6 +64,9 @@ export interface GameContextValue {
 	setGameRoom: React.Dispatch<React.SetStateAction<GameRoomValue | null>>;
 	gameState: GameStateValue | null;
 	setGameState: React.Dispatch<React.SetStateAction<GameStateValue | null>>;
+	setRemoteRenderGameState: React.Dispatch<React.SetStateAction<GameState | null>>;
+	getLatestRemoteRenderGameState: () => GameState | null;
+	subscribeToRemoteRenderGameState: (listener: () => void) => () => void;
 	showNavGuard: boolean;
 	setShowNavGuard: (show: boolean) => void;
 	pendingPath: string | null;
@@ -125,6 +129,20 @@ export interface RemoteGameConstants {
 	paddleSpeed?: number;
 	ballSize: number;
 	matchDuration: number;
+}
+
+export interface RemoteGameplayTickPlayerState {
+	paddleY: number;
+}
+
+export interface RemoteGameplayTickPayload {
+	matchId: number | string;
+	gameStarted: boolean;
+	paused: boolean;
+	ball: Ball;
+	leftPlayer: RemoteGameplayTickPlayerState;
+	rightPlayer: RemoteGameplayTickPlayerState;
+	timer?: Pick<RemoteGameTimer, "timeElapsed" | "timeRemaining"> | null;
 }
 
 export interface GameStateValue {

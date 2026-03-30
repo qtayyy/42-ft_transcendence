@@ -137,7 +137,7 @@ function isGameOverMessage(data: unknown): data is {
 	type: "GAME_OVER";
 	winner: number | null;
 	score: { p1: number; p2: number };
-	result?: string;
+	result?: "win" | "draw";
 } {
 	return typeof data === "object" && data !== null && (data as { type?: string }).type === "GAME_OVER";
 }

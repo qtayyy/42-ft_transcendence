@@ -12,10 +12,16 @@ import {
 } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-import { SocketContextValue } from "@/types/types";
+import {
+	GameStateValue,
+	RemoteGameplayTickPayload,
+	SocketContextValue,
+} from "@/types/types";
+import type { GameState } from "@/types/game";
 import { useGameDispatch } from "@/hooks/use-game";
 import { usePathname, useRouter } from "next/navigation";
 import { getWebSocketBaseUrl } from "@/lib/runtime-url";
+import { normalizeRemoteGameState } from "@/features/game/runtime/runtime-helpers";
 
 const SocketContext = createContext<SocketContextValue | null>(null);
 
@@ -40,6 +46,67 @@ function hasSameActiveEffect(prevEffect: any, nextEffect: any) {
 	);
 }
 
+function getRemoteRenderStatus(payload: RemoteGameplayTickPayload) {
+	return payload.paused ? "paused" : payload.gameStarted ? "playing" : "waiting";
+}
+
+function mergeRemoteGameplayTickIntoRenderState(
+	prev: GameState | null,
+	payload: RemoteGameplayTickPayload
+) {
+	if (!prev) return prev;
+
+	const timer = payload.timer
+		? {
+			...(prev.timer || {
+				timeElapsed: 0,
+				timeRemaining: 0,
+			}),
+			...payload.timer,
+		}
+		: prev.timer;
+	const nextStatus = getRemoteRenderStatus(payload);
+	const ballUnchanged =
+		prev.ball?.x === payload.ball?.posX &&
+		prev.ball?.y === payload.ball?.posY &&
+		prev.ball?.dx === payload.ball?.dx &&
+		prev.ball?.dy === payload.ball?.dy;
+	const paddlesUnchanged =
+		prev.paddles?.p1?.y === payload.leftPlayer?.paddleY &&
+		prev.paddles?.p2?.y === payload.rightPlayer?.paddleY;
+	const timerUnchanged =
+		(prev.timer?.timeElapsed ?? null) === (timer?.timeElapsed ?? null) &&
+		(prev.timer?.timeRemaining ?? null) === (timer?.timeRemaining ?? null);
+
+	if (ballUnchanged && paddlesUnchanged && timerUnchanged && prev.status === nextStatus) {
+		return prev;
+	}
+
+	return {
+		...prev,
+		status: nextStatus,
+		ball: {
+			...prev.ball,
+			x: payload.ball.posX,
+			y: payload.ball.posY,
+			dx: payload.ball.dx,
+			dy: payload.ball.dy,
+		},
+		timer,
+		paddles: {
+			...prev.paddles,
+			p1: {
+				...prev.paddles.p1,
+				y: payload.leftPlayer.paddleY,
+			},
+			p2: {
+				...prev.paddles.p2,
+				y: payload.rightPlayer.paddleY,
+			},
+		},
+	};
+}
+
 export const SocketProvider = ({ children }) => {
 	const wsRef = useRef<WebSocket | null>(null);
 	const connectRef = useRef<(() => void) | null>(null);
@@ -51,6 +118,7 @@ export const SocketProvider = ({ children }) => {
 		setGameRoom,
 		setGameRoomLoaded,
 		setGameState,
+		setRemoteRenderGameState,
 		getLatestGameRoom,
 		getLatestGameState,
 	} = gameDispatch;
@@ -71,6 +139,7 @@ export const SocketProvider = ({ children }) => {
 		setGameRoom,
 		setGameRoomLoaded,
 		setGameState,
+		setRemoteRenderGameState,
 		getLatestGameRoom,
 		getLatestGameState,
 		router,
@@ -84,6 +153,7 @@ export const SocketProvider = ({ children }) => {
 			setGameRoom,
 			setGameRoomLoaded,
 			setGameState,
+			setRemoteRenderGameState,
 			getLatestGameRoom,
 			getLatestGameState,
 			router,
@@ -317,6 +387,7 @@ export const SocketProvider = ({ children }) => {
 									stableDeps.current.setGameRoom(null);
 									stableDeps.current.setGameRoomLoaded(true);
 									stableDeps.current.setGameState(null);
+									stableDeps.current.setRemoteRenderGameState(null);
 									hasActiveGame.current = false;
 									break;
 
@@ -331,6 +402,7 @@ export const SocketProvider = ({ children }) => {
 								stableDeps.current.setGameRoom(null);
 								// Safely clear undefined property access if any component relies on it
 								stableDeps.current.setGameState(null);
+								stableDeps.current.setRemoteRenderGameState(null);
 								hasActiveGame.current = false;
 								toast.info("You're removed from the game room");
 								window.dispatchEvent(
@@ -346,6 +418,9 @@ export const SocketProvider = ({ children }) => {
 
 							case "GAME_MATCH_START":
 								stableDeps.current.setGameState(payload);
+								stableDeps.current.setRemoteRenderGameState(
+									normalizeRemoteGameState(payload, null)
+								);
 								window.dispatchEvent(
 									new CustomEvent("gameNotification", {
 										detail: {
@@ -439,6 +514,35 @@ export const SocketProvider = ({ children }) => {
 										return { ...payload };
 									});
 								});
+								stableDeps.current.setRemoteRenderGameState(
+									normalizeRemoteGameState(payload, null)
+								);
+								break;
+
+							case "GAME_TICK":
+								if (!hasActiveGame.current) {
+									hasActiveGame.current = true;
+									const matchId = String(payload.matchId);
+									const currentPath = window.location.pathname;
+									if (!currentPath.includes(`/game/${matchId}`)) {
+										console.log(`[SocketContext] Redirecting to active match ${matchId}`);
+										const latestGameState = stableDeps.current.getLatestGameState();
+										const shouldOpenAsSpectator =
+											latestGameState?.spectatorMode === true ||
+											window.location.search.includes("spectator=true");
+										const targetPath = shouldOpenAsSpectator
+											? `/game/${matchId}?spectator=true`
+											: `/game/${matchId}`;
+										stableDeps.current.router.push(targetPath);
+									}
+								}
+
+								stableDeps.current.setRemoteRenderGameState((prev: GameState | null) =>
+									mergeRemoteGameplayTickIntoRenderState(
+										prev,
+										payload as RemoteGameplayTickPayload
+									)
+								);
 								break;
 
 							case "GAME_OVER":
@@ -449,6 +553,7 @@ export const SocketProvider = ({ children }) => {
 								// Reset state after a delay to allow results screen
 								setTimeout(() => {
 									stableDeps.current.setGameState(null);
+									stableDeps.current.setRemoteRenderGameState(null);
 									// IMPORTANT: Don't clear gameRoom if we're in a tournament!
 									// The user is still in the tournament lobby, and we need this state
 									// so that navigating away to the dashboard correctly fires LEAVE_ROOM.
@@ -462,6 +567,7 @@ export const SocketProvider = ({ children }) => {
 							case "REMATCH_FAILED":
 								toast.error(payload.reason || "Rematch failed");
 								stableDeps.current.setGameState(null);
+								stableDeps.current.setRemoteRenderGameState(null);
 								stableDeps.current.setGameRoom(null);
 								hasActiveGame.current = false;
 								stableDeps.current.router.push("/game/new");
@@ -735,6 +841,7 @@ export const SocketProvider = ({ children }) => {
 	const forceCleanup = useCallback(() => {
 		stableDeps.current.setGameRoom(null);
 		stableDeps.current.setGameState(null);
+		stableDeps.current.setRemoteRenderGameState(null);
 		hasActiveGame.current = false;
 		if (wsRef.current?.readyState === WebSocket.OPEN) {
 			wsRef.current.send(JSON.stringify({ event: "FORCE_CLEANUP" }));

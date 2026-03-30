@@ -23,6 +23,8 @@ export interface LocalMatchData {
 	matchId?: number | string;
 	tournamentId?: number | string | null;
 	isTournamentMatch?: boolean;
+	isAI?: boolean;
+	aiDifficulty?: "easy" | "medium" | "hard";
 	player1?: { id?: number | string | null } | null;
 	player2?: { id?: number | string | null } | null;
 }

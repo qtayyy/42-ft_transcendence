@@ -12,6 +12,12 @@ import { Card } from "@/components/ui/card";
 import { Timer, Hash, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface RemoteOptimisticPaddlePreview {
+	paddleKey: "p1" | "p2";
+	previewY: number;
+	direction: "UP" | "DOWN";
+}
+
 /** 
  * "?:" means it can be optional
  * ": " means it is mandatory
@@ -31,6 +37,9 @@ interface PongGameProps {
 	onPauseToggle?: () => void;
 	pauseOnGuard?: boolean;
 	isAIEnabled?: boolean;
+	getLiveGameState?: () => GameState | null;
+	subscribeToLiveGameState?: (listener: () => void) => () => void;
+	remoteOptimisticPaddlePreview?: RemoteOptimisticPaddlePreview | null;
 }
 
 export default function PongGame({
@@ -48,6 +57,9 @@ export default function PongGame({
 	onPauseToggle,
 	pauseOnGuard = false,
 	isAIEnabled = false,
+	getLiveGameState,
+	subscribeToLiveGameState,
+	remoteOptimisticPaddlePreview = null,
 }: PongGameProps) {
 	const {
 		gameState,
@@ -61,6 +73,8 @@ export default function PongGame({
 	const latestSnapshotRef = useRef<GameState | null>(null);
 	const lastSnapshotAtRef = useRef(0);
 	const snapshotIntervalRef = useRef(1000 / 60);
+	const remoteOptimisticPaddlePreviewRef =
+		useRef<RemoteOptimisticPaddlePreview | null>(remoteOptimisticPaddlePreview);
 	const showDebugOverlay = process.env.NEXT_PUBLIC_DEBUG_GAME === "1";
 
 	// Determine Display ID & Suffix
@@ -84,22 +98,21 @@ export default function PongGame({
 		? (isTournamentMatch ? `LT-${cleanId}` : `LS-${cleanId}`)
 		: cleanId;
 
-	useEffect(() => {
-		if (!gameState) return;
-
+	const syncIncomingSnapshot = useCallback((nextGameState: GameState | null) => {
+		if (!nextGameState) return;
 		const now = performance.now();
-		const baseTickMs = gameState.constant?.TICK_MS || 16.67;
+		const baseTickMs = nextGameState.constant?.TICK_MS || 16.67;
 		const maxInterpolationWindow = baseTickMs * 3;
 		if (
 			latestSnapshotRef.current &&
-			latestSnapshotRef.current !== gameState &&
+			latestSnapshotRef.current !== nextGameState &&
 			latestSnapshotRef.current.status === "playing" &&
-			gameState.status === "playing"
+			nextGameState.status === "playing"
 		) {
 			if (lastSnapshotAtRef.current > 0) {
 				const measuredInterval = now - lastSnapshotAtRef.current;
 				if (measuredInterval > maxInterpolationWindow) {
-					previousSnapshotRef.current = gameState;
+					previousSnapshotRef.current = nextGameState;
 					snapshotIntervalRef.current = baseTickMs;
 				} else {
 					previousSnapshotRef.current = latestSnapshotRef.current;
@@ -109,13 +122,30 @@ export default function PongGame({
 				previousSnapshotRef.current = latestSnapshotRef.current;
 			}
 		} else {
-			previousSnapshotRef.current = gameState;
+			previousSnapshotRef.current = nextGameState;
 			snapshotIntervalRef.current = baseTickMs;
 		}
 
-		latestSnapshotRef.current = gameState;
+		latestSnapshotRef.current = nextGameState;
 		lastSnapshotAtRef.current = now;
-	}, [gameState]);
+	}, []);
+
+	useEffect(() => {
+		syncIncomingSnapshot(gameState);
+	}, [gameState, syncIncomingSnapshot]);
+
+	useEffect(() => {
+		remoteOptimisticPaddlePreviewRef.current = remoteOptimisticPaddlePreview;
+	}, [remoteOptimisticPaddlePreview]);
+
+	useEffect(() => {
+		if (!getLiveGameState || !subscribeToLiveGameState) return;
+
+		syncIncomingSnapshot(getLiveGameState());
+		return subscribeToLiveGameState(() => {
+			syncIncomingSnapshot(getLiveGameState());
+		});
+	}, [getLiveGameState, subscribeToLiveGameState, syncIncomingSnapshot]);
 
 	// Game Loop / Rendering
 	useEffect(() => {
@@ -145,8 +175,26 @@ export default function PongGame({
 				latestSnapshot,
 				alpha
 			);
+			const activePreview = remoteOptimisticPaddlePreviewRef.current;
+			const renderState =
+				activePreview &&
+				frameState.status === "playing" &&
+				(activePreview.direction === "UP"
+					? frameState.paddles[activePreview.paddleKey].y > activePreview.previewY
+					: frameState.paddles[activePreview.paddleKey].y < activePreview.previewY)
+					? {
+							...frameState,
+							paddles: {
+								...frameState.paddles,
+								[activePreview.paddleKey]: {
+									...frameState.paddles[activePreview.paddleKey],
+									y: activePreview.previewY,
+								},
+							},
+					  }
+					: frameState;
 
-			renderGame(context, frameState, canvasDimensions);
+			renderGame(context, renderState, canvasDimensions);
 			frameId = requestAnimationFrame(drawFrame);
 		};
 

@@ -27,6 +27,13 @@ interface RemoteGameRuntimeViewProps {
 	matchId: string;
 	gameState: GameStateValue | null;
 	normalizedGameState: GameState | null;
+	getLatestRemoteRenderGameState: () => GameState | null;
+	subscribeToRemoteRenderGameState: (listener: () => void) => () => void;
+	optimisticPaddlePreview: {
+		paddleKey: "p1" | "p2";
+		previewY: number;
+		direction: "UP" | "DOWN";
+	} | null;
 	gameOverResult: RuntimeGameOverResult | null;
 	isSpectator: boolean;
 	returnToLobby: () => void;
@@ -44,6 +51,9 @@ export default function RemoteGameRuntimeView({
 	matchId,
 	gameState,
 	normalizedGameState,
+	getLatestRemoteRenderGameState,
+	subscribeToRemoteRenderGameState,
+	optimisticPaddlePreview,
 	gameOverResult,
 	isSpectator,
 	returnToLobby,
@@ -184,6 +194,9 @@ export default function RemoteGameRuntimeView({
 						matchId={matchId}
 						mode="remote"
 						gameState={normalizedGameState}
+						getLiveGameState={getLatestRemoteRenderGameState}
+						subscribeToLiveGameState={subscribeToRemoteRenderGameState}
+						remoteOptimisticPaddlePreview={optimisticPaddlePreview}
 						layout="canvasOnly"
 						showBuiltInOverlays={false}
 					/>
