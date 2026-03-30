@@ -13,6 +13,7 @@ import {
   BROADCAST_EVERY_N_TICKS,
   MATCH_DURATION,
   POWERUP_SPAWN_INTERVAL,
+  SPECTATOR_BROADCAST_EVERY_N_TICKS,
   TICK_MS,
   WIN_SCORE,
 } from "./constants.js";
@@ -26,6 +27,51 @@ import {
   updateTimer,
 } from "./engine.js";
 
+const FULL_STATE_SYNC_EVERY_N_BROADCASTS = 30;
+const FULL_STATE_SYNC_EVERY_N_TICKS =
+  BROADCAST_EVERY_N_TICKS * FULL_STATE_SYNC_EVERY_N_BROADCASTS;
+
+function hasSamePowerUps(left = [], right = []) {
+  if (left.length !== right.length) return false;
+
+  return left.every((powerUp, index) => {
+    const nextPowerUp = right[index];
+    return (
+      powerUp?.id === nextPowerUp?.id &&
+      powerUp?.type === nextPowerUp?.type &&
+      powerUp?.x === nextPowerUp?.x &&
+      powerUp?.y === nextPowerUp?.y
+    );
+  });
+}
+
+function captureBroadcastMetaSnapshot(gameState) {
+  return {
+    leftScore: gameState.leftPlayer?.score ?? 0,
+    rightScore: gameState.rightPlayer?.score ?? 0,
+    leftPaddleHeight: gameState.leftPlayer?.paddleHeight ?? null,
+    rightPaddleHeight: gameState.rightPlayer?.paddleHeight ?? null,
+    powerUps: [...(gameState.powerUps || [])],
+    activeEffectType: gameState.activeEffect?.type ?? null,
+    activeEffectExpiresAt: gameState.activeEffect?.expiresAt ?? null,
+  };
+}
+
+function hasBroadcastMetaChanged(previousSnapshot, gameState) {
+  return (
+    previousSnapshot.leftScore !== (gameState.leftPlayer?.score ?? 0) ||
+    previousSnapshot.rightScore !== (gameState.rightPlayer?.score ?? 0) ||
+    previousSnapshot.leftPaddleHeight !==
+      (gameState.leftPlayer?.paddleHeight ?? null) ||
+    previousSnapshot.rightPaddleHeight !==
+      (gameState.rightPlayer?.paddleHeight ?? null) ||
+    previousSnapshot.activeEffectType !== (gameState.activeEffect?.type ?? null) ||
+    previousSnapshot.activeEffectExpiresAt !==
+      (gameState.activeEffect?.expiresAt ?? null) ||
+    !hasSamePowerUps(previousSnapshot.powerUps, gameState.powerUps || [])
+  );
+}
+
 export function createGameLifecycle({
   fastify,
   gameLoops,
@@ -33,6 +79,7 @@ export function createGameLifecycle({
   safeSend,
   activeTournaments,
   broadcastState,
+  broadcastGameplayTick,
 }) {
   // Check if game should end (first to target score or timer expiry)
   function checkGameOver(gameState) {
@@ -346,6 +393,7 @@ export function createGameLifecycle({
 
       // Update timer
       updateTimer(gameState);
+      const previousBroadcastMeta = captureBroadcastMetaSnapshot(gameState);
 
       // Spawn power-ups periodically
       const currentTime = Date.now();
@@ -365,10 +413,26 @@ export function createGameLifecycle({
       // Check power-up collisions
       checkPowerUpCollision(gameState);
 
-      // Simulate every tick, but only send routine snapshots at a lower rate to
-      // reduce websocket and serialization pressure during active matches.
-      if (gameState.tickCount % BROADCAST_EVERY_N_TICKS === 0) {
+      const metaChanged = hasBroadcastMetaChanged(
+        previousBroadcastMeta,
+        gameState,
+      );
+      const shouldBroadcastThisTick =
+        gameState.tickCount % BROADCAST_EVERY_N_TICKS === 0;
+      const shouldBroadcastSpectatorsThisTick =
+        gameState.tickCount % SPECTATOR_BROADCAST_EVERY_N_TICKS === 0;
+      const shouldSendPeriodicFullState =
+        FULL_STATE_SYNC_EVERY_N_TICKS > 0 &&
+        gameState.tickCount % FULL_STATE_SYNC_EVERY_N_TICKS === 0;
+
+      if (metaChanged || shouldSendPeriodicFullState) {
         broadcastState(gameState, fastify);
+      } else if (shouldBroadcastThisTick) {
+        // Simulate every tick, but send compact gameplay packets for the common
+        // case where only ball/paddle/timer data changed.
+        broadcastGameplayTick(gameState, fastify, {
+          includeSpectators: shouldBroadcastSpectatorsThisTick,
+        });
       }
 
       // Check for game over (timer expired)
