@@ -145,4 +145,7 @@ ngrok-sync:
 ngrok-restart-backend:
 	@docker compose -f ./compose.yaml up -d --force-recreate backend
 
-.PHONY: all build start dev stop down logs clean prune re lan-ip lan-url lan-help ngrok ngrok-sync ngrok-restart-backend
+gameplay-test:
+	@node ./scripts/chrome-devtools-gameplay-smoke.mjs
+
+.PHONY: all build start dev stop down logs clean prune re lan-ip lan-url lan-help ngrok ngrok-sync ngrok-restart-backend gameplay-test
