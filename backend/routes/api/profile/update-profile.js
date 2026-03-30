@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { pipeline } from "stream/promises";
 import crypto from 'crypto';
+import { getUploadsDir } from "../../../utils/storage-paths.js";
 
 const prisma = new PrismaClient();
 
@@ -32,7 +33,7 @@ export default async function (fastify, opts) {
         const ALLOWED_FIELDS = new Set(['email','username','dob','region','bio']);
         for await (const part of parts) {
           if (part.type === "file") {
-            const uploadDir = path.join(process.cwd(), "uploads");
+            const uploadDir = getUploadsDir();
             fs.mkdirSync(uploadDir, { recursive: true });
 
             const filename = safeFilename(userId, part.filename);
@@ -69,7 +70,10 @@ export default async function (fastify, opts) {
           
           // Delete old avatar file if it exists
           if (currentProfile?.avatar) {
-            const oldFilepath = path.join(process.cwd(), currentProfile.avatar);
+            const oldFilepath = path.join(
+              getUploadsDir(),
+              currentProfile.avatar.replace("/uploads/", "")
+            );
             if (fs.existsSync(oldFilepath)) {
               fs.unlinkSync(oldFilepath);
             }
@@ -83,7 +87,10 @@ export default async function (fastify, opts) {
           });
           
           if (currentProfile?.avatar) {
-            const oldFilepath = path.join(process.cwd(), currentProfile.avatar);
+            const oldFilepath = path.join(
+              getUploadsDir(),
+              currentProfile.avatar.replace("/uploads/", "")
+            );
             if (fs.existsSync(oldFilepath)) {
               fs.unlinkSync(oldFilepath);
             }

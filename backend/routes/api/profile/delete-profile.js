@@ -1,6 +1,7 @@
 import { PrismaClient } from "../../../generated/prisma/index.js";
 import fs from "fs";
 import path from "path";
+import { getUploadsDir } from "../../../utils/storage-paths.js";
 
 const prisma = new PrismaClient();
 
@@ -27,7 +28,7 @@ export default async function (fastify, opts) {
         // Delete avatar file if it exists
         if (user.profile?.avatar) {
           const avatarPath = user.profile.avatar.replace("/uploads/", "");
-          const filePath = path.join(process.cwd(), "uploads", avatarPath);
+          const filePath = path.join(getUploadsDir(), avatarPath);
           try {
             if (fs.existsSync(filePath)) {
               fs.unlinkSync(filePath);

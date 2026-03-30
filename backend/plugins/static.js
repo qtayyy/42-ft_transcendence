@@ -1,12 +1,10 @@
-import path from "path";
 import fastifyStatic from "@fastify/static";
 import fp from 'fastify-plugin'
+import { getUploadsDir } from "../utils/storage-paths.js";
 
 export default fp(async (fastify) => {
   fastify.register(fastifyStatic, {
-  root: path.join(process.cwd(), "uploads"),
+  root: getUploadsDir(),
   prefix: "/uploads/",
 });
 })
-
-

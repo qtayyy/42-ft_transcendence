@@ -1,0 +1,14 @@
+FROM nginx:stable-bookworm
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gettext-base && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY nginx.render.conf.template /etc/nginx/templates/default.conf.template
+COPY render-entrypoint.sh /render-entrypoint.sh
+
+RUN chmod +x /render-entrypoint.sh
+
+EXPOSE 10000
+
+CMD ["/render-entrypoint.sh"]

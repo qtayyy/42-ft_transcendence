@@ -8,6 +8,7 @@ COPY package*.json ./
 # USER app
 RUN npm install
 COPY . .
-ENV DATABASE_URL="file:/data/dev.db"
+ENV PORT=3001
+ENV UPLOADS_DIR=/app/uploads
 RUN chmod +x /app/init_db.sh
 CMD ["/bin/sh", "/app/init_db.sh"]
