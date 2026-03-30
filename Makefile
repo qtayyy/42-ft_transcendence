@@ -148,4 +148,57 @@ ngrok-restart-backend:
 gameplay-test:
 	@node ./scripts/chrome-devtools-gameplay-smoke.mjs
 
-.PHONY: all build start dev stop down logs clean prune re lan-ip lan-url lan-help ngrok ngrok-sync ngrok-restart-backend gameplay-test
+render-url:
+	@REPO_URL="$$(git remote get-url origin 2>/dev/null || true)"; \
+	BRANCH="$$(git branch --show-current 2>/dev/null || true)"; \
+	if [ ! -f ./render.yaml ]; then \
+		echo "render.yaml is missing."; \
+		exit 1; \
+	fi; \
+	if [ -z "$$REPO_URL" ]; then \
+		echo "Git remote 'origin' is not configured."; \
+		exit 1; \
+	fi; \
+	if [ -z "$$BRANCH" ]; then \
+		echo "Could not detect the current git branch."; \
+		exit 1; \
+	fi; \
+	case "$$REPO_URL" in \
+		git@github.com:*) REPO_URL="https://github.com/$${REPO_URL#git@github.com:}" ;; \
+		ssh://git@github.com/*) REPO_URL="https://github.com/$${REPO_URL#ssh://git@github.com/}" ;; \
+	esac; \
+	case "$$REPO_URL" in \
+		*.git) ;; \
+		*) REPO_URL="$$REPO_URL.git" ;; \
+	esac; \
+	python3 -c 'import sys, urllib.parse; repo = sys.argv[1]; branch = sys.argv[2]; print("https://render.com/deploy?repo=" + urllib.parse.quote(f"{repo}/tree/{branch}", safe=":/"))' "$$REPO_URL" "$$BRANCH"
+
+render:
+	@BRANCH="$$(git branch --show-current 2>/dev/null || true)"; \
+	if [ -z "$$BRANCH" ]; then \
+		echo "Could not detect the current git branch."; \
+		exit 1; \
+	fi; \
+	if ! git ls-remote --exit-code --heads origin "$$BRANCH" >/dev/null 2>&1; then \
+		echo "Branch '$$BRANCH' is not pushed to origin yet."; \
+		echo "Push it first with: git push -u origin $$BRANCH"; \
+		exit 1; \
+	fi; \
+	DEPLOY_URL="$$( $(MAKE) -s render-url )"; \
+	echo "Render deploy URL:"; \
+	echo "$$DEPLOY_URL"; \
+	echo ""; \
+	echo "Set these Render env vars manually before approving the deploy:"; \
+	echo "  PUBLIC_APP_URL"; \
+	echo "  GOOGLE_CLIENT_ID"; \
+	echo "  GOOGLE_CLIENT_SECRET"; \
+	echo "  EMAIL_USER"; \
+	echo "  EMAIL_PASSWORD"; \
+	echo ""; \
+	if command -v xdg-open >/dev/null 2>&1; then \
+		xdg-open "$$DEPLOY_URL" >/dev/null 2>&1 || true; \
+	elif command -v open >/dev/null 2>&1; then \
+		open "$$DEPLOY_URL" >/dev/null 2>&1 || true; \
+	fi
+
+.PHONY: all build start dev stop down logs clean prune re lan-ip lan-url lan-help ngrok ngrok-sync ngrok-restart-backend gameplay-test render-url render
