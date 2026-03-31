@@ -634,11 +634,13 @@ class LegacyGameRuntime {
           score2: this.gameState.score.p2,
           durationSeconds: (this.gameState.timer?.timeElapsed ?? 0) / 1000,
           mode:
-            this.mode === "local"
-              ? "LOCAL"
-              : this.tournamentId
-                ? "REMOTE_TOURNAMENT"
-                : "REMOTE",
+            this.isAIEnabled
+              ? "AI"
+              : this.mode === "local"
+                ? "LOCAL"
+                : this.tournamentId
+                  ? "REMOTE_TOURNAMENT"
+                  : "REMOTE",
           tournamentId: this.tournamentId || null,
         });
       console.log(

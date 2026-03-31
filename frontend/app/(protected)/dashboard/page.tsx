@@ -17,6 +17,7 @@ import { useGame } from "@/hooks/use-game";
 import { useLanguage } from '@/context/languageContext';
 import { Users, BarChart3, PieChart, Trophy, Activity, MessageCircle, Clock, Calendar, Download, FileSpreadsheet, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { useFriends } from "@/hooks/use-friends";
+import { apiFetch } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { jsPDF } from "jspdf";
 import UserStats from "@/components/game/UserStats";
@@ -102,7 +103,7 @@ export default function DashboardPage() {
 
     const fetchUnreadCount = async () => {
       try {
-        const response = await fetch("/api/chat/unread");
+        const response = await apiFetch("/api/chat/unread");
         if (!response.ok) return;
         const data = await response.json();
         if (isMounted) {

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useFriends } from "@/hooks/use-friends";
+import { apiFetch } from "@/lib/api";
 import { useLanguage } from "@/context/languageContext";
 
 interface UserProfile {
@@ -64,7 +65,7 @@ export default function UserProfilePage() {
         setLoading(true);
         setError("");
         
-        const response = await fetch(`/api/profile/${username}`);
+        const response = await apiFetch(`/api/profile/${username}`);
         
         if (!response.ok) {
           const data = await response.json();
@@ -114,11 +115,8 @@ export default function UserProfilePage() {
       setSendingRequest(true);
       setRequestFeedback("");
 
-      const response = await fetch("/api/friends/request", {
+      const response = await apiFetch("/api/friends/request", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ username: profile.username }),
       });
 

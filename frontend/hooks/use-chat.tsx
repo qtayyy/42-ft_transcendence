@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api';
 
 export interface Friend {
   id: string;
@@ -17,7 +18,7 @@ export function useChat() {
       setError(null);
       try {
         
-        const res = await fetch('/api/friends');
+        const res = await apiFetch('/api/friends');
         if (!res.ok) throw new Error('Failed to fetch friends');
         const data = await res.json();
         setFriends(data || []);

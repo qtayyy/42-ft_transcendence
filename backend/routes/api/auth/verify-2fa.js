@@ -44,7 +44,7 @@ export default async function (fastify, opts) {
           path: "/",
           secure: true,
           httpOnly: true,
-          sameSite: true,
+          sameSite: "none",
           maxAge: 3600,
         })
         .code(200)

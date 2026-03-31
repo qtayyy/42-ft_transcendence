@@ -40,6 +40,9 @@ clean:
 prune:
 	@docker system prune -af --volumes
 
+tunnel:
+	@ngrok http https://localhost:8443 --host-header=localhost
+
 re: stop down all
 
-.PHONY: all build start dev stop down logs clean prune re
+.PHONY: all build start dev stop down logs clean prune re tunnel

@@ -87,7 +87,8 @@ export const SocketProvider = ({ children }) => {
 				return;
 			}
 
-			const websocket = new WebSocket(process.env.NEXT_PUBLIC_WS_URL || "wss://localhost:8443/ws");
+			const wsUrl = `wss://${window.location.host}/ws`;
+			const websocket = new WebSocket(wsUrl);
 			wsRef.current = websocket;
 
 			// Heartbeat

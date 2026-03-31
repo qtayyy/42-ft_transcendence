@@ -16,7 +16,7 @@ export default async function (fastify, opts) {
         });
         if (!friendRequest) return reply.status(404).send({ error: "Not found" });
 
-        if (friendRequest.addresseeId !== req.user.id)
+        if (friendRequest.addresseeId !== request.user.userId)
           return reply.status(403).send({ error: "Forbidden" });
 
         await prisma.friendship.update({

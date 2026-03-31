@@ -27,8 +27,7 @@ export default fp(async function(fastify, opts) {
 			},
 			auth: oauth2.GOOGLE_CONFIGURATION, // Helper object with google's specific URLs
 		},
-		// Match whatever in Google Cloud Console
-		startRedirectPath: '/api/auth/google/login', // URL to start login
-		callbackUri: 'https://localhost:8443/api/auth/google/callback', // this is public Nginx address
+		// callbackUri must match what Google sends back — set APP_URL in .env to switch between localhost/ngrok
+		callbackUri: `${process.env.APP_URL || 'https://localhost:8443'}/api/auth/google/callback`,
 	});
 });

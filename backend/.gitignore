@@ -60,3 +60,4 @@ profile-*
 /generated/prisma
 
 .env
+.env.neon

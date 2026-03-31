@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api';
 
 export interface Friend {
   id: string;
@@ -23,8 +24,8 @@ export function useFriends() {
       setError(null);
       try {
         const [friendsRes, pendingRes] = await Promise.all([
-          fetch('/api/friends'),
-          fetch('/api/friends/pending'),
+          apiFetch('/api/friends'),
+          apiFetch('/api/friends/pending'),
         ]);
         if (!friendsRes.ok) throw new Error('Failed to fetch friends');
         if (!pendingRes.ok) throw new Error('Failed to fetch pending requests');

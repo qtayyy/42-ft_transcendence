@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { apiFetch } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Zap } from "lucide-react";
@@ -20,17 +20,19 @@ export default function UserStats() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetch() {
+    async function fetchStats() {
       try {
-        const res = await axios.get("/api/profile/stats");
-        setStats(res.data);
+        const res = await apiFetch("/api/profile/stats");
+        if (!res.ok) throw new Error("Failed to fetch stats");
+        const data = await res.json();
+        setStats(data);
       } catch (error) {
         console.error("Failed to load stats", error);
       } finally {
         setLoading(false);
       }
     }
-    fetch();
+    fetchStats();
   }, []);
 
   if (loading || !stats) return <div className="text-muted-foreground">Loading...</div>;

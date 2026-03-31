@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Send, Users, UserPlus, Search, MessageSquare, Smile, ChevronLeft, Zap, Ban, UserCircle, Gamepad2, MoreVertical, Check, CheckCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -108,7 +109,7 @@ export default function ChatPage() {
   useEffect(() => {
     const fetchBlockedUsers = async () => {
       try {
-        const response = await fetch('/api/chat/block');
+        const response = await apiFetch('/api/chat/block');
         if (response.ok) {
           const data = await response.json();
           setBlockedUsers(data.map((u: any) => u.id));
@@ -165,7 +166,7 @@ export default function ChatPage() {
 
     const fetchUnreadByFriend = async () => {
       try {
-        const response = await fetch('/api/chat/unread/by-friend');
+        const response = await apiFetch('/api/chat/unread/by-friend');
         if (!response.ok) return;
         const data = await response.json();
         if (isMounted) {
@@ -464,7 +465,7 @@ export default function ChatPage() {
       try {
         const friendId = selectedFriend.id.toString();
         console.log("Loading chat history for friend:", friendId);
-        const response = await fetch(`/api/chat/${friendId}`);
+        const response = await apiFetch(`/api/chat/${friendId}`);
         if (!response.ok) {
           let errorMessage = "Failed to load chat history";
           try {
@@ -569,7 +570,7 @@ export default function ChatPage() {
     setSelectedFriend(friend);
     clearUnreadForFriend(friend.id);
 
-    fetch(`/api/chat/read/${friend.id}`, {
+    apiFetch(`/api/chat/read/${friend.id}`, {
       method: 'POST',
     }).catch((error) => {
       console.error('Failed to mark friend messages as read', error);
@@ -680,9 +681,8 @@ export default function ChatPage() {
     if (!selectedFriend) return;
 
     try {
-      const response = await fetch('/api/chat/block', {
+      const response = await apiFetch('/api/chat/block', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: selectedFriend.id }),
       });
 
@@ -703,7 +703,7 @@ export default function ChatPage() {
   // Unblock user
   const handleUnblockUser = async (userId: string) => {
     try {
-      const response = await fetch(`/api/chat/block/${userId}`, {
+      const response = await apiFetch(`/api/chat/block/${userId}`, {
         method: 'DELETE',
       });
 
@@ -732,7 +732,7 @@ export default function ChatPage() {
     markInvitePendingForFriend(selectedFriend.id);
 
     try {
-      const response = await fetch('/api/game/room/create?maxPlayers=2');
+      const response = await apiFetch('/api/game/room/create?maxPlayers=2');
       if (!response.ok) {
         clearInvitePendingForFriend(selectedFriend.id);
         pushNotificationMessage("Failed to create room for invite.");

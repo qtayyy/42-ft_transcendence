@@ -1,96 +1,95 @@
 import { PrismaClient } from '../../../generated/prisma/index.js';
-import crypto from 'crypto'; // Built-in Node module to generate random passwords
+import crypto from 'crypto';
 import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
-// Route: Google Authentication Callback
-// After users log in Google's page, Google redirects them back here with a "AUTHORIZATION CODE"
-// 		We exchange the CODE for a TOKEN, get their email, and log them in
-// This route handles the response from Google after the user grants permission.
+const NGROK_URL = process.env.APP_URL || 'https://unmachineable-rosalba-grievingly.ngrok-free.dev';
+const LOCAL_URL = 'https://localhost:8443';
+
+function getBaseUrl(request) {
+	const host = request.headers['x-forwarded-host'] || request.headers.host || '';
+	return host.includes('ngrok') ? NGROK_URL : LOCAL_URL;
+}
 
 export default async function (fastify, opts) {
-	// Google calls this route after user sign in
+
+	// Custom login route — redirects to Google with the correct redirect_uri for this host
+	fastify.get('/google/login', async function (request, reply) {
+		const baseUrl = getBaseUrl(request);
+		const callbackUri = `${baseUrl}/api/auth/google/callback`;
+		const authUri = fastify.googleOAuth2.generateAuthorizationUri(request, reply, {
+			redirect_uri: callbackUri,
+		});
+		return reply.redirect(authUri);
+	});
+
+	// Google redirects here after user approves
 	fastify.get('/google/callback', async function (request, reply) {
-		
+		const baseUrl = getBaseUrl(request);
+
 		try {
-			// 1. Exchange the temporary CODE from Google for an ACCESS TOKEN
-			// This TOKEN proves we are allowed to read the user's info.
+			// Exchange code for token (uses the registered callbackUri from the plugin)
 			const token = await fastify.googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(request);
 
-			// 2. Use the TOKEN to fetch the user's details from Google API
+			// Fetch user info from Google
 			const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-				headers: {
-					Authorization: 'Bearer ' + token.token.access_token
-				}
+				headers: { Authorization: 'Bearer ' + token.token.access_token }
 			});
 			const userData = await userResponse.json();
 
-			// 3. Check if we successfully get the email
 			if (!userData.email) {
-				return (reply.code(400).send({ error: "Google account has no email" }));
+				return reply.code(400).send({ error: "Google account has no email" });
 			}
 
-			// 4. Check if this user exist in our database
+			// Find or create user
 			let profile = await prisma.profile.findUnique({
 				where: { email: userData.email }
 			});
 
-			// 5. If user does NOT exist, we register them automatically
 			if (!profile) {
-				// Generate a random password because they will use Google to login,
-				// but our DB schema requires a password string.
 				const pepper = process.env.SECURITY_PEPPER;
 				const saltRounds = parseInt(process.env.SALT_ROUNDS);
 				const randomPassword = crypto.randomBytes(32).toString("hex");
-				const passwordWithPepper = randomPassword + pepper;
-				const passwordHash = await bcrypt.hash(passwordWithPepper, saltRounds);
-				
-				// We create the User and Profile in one transaction
+				const passwordHash = await bcrypt.hash(randomPassword + pepper, saltRounds);
+
 				const newUser = await prisma.user.create({
 					data: {
-						password: passwordHash, // Store the hash
+						password: passwordHash,
 						profile: {
 							create: {
 								email: userData.email,
-								username: userData.email.split('@')[0], // Use email prefix as username
+								username: userData.email.split('@')[0],
 								fullname: userData.name || "Google User",
-								avatar: userData.picture || "", // Use Google avatar if available
-								dob: userData.dob || null,
-								region: userData.region || null,
+								avatar: userData.picture || "",
+								dob: null,
+								region: null,
 							}
 						}
 					},
-					include: {
-						profile: true
-					}
+					include: { profile: true }
 				});
-				
+
 				profile = newUser.profile;
 			}
 
-			// 6. Generate our own JWT token for the session
-			// We need to match logic that used in login.js
 			const appToken = fastify.jwt.sign(
 				{ userId: profile.id },
 				{ expiresIn: "1h" }
 			);
 
-			// 7. Set the cookie and redirect to the frontend dashboard
-			// We use a redirect here because this is a browser navigation, not an AJAX call
 			reply.setCookie("token", appToken, {
 				path: "/",
-				secure: true, // for HTTPS 
+				secure: true,
 				httpOnly: true,
-				sameSite: 'Strict', // Safer settings
+				sameSite: "none",
 				maxAge: 3600,
 			});
 
-			// Redirect user back to the frontend
-			return (reply.redirect('https://localhost:8443/dashboard'));
+			return reply.redirect(`${baseUrl}/dashboard`);
 		} catch (error) {
 			console.error("Google Auth Error: ", error);
-			return (reply.code(500).send({ error: "Authentication failed" }));
+			return reply.code(500).send({ error: "Authentication failed" });
 		}
 	});
 }

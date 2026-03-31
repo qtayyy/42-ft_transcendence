@@ -45,7 +45,7 @@ export default async function (fastify, opts) {
             path: "/", // Should be fine
             secure: true,
             httpOnly: true,
-            sameSite: true,
+            sameSite: "none",
             maxAge: 300,
           })
           .code(202)
@@ -65,7 +65,7 @@ export default async function (fastify, opts) {
             path: "/",
             secure: true,
             httpOnly: true,
-            sameSite: true,
+            sameSite: "none",
             maxAge: 3600,
           })
           .code(200)

@@ -56,7 +56,7 @@ export default function LocalGameRuntimeView({
 			<PongGame
 				matchId={matchId}
 				mode="local"
-				wsUrl={`wss://localhost:8443/ws/game?${query.toString()}`}
+				wsUrl={`wss://${typeof window !== 'undefined' ? window.location.host : 'localhost:8443'}/ws/game?matchId=${matchId}`}
 				isAIEnabled={isAI}
 				onGameOver={handleGameOver}
 				onExit={handleExit}
