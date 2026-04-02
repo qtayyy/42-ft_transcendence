@@ -41,6 +41,8 @@ services:
     # restart: always
     env_file:
       - ./backend/.env
+    environment:
+      DATABASE_URL: file:/data/dev.db
     volumes:
       - ./data:/data
       - ./uploads:/app/uploads
