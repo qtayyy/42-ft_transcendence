@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 export interface Friend {
   id: string;
@@ -17,33 +17,39 @@ export function useFriends() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchAll() {
-      setLoading(true);
-      setError(null);
-      try {
-        const [friendsRes, pendingRes] = await Promise.all([
-          fetch('/api/friends'),
-          fetch('/api/friends/pending'),
-        ]);
-        if (!friendsRes.ok) throw new Error('Failed to fetch friends');
-        if (!pendingRes.ok) throw new Error('Failed to fetch pending requests');
-        const friendsData = await friendsRes.json();
-        const pendingData = await pendingRes.json();
-        setFriends(friendsData || []);
-        setPending(pendingData || []);
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('Unknown error');
-        }
-      } finally {
-        setLoading(false);
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [friendsRes, pendingRes] = await Promise.all([
+        fetch('/api/friends'),
+        fetch('/api/friends/pending'),
+      ]);
+      if (!friendsRes.ok) throw new Error('Failed to fetch friends');
+      if (!pendingRes.ok) throw new Error('Failed to fetch pending requests');
+      const friendsData = await friendsRes.json();
+      const pendingData = await pendingRes.json();
+      setFriends(friendsData || []);
+      setPending(pendingData || []);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Unknown error');
       }
+    } finally {
+      setLoading(false);
     }
-    fetchAll();
   }, []);
 
-  return { friends, pending, loading, error };
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  // Expose refetch function for real-time updates
+  const refetch = useCallback(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  return { friends, pending, loading, error, refetch };
 }

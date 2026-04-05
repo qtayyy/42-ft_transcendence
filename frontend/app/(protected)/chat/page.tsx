@@ -52,8 +52,8 @@ interface Message {
 export default function ChatPage() {
   const { sendSocketMessage, isReady } = useSocketContext();
   const { user } = useAuth();
-  const { friends, pending, loading: friendsLoading, error: friendsError } = useFriends();
-  const { onlineFriends, invitesReceived, setInvitesReceived } = useGame();
+  const { friends, pending, loading: friendsLoading, error: friendsError,  refetch } = useFriends();
+  const { onlineFriends, invitesReceived, setInvitesReceived, refetchOnlineFriends } = useGame();
   const router = useRouter();
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -119,6 +119,52 @@ export default function ChatPage() {
     };
     fetchBlockedUsers();
   }, []);
+
+  // Refresh online friends when chat page loads
+  useEffect(() => {
+    if (refetchOnlineFriends) {
+      console.log("Chat page: Refreshing online friends list");
+      refetchOnlineFriends();
+    }
+  }, [refetchOnlineFriends]);
+
+  // Refresh online friends when friends list changes
+  useEffect(() => {
+    if (refetchOnlineFriends && friends.length > 0) {
+      console.log("Chat page: Friends list changed, refreshing online status");
+      refetchOnlineFriends();
+    }
+  }, [friends.length, refetchOnlineFriends]);
+
+  // Listen for real-time friend requests
+  useEffect(() => {
+    const handleFriendRequest = (event: CustomEvent) => {
+      console.log("New friend request received:", event.detail);
+      // Refetch friends and pending lists to show the new request
+      refetch();
+    };
+
+    window.addEventListener("friendRequest", handleFriendRequest as EventListener);
+    return () => {
+      window.removeEventListener("friendRequest", handleFriendRequest as EventListener);
+    };
+  }, [refetch]);
+
+  // Listen for friend status changes (online/offline)
+  useEffect(() => {
+    const handleFriendStatusChange = (event: CustomEvent) => {
+      console.log("Friend status changed:", event.detail);
+      // Refresh online friends list to get latest status
+      if (refetchOnlineFriends) {
+        refetchOnlineFriends();
+      }
+    };
+
+    window.addEventListener("friendStatusChange", handleFriendStatusChange as EventListener);
+    return () => {
+      window.removeEventListener("friendStatusChange", handleFriendStatusChange as EventListener);
+    };
+  }, [refetchOnlineFriends]);
 
   // Listen for typing indicators
   useEffect(() => {
@@ -850,6 +896,19 @@ export default function ChatPage() {
       friend.username.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+  // Debug: Log online friends status
+  useEffect(() => {
+    console.log("=== Online Friends Status ===");
+    console.log("Online friends from context:", onlineFriends);
+    console.log("All friends:", friends);
+    console.log("Filtered friends:", filteredFriends);
+    
+    filteredFriends.forEach(friend => {
+      const isOnline = onlineFriends.some(f => String(f.id) === String(friend.id));
+      console.log(`Friend ${friend.username} (ID: ${friend.id}): ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+    });
+  }, [onlineFriends, friends, filteredFriends]);
+
   const isSelectedFriendInvitePending = selectedFriend
     ? !!pendingInviteByFriend[String(selectedFriend.id)]
     : false;
@@ -991,7 +1050,8 @@ export default function ChatPage() {
                       {pending.map(req => (
                         <div
                           key={req.id}
-                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-orange-500/10 transition-all border border-transparent hover:border-orange-500/20"
+                          onClick={() => router.push('/friend-request')}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-orange-500/10 transition-all border border-transparent hover:border-orange-500/20 cursor-pointer"
                         >
                           <Avatar className="w-8 h-8 shrink-0">
                             <AvatarFallback className="bg-gradient-to-br from-orange-500/30 to-orange-500/10 text-orange-600 dark:text-orange-400 font-bold text-xs">
@@ -1000,7 +1060,7 @@ export default function ChatPage() {
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold truncate">{req.requester.username}</p>
-                            <p className="text-xs text-muted-foreground">Pending request</p>
+                            <p className="text-xs text-muted-foreground">Click to respond</p>
                           </div>
                         </div>
                       ))}

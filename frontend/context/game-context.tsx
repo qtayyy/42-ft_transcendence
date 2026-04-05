@@ -18,18 +18,25 @@ export const GameProvider = ({ children }) => {
 	const [showNavGuard, setShowNavGuard] = useState(false);
 	const [pendingPath, setPendingPath] = useState<string | null>(null);
 
-	useEffect(() => {
+	// Function to fetch online friends
+	const fetchOnlineFriends = async () => {
 		if (!user) return;
-
-		async function load() {
-			try {
-				const res = await axios.get("/api/friends/online");
-				setOnlineFriends(res.data);
-			} catch (err) {
-				throw err;
-			}
+		try {
+			const res = await axios.get("/api/friends/online");
+			// Ensure IDs are strings for consistency
+			const friends = (res.data || []).map((friend: any) => ({
+				...friend,
+				id: String(friend.id)
+			}));
+			console.log("Fetched online friends:", friends);
+			setOnlineFriends(friends);
+		} catch (err) {
+			console.error("Error loading online friends:", err);
 		}
-		load();
+	};
+
+	useEffect(() => {
+		fetchOnlineFriends();
 	}, [user]);
 
 	const gameStateRef = useRef<GameStateValue | null>(null);
@@ -51,8 +58,9 @@ export const GameProvider = ({ children }) => {
 			setPendingPath,
 			getLatestGameState: () => gameStateRef.current,
 			getLatestGameRoom: () => gameRoomRef.current,
+			refetchOnlineFriends: fetchOnlineFriends,
 		}),
-		[] // These are always stable
+		[user] // Include user to ensure function has access to current user
 	);
 
 	const value = useMemo(
