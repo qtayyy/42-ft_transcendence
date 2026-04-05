@@ -1,3 +1,7 @@
+import { PrismaClient } from "../generated/prisma/index.js";
+
+const prisma = new PrismaClient();
+
 const ACHIEVEMENTS = {
   FIRST_WIN: {
     key: "FIRST_WIN",
@@ -69,4 +73,84 @@ function getByKey(key) {
   return ACHIEVEMENTS[key];
 }
 
-export { getAll, checkNew, getByKey };
+/**
+ * Check and award new achievements for a user
+ * @param {number} profileId - User profile ID
+ * @param {Object} prismaClient - Prisma client (for transactions)
+ */
+async function checkAndAwardAchievements(profileId, prismaClient = null) {
+  const tx = prismaClient ?? prisma;
+
+  try {
+    // Get user's current stats
+    const profile = await tx.profile.findUnique({
+      where: { id: profileId },
+      select: {
+        level: true,
+        totalWins: true,
+        totalLosses: true,
+        totalDraws: true,
+        tournamentsWon: true,
+        achievements: {
+          select: { achievementKey: true },
+        },
+      },
+    });
+
+    if (!profile) {
+      console.error(`Profile ${profileId} not found for achievement check`);
+      return [];
+    }
+
+    const stats = {
+      level: profile.level,
+      totalWins: profile.totalWins,
+      totalLosses: profile.totalLosses,
+      totalDraws: profile.totalDraws,
+      tournamentWins: profile.tournamentsWon?.length || 0,
+    };
+
+    // Get already unlocked achievements
+    const unlockedKeys = new Set(
+      profile.achievements.map((a) => a.achievementKey)
+    );
+
+    // Check which achievements should be awarded
+    const eligibleAchievements = checkNew(stats);
+
+    // Award new achievements
+    const newAchievements = [];
+    for (const key of eligibleAchievements) {
+      if (!unlockedKeys.has(key)) {
+        try {
+          await tx.achievement.create({
+            data: {
+              profileId,
+              achievementKey: key,
+            },
+          });
+          newAchievements.push(key);
+          console.log(`🏆 Achievement unlocked for user ${profileId}: ${key}`);
+        } catch (error) {
+          // Ignore duplicate achievement errors (race condition)
+          if (!error.message?.includes("Unique constraint")) {
+            console.error(
+              `Failed to award achievement ${key} to user ${profileId}:`,
+              error
+            );
+          }
+        }
+      }
+    }
+
+    return newAchievements;
+  } catch (error) {
+    console.error(
+      `Error checking achievements for user ${profileId}:`,
+      error
+    );
+    return [];
+  }
+}
+
+export { getAll, checkNew, getByKey, checkAndAwardAchievements };
