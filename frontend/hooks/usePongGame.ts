@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { GameState, GameMode } from "@/types/game";
 
+export const defaultBindings = {
+	p1Up: 'w',
+	p1Down: 's',
+	p2Up: 'ArrowUp',
+	p2Down: 'ArrowDown',
+};
+
+export type KeyBindings = typeof defaultBindings;
+
 interface UsePongGameProps {
 	matchId: string;
 	mode: GameMode;
@@ -26,6 +35,22 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 
 	// Responsive canvas
 	const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 400 });
+
+	// Keybindings
+	const [bindings, setBindingsState] = useState<KeyBindings>(() => {
+		if (typeof window === 'undefined') return defaultBindings;
+		try {
+			const saved = localStorage.getItem('pongBindings');
+			return saved ? { ...defaultBindings, ...JSON.parse(saved) } : defaultBindings;
+		} catch {
+			return defaultBindings;
+		}
+	});
+
+	const setBindings = (newBindings: KeyBindings) => {
+		setBindingsState(newBindings);
+		try { localStorage.setItem('pongBindings', JSON.stringify(newBindings)); } catch { /* ignore */ }
+	};
 
 	useEffect(() => {
 		console.log(`[usePongGame] Setting up canvas resize observer for match: ${matchId}`);
@@ -123,25 +148,30 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 			}
 		};
 
+		const matchKey = (pressed: string, binding: string) =>
+			pressed.toLowerCase() === binding.toLowerCase();
+
 		const handleKeyDown = (e: KeyboardEvent) => {
 			console.log('[usePongGame] ⌨️ Key pressed:', e.key);
-			if (e.key === "w" || e.key === "W") sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 1 });
-			else if (e.key === "s" || e.key === "S") sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 1 });
-			else if (e.key === "ArrowUp") {
+			if (matchKey(e.key, bindings.p1Up)) sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 1 });
+			else if (matchKey(e.key, bindings.p1Down)) sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 1 });
+			else if (matchKey(e.key, bindings.p2Up)) {
 				e.preventDefault();
 				if (!isAIEnabled) sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 2 });
 			}
-			else if (e.key === "ArrowDown") {
+			else if (matchKey(e.key, bindings.p2Down)) {
 				e.preventDefault();
 				if (!isAIEnabled) sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 2 });
 			}
 			else if (e.key === "Enter") sendInput({ type: "START" });
-			else if (e.key === " ") { e.preventDefault(); sendInput({ type: "PAUSE" }); }
+			else if (e.key === " " || e.key === "Escape") { e.preventDefault(); sendInput({ type: "PAUSE" }); }
 		};
 
 		const handleKeyUp = (e: KeyboardEvent) => {
-			if (["w", "W", "s", "S"].includes(e.key)) sendInput({ type: "PADDLE_MOVE", direction: null, player: 1 });
-			else if (["ArrowUp", "ArrowDown"].includes(e.key) && !isAIEnabled) sendInput({ type: "PADDLE_MOVE", direction: null, player: 2 });
+			if (matchKey(e.key, bindings.p1Up) || matchKey(e.key, bindings.p1Down))
+				sendInput({ type: "PADDLE_MOVE", direction: null, player: 1 });
+			else if ((matchKey(e.key, bindings.p2Up) || matchKey(e.key, bindings.p2Down)) && !isAIEnabled)
+				sendInput({ type: "PADDLE_MOVE", direction: null, player: 2 });
 		};
 
 		window.addEventListener("keydown", handleKeyDown);
@@ -151,13 +181,15 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("keyup", handleKeyUp);
 		};
-	}, [matchId, wsUrl, isAIEnabled]);
+	}, [matchId, wsUrl, isAIEnabled, bindings]);
 
 	return {
 		gameState,
 		canvasRef,
 		containerRef,
 		canvasDimensions,
-		socketRef
+		socketRef,
+		bindings,
+		setBindings,
 	};
 }

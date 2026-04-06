@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { GameState, GameMode } from "@/types/game";
 import { usePongGame } from "@/hooks/usePongGame";
-import { renderGame } from "@/utils/gameRenderer";
+import { renderGame, BackgroundId } from "@/utils/gameRenderer";
 import { GameOverOverlay } from "@/components/game/GameOverOverlay";
 import { ReadyOverlay } from "@/components/game/ReadyOverlay";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
@@ -54,9 +54,32 @@ export default function PongGame({
 		canvasRef,
 		containerRef,
 		canvasDimensions,
-		socketRef
+		socketRef,
+		bindings,
+		setBindings,
 	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver, isAIEnabled });
 	const guardPauseSentRef = useRef(false);
+
+	// Background
+	const [background, setBackground] = useState<BackgroundId>(() => {
+		if (typeof window === 'undefined') return 'default';
+		return (localStorage.getItem('pongBackground') as BackgroundId) ?? 'default';
+	});
+	const handleBackgroundChange = (id: BackgroundId) => {
+		setBackground(id);
+		localStorage.setItem('pongBackground', id);
+	};
+
+	// Unlocked achievements for background gate
+	const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>([]);
+	useEffect(() => {
+		fetch('/api/achievements')
+			.then(r => r.json())
+			.then((data: { achievementKey: string }[]) =>
+				setUnlockedAchievements(data.map(a => a.achievementKey))
+			)
+			.catch(() => {/* ignore */});
+	}, []);
 
 	// Determine Display ID & Suffix
 	let cleanId = matchId.replace(/^(local-|tournament-)/, '');
@@ -86,8 +109,8 @@ export default function PongGame({
 		const context = canvas.getContext("2d");
 		if (!context) return;
 
-		renderGame(context, gameState, canvasDimensions);
-	}, [gameState, canvasDimensions]);
+		renderGame(context, gameState, canvasDimensions, background);
+	}, [gameState, canvasDimensions, background]);
 
 	const localGameOverResult =
 		gameState?.status === "finished"
@@ -315,6 +338,12 @@ export default function PongGame({
 						isOpen={gameState?.status === "paused"}
 						mode={mode}
 						onResume={handlePauseToggle}
+						onExit={onExit}
+						bindings={bindings}
+						onBindingsChange={setBindings}
+						background={background}
+						onBackgroundChange={handleBackgroundChange}
+						unlockedAchievements={unlockedAchievements}
 					/>
 				)}
 
@@ -331,7 +360,7 @@ export default function PongGame({
 				</div>
 			</div>
 
-			{showControlsTray && <GameControlsTray mode={mode === "remote" ? "remote" : "local"} />}
+			{showControlsTray && <GameControlsTray mode={mode === "remote" ? "remote" : "local"} bindings={bindings} />}
 
 			{showBuiltInOverlays && localGameOverResult && (
 				<GameOverOverlay
@@ -353,6 +382,11 @@ export default function PongGame({
 					player1Name="Player 1" // TODO: Get from game state
 					player2Name="Player 2" // TODO: Get from game state
 					onStart={handleStart}
+					bindings={bindings}
+					onBindingsChange={setBindings}
+					background={background}
+					onBackgroundChange={handleBackgroundChange}
+					unlockedAchievements={unlockedAchievements}
 				/>
 			)}
 		</div>
