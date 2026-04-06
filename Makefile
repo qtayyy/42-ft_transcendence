@@ -43,6 +43,15 @@ prune:
 tunnel:
 	@ngrok http https://localhost:8443 --host-header=localhost
 
+dev-tunnel:
+	@osascript -e 'tell application "Terminal" to do script "cd $(PWD) && make dev"'
+	@osascript -e 'tell application "Terminal" to do script "cd $(PWD) && make tunnel"'
+
+stop-tunnel:
+	@pkill -f ngrok 2>/dev/null || true
+	@docker compose -f ./compose.yaml stop
+	@echo "Stopped."
+
 re: stop down all
 
-.PHONY: all build start dev stop down logs clean prune re tunnel
+.PHONY: all build start dev stop down logs clean prune re tunnel dev-tunnel stop-tunnel
