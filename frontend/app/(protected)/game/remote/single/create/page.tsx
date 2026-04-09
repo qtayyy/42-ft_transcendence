@@ -8,7 +8,7 @@ import { useGame } from "@/hooks/use-game";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Copy, Check, Users, Loader2, Play, Crown, User, X } from "lucide-react";
+import { ArrowLeft, Copy, Check, Users, Loader2, Play, Crown, User, Wifi } from "lucide-react";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
@@ -21,8 +21,10 @@ export default function CreateRoomPage() {
 	const { gameRoom, onlineFriends } = useGame();
 	const [roomId, setRoomId] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
+	const [copiedLan, setCopiedLan] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [lanInfo, setLanInfo] = useState<{ ip: string; port: number } | null>(null);
 	const hasSentMatchmakingJoinRef = useRef(false);
 	const isMatchmakingMode = searchParams.get("matchmaking") === "true";
 
@@ -101,6 +103,13 @@ export default function CreateRoomPage() {
 		return () => clearInterval(retry);
 	}, [isMatchmakingMode, user, isReady, roomId, gameRoom, sendJoinMatchmaking]);
 
+	// Fetch LAN IP once
+	useEffect(() => {
+		axios.get("/api/lan/info")
+			.then(r => setLanInfo(r.data))
+			.catch(() => {/* not critical */});
+	}, []);
+
 	// Create room on mount
 	useEffect(() => {
 		const createRoom = async () => {
@@ -158,6 +167,15 @@ export default function CreateRoomPage() {
 			navigator.clipboard.writeText(roomId);
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
+		}
+	};
+
+	const handleCopyLanUrl = () => {
+		if (lanInfo && roomId) {
+			const url = `https://${lanInfo.ip}:${lanInfo.port}/game/remote/single/join?roomId=${roomId}`;
+			navigator.clipboard.writeText(url);
+			setCopiedLan(true);
+			setTimeout(() => setCopiedLan(false), 2000);
 		}
 	};
 
@@ -277,6 +295,36 @@ export default function CreateRoomPage() {
 											</Button>
 										</div>
 									</div>
+
+									{/* LAN Section */}
+									{lanInfo && (
+										<div className="space-y-2">
+											<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-1.5">
+												<Wifi className="h-3 w-3" /> LAN Join Link
+											</label>
+											<div className="flex gap-2">
+												<Input
+													value={`https://${lanInfo.ip}:${lanInfo.port}/game/remote/single/join?roomId=${roomId}`}
+													readOnly
+													className="font-mono text-xs bg-muted/50"
+												/>
+												<Button
+													variant="outline"
+													size="icon"
+													onClick={handleCopyLanUrl}
+													className={cn(
+														"shrink-0 transition-colors",
+														copiedLan && "bg-green-500/10 border-green-500/30 text-green-500"
+													)}
+												>
+													{copiedLan ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+												</Button>
+											</div>
+											<p className="text-[10px] text-muted-foreground">
+												Player 2 on the same WiFi can open this link directly
+											</p>
+										</div>
+									)}
 
 									{/* Players */}
 									<div className="space-y-3">
