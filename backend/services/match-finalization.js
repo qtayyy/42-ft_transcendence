@@ -1,6 +1,6 @@
 import { PrismaClient } from "../generated/prisma/index.js";
 import { persistMatchRecord } from "./match-persistence.js";
-import { applyProfileProgression } from "./profile-progression.js";
+import { applyProfileProgression } from "./progression-profile.js";
 
 const prisma = new PrismaClient();
 
