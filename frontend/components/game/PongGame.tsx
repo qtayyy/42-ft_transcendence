@@ -75,8 +75,8 @@ export default function PongGame({
 	useEffect(() => {
 		fetch('/api/achievements')
 			.then(r => r.json())
-			.then((data: { achievementKey: string }[]) =>
-				setUnlockedAchievements(data.map(a => a.achievementKey))
+			.then((data: { key: string }[]) =>
+				setUnlockedAchievements(data.map(a => a.key))
 			)
 			.catch(() => {/* ignore */});
 	}, []);
@@ -234,7 +234,7 @@ export default function PongGame({
 						aspectRatio: `${canvasDimensions.width} / ${canvasDimensions.height}`,
 					}}
 				>
-					<div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
+					<div className="absolute inset-0 bg-linear-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
 					<canvas
 						ref={canvasRef}
 						width={canvasDimensions.width}
@@ -248,7 +248,7 @@ export default function PongGame({
 	}
 
 	return (
-		<div className="h-screen pt-32 pb-4 flex flex-col overflow-hidden bg-gradient-to-b from-background to-muted/20 relative">
+		<div className="h-screen pt-32 pb-4 flex flex-col overflow-hidden bg-linear-to-b from-background to-muted/20 relative">
 
 			{/* Decorative Background Elements */}
 			<div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -270,7 +270,7 @@ export default function PongGame({
 
 				{/* Left: Match Info */}
 				<div className="flex flex-col items-start gap-1.5">
-					<h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 drop-shadow-sm">
+					<h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-linear-to-r from-blue-400 via-purple-400 to-pink-400 drop-shadow-sm">
 						{mode === "local" ? "LOCAL MATCH" : "REMOTE MATCH"}
 					</h1>
 					<div className="flex items-center gap-2">
@@ -290,13 +290,13 @@ export default function PongGame({
 				<div className="flex justify-center">
 					{gameState?.timer && (
 						<div className="relative group">
-							<div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-500"></div>
+							<div className="absolute -inset-1 bg-linear-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-500"></div>
 							<div className="relative px-8 py-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg flex flex-col items-center shadow-2xl">
 								<div className={cn(
 									"text-4xl font-mono font-bold tabular-nums tracking-widest leading-none drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]",
 									gameState.timer.timeRemaining < 30000
 										? 'text-red-500 animate-pulse drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]'
-										: 'bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70'
+										: 'bg-clip-text text-transparent bg-linear-to-b from-white to-white/70'
 								)}>
 									{formatTime(gameState.timer.timeRemaining)}
 								</div>
@@ -349,7 +349,7 @@ export default function PongGame({
 
 				{/* Canvas */}
 				<div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group max-w-full">
-					<div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
+					<div className="absolute inset-0 bg-linear-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
 					<canvas
 						ref={canvasRef}
 						width={canvasDimensions.width}
