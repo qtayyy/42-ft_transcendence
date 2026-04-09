@@ -2,13 +2,23 @@
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Pause } from "lucide-react";
+import { ArrowLeft, LogOut, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { KeyBindings } from "@/hooks/usePongGame";
+import { BackgroundId } from "@/utils/gameRenderer";
+import { GameSettingsPanel } from "@/components/game/GameSettingsPanel";
 
 interface PauseOverlayProps {
 	isOpen: boolean;
 	mode: "local" | "remote";
 	onResume?: () => void;
+	onExit?: () => void;
+	// Customization props (local only)
+	bindings?: KeyBindings;
+	onBindingsChange?: (b: KeyBindings) => void;
+	background?: BackgroundId;
+	onBackgroundChange?: (id: BackgroundId) => void;
+	unlockedAchievements?: string[];
 	// Remote-specific props
 	player1Ready?: boolean;
 	player2Ready?: boolean;
@@ -27,6 +37,12 @@ export function PauseOverlay({
 	isOpen,
 	mode,
 	onResume,
+	onExit,
+	bindings,
+	onBindingsChange,
+	background = 'default',
+	onBackgroundChange,
+	unlockedAchievements = [],
 	player1Ready = false,
 	player2Ready = false,
 	player1Name = "Player 1",
@@ -193,25 +209,47 @@ export function PauseOverlay({
 		);
 	}
 
-	// Local mode - simple pause
+	// Local mode — pause with settings panel + exit
 	return (
 		<div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-			<Card className="border-blue-500/50 bg-blue-500/10">
-				<div className="px-8 py-6 flex flex-col items-center gap-4">
-					<Pause className="h-10 w-10 text-blue-400" />
-					<div className="text-blue-400 font-bold text-2xl tracking-widest uppercase">
-						Paused
+			<Card className="border-blue-500/50 bg-blue-500/10 w-full max-w-sm mx-4">
+				<div className="px-6 py-5 flex flex-col items-center gap-4">
+					<div className="flex items-center gap-2">
+						<Pause className="h-5 w-5 text-blue-400" />
+						<span className="text-blue-400 font-bold text-xl tracking-widest uppercase">Paused</span>
 					</div>
-					<div className="text-muted-foreground text-sm text-center">
-						Press <kbd className="px-2 py-0.5 bg-white/10 rounded text-white font-mono">Space</kbd> to resume
+
+					{bindings && onBindingsChange && onBackgroundChange && (
+						<GameSettingsPanel
+							bindings={bindings}
+							onBindingsChange={onBindingsChange}
+							background={background}
+							onBackgroundChange={onBackgroundChange}
+							unlockedAchievements={unlockedAchievements}
+						/>
+					)}
+
+					<div className="flex items-center gap-2 w-full mt-1">
+						<Button
+							onClick={handleResume}
+							variant="default"
+							className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+						>
+							Resume
+						</Button>
+						{onExit && (
+							<Button
+								onClick={onExit}
+								variant="outline"
+								className="border-red-500/40 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+							>
+								<LogOut className="h-4 w-4" />
+							</Button>
+						)}
 					</div>
-					<Button
-						onClick={handleResume}
-						variant="default"
-						className="mt-2 bg-blue-500 hover:bg-blue-600 text-white"
-					>
-						Resume Game
-					</Button>
+					<div className="text-muted-foreground text-xs text-center">
+						Press <kbd className="px-2 py-0.5 bg-white/10 rounded text-white font-mono">Space</kbd> or <kbd className="px-2 py-0.5 bg-white/10 rounded text-white font-mono">Esc</kbd> to resume
+					</div>
 				</div>
 			</Card>
 		</div>
