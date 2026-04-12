@@ -4,21 +4,36 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Keyboard, Gamepad2, Pause, ChevronDown, ChevronUp } from "lucide-react";
+import { KeyBindings, defaultBindings } from "@/hooks/usePongGame";
 
 type GameControlsTrayMode = "local" | "remote";
 
 interface GameControlsTrayProps {
 	mode: GameControlsTrayMode;
+	bindings?: KeyBindings;
 	defaultHidden?: boolean;
 	className?: string;
 }
 
+function formatKey(key: string): string {
+	switch (key) {
+		case 'ArrowUp':    return '↑';
+		case 'ArrowDown':  return '↓';
+		case 'ArrowLeft':  return '←';
+		case 'ArrowRight': return '→';
+		case ' ':          return 'Space';
+		default:           return key.toUpperCase();
+	}
+}
+
 export function GameControlsTray({
 	mode,
+	bindings,
 	defaultHidden = true,
 	className,
 }: GameControlsTrayProps) {
 	const [isHidden, setIsHidden] = useState(defaultHidden);
+	const b = bindings ?? defaultBindings;
 
 	return (
 		<div className={cn("absolute inset-x-0 bottom-4 z-20 px-4", className)}>
@@ -33,7 +48,9 @@ export function GameControlsTray({
 									</div>
 									<div className="flex flex-col min-w-0">
 										<span className="text-xs font-bold text-foreground">Player 1</span>
-										<span className="text-[10px] text-muted-foreground font-mono">W / S</span>
+										<span className="text-[10px] text-muted-foreground font-mono">
+											{formatKey(b.p1Up)} / {formatKey(b.p1Down)}
+										</span>
 									</div>
 								</div>
 
@@ -49,7 +66,9 @@ export function GameControlsTray({
 								<div className="flex items-center gap-3 text-right min-w-0">
 									<div className="flex flex-col items-end min-w-0">
 										<span className="text-xs font-bold text-foreground">Player 2</span>
-										<span className="text-[10px] text-muted-foreground font-mono">Arrow Keys</span>
+										<span className="text-[10px] text-muted-foreground font-mono">
+											{formatKey(b.p2Up)} / {formatKey(b.p2Down)}
+										</span>
 									</div>
 									<div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 ring-1 ring-purple-500/20">
 										<Gamepad2 className="h-4 w-4" />
@@ -100,7 +119,7 @@ export function GameControlsTray({
 					onClick={() => setIsHidden((prev) => !prev)}
 					className={cn(
 						"absolute right-0 h-9 rounded-full bg-black/60 border-white/10 text-white hover:bg-black/80 hover:text-white",
-						isHidden ? "bottom-0" : "bottom-[4.25rem]"
+						isHidden ? "bottom-0" : "bottom-17"
 					)}
 				>
 					{isHidden ? (
