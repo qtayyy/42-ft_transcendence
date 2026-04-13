@@ -69,6 +69,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const markedAsReadRef = useRef<Set<number>>(new Set());
   const { t } = useLanguage();
 
   const clearUnreadForFriend = (friendId: string) => {
@@ -190,13 +191,19 @@ export default function ChatPage() {
   useEffect(() => {
     const handleReadReceipt = (event: CustomEvent) => {
       const data = event.detail;
-      setMessages((prev) =>
-        prev.map((msg) =>
+      console.log("Chat page received MESSAGE_READ event:", data);
+      
+      // Update the message as read if it exists in current messages
+      // This works regardless of which friend is currently selected
+      setMessages((prev) => {
+        const updated = prev.map((msg) =>
           msg.id === data.messageId
             ? { ...msg, read: true, readAt: data.readAt }
             : msg
-        )
-      );
+        );
+        console.log("Updated messages after read receipt:", updated.find(m => m.id === data.messageId));
+        return updated;
+      });
     };
 
     window.addEventListener("messageRead", handleReadReceipt as EventListener);
@@ -495,8 +502,12 @@ export default function ChatPage() {
   useEffect(() => {
     if (!selectedFriend) {
       setMessages([]);
+      markedAsReadRef.current.clear(); // Clear read tracking when no friend selected
       return;
     }
+
+    // Clear read tracking when switching friends
+    markedAsReadRef.current.clear();
 
     const loadChatHistory = async () => {
       if (!selectedFriend?.id) {
@@ -701,25 +712,31 @@ export default function ChatPage() {
 
   // Mark messages as read when viewing them
   useEffect(() => {
-    if (selectedFriend && messages.length > 0) {
+    if (selectedFriend && messages.length > 0 && isReady) {
       const unreadMessages = messages.filter(
-        (msg) => !msg.read && msg.senderId !== user?.id && msg.id
+        (msg) => !msg.read && msg.senderId !== user?.id && msg.id && !markedAsReadRef.current.has(msg.id)
       );
 
       if (unreadMessages.length > 0) {
+        console.log(`Marking ${unreadMessages.length} messages as read for friend ${selectedFriend.id}`);
         clearUnreadForFriend(selectedFriend.id);
       }
 
       unreadMessages.forEach((msg) => {
         if (msg.id) {
+          console.log(`Sending MESSAGE_READ for message ${msg.id}`);
+          // Mark as read via WebSocket
           sendSocketMessage({
             event: "MESSAGE_READ",
             payload: { messageId: msg.id },
           });
+          
+          // Track that we've sent MESSAGE_READ for this message
+          markedAsReadRef.current.add(msg.id);
         }
       });
     }
-  }, [messages, selectedFriend, user, sendSocketMessage]);
+  }, [messages, selectedFriend, user, sendSocketMessage, isReady]);
 
   // Block user
   const handleBlockUser = async () => {

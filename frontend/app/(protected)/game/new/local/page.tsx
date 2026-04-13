@@ -20,7 +20,7 @@ export default function LocalSelectionPage() {
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Back to Local or Remote
+						{t.Game["Back to Local or Remote"]}
 					</Button>
 				</div>
 
@@ -29,10 +29,10 @@ export default function LocalSelectionPage() {
 						<Monitor className="h-8 w-8 text-blue-500" />
 					</div>
 					<h1 className="text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 bg-clip-text text-transparent">
-						Local Selection
+						{t.Game["Local Selection"]}
 					</h1>
 					<p className="text-lg text-muted-foreground max-w-xl mx-auto">
-						Pick your local mode on this device.
+						{t.Game["Pick your local mode on this device"]}
 					</p>
 				</div>
 
