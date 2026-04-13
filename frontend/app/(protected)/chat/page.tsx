@@ -931,7 +931,7 @@ export default function ChatPage() {
                     </div>
                     <div className="flex-1">
                       <h2 className="text-xl font-black tracking-tight">{t.Dashboard.Friends}</h2>
-                      <p className="text-xs text-muted-foreground font-medium">{friends.length} {friends.length === 1 ? 'contact' : 'contacts'}</p>
+                      <p className="text-xs text-muted-foreground font-medium">{friends.length} {t.chat["contacts"]}</p>
                     </div>
                   </div>
                   {/* Search Bar */}
@@ -939,7 +939,7 @@ export default function ChatPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       type="text"
-                      placeholder="Search friends..."
+                      placeholder={t.chat["Search friends..."]}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10 bg-background/60 border-border/50 focus:border-primary/50 transition-all"
@@ -1012,8 +1012,8 @@ export default function ChatPage() {
                                   selectedFriend?.id === friend.id ? "text-primary-foreground/70" : "text-muted-foreground"
                                 }`}>
                                   {onlineFriends.some(f => Number(f.id) === Number(friend.id)) 
-                                    ? "● Active now" 
-                                    : "Offline"
+                                    ? `● ${t.chat["Active now"]}` 
+                                    : t.chat["Offline"]
                                   }
                                 </p>
                                 {(unreadByFriend[friend.id] || 0) > 0 && (
@@ -1060,7 +1060,7 @@ export default function ChatPage() {
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold truncate">{req.requester.username}</p>
-                            <p className="text-xs text-muted-foreground">Click to respond</p>
+                            <p className="text-xs text-muted-foreground">{t.chat["Click to respond"]}</p>
                           </div>
                         </div>
                       ))}
@@ -1119,10 +1119,10 @@ export default function ChatPage() {
                                   <div className="w-2 h-2 rounded-full bg-green-500">
                                     <div className="w-full h-full bg-green-400 rounded-full animate-ping"></div>
                                   </div>
-                                  <p className="text-xs text-muted-foreground font-semibold">Active now</p>
+                                  <p className="text-xs text-muted-foreground font-semibold">{t.chat["Active now"]}</p>
                                 </>
                               ) : (
-                                <p className="text-xs text-muted-foreground font-medium">Offline</p>
+                                <p className="text-xs text-muted-foreground font-medium">{t.chat["Offline"]}</p>
                               )}
                             </div>
                           ) : (
@@ -1139,7 +1139,7 @@ export default function ChatPage() {
                           >
                             <Gamepad2 className="w-4 h-4" />
                             <span className="hidden sm:inline">
-                              {isSelectedFriendInvitePending ? "Invitation Pending" : "Invite to Game"}
+                              {isSelectedFriendInvitePending ? t.chat["Invitation Pending"] : t.chat["Invite to Game"]}
                             </span>
                           </Button>
                           <DropdownMenu>
@@ -1151,7 +1151,7 @@ export default function ChatPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={handleViewProfile}>
                                 <UserCircle className="w-4 h-4 mr-2" />
-                                View Profile
+                                {t.chat["View Profile"]}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
@@ -1159,7 +1159,7 @@ export default function ChatPage() {
                                 className="text-destructive"
                               >
                                 <Ban className="w-4 h-4 mr-2" />
-                                Block User
+                                {t.chat["Block User"]}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -1181,7 +1181,7 @@ export default function ChatPage() {
                               <div className="absolute inset-0 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
                               <div className="absolute inset-2 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1s' }}></div>
                             </div>
-                            <p className="text-muted-foreground text-sm font-medium">{t.chat.loading}...</p>
+                            <p className="text-muted-foreground text-sm font-medium">{t.chat.loading}</p>
                           </div>
                         </div>
                       ) : messages.length === 0 ? (
@@ -1195,9 +1195,9 @@ export default function ChatPage() {
                               <Smile className="w-6 h-6 text-white" />
                             </div>
                           </div>
-                          <h3 className="text-2xl font-black tracking-tight mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">No messages yet</h3>
+                          <h3 className="text-2xl font-black tracking-tight mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{t.chat["No messages yet"]}</h3>
                           <p className="text-muted-foreground text-center text-sm max-w-sm font-medium">
-                            Start the conversation by sending a message below!
+                            {t.chat["Start the conversation by sending a message below!"]}
                           </p>
                         </div>
                       ) : (
@@ -1348,9 +1348,9 @@ export default function ChatPage() {
                           <Users className="w-7 h-7 text-white" />
                         </div>
                       </div>
-                      <h2 className="text-3xl font-black tracking-tight mb-3 bg-gradient-to-r from-foreground via-primary/70 to-foreground bg-clip-text text-transparent">Select a friend to start chatting</h2>
+                      <h2 className="text-3xl font-black tracking-tight mb-3 bg-gradient-to-r from-foreground via-primary/70 to-foreground bg-clip-text text-transparent">{t.chat["Select a friend to start chatting"]}</h2>
                       <p className="text-muted-foreground max-w-md mx-auto text-sm font-medium">
-                        Choose someone from your friends list to begin a conversation and stay connected!
+                        {t.chat["Choose someone from your friends list to begin a conversation and stay connected!"]}
                       </p>
                     </div>
                   </div>
@@ -1365,17 +1365,17 @@ export default function ChatPage() {
       <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Block User</DialogTitle>
+            <DialogTitle>{t.chat["Block User"]}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to block {selectedFriend?.username}? You won't be able to send or receive messages from this user.
+              {t.chat["Are you sure you want to block"]} {selectedFriend?.username}? {t.chat["You won't be able to send or receive messages from this user."]}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowBlockDialog(false)}>
-              Cancel
+              {t.chat["Cancel"]}
             </Button>
             <Button variant="destructive" onClick={handleBlockUser}>
-              Block
+              {t.chat["Block"]}
             </Button>
           </DialogFooter>
         </DialogContent>
