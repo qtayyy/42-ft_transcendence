@@ -36,7 +36,25 @@
     "Date": "날짜",
     "Time": "시간",
     "Winner": "승자",
-    "Player": "플레이어"
+    "Player": "플레이어",
+    "Leaderboard": "리더보드",
+    "Show Filters & Export": "필터 및 내보내기 표시",
+    "Current Level": "현재 레벨",
+    "Experience ": "경험치",
+    "Wins": "승리",
+    "Losses": "패배",
+    "Loss": "패배",
+    "Draw": "무승부",
+    "Draws": "무승부",
+    "Last played": "마지막 플레이",
+    "Total minutes": "총 시간(분)",
+    "Recent Game History": "최근 게임 기록",
+    "Top 3 latest matches from your full history": "전체 기록 중 최근 3경기",
+    "Match ID": "매치 ID",
+    "Date:": "날짜:",
+    "Time:": "시간:",
+    "Result:": "결과:",
+    "Overview": "개요"
   },
   "DropDown": {
     "Profile": "프로필",
@@ -51,7 +69,8 @@
     "Country/Region": "국가/지역",
     "Save": "저장",
     "Cancel": "취소",
-    "Edit": "편집"
+    "Edit": "편집",
+    "Bio": "자기소개"
   },
   "FriendRequests": {
     "No pending requests": "대기 중인 요청 없음",
@@ -81,7 +100,11 @@
     "Enter your password to confirm": "비밀번호를 입력하여 확인",
     "Enter your password": "비밀번호 입력",
     "Cancel": "취소",
-    "Yes,Delete My Account": "예, 내 계정을 삭제합니다"
+    "Yes,Delete My Account": "예, 내 계정을 삭제합니다",
+    "Blocked Users": "차단된 사용자",
+    "Manage users you have blocked.": "차단한 사용자를 관리합니다.",
+    "Updated your account password": "계정 비밀번호 업데이트됨",
+    "Add an extra layer of security to your account": "계정에 보안 계층 추가"
   },
   "chat": {
     "SimpleChat": "간편 채팅",
@@ -93,7 +116,14 @@
     "No pending requests": "대기 중인 친구 요청 없음",
     "loading": "친구 불러오는 중...",
     "You": "나",
-    "No friends": "친구가 없습니다"
+    "No friends": "친구가 없습니다",
+    "contact:": "연락처:",
+    "Active now": "현재 활동 중",
+    "Offline": "오프라인",
+    "typing...": "입력 중...",
+    "Invite to Game": "게임 초대",
+    "View Profile": "프로필 보기",
+    "Block User": "사용자 차단"
   },
   "Game": {
     "Are You Ready?": "준비되셨나요?",
@@ -122,6 +152,48 @@
     "Start Match": "경기 시작",
     "Player 1": "플레이어 1",
     "Player 2": "플레이어 2",
-    "Back to Modes": "모드로 돌아가기"
+    "Back to Modes": "모드로 돌아가기",
+    "Coming Soon": "곧 출시",
+    "Local or Remote ": "로컬 또는 원격",
+    "Choose the play environment first , then pick a mode": "먼저 플레이 환경을 선택한 다음 모드를 선택하세요",
+    "Open Local Selection": "로컬 선택 열기",
+    "Open Remote Selection": "원격 선택 열기",
+    "Pick your local mode on this device": "이 기기에서 로컬 모드 선택",
+    "AI Opponent Mode": "AI 상대 모드",
+    "Toggle to play against a bot in Local 1v1.": "로컬 1v1에서 봇과 대결하려면 토글하세요.",
+    "Disabled": "비활성화됨",
+    "Enabled": "활성화됨",
+    "AI Difficulty": "AI 난이도",
+    "Easy": "쉬움",
+    "Medium": "보통",
+    "Hard": "어려움",
+    "PLAYER 1 (YOU)": "플레이어 1 (당신)",
+    "Player Name ...": "플레이어 이름...",
+    "Back to Local Selection": "로컬 선택으로 돌아가기",
+    "Local Tournament ": "로컬 토너먼트",
+    "Setup a brackert elimination tournament for 3-8 players": "3-8명의 플레이어를 위한 토너먼트 설정",
+    "Add Guest Player Name...": "게스트 플레이어 이름 추가...",
+    "Add Player": "플레이어 추가",
+    "MAX 8 PLAYERS": "최대 8명",
+    "REGISTERED CONTENDERS": "등록된 참가자",
+    "More Players Needed": "더 많은 플레이어 필요",
+    "Begin Tournament": "토너먼트 시작",
+    "Our engineers are hard at work building the ultimate online arena. Stay tuned for the next update!": "우리 엔지니어들이 최고의 온라인 경기장을 구축하기 위해 열심히 작업하고 있습니다. 다음 업데이트를 기대해주세요!"
+  },
+  "Leaderboard & Match History": {
+    "Top players ranked by level and XP": "레벨과 경험치로 순위가 매겨진 상위 플레이어",
+    "Player Rankings": "플레이어 순위",
+    "Rank": "순위",
+    "Player": "플레이어",
+    "Level": "레벨",
+    "XP": "경험치",
+    "W/L/D": "승/패/무",
+    "Win Rate": "승률",
+    "Previous": "이전",
+    "Page": "페이지",
+    "Next": "다음",
+    "Review your past matches and track your performance": "과거 경기를 검토하고 성과를 추적하세요",
+    "Recent Matches": "최근 경기",
+    "Total Matches": "총 경기 수"
   }
 }
