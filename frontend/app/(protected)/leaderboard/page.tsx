@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Trophy, Crown, Medal } from "lucide-react";
+import { useLanguage } from '@/context/languageContext';
 
 interface Player {
   rank: number;
@@ -21,6 +22,7 @@ interface Player {
 }
 
 export default function LeaderboardPage() {
+  const { t } = useLanguage();
   const [leaderboard, setLeaderboard] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [offset, setOffset] = useState(0);
@@ -63,27 +65,27 @@ export default function LeaderboardPage() {
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3">
             <Trophy className="h-10 w-10 text-primary" />
-            <h1 className="text-5xl font-black">Leaderboard</h1>
+            <h1 className="text-5xl font-black">{t["Leaderboard & Match History"]["Leaderboard"]}</h1>
             <Trophy className="h-10 w-10 text-primary" />
           </div>
-          <p className="text-xl text-muted-foreground">Top players ranked by level and XP</p>
+          <p className="text-xl text-muted-foreground">{t["Leaderboard & Match History"]["Top players ranked by level and XP"]}</p>
         </div>
 
         <Card className="border-0 bg-card/95 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle>Player Rankings</CardTitle>
+            <CardTitle>{t["Leaderboard & Match History"]["Player Rankings"]}</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="border-b bg-muted/30">
                   <tr>
-                    <th className="text-left py-3 px-4 font-semibold">Rank</th>
-                    <th className="text-left py-3 px-4 font-semibold">Player</th>
-                    <th className="text-center py-3 px-4 font-semibold">Level</th>
-                    <th className="text-center py-3 px-4 font-semibold">XP</th>
-                    <th className="text-center py-3 px-4 font-semibold">W/L/D</th>
-                    <th className="text-center py-3 px-4 font-semibold">Win Rate</th>
+                    <th className="text-left py-3 px-4 font-semibold">{t["Leaderboard & Match History"]["Rank"]}</th>
+                    <th className="text-left py-3 px-4 font-semibold">{t["Leaderboard & Match History"]["Player"]}</th>
+                    <th className="text-center py-3 px-4 font-semibold">{t["Leaderboard & Match History"]["Level"]}</th>
+                    <th className="text-center py-3 px-4 font-semibold">{t["Leaderboard & Match History"]["XP"]}</th>
+                    <th className="text-center py-3 px-4 font-semibold">{t["Leaderboard & Match History"]["W/L/D"]}</th>
+                    <th className="text-center py-3 px-4 font-semibold">{t["Leaderboard & Match History"]["Win Rate"]}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -128,16 +130,16 @@ export default function LeaderboardPage() {
             disabled={offset === 0}
             className="px-4 py-2 rounded-lg border border-border/50 bg-card hover:bg-muted disabled:opacity-50"
           >
-            Previous
+            {t["Leaderboard & Match History"]["Previous"]}
           </button>
           <div className="flex items-center text-sm text-muted-foreground">
-            Page {Math.floor(offset / LIMIT) + 1}
+            {t["Leaderboard & Match History"]["Page"]} {Math.floor(offset / LIMIT) + 1}
           </div>
           <button
             onClick={() => setOffset(offset + LIMIT)}
             className="px-4 py-2 rounded-lg border border-border/50 bg-card hover:bg-muted"
           >
-            Next
+            {t["Leaderboard & Match History"]["Next"]}
           </button>
         </div>
       </div>

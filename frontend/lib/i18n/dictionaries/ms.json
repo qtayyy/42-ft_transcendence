@@ -36,7 +36,25 @@
     "Date": "Tarikh",
     "Time": "Masa",
     "Winner": "Pemenang",
-    "Player": "Pemain"
+    "Player": "Pemain",
+    "Leaderboard": "Papan Pendahulu",
+    "Show Filters & Export": "Tunjuk Penapis & Eksport",
+    "Current Level": "Tahap Semasa",
+    "Experience ": "Pengalaman",
+    "Wins": "Kemenangan",
+    "Losses": "Kekalahan",
+    "Loss": "Kalah",
+    "Draw": "Seri",
+    "Draws": "Seri",
+    "Last played": "Terakhir bermain",
+    "Total minutes": "Jumlah minit",
+    "Recent Game History": "Sejarah Permainan Terkini",
+    "Top 3 latest matches from your full history": "3 perlawanan terbaru dari sejarah penuh anda",
+    "Match ID": "ID Perlawanan",
+    "Date:": "Tarikh:",
+    "Time:": "Masa:",
+    "Result:": "Keputusan:",
+    "Overview": "Gambaran Keseluruhan"
   },
   "DropDown": {
     "Profile": "Profil",
@@ -51,7 +69,8 @@
     "Country/Region": "Negara/Wilayah",
     "Save": "Simpan",
     "Cancel": "Batal",
-    "Edit": "Sunting"
+    "Edit": "Sunting",
+    "Bio": "Biodata"
   },
   "FriendRequests": {
     "No pending requests": "Tiada permintaan menunggu",
@@ -81,7 +100,11 @@
     "Enter your password to confirm": "Masukkan kata laluan anda untuk sahkan",
     "Enter your password": "Masukkan kata laluan",
     "Cancel": "Batal",
-    "Yes,Delete My Account": "Ya, Padam Akaun Saya"
+    "Yes,Delete My Account": "Ya, Padam Akaun Saya",
+    "Blocked Users": "Pengguna Disekat",
+    "Manage users you have blocked.": "Urus pengguna yang anda telah sekat.",
+    "Updated your account password": "Kata laluan akaun dikemaskini",
+    "Add an extra layer of security to your account": "Tambah lapisan keselamatan tambahan ke akaun anda"
   },
   "chat": {
     "SimpleChat": "Sembang Mudah",
@@ -93,7 +116,14 @@
     "No pending requests": "Tiada permintaan menunggu",
     "loading": "Memuatkan rakan...",
     "You": "Anda",
-    "No friends": "Tiada rakan"
+    "No friends": "Tiada rakan",
+    "contact:": "Hubungi:",
+    "Active now": "Aktif sekarang",
+    "Offline": "Luar Talian",
+    "typing...": "menaip...",
+    "Invite to Game": "Jemput ke Permainan",
+    "View Profile": "Lihat Profil",
+    "Block User": "Sekat Pengguna"
   },
   "Game": {
     "Are You Ready?": "Adakah Anda Bersedia?",
@@ -122,6 +152,48 @@
     "Start Match": "Mula Perlawanan",
     "Player 1": "Pemain 1",
     "Player 2": "Pemain 2",
-    "Back to Modes": "Kembali ke Mod"
+    "Back to Modes": "Kembali ke Mod",
+    "Coming Soon": "Akan Datang",
+    "Local or Remote ": "Tempatan atau Jauh",
+    "Choose the play environment first , then pick a mode": "Pilih persekitaran permainan dahulu, kemudian pilih mod",
+    "Open Local Selection": "Buka Pilihan Tempatan",
+    "Open Remote Selection": "Buka Pilihan Jauh",
+    "Pick your local mode on this device": "Pilih mod tempatan pada peranti ini",
+    "AI Opponent Mode": "Mod Lawan AI",
+    "Toggle to play against a bot in Local 1v1.": "Togol untuk bermain melawan bot dalam Tempatan 1v1.",
+    "Disabled": "Dilumpuhkan",
+    "Enabled": "Diaktifkan",
+    "AI Difficulty": "Kesukaran AI",
+    "Easy": "Mudah",
+    "Medium": "Sederhana",
+    "Hard": "Sukar",
+    "PLAYER 1 (YOU)": "PEMAIN 1 (ANDA)",
+    "Player Name ...": "Nama Pemain...",
+    "Back to Local Selection": "Kembali ke Pilihan Tempatan",
+    "Local Tournament ": "Kejohanan Tempatan",
+    "Setup a brackert elimination tournament for 3-8 players": "Sediakan kejohanan penyingkiran kurungan untuk 3-8 pemain",
+    "Add Guest Player Name...": "Tambah Nama Pemain Tetamu...",
+    "Add Player": "Tambah Pemain",
+    "MAX 8 PLAYERS": "MAKS 8 PEMAIN",
+    "REGISTERED CONTENDERS": "PESERTA BERDAFTAR",
+    "More Players Needed": "Lebih Ramai Pemain Diperlukan",
+    "Begin Tournament": "Mula Kejohanan",
+    "Our engineers are hard at work building the ultimate online arena. Stay tuned for the next update!": "Jurutera kami sedang bekerja keras membina arena dalam talian yang terbaik. Nantikan kemas kini seterusnya!"
+  },
+  "Leaderboard & Match History": {
+    "Top players ranked by level and XP": "Pemain teratas yang diberi kedudukan mengikut tahap dan XP",
+    "Player Rankings": "Kedudukan Pemain",
+    "Rank": "Kedudukan",
+    "Player": "Pemain",
+    "Level": "Tahap",
+    "XP": "XP",
+    "W/L/D": "M/K/S",
+    "Win Rate": "Kadar Menang",
+    "Previous": "Sebelumnya",
+    "Page": "Halaman",
+    "Next": "Seterusnya",
+    "Review your past matches and track your performance": "Semak perlawanan lalu anda dan jejaki prestasi anda",
+    "Recent Matches": "Perlawanan Terkini",
+    "Total Matches": "Jumlah Perlawanan"
   }
 }

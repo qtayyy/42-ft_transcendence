@@ -32,15 +32,6 @@ interface MatchEntry {
   date: string;
 }
 
-const MODE_LABEL: Record<string, string> = {
-  local: "Local 1v1",
-  "local-tournament": "Local Tournament",
-  remote: "Remote 1v1",
-  "remote-tournament": "Remote Tournament",
-  ai: "vs AI",
-};
-
-
 export default function DashboardPage() {
   const router = useRouter();
   const [userFound, setUserFound] = useState("");
@@ -56,6 +47,14 @@ export default function DashboardPage() {
   const { onlineFriends } = useGame();
   const { t } = useLanguage();
   const { friends: allFriends } = useFriends();
+
+  const MODE_LABEL: Record<string, string> = {
+    local: t.Dashboard["Local 1v1"],
+    "local-tournament": t.Dashboard["Local Tournament"],
+    remote: t.Dashboard["Remote 1v1"],
+    "remote-tournament": t.Dashboard["Remote Tournament"],
+    ai: t.Dashboard["vs AI"],
+  };
 
   const escapeCsvCell = (value: string | number | null | undefined) => {
     const safeValue = value == null ? "" : String(value);
@@ -487,7 +486,7 @@ export default function DashboardPage() {
               className="relative px-8 py-6 text-lg hover:scale-[1.02] transition-all duration-300 font-bold shadow-lg bg-amber-600 hover:bg-amber-700"
               onClick={() => router.push("/leaderboard")}
             >
-              Leaderboard
+              {t.Dashboard["Leaderboard"]}
             </Button>
           </div>
         </div>
@@ -500,7 +499,7 @@ export default function DashboardPage() {
               className="gap-2"
             >
               <Download className="h-4 w-4" />
-              {showAnalyticsControls ? "Hide Filters & Export" : "Show Filters & Export"}
+              {showAnalyticsControls ? t.Dashboard["Hide Filters & Export"] : t.Dashboard["Show Filters & Export"]}
               {showAnalyticsControls ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </div>
@@ -512,16 +511,16 @@ export default function DashboardPage() {
                 <CardHeader className="pb-4">
                   <CardTitle className="text-2xl flex items-center gap-2">
                     <Download className="h-6 w-6 text-sky-500" />
-                    Analytics Controls
+                    {t.Dashboard["Analytics Controls"]}
                   </CardTitle>
                   <CardDescription>
-                    Custom date range and filters for dashboard stats, with CSV/PDF export.
+                    {t.Dashboard["Custom date range and filters for dashboard stats, with CSV/PDF export."]}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground font-medium">From</label>
+                      <label className="text-xs text-muted-foreground font-medium">{t.Dashboard["From"]}</label>
                       <input
                         type="date"
                         value={fromDate}
@@ -530,7 +529,7 @@ export default function DashboardPage() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground font-medium">To</label>
+                      <label className="text-xs text-muted-foreground font-medium">{t.Dashboard["To"]}</label>
                       <input
                         type="date"
                         value={toDate}
@@ -539,13 +538,13 @@ export default function DashboardPage() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground font-medium">Mode</label>
+                      <label className="text-xs text-muted-foreground font-medium">{t.Dashboard["Mode"]}</label>
                       <select
                         value={modeFilter}
                         onChange={(e) => setModeFilter(e.target.value)}
                         className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                       >
-                        <option value="all">All modes</option>
+                        <option value="all">{t.Dashboard["All modes"]}</option>
                         {modeOptions.map((mode) => (
                           <option key={mode} value={mode}>
                             {MODE_LABEL[mode] || mode}
@@ -554,43 +553,43 @@ export default function DashboardPage() {
                       </select>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground font-medium">Result</label>
+                      <label className="text-xs text-muted-foreground font-medium">{t.Dashboard["Result"]}</label>
                       <select
                         value={resultFilter}
                         onChange={(e) => setResultFilter(e.target.value as "all" | "win" | "loss" | "draw")}
                         className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                       >
-                        <option value="all">All results</option>
-                        <option value="win">Win</option>
-                        <option value="loss">Loss</option>
-                        <option value="draw">Draw</option>
+                        <option value="all">{t.Dashboard["All results"]}</option>
+                        <option value="win">{t.Dashboard["Win"]}</option>
+                        <option value="loss">{t.Dashboard["Loss"]}</option>
+                        <option value="draw">{t.Dashboard["Draw"]}</option>
                       </select>
                     </div>
                     <div className="flex items-end">
                       <Button variant="outline" className="w-full" onClick={clearFilters}>
-                        Reset Filters
+                        {t.Dashboard["Reset Filters"]}
                       </Button>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="secondary" size="sm" onClick={() => setQuickRange(7)}>Last 7 days</Button>
-                    <Button variant="secondary" size="sm" onClick={() => setQuickRange(30)}>Last 30 days</Button>
-                    <Button variant="secondary" size="sm" onClick={() => setQuickRange(90)}>Last 90 days</Button>
-                    <Button variant="ghost" size="sm" onClick={clearFilters}>All time</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setQuickRange(7)}>{t.Dashboard["Last 7 days"]}</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setQuickRange(30)}>{t.Dashboard["Last 30 days"]}</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setQuickRange(90)}>{t.Dashboard["Last 90 days"]}</Button>
+                    <Button variant="ghost" size="sm" onClick={clearFilters}>{t.Dashboard["All time"]}</Button>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3 pt-1">
                     <Badge variant="secondary" className="px-3 py-1">
-                      {sortedFilteredMatches.length} match{sortedFilteredMatches.length === 1 ? "" : "es"} in current view
+                      {sortedFilteredMatches.length} {t.Dashboard["matches"]} {t.Dashboard["in current view"]}
                     </Badge>
                     <Button onClick={handleExportCsv} disabled={sortedFilteredMatches.length === 0} className="gap-2">
                       <FileSpreadsheet className="h-4 w-4" />
-                      Export CSV
+                      {t.Dashboard["Export CSV"]}
                     </Button>
                     <Button variant="outline" onClick={handleExportPdf} disabled={sortedFilteredMatches.length === 0} className="gap-2">
                       <FileText className="h-4 w-4" />
-                      Export PDF
+                      {t.Dashboard["Export PDF"]}
                     </Button>
                   </div>
                 </CardContent>
@@ -602,9 +601,7 @@ export default function DashboardPage() {
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
           {/* User Stats */}
-          <div>
-            <UserStats />
-          </div>
+          <UserStats />
 
           {/* Friends Section */}
           <div className="group relative">
@@ -706,14 +703,14 @@ export default function DashboardPage() {
                               : "text-muted-foreground hover:text-foreground"
                           }`}
                         >
-                          {v === "day" ? "7 Days" : v === "week" ? "8 Wks" : "6 Mo"}
+                          {v === "day" ? t.Dashboard["7 Days"] : v === "week" ? t.Dashboard["8 Wks"] : t.Dashboard["6 Mo"]}
                         </button>
                       ))}
                     </div>
 
                     {/* Bar chart */}
                     {recentMatchesLoading ? (
-                      <p className="text-muted-foreground text-center text-xs py-4">Loading...</p>
+                      <p className="text-muted-foreground text-center text-xs py-4">{t.Dashboard["Loading..."]}</p>
                     ) : (
                       <div className="flex items-end justify-between gap-1 h-28 px-1">
                         {activityBars.map((bar, i) => (
@@ -735,14 +732,14 @@ export default function DashboardPage() {
                     <div className="border-t border-border/40 pt-2 space-y-1">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-3.5 w-3.5 shrink-0" />
-                        <span className="font-medium text-foreground">Last played:</span>
+                        <span className="font-medium text-foreground">{t.Dashboard["Last played:"]}</span>
                         {lastPlayed
                           ? lastPlayed.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
-                          : "Never"}
+                          : t.Dashboard["Never"]}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3.5 w-3.5 shrink-0" />
-                        <span className="font-medium text-foreground">Total minutes:</span>
+                        <span className="font-medium text-foreground">{t.Dashboard["Total minutes:"]}</span>
                         {totalTrackedMinutes} min
                       </div>
                     </div>
@@ -767,15 +764,15 @@ export default function DashboardPage() {
                   <CardContent>
                     <div className="h-48 flex items-center justify-center rounded-lg bg-muted/20 border border-border/50 p-4">
                       {recentMatchesLoading ? (
-                        <p className="text-muted-foreground text-sm">Loading stats...</p>
+                        <p className="text-muted-foreground text-sm">{t.Dashboard["Loading stats..."]}</p>
                       ) : totalGames === 0 ? (
-                        <p className="text-muted-foreground text-sm text-center px-4">No matches yet.</p>
+                        <p className="text-muted-foreground text-sm text-center px-4">{t.Dashboard["No matches yet."]}</p>
                       ) : (
                         <div className="w-full flex items-center justify-center gap-6">
                           <div className="relative h-28 w-28 shrink-0 rounded-full" style={{ background: pieBackground }}>
                             <div className="absolute inset-4 rounded-full bg-card flex items-center justify-center border border-border/60">
                               <div className="text-center leading-tight">
-                                <p className="text-xs text-muted-foreground">Total</p>
+                                <p className="text-xs text-muted-foreground">{t.Dashboard["Total"]}</p>
                                 <p className="text-base font-bold">{totalGames}</p>
                               </div>
                             </div>
@@ -784,15 +781,15 @@ export default function DashboardPage() {
                           <div className="space-y-2 text-sm">
                             <p className="font-medium flex items-center gap-2">
                               <span className="h-2.5 w-2.5 rounded-full bg-green-500"></span>
-                              Win: {wins} ({winPercentage.toFixed(1)}%)
+                              {t.Dashboard["Win:"]} {wins} ({winPercentage.toFixed(1)}%)
                             </p>
                             <p className="font-medium flex items-center gap-2">
                               <span className="h-2.5 w-2.5 rounded-full bg-red-500"></span>
-                              Loss: {losses} ({lossPercentage.toFixed(1)}%)
+                              {t.Dashboard["Loss:"]} {losses} ({lossPercentage.toFixed(1)}%)
                             </p>
                             <p className="font-medium flex items-center gap-2">
                               <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
-                              Draw: {draws} ({drawPercentage.toFixed(1)}%)
+                              {t.Dashboard["Draw:"]} {draws} ({drawPercentage.toFixed(1)}%)
                             </p>
                           </div>
                         </div>
@@ -817,13 +814,13 @@ export default function DashboardPage() {
                   <div className="mx-auto p-3 rounded-xl bg-yellow-500/10 mb-3">
                     <Trophy className="h-8 w-8 text-yellow-500" />
                   </div>
-                  <CardTitle className="text-2xl">Recent Game History</CardTitle>
-                  <CardDescription>Top 3 latest matches from your full history</CardDescription>
+                  <CardTitle className="text-2xl">{t.Dashboard["Recent Game History"]}</CardTitle>
+                  <CardDescription>{t.Dashboard["Top 3 latest matches from your full history"]}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     {recentMatchesLoading ? (
-                      <p className="text-muted-foreground text-center py-8">Loading recent matches...</p>
+                      <p className="text-muted-foreground text-center py-8">{t.Dashboard["Loading recent matches..."]}</p>
                     ) : recentMatches.length > 0 ? (
                       recentMatches.map((match) => (
                         <div
@@ -833,28 +830,28 @@ export default function DashboardPage() {
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
                               <span className="text-muted-foreground">
-                                Match ID:{" "}
+                                {t.Dashboard["Match ID:"]}{" "}
                               </span>
                               <span className="font-medium">#{match.id}</span>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Date: </span>
+                              <span className="text-muted-foreground">{t.Dashboard["Date:"]} </span>
                               <span className="font-medium">
                                 {new Date(match.date).toLocaleDateString()}
                               </span>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Mode: </span>
+                              <span className="text-muted-foreground">{t.Dashboard["Mode:"]} </span>
                               <span className="font-medium">{MODE_LABEL[match.mode] || match.mode}</span>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Result: </span>
+                              <span className="text-muted-foreground">{t.Dashboard["Result:"]} </span>
                               <span className="font-medium text-primary capitalize">{match.result}</span>
                             </div>
                             <div className="md:col-span-4">
-                              <span className="text-muted-foreground">Overview: </span>
+                              <span className="text-muted-foreground">{t.Dashboard["Overview:"]} </span>
                               <span className="font-medium">
-                                You {match.playerScore} - {match.opponentScore} {match.opponent}
+                                {t.Dashboard["You"]} {match.playerScore} - {match.opponentScore} {match.opponent}
                               </span>
                             </div>
                           </div>
@@ -862,7 +859,7 @@ export default function DashboardPage() {
                       ))
                     ) : (
                       <p className="text-muted-foreground text-center py-8">
-                        No matches yet.
+                        {t.Dashboard["No matches yet."]}
                       </p>
                     )}
                   </div>

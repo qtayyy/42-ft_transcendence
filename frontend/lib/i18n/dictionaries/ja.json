@@ -36,7 +36,25 @@
     "Date": "日付",
     "Time": "時間",
     "Winner": "勝者",
-    "Player": "プレイヤー"
+    "Player": "プレイヤー",
+    "Leaderboard": "リーダーボード",
+    "Show Filters & Export": "フィルター表示とエクスポート",
+    "Current Level": "現在のレベル",
+    "Experience ": "経験値 ",
+    "Wins": "勝利数",
+    "Losses": "敗北数",
+    "Loss": "敗北",
+    "Draw": "引き分け",
+    "Draws": "引き分け数",
+    "Last played": "最終プレイ",
+    "Total minutes": "合計分数 ",
+    "Recent Game History": "最近の試合履歴",
+    "Top 3 latest matches from your full history": "全履歴から最新の3試合",
+    "Match ID": "試合ID",
+    "Date:": "日付:",
+    "Time:": "時間:",
+    "Result:": "結果:",
+    "Overview": "概要"
   },
   "DropDown": {
     "Profile": "プロフィール",
@@ -51,7 +69,8 @@
     "Country/Region": "国/地域",
     "Save": "保存",
     "Cancel": "キャンセル",
-    "Edit": "編集"
+    "Edit": "編集",
+    "Bio": "自己紹介"
   },
   "FriendRequests": {
     "No pending requests": "保留中のリクエストはありません",
@@ -81,7 +100,11 @@
     "Enter your password to confirm": "パスワードを入力して確認",
     "Enter your password": "パスワードを入力",
     "Cancel": "キャンセル",
-    "Yes,Delete My Account": "はい、アカウントを削除します"
+    "Yes,Delete My Account": "はい、アカウントを削除します",
+    "Blocked Users": "Blocked Users",
+    "Manage users you have blocked.": "Manage users you have blocked.",
+    "Updated your account password": "Updated your account password",
+    "Add an extra layer of security to your account": "Add an extra layer of security to your account"
   },
   "chat": {
     "SimpleChat": "シンプルチャット",
@@ -93,7 +116,14 @@
     "No pending requests": "保留中のリクエストはありません",
     "loading": "友達を読み込み中...",
     "You": "あなた",
-    "No friends": "友達がいません"
+    "No friends": "友達がいません",
+    "contact:": "Contact:",
+    "Active now": "Active now",
+    "typing...": "typing...",
+    "Invite to Game": "Invite to Game",
+    "View Profile": "View Profile",
+    "Block User": "Block User",
+    "Offline": "Offline"
   },
   "Game": {
     "Are You Ready?": "準備はいいですか？",
@@ -122,6 +152,48 @@
     "Start Match": "試合開始",
     "Player 1": "プレイヤー1",
     "Player 2": "プレイヤー2",
-    "Back to Modes": "モードに戻る"
+    "Back to Modes": "モードに戻る",
+    "Coming Soon": "近日公開",
+    "Local or Remote ": "ローカルまたはリモート",
+    "Choose the play environment first , then pick a mode": "まずプレイ環境を選択し、次にモードを選びます",
+    "Open Local Selection": "ローカル選択を開く",
+    "Open Remote Selection": "リモート選択を開く",
+    "Pick your local mode on this device": "このデバイスでローカルモードを選んでください",
+    "AI Opponent Mode": "AI対戦モード",
+    "Toggle to play against a bot in Local 1v1.": "ローカル1v1でボットと対戦するには切り替えてください。",
+    "Disabled": "無効",
+    "Enabled": "有効",
+    "AI Difficulty": "AI難易度",
+    "Easy": "簡単",
+    "Medium": "普通",
+    "Hard": "難しい",
+    "PLAYER 1 (YOU)": "プレイヤー1（あなた）",
+    "Player Name ...": "プレイヤー名...",
+    "Back to Local Selection": "ローカル選択に戻る",
+    "Local Tournament ": "ローカルトーナメント",
+    "Setup a brackert elimination tournament for 3-8 players": "3-8名のプレイヤー用のトーナメントを設定します",
+    "Add Guest Player Name...": "ゲストプレイヤー名を追加...",
+    "Add Player": "プレイヤーを追加",
+    "MAX 8 PLAYERS": "最大8名",
+    "REGISTERED CONTENDERS": "登録された参加者",
+    "More Players Needed": "さらにプレイヤーが必要です",
+    "Begin Tournament": "トーナメント開始",
+    "Our engineers are hard at work building the ultimate online arena. Stay tuned for the next update!": "私たちのエンジニアは究極のオンラインアリーナを構築するために懸命に作業しています。次のアップデートをお待ちください！"
+  },
+  "Leaderboard & Match History": {
+    "Top players ranked by level and XP": "レベルと経験値でランク付けされたトッププレイヤー",
+    "Player Rankings": "プレイヤーランキング",
+    "Rank": "ランク",
+    "Player": "プレイヤー",
+    "Level": "レベル",
+    "XP": "経験値",
+    "W/L/D": "勝/敗/引",
+    "Win Rate": "勝率",
+    "Previous": "前へ",
+    "Page": "ページ",
+    "Next": "次へ",
+    "Review your past matches and track your performance": "過去の試合を確認し、パフォーマンスを追跡します",
+    "Recent Matches": "最近の試合",
+    "Total Matches": "総試合数"
   }
 }

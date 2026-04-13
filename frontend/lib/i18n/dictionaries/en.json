@@ -36,7 +36,25 @@
     "Date": "Date",
     "Time": "Time",
     "Winner": "Winner",
-    "Player": "Player"
+    "Player": "Player",
+    "Leaderboard": "Leaderboard",
+    "Show Filters & Export": "Show Filters & Export",
+    "Current Level": "Current Level",
+    "Experience ": "Experience ",
+    "Wins": "Wins",
+    "Losses": "Losses",
+    "Loss": "Loss",
+    "Draw": "Draw",
+    "Draws": "Draws",
+    "Last played": "Last played",
+    "Total minutes": "Total minutes ",
+    "Recent Game History": "Recent Game History",
+    "Top 3 latest matches from your full history": "Top 3 latest matches from your full history",
+    "Match ID": "Match ID",
+    "Date:": "Date:",
+    "Time:": "Time:",
+    "Result:": "Result:",
+    "Overview": "Overview"
   },
   "DropDown": {
     "Profile": "Profile",
@@ -44,6 +62,7 @@
     "FriendRequests": "Friend Requests",
     "Settings": "Settings",
     "Logout": "Logout"
+
   },
   "Profile": {
     "Username": "Username",
@@ -51,7 +70,8 @@
     "Country/Region": "Country/Region",
     "Save": "Save",
     "Cancel": "Cancel",
-    "Edit": "Edit"
+    "Edit": "Edit",
+    "Bio": "Bio"
   },
   "FriendRequests": {
     "No pending requests": "No pending requests",
@@ -81,7 +101,11 @@
     "Enter your password to confirm": "Enter your password to confirm",
     "Enter your password": "Enter your password",
     "Cancel": "Cancel",
-    "Yes,Delete My Account": "Yes,Delete My Account"
+    "Yes,Delete My Account": "Yes,Delete My Account",
+    "Blocked Users": "Blocked Users",
+    "Manage users you have blocked.": "Manage users you have blocked.",
+    "Updated your account password": "Updated your account password",
+    "Add an extra layer of security to your account": "Add an extra layer of security to your account"
   },
   "chat": {
     "SimpleChat": "Simple Chat",
@@ -93,7 +117,14 @@
     "No pending requests": "No pending requests",
     "loading": "Loading friends...",
     "You": "You",
-    "No friends": "No friends"
+    "No friends": "No friends",
+    "contact:": "Contact:",
+    "Active now": "Active now",
+    "Offline": "Offline",
+    "typing...": "typing...",
+    "Invite to Game": "Invite to Game",
+    "View Profile": "View Profile",
+    "Block User": "Block User"
   },
   "Game": {
     "Are You Ready?": "Are You Ready?",
@@ -124,6 +155,57 @@
     "Player 2": "Player 2",
     "Back to Modes": "Back to Modes",
     "Coming Soon": "Coming Soon",
+    "Local or Remote ": "Local or Remote ",
+    "Choose the play environment first , then pick a mode": "Choose the play environment first , then pick a mode",
+    "Open Local Selection": "Open Local Selection",
+    "Open Remote Selection": "Open Remote Selection",
+    "Pick your local mode on this device": "Pick your local mode on this device",
+    "Single Match": "Single Match",
+    "Classic 1v1 Duel on this device": "Classic 1v1 Duel on this device",
+    "AI Opponent Mode": "AI Opponent Mode",
+    "Toggle to play against a bot in Local 1v1.": "Toggle to play against a bot in Local 1v1.",
+    "Disabled": "Disabled",
+    "Enabled": "Enabled",
+    "AI Difficulty": "AI Difficulty",
+    "Easy": "Easy",
+    "Medium": "Medium",
+    "Hard": "Hard",
+    "PLAYER 1 (YOU)": "PLAYER 1 (YOU)",
+    "Challenger Awaits": "Challenger Awaits",
+    "Enter guest name to join": "Enter guest name to join",
+    "Player Name ...": "Player Name ...",
+    "Start Match": "Start Match",
+    "Player 1": "Player 1",
+    "Player 2": "Player 2",
+    "Back to Local Selection": "Back to Local Selection",
+    "Local Tournament ": "Local Tournament ",
+    "Setup a brackert elimination tournament for 3-8 players": "Setup a bracket elimination tournament for 3-8 players",
+    "Add Guest Player Name...": "Add Guest Player Name...",
+    "Add Player": "Add Player",
+    "MAX 8 PLAYERS": "MAX 8 PLAYERS",
+    "REGISTERED CONTENDERS": "REGISTERED CONTENDERS",
+    "More Players Needed": "More Players Needed",
+    "Begin Tournament": "Begin Tournament",
     "Our engineers are hard at work building the ultimate online arena. Stay tuned for the next update!": "Our engineers are hard at work building the ultimate online arena. Stay tuned for the next update!"
+  },
+
+  "Leaderboard & Match History": {
+    "Top players ranked by level and XP": "Top players ranked by level and XP",
+    "Player Rankings": "Player Rankings",
+    "Rank": "Rank",
+    "Player": "Player",
+    "Level": "Level",
+    "XP": "XP",
+    "W/L/D": "W/L/D",
+    "Win Rate": "Win Rate",
+    "Previous": "Previous",
+    "Page": "Page",
+    "Next": "Next",
+    "Review your past matches and track your performance": "Review your past matches and track your performance",
+    "Recent Matches": "Recent Matches",
+    "Total Matches": "Total Matches"
+
   }
+
+ 
 }
