@@ -12,6 +12,7 @@ import { ArrowLeft, Copy, Check, Users, Loader2, Play, Crown, User, X } from "lu
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
+import { useLanguage } from "@/context/languageContext";
 
 export default function CreateRoomPage() {
 	const router = useRouter();
@@ -19,6 +20,7 @@ export default function CreateRoomPage() {
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady, reconnectSocket } = useSocket();
 	const { gameRoom, onlineFriends } = useGame();
+	const { t } = useLanguage();
 	const [roomId, setRoomId] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
 	const [creating, setCreating] = useState(false);
@@ -123,7 +125,7 @@ export default function CreateRoomPage() {
 				const errorMessage =
 					axios.isAxiosError(err) && err.response?.data?.error
 						? String(err.response.data.error)
-						: "Failed to create room";
+					: t.Game["Failed to create room"];
 				setError(errorMessage);
 			} finally {
 				setCreating(false);
@@ -218,7 +220,7 @@ export default function CreateRoomPage() {
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Leave Room
+						{t.Game["Leave Room"]}
 					</Button>
 				</div>
 
@@ -229,8 +231,8 @@ export default function CreateRoomPage() {
 							<div className="mx-auto p-4 rounded-full bg-blue-500/10 mb-4 ring-1 ring-blue-500/20">
 								<Users className="h-8 w-8 text-blue-500" />
 							</div>
-							<CardTitle className="text-2xl font-bold">{isMatchmakingMode ? "Finding Opponent" : "Game Room"}</CardTitle>
-							<CardDescription>{isMatchmakingMode ? "Searching public queue and preparing your lobby..." : "Share the code with a friend to join"}</CardDescription>
+							<CardTitle className="text-2xl font-bold">{isMatchmakingMode ? t.Game["Finding Opponent"] : t.Game["Game Room"]}</CardTitle>
+							<CardDescription>{isMatchmakingMode ? t.Game["Searching public queue and preparing your lobby..."] : t.Game["Share the code with a friend to join"]}</CardDescription>
 						</CardHeader>
 
 						<CardContent className="space-y-6">
@@ -238,25 +240,25 @@ export default function CreateRoomPage() {
 							{(isMatchmakingMode && !roomId && !error) ? (
 								<div className="flex items-center justify-center py-8">
 									<Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-									<span className="ml-3 text-muted-foreground">Searching matchmaking...</span>
+									<span className="ml-3 text-muted-foreground">{t.Game["Searching matchmaking..."]}</span>
 								</div>
 							) : creating ? (
 								<div className="flex items-center justify-center py-8">
 									<Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-									<span className="ml-3 text-muted-foreground">Creating room...</span>
+									<span className="ml-3 text-muted-foreground">{t.Game["Creating room..."]}</span>
 								</div>
 							) : error ? (
 								<div className="text-center py-8">
 									<p className="text-destructive mb-4">{error}</p>
 									<Button onClick={() => router.push("/game/remote/single")}>
-										Go Back
+										{t.Game["Go Back"]}
 									</Button>
 								</div>
 							) : roomId && (
 								<>
 									<div className="space-y-2">
 										<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-											Room Code
+											{t.Game["ROOM CODE"]}
 										</label>
 										<div className="flex gap-2">
 											<Input
@@ -281,7 +283,7 @@ export default function CreateRoomPage() {
 									{/* Players */}
 									<div className="space-y-3">
 										<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-											Players ({gameRoom?.joinedPlayers.length || 1}/{gameRoom?.maxPlayers || 2})
+												{t.Game["PLAYERS"]} ({gameRoom?.joinedPlayers.length || 1}/{gameRoom?.maxPlayers || 2})
 										</label>
 										<div className="space-y-2">
 											{/* Host (Current User) */}
@@ -291,7 +293,7 @@ export default function CreateRoomPage() {
 												</div>
 												<div className="flex-1">
 													<p className="font-semibold">{user?.username || "You"}</p>
-													<p className="text-xs text-primary/70">Host</p>
+														<p className="text-xs text-primary/70">{t.Game["Host"]}</p>
 												</div>
 											</div>
 
@@ -305,7 +307,7 @@ export default function CreateRoomPage() {
 														</div>
 														<div className="flex-1">
 															<p className="font-semibold">{player.username}</p>
-															<p className="text-xs text-green-500/70">Ready</p>
+																<p className="text-xs text-green-500/70">{t.Game["Ready"]}</p>
 														</div>
 													</div>
 												))}
@@ -317,7 +319,7 @@ export default function CreateRoomPage() {
 														<Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
 													</div>
 													<div className="flex-1">
-														<p className="text-muted-foreground">Waiting for opponent...</p>
+															<p className="text-muted-foreground">{t.Game["Waiting for opponent..."]}</p>
 													</div>
 												</div>
 											)}
@@ -339,10 +341,10 @@ export default function CreateRoomPage() {
 										{canStart ? (
 											<>
 												<Play className="mr-2 h-5 w-5 fill-current" />
-												Start Game
+												{t.Game["Start Game"]}
 											</>
 										) : (
-											"Waiting for opponent..."
+											t.Game["Waiting for opponent to join..."]
 										)}
 									</Button>
 								</>

@@ -18,9 +18,11 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   // Initialize with default language ('en'), then load user's saved preference if it exists
   const [locale, setLocaleState] = useState<Locale>(defaultLocale);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Load user's saved language preference from localStorage on mount
   useEffect(() => {
+    setIsMounted(true);
     if (typeof window !== 'undefined') {
       const savedLocale = localStorage.getItem('locale') as Locale;
       if (savedLocale && translations[savedLocale]) {
@@ -38,11 +40,13 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Ensure we always have a valid translation object, fallback to default
-  const t = (translations[locale] || translations[defaultLocale]) as TranslationKeys;
+  // Use default locale until mounted to prevent hydration mismatch
+  // After mount, use the saved locale from localStorage
+  const activeLocale = isMounted ? locale : defaultLocale;
+  const t = (translations[activeLocale] || translations[defaultLocale]) as TranslationKeys;
 
   return (
-    <LanguageContext.Provider value={{ locale, setLocale, t }}>
+    <LanguageContext.Provider value={{ locale: activeLocale, setLocale, t }}>
       {children}
     </LanguageContext.Provider>
   );

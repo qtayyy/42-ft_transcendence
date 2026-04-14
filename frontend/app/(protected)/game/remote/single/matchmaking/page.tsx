@@ -8,12 +8,14 @@ import { useGame } from "@/hooks/use-game";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowLeft, Zap, Loader2, Users, X } from "lucide-react";
+import { useLanguage } from "@/context/languageContext";
 
 export default function MatchmakingPage() {
 	const router = useRouter();
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
 	const { gameRoom } = useGame();
+	const { t } = useLanguage();
 	const [searching, setSearching] = useState(true);
 	const [searchTime, setSearchTime] = useState(0);
 	const [playersInQueue, setPlayersInQueue] = useState(1);
@@ -151,7 +153,7 @@ export default function MatchmakingPage() {
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Cancel
+						{t.Setting.Cancel}
 					</Button>
 				</div>
 
@@ -163,8 +165,8 @@ export default function MatchmakingPage() {
 								<Zap className="h-8 w-8 text-orange-500" />
 								<div className="absolute inset-0 rounded-full border-2 border-orange-500/30 animate-ping"></div>
 							</div>
-							<CardTitle className="text-2xl font-bold">Finding Opponent</CardTitle>
-							<CardDescription>Searching for a worthy challenger...</CardDescription>
+							<CardTitle className="text-2xl font-bold">{t.Game["Finding Opponent"]}</CardTitle>
+							<CardDescription>{t.Game["Searching public queue and preparing your lobby..."]}</CardDescription>
 						</CardHeader>
 
 						<CardContent className="space-y-6">
