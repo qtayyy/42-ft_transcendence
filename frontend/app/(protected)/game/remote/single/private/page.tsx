@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, UserPlus, LogIn, Swords, Users, ShieldQuestion } from "lucide-react";
+import { useLanguage } from "@/context/languageContext";
 
 export default function RemoteSinglePrivatePage() {
 	const router = useRouter();
+	const { t } = useLanguage();
 
 	const handleNavigate = (path: string) => {
 		router.push(path);
@@ -24,7 +26,7 @@ export default function RemoteSinglePrivatePage() {
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Back to Selection
+						{t.Game["Back to Selection"]}
 					</Button>
 				</div>
 
@@ -34,10 +36,10 @@ export default function RemoteSinglePrivatePage() {
 						<Users className="h-8 w-8 text-blue-500" />
 					</div>
 					<h1 className="text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-500 bg-clip-text text-transparent">
-						Private Duel
+						{t.Game["Private Duel"]}
 					</h1>
 					<p className="text-lg text-muted-foreground max-w-xl mx-auto">
-						Host a match or join a friend's lobby using a room code.
+						{t.Game["Host a match or join a friend's lobby using a room code."]}
 					</p>
 				</div>
 
@@ -57,16 +59,16 @@ export default function RemoteSinglePrivatePage() {
 								<div className="mx-auto p-4 rounded-xl bg-blue-500/10 mb-3 group-hover:bg-blue-500/20 transition-colors">
 									<UserPlus className="h-8 w-8 text-blue-500" />
 								</div>
-								<CardTitle className="text-2xl">Create Room</CardTitle>
-								<CardDescription>Host a private match</CardDescription>
+								<CardTitle className="text-2xl">{t.Game["Create Room"]}</CardTitle>
+								<CardDescription>{t.Game["Host a private match"]}</CardDescription>
 							</CardHeader>
 							<CardContent className="text-center space-y-4 pb-8">
 								<p className="text-sm text-muted-foreground">
-									Generate a room code and invite a friend to join your game
+									{t.Game["Generate a room code and invite a friend to join your game"]}
 								</p>
 								<div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/70">
 									<Users className="h-3 w-3" />
-									<span>Share code with friends</span>
+									<span>{t.Game["Share code with friends"]}</span>
 								</div>
 							</CardContent>
 						</Card>
@@ -86,16 +88,16 @@ export default function RemoteSinglePrivatePage() {
 								<div className="mx-auto p-4 rounded-xl bg-purple-500/10 mb-3 group-hover:bg-purple-500/20 transition-colors">
 									<LogIn className="h-8 w-8 text-purple-500" />
 								</div>
-								<CardTitle className="text-2xl">Join Room</CardTitle>
-								<CardDescription>Enter a room code</CardDescription>
+								<CardTitle className="text-2xl">{t.Game["Join Room"]}</CardTitle>
+								<CardDescription>{t.Game["Enter a room code"]}</CardDescription>
 							</CardHeader>
 							<CardContent className="text-center space-y-4 pb-8">
 								<p className="text-sm text-muted-foreground">
-									Have a room code? Enter it to join your friend's match
+									{t.Game["Have a room code? Enter it to join your friend's match"]}
 								</p>
 								<div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/70">
 									<Swords className="h-3 w-3" />
-									<span>Join existing games</span>
+									<span>{t.Game["Join existing games"]}</span>
 								</div>
 							</CardContent>
 						</Card>

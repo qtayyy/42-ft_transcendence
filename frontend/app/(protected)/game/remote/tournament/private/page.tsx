@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, LogIn, Trophy, Users, Crown, ShieldQuestion } from "lucide-react";
+import { useLanguage } from "@/context/languageContext";
 
 export default function RemoteTournamentPrivatePage() {
 	const router = useRouter();
+	const { t } = useLanguage();
 
 	const handleNavigate = (path: string) => {
 		router.push(path);
@@ -24,7 +26,7 @@ export default function RemoteTournamentPrivatePage() {
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Back to Selection
+						{t.Game["Back to Selection"]}
 					</Button>
 				</div>
 
@@ -34,10 +36,10 @@ export default function RemoteTournamentPrivatePage() {
 						<Crown className="h-8 w-8 text-emerald-500" />
 					</div>
 					<h1 className="text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-500 bg-clip-text text-transparent">
-						Private Tournament
+						{t.Game["Private Tournament"]}
 					</h1>
 					<p className="text-lg text-muted-foreground max-w-xl mx-auto">
-						Organize an invite-only championship for you and your friends.
+						{t.Game["Organize an invite-only championship for you and your friends."]}
 					</p>
 				</div>
 
@@ -57,16 +59,16 @@ export default function RemoteTournamentPrivatePage() {
 								<div className="mx-auto p-4 rounded-xl bg-yellow-500/10 mb-3 group-hover:bg-yellow-500/20 transition-colors">
 									<Plus className="h-8 w-8 text-yellow-500" />
 								</div>
-								<CardTitle className="text-2xl">Create Room</CardTitle>
-								<CardDescription>Host a tournament</CardDescription>
+								<CardTitle className="text-2xl">{t.Game["Create Room"]}</CardTitle>
+								<CardDescription>{t.Game["Host a tournament"]}</CardDescription>
 							</CardHeader>
 							<CardContent className="text-center space-y-4 pb-8">
 								<p className="text-sm text-muted-foreground">
-									Create a tournament room and invite players to compete
+									{t.Game["Create a tournament room and invite players to compete"]}
 								</p>
 								<div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/70 border border-muted-foreground/20 rounded-full py-1 px-3 w-fit mx-auto">
 									<Users className="h-3 w-3" />
-									<span>3-8 players bracket</span>
+									<span>{t.Game["3-8 players bracket"]}</span>
 								</div>
 							</CardContent>
 						</Card>
@@ -86,16 +88,16 @@ export default function RemoteTournamentPrivatePage() {
 								<div className="mx-auto p-4 rounded-xl bg-emerald-500/10 mb-3 group-hover:bg-emerald-500/20 transition-colors">
 									<LogIn className="h-8 w-8 text-emerald-500" />
 								</div>
-								<CardTitle className="text-2xl">Join Room</CardTitle>
-								<CardDescription>Enter tournament code</CardDescription>
+								<CardTitle className="text-2xl">{t.Game["Join Room"]}</CardTitle>
+								<CardDescription>{t.Game["Enter tournament code"]}</CardDescription>
 							</CardHeader>
 							<CardContent className="text-center space-y-4 pb-8">
 								<p className="text-sm text-muted-foreground">
-									Have a tournament code? Join an existing competition
+									{t.Game["Have a tournament code? Join an existing competition"]}
 								</p>
 								<div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/70 border border-muted-foreground/20 rounded-full py-1 px-3 w-fit mx-auto">
 									<Trophy className="h-3 w-3" />
-									<span>Join the bracket</span>
+									<span>{t.Game["Join the bracket"]}</span>
 								</div>
 							</CardContent>
 						</Card>
@@ -105,7 +107,7 @@ export default function RemoteTournamentPrivatePage() {
 				{/* Help section */}
 				<div className="flex items-center justify-center gap-2 text-muted-foreground text-sm opacity-60">
 					<ShieldQuestion className="h-4 w-4" />
-					<span>Private tournaments are isolated from the public queue</span>
+					<span>{t.Game["Private tournaments are isolated from the public queue"]}</span>
 				</div>
 			</div>
 		</div>

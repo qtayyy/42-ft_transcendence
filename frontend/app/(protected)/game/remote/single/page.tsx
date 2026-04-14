@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Gamepad2, Plus, LogIn, Shuffle, Swords, Users, Zap } from "lucide-react";
+import { useLanguage } from "@/context/languageContext";
 
 export default function RemoteSingleMatchPage() {
 	const router = useRouter();
+	const { t } = useLanguage();
 
 	const handleNavigate = (path: string) => {
 		router.push(path);
@@ -24,7 +26,7 @@ export default function RemoteSingleMatchPage() {
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Back to Remote Selection
+						{t.Game["Back to Remote Selection"]}
 					</Button>
 				</div>
 
@@ -34,10 +36,10 @@ export default function RemoteSingleMatchPage() {
 						<Swords className="h-8 w-8 text-green-500" />
 					</div>
 					<h1 className="text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 bg-clip-text text-transparent">
-						Remote 1v1 Arena
+						{t.Game["Remote 1v1 Arena"]}
 					</h1>
 					<p className="text-lg text-muted-foreground max-w-xl mx-auto">
-						Choose your battleground. Face a random rival or challenge a friend.
+						{t.Game["Choose your battleground. Face a random rival or challenge a friend."]}
 					</p>
 				</div>
 
@@ -57,16 +59,16 @@ export default function RemoteSingleMatchPage() {
 								<div className="mx-auto p-4 rounded-xl bg-orange-500/10 mb-3 group-hover:bg-orange-500/20 transition-colors">
 									<Shuffle className="h-8 w-8 text-orange-500" />
 								</div>
-								<CardTitle className="text-2xl">Public Arena</CardTitle>
-								<CardDescription>Instant Matchmaking</CardDescription>
+								<CardTitle className="text-2xl">{t.Game["Public Arena"]}</CardTitle>
+								<CardDescription>{t.Game["Instant Matchmaking"]}</CardDescription>
 							</CardHeader>
 							<CardContent className="text-center space-y-4 pb-8">
 								<p className="text-sm text-muted-foreground">
-									Battle against random opponents worldwide and climb the ranks
+									{t.Game["Battle against random opponents worldwide and climb the ranks"]}
 								</p>
 								<div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/70 border border-muted-foreground/20 rounded-full py-1 px-3 w-fit mx-auto">
 									<Zap className="h-3 w-3" />
-									<span>Jump in now</span>
+									<span>{t.Game["Jump in now"]}</span>
 								</div>
 							</CardContent>
 						</Card>
@@ -86,16 +88,16 @@ export default function RemoteSingleMatchPage() {
 								<div className="mx-auto p-4 rounded-xl bg-blue-500/10 mb-3 group-hover:bg-blue-500/20 transition-colors">
 									<Plus className="h-8 w-8 text-blue-500" />
 								</div>
-								<CardTitle className="text-2xl">Private Duel</CardTitle>
-								<CardDescription>Play with Friends</CardDescription>
+								<CardTitle className="text-2xl">{t.Game["Private Duel"]}</CardTitle>
+								<CardDescription>{t.Game["Play with Friends"]}</CardDescription>
 							</CardHeader>
 							<CardContent className="text-center space-y-4 pb-8">
 								<p className="text-sm text-muted-foreground">
-									Create or join a private room using a unique code
+									{t.Game["Create or join a private room using a unique code"]}
 								</p>
 								<div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/70 border border-muted-foreground/20 rounded-full py-1 px-3 w-fit mx-auto">
 									<Plus className="h-3 w-3" />
-									<span>Custom Setup</span>
+									<span>{t.Game["Custom Setup"]}</span>
 								</div>
 							</CardContent>
 						</Card>
