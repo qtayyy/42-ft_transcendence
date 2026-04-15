@@ -107,7 +107,8 @@
     "MatchHistory": "比赛历史",
     "FriendRequests": "好友请求",
     "Settings": "设置",
-    "Logout": "登出"
+    "Logout": "登出",
+    "Chat": "聊天"
   },
   "Profile": {
     "Username": "用户名",
