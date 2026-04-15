@@ -130,7 +130,11 @@
     "friend": "rakan",
     "friends": "rakan",
     "No friends yet. Start by accepting friend requests!": "Belum ada rakan. Mulakan dengan menerima permintaan rakan!",
-    "Chat": "Sembang"
+    "Chat": "Sembang",
+    "Remove Friend": "Buang Rakan",
+    "Are you sure you want to remove": "Adakah anda pasti mahu membuang",
+    "as a friend? This action cannot be undone.": "sebagai rakan? Tindakan ini tidak boleh dibatalkan.",
+    "Remove": "Buang"
   },
   "Setting": {
     "Two-factor authentication (2FA)": "Pengesahan dua faktor (2FA)",

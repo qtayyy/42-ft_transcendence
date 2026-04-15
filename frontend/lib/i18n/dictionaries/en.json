@@ -129,7 +129,11 @@
     "friend": "friend",
     "friends": "friends",
     "No friends yet. Start by accepting friend requests!": "No friends yet. Start by accepting friend requests!",
-    "Chat": "Chat"
+    "Chat": "Chat",
+    "Remove Friend": "Remove Friend",
+    "Are you sure you want to remove": "Are you sure you want to remove",
+    "as a friend? This action cannot be undone.": "as a friend? This action cannot be undone.",
+    "Remove": "Remove"
   },
   "Setting": {
     "Two-factor authentication (2FA)": "Two-factor authentication (2FA)",
