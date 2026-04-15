@@ -61,7 +61,8 @@
     "MatchHistory": "試合履歴",
     "FriendRequests": "友達リクエスト",
     "Settings": "設定",
-    "Logout": "ログアウト"
+    "Logout": "ログアウト",
+    "Chat": "チャット"
   },
   "Profile": {
     "Username": "ユーザー名",

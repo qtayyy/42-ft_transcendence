@@ -107,8 +107,8 @@
     "MatchHistory": "Match History",
     "FriendRequests": "Friend Requests",
     "Settings": "Settings",
-    "Logout": "Logout"
-
+    "Logout": "Logout",
+    "Chat": "Chat"
   },
   "Profile": {
     "Username": "Username",

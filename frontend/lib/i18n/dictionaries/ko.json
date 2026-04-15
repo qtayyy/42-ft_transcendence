@@ -108,7 +108,8 @@
     "MatchHistory": "경기 기록",
     "FriendRequests": "친구 요청",
     "Settings": "설정",
-    "Logout": "로그아웃"
+    "Logout": "로그아웃",
+    "Chat": "채팅"
   },
   "Profile": {
     "Username": "사용자명",

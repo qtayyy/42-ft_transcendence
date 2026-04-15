@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useGame } from "@/hooks/use-game";
 import { useLanguage } from '@/context/languageContext';
-import { Users, BarChart3, PieChart, Trophy, Activity, MessageCircle, Clock, Calendar, Download, FileSpreadsheet, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, BarChart3, PieChart, Trophy, Activity, Clock, Calendar, Download, FileSpreadsheet, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { useFriends } from "@/hooks/use-friends";
 import { Badge } from "@/components/ui/badge";
 import { jsPDF } from "jspdf";
@@ -38,7 +38,6 @@ export default function DashboardPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [matchHistory, setMatchHistory] = useState<MatchEntry[]>([]);
   const [recentMatchesLoading, setRecentMatchesLoading] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [modeFilter, setModeFilter] = useState<string>("all");
@@ -57,8 +56,9 @@ export default function DashboardPage() {
   };
 
   const escapeCsvCell = (value: string | number | null | undefined) => {
-    const safeValue = value == null ? "" : String(value);
-    return `"${safeValue.replace(/"/g, '""')}"`;
+    const safeValue = value == null ? '' : String(value);
+    const doubleQuoteRegex = new RegExp('"', 'g');
+    return `"${safeValue.replace(doubleQuoteRegex, '""')}"`;
   };
 
   const setQuickRange = (days: number) => {
@@ -96,40 +96,7 @@ export default function DashboardPage() {
     fetchRecentMatches();
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
 
-    const fetchUnreadCount = async () => {
-      try {
-        const response = await fetch("/api/chat/unread");
-        if (!response.ok) return;
-        const data = await response.json();
-        if (isMounted) {
-          setUnreadCount(Number(data?.unreadCount) || 0);
-        }
-      } catch (error) {
-        console.error("Failed to load unread chat count", error);
-      }
-    };
-
-    const handleRealtimeUnreadRefresh = () => {
-      fetchUnreadCount();
-    };
-
-    fetchUnreadCount();
-    const intervalId = setInterval(fetchUnreadCount, 10000);
-    window.addEventListener("chatMessage", handleRealtimeUnreadRefresh as EventListener);
-    window.addEventListener("messageRead", handleRealtimeUnreadRefresh as EventListener);
-    window.addEventListener("gameInvite", handleRealtimeUnreadRefresh as EventListener);
-
-    return () => {
-      isMounted = false;
-      clearInterval(intervalId);
-      window.removeEventListener("chatMessage", handleRealtimeUnreadRefresh as EventListener);
-      window.removeEventListener("messageRead", handleRealtimeUnreadRefresh as EventListener);
-      window.removeEventListener("gameInvite", handleRealtimeUnreadRefresh as EventListener);
-    };
-  }, []);
 
   async function handleSearchUser(query) {
     try {
@@ -360,7 +327,7 @@ export default function DashboardPage() {
     doc.save(`dashboard-export-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
-  // ── Activity chart data ─────────────────────────────────────────────
+  // Activity chart data
   const [activityView, setActivityView] = useState<"day" | "week" | "month">("week");
 
   const activityBars = (() => {
@@ -371,7 +338,7 @@ export default function DashboardPage() {
       return Array.from({ length: 7 }, (_, i) => {
         const d = new Date(now);
         d.setDate(now.getDate() - (6 - i));
-        const label = d.toLocaleDateString(undefined, { weekday: "short" });
+        const label = d.toLocaleDateString(undefined, { weekday: 'short' });
         const count = filteredMatchHistory.filter((m) => {
           const md = new Date(m.date);
           return md.toDateString() === d.toDateString();
@@ -387,7 +354,7 @@ export default function DashboardPage() {
         weekStart.setDate(now.getDate() - now.getDay() - (7 - i) * 7);
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 6);
-        const label = weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        const label = weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         const count = filteredMatchHistory.filter((m) => {
           const md = new Date(m.date);
           return md >= weekStart && md <= weekEnd;
@@ -396,10 +363,10 @@ export default function DashboardPage() {
       });
     }
 
-    // month — last 6 months
+    // month - last 6 months
     return Array.from({ length: 6 }, (_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-      const label = d.toLocaleDateString(undefined, { month: "short" });
+      const label = d.toLocaleDateString(undefined, { month: 'short' });
       const count = filteredMatchHistory.filter((m) => {
         const md = new Date(m.date);
         return md.getFullYear() === d.getFullYear() && md.getMonth() === d.getMonth();
@@ -411,7 +378,7 @@ export default function DashboardPage() {
   const maxActivityCount = Math.max(...activityBars.map((b) => b.count), 1);
 
   const lastPlayed = sortedFilteredMatches.length > 0 ? new Date(sortedFilteredMatches[0].date) : null;
-  // ── End activity chart data ─────────────────────────────────────────
+  // End activity chart data
 
   const wins = filteredMatchHistory.filter((match) => match.result === "win").length;
   const losses = filteredMatchHistory.filter((match) => match.result === "loss").length;
@@ -423,40 +390,24 @@ export default function DashboardPage() {
   );
   const totalTrackedMinutes = Math.round(totalTrackedSeconds / 60);
 
-  const winPercentage = totalGames > 0 ? (wins / totalGames) * 100 : 0;
-  const lossPercentage = totalGames > 0 ? (losses / totalGames) * 100 : 0;
-  const drawPercentage = totalGames > 0 ? (draws / totalGames) * 100 : 0;
+  const winPercentage = totalGames > 0 ? ((wins / totalGames) * 100) : 0;
+  const lossPercentage = totalGames > 0 ? ((losses / totalGames) * 100) : 0;
+  const drawPercentage = totalGames > 0 ? ((draws / totalGames) * 100) : 0;
 
   const winSegmentEnd = winPercentage;
   const lossSegmentEnd = winPercentage + lossPercentage;
-  const pieBackground = `conic-gradient(#22c55e 0% ${winSegmentEnd}%, #ef4444 ${winSegmentEnd}% ${lossSegmentEnd}%, #f59e0b ${lossSegmentEnd}% 100%)`;
+  const gradient1 = `#22c55e 0% ${winSegmentEnd}%`;
+  const gradient2 = `#ef4444 ${winSegmentEnd}% ${lossSegmentEnd}%`;
+  const gradient3 = `#f59e0b ${lossSegmentEnd}% 100%`;
+  const pieBackground = `conic-gradient(${gradient1}, ${gradient2}, ${gradient3})`;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
-      {/* Floating Chat Button - Modern Design */}
-      <div className="fixed bottom-8 right-8 z-50 group">
-        <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl blur opacity-60 group-hover:opacity-100 transition duration-300 animate-pulse"></div>
-        <Button
-          onClick={() => router.push('/chat')}
-          aria-label="Go to Chat"
-          size="lg"
-          className="relative rounded-2xl shadow-2xl hover:shadow-primary/50 transition-all duration-300 hover:scale-105 flex items-center gap-3 px-6 py-6 bg-card border border-border/50 text-foreground hover:bg-card/90"
-        >
-          <MessageCircle className="h-6 w-6 text-primary" />
-          <span className="font-semibold text-lg">Chat</span>
-          {unreadCount > 0 && (
-            <Badge variant="destructive" className="ml-1 animate-bounce">
-              {unreadCount}
-            </Badge>
-          )}
-        </Button>
-      </div>
-
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted">
       {/* Main Content */}
       <div className="w-full max-w-7xl space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Header Section */}
         <div className="text-center space-y-4">
-          <h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-white via-primary/50 to-white bg-clip-text text-transparent pb-2">
+          <h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-white via-primary to-white bg-clip-text text-transparent pb-2">
             {t.Dashboard.Dashboard}
           </h1>
           <p className="text-xl text-muted-foreground font-medium max-w-2xl mx-auto">
@@ -507,7 +458,7 @@ export default function DashboardPage() {
           {showAnalyticsControls && (
             <div className="group relative">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-500 rounded-2xl blur opacity-20 group-hover:opacity-50 transition duration-500"></div>
-              <Card className="relative border-0 bg-card/95 backdrop-blur-sm overflow-hidden">
+              <Card className="relative border-0 bg-card backdrop-blur-sm overflow-hidden">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-2xl flex items-center gap-2">
                     <Download className="h-6 w-6 text-sky-500" />
@@ -604,9 +555,9 @@ export default function DashboardPage() {
           <UserStats />
 
           {/* Friends Section */}
-          <div className="group relative">
+          <div className="group relative h-full">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur opacity-25 group-hover:opacity-100 transition duration-500"></div>
-            <Card className="relative h-full border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:scale-[1.02]">
+            <Card className="relative h-full border-0 bg-card backdrop-blur-sm overflow-hidden transition-all duration-300">
               <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                 <Users className="h-32 w-32 -mr-8 -mt-8" />
               </div>
@@ -614,7 +565,7 @@ export default function DashboardPage() {
                 className="text-center pb-2 cursor-pointer"
                 onClick={handleFriendsNavigation}
               >
-                <div className="mx-auto p-4 rounded-2xl bg-blue-500/10 mb-4 group-hover:bg-blue-500/20 transition-colors">
+                    <div className="mx-auto p-4 rounded-2xl bg-blue-500 opacity-10 mb-4 group-hover:opacity-20 transition-colors">
                   <Users className="h-10 w-10 text-blue-500" />
                 </div>
                 <CardTitle className="text-3xl font-bold">{t.Dashboard.Friends}</CardTitle>
@@ -622,15 +573,14 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 
-                {/* Online Friends */}
                 <div>
                   <h3 className="font-semibold mb-2 text-sm uppercase text-center">{t.Dashboard.Online}</h3>
-                  <div className="bg-muted/30 backdrop-blur-sm border border-border/50 rounded-lg min-h-[120px] p-4 space-y-2">
+                  <div className="bg-muted backdrop-blur-sm border border-border rounded-lg min-h-[120px] p-4 space-y-2">
                     {onlineFriends.length !== 0 ? (
                       onlineFriends.map((friend, index) => (
                         <div
                           key={`${friend.id}-${index}`}
-                          className="flex items-center gap-2 p-2 hover:bg-accent/50 rounded-md cursor-pointer transition-colors"
+                          className="flex items-center gap-2 p-2 hover:bg-accent rounded-md cursor-pointer transition-colors"
                           onClick={handleFriendsNavigation}
                         >
                           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -645,17 +595,16 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Offline Friends */}
                 <div>
                   <h3 className="font-semibold mb-2 text-sm uppercase text-center">
                     {t.Dashboard.Offline}
                   </h3>
-                  <div className="bg-muted/30 backdrop-blur-sm border border-border/50 rounded-lg min-h-[120px] p-4 space-y-2">
+                  <div className="bg-muted backdrop-blur-sm border border-border rounded-lg min-h-[120px] p-4 space-y-2">
                     {offlineFriends.length > 0 ? (
                       offlineFriends.map((friend) => (
                         <div
                           key={friend.id}
-                          className="flex items-center gap-2 p-2 hover:bg-accent/50 rounded-md cursor-pointer transition-colors"
+                          className="flex items-center gap-2 p-2 hover:bg-accent rounded-md cursor-pointer transition-colors"
                           onClick={handleFriendsNavigation}
                         >
                           <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
@@ -679,20 +628,19 @@ export default function DashboardPage() {
               {/* Activity Bar Chart */}
               <div className="group relative">
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
-                <Card className="relative border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]">
+                <Card className="relative border-0 bg-card backdrop-blur-sm overflow-hidden transition-all">
                   <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                     <BarChart3 className="h-32 w-32 -mr-8 -mt-8" />
                   </div>
                   <CardHeader className="text-center pb-2">
-                    <div className="mx-auto p-3 rounded-xl bg-purple-500/10 mb-3">
+                    <div className="mx-auto p-3 rounded-xl bg-purple-500 opacity-10 mb-3">
                       <Activity className="h-8 w-8 text-purple-500" />
                     </div>
                     <CardTitle className="text-2xl">{t.Dashboard.Activity}</CardTitle>
                     <CardDescription>{t.Dashboard["Your Game Activity"]}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {/* View toggle */}
-                    <div className="flex justify-center gap-1 bg-muted/40 rounded-lg p-1">
+                    <div className="flex justify-center gap-1 bg-muted rounded-lg p-1">
                       {(["day", "week", "month"] as const).map((v) => (
                         <button
                           key={v}
@@ -708,33 +656,42 @@ export default function DashboardPage() {
                       ))}
                     </div>
 
-                    {/* Bar chart */}
                     {recentMatchesLoading ? (
                       <p className="text-muted-foreground text-center text-xs py-4">{t.Dashboard["Loading..."]}</p>
                     ) : (
                       <div className="flex items-end justify-between gap-1 h-28 px-1">
-                        {activityBars.map((bar, i) => (
-                          <div key={i} className="flex flex-col items-center gap-1 flex-1 h-full justify-end">
-                            <span className="text-[10px] font-semibold text-muted-foreground">
-                              {bar.count > 0 ? bar.count : ""}
-                            </span>
-                            <div
-                              className="w-full rounded-t-sm bg-purple-500/70 transition-all duration-500"
-                              style={{ height: `${(bar.count / maxActivityCount) * 80}%`, minHeight: bar.count > 0 ? "4px" : "2px", opacity: bar.count === 0 ? 0.2 : 1 }}
-                            />
-                            <span className="text-[9px] text-muted-foreground truncate w-full text-center">{bar.label}</span>
-                          </div>
-                        ))}
+                        {activityBars.map((bar, i) => {
+                          const heightPercent = ((bar.count / maxActivityCount) * 80);
+                          const minHeightValue = bar.count > 0 ? '4px' : '2px';
+                          const opacityValue = bar.count === 0 ? 0.2 : 1;
+                          const barStyle = {
+                            height: heightPercent + '%',
+                            minHeight: minHeightValue,
+                            opacity: opacityValue
+                          };
+                          
+                          return (
+                            <div key={i} className="flex flex-col items-center gap-1 flex-1 h-full justify-end">
+                              <span className="text-[10px] font-semibold text-muted-foreground">
+                                {bar.count > 0 ? bar.count : ''}
+                              </span>
+                              <div
+                                className="w-full rounded-t-sm bg-purple-500 opacity-70 transition-all duration-500"
+                                style={barStyle}
+                              />
+                              <span className="text-[9px] text-muted-foreground truncate w-full text-center">{bar.label}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 
-                    {/* Meta info */}
-                    <div className="border-t border-border/40 pt-2 space-y-1">
+                    <div className="border-t border-border pt-2 space-y-1">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-3.5 w-3.5 shrink-0" />
                         <span className="font-medium text-foreground">{t.Dashboard["Last played:"]}</span>
                         {lastPlayed
-                          ? lastPlayed.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+                          ? lastPlayed.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
                           : t.Dashboard["Never"]}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -750,27 +707,27 @@ export default function DashboardPage() {
               {/* Win-Loss Pie Chart */}
               <div className="group relative">
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl blur opacity-10 group-hover:opacity-30 transition duration-500"></div>
-                <Card className="relative cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.02]">
+                <Card className="relative cursor-pointer border-0 bg-card backdrop-blur-sm overflow-hidden transition-all">
                   <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                     <PieChart className="h-32 w-32 -mr-8 -mt-8" />
                   </div>
                   <CardHeader className="text-center">
-                    <div className="mx-auto p-3 rounded-xl bg-green-500/10 mb-3">
+                    <div className="mx-auto p-3 rounded-xl bg-green-500 opacity-10 mb-3">
                       <PieChart className="h-8 w-8 text-green-500" />
                     </div>
                     <CardTitle className="text-2xl">{t.Dashboard["Win-Loss"]}</CardTitle>
                     <CardDescription>{t.Dashboard["Performance Stats"]}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-48 flex items-center justify-center rounded-lg bg-muted/20 border border-border/50 p-4">
+                    <div className="h-48 flex items-center justify-center rounded-lg bg-muted border border-border p-4">
                       {recentMatchesLoading ? (
                         <p className="text-muted-foreground text-sm">{t.Dashboard["Loading stats..."]}</p>
                       ) : totalGames === 0 ? (
                         <p className="text-muted-foreground text-sm text-center px-4">{t.Dashboard["No matches yet."]}</p>
                       ) : (
                         <div className="w-full flex items-center justify-center gap-6">
-                          <div className="relative h-28 w-28 shrink-0 rounded-full" style={{ background: pieBackground }}>
-                            <div className="absolute inset-4 rounded-full bg-card flex items-center justify-center border border-border/60">
+                          <div className="relative h-28 w-28 shrink-0 rounded-full" style={{background: pieBackground }}>
+                            <div className="absolute inset-4 rounded-full bg-card flex items-center justify-center border border-border">
                               <div className="text-center leading-tight">
                                 <p className="text-xs text-muted-foreground">{t.Dashboard["Total"]}</p>
                                 <p className="text-base font-bold">{totalGames}</p>
@@ -800,18 +757,18 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Tournament History */}
+            {/* Recent Game History */}
             <div className="group relative">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
               <Card
-                className="relative cursor-pointer border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.01]"
+                className="relative cursor-pointer border-0 bg-card backdrop-blur-sm overflow-hidden transition-all"
                 onClick={handleMatchHistoryNavigation}
               >
                 <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                   <Trophy className="h-32 w-32 -mr-8 -mt-8" />
                 </div>
                 <CardHeader className="text-center">
-                  <div className="mx-auto p-3 rounded-xl bg-yellow-500/10 mb-3">
+                  <div className="mx-auto p-3 rounded-xl bg-yellow-500 opacity-10 mb-3">
                     <Trophy className="h-8 w-8 text-yellow-500" />
                   </div>
                   <CardTitle className="text-2xl">{t.Dashboard["Recent Game History"]}</CardTitle>
@@ -825,7 +782,7 @@ export default function DashboardPage() {
                       recentMatches.map((match) => (
                         <div
                           key={match.id}
-                          className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 hover:border-primary/20 transition-all duration-300 hover:scale-[1.01] bg-muted/20"
+                          className="p-4 border border-border rounded-lg hover:bg-accent hover:border-primary transition-all duration-300 bg-muted"
                         >
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
@@ -869,31 +826,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-
-      {/* Friend Request Dialog */}
-      {userFound ? (
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="p-10">
-            <DialogHeader>
-              <DialogTitle>{t.Dashboard.Friends}</DialogTitle>
-              <DialogDescription>
-                Click &lsquo;{t.Setting.Save}&rsquo; to send a friend request to:
-              </DialogDescription>
-              <p className="text-4xl">{userFound}</p>
-            </DialogHeader>
-            <div className="grid place-items-center"></div>
-            <div className="grid justify-end">
-              <Button
-                className="w-40"
-                variant="default"
-                onClick={sendFriendRequest}
-              >
-                {t.chat.Send}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      ) : null}
     </div>
   );
 }

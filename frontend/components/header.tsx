@@ -18,6 +18,7 @@ import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
 import { useLanguage } from "@/context/languageContext";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { Menu } from "lucide-react";
 
 // Routes where the profile icon should be hidden (non-authenticated pages)
 const NON_AUTHENTICATED_ROUTES = [
@@ -46,6 +47,11 @@ export default function Header() {
   const isNonAuthenticatedPage = useMemo(() => {
     return NON_AUTHENTICATED_ROUTES.includes(pathname);
   }, [pathname]);
+
+  // Check if we're on a protected route (where sidebar is shown)
+  const isProtectedRoute = useMemo(() => {
+    return user && !isNonAuthenticatedPage;
+  }, [user, isNonAuthenticatedPage]);
 
   // Check if an active match is in progress (not over)
   const isRuntimeMatchRoute = useMemo(() => {
@@ -136,8 +142,23 @@ export default function Header() {
       <div className="flex space-x-5 items-center">
         {/* Language Switcher  */}
         <LanguageSwitcher />
+        
+        {/* Hamburger Menu Button - only on protected routes */}
+        {isProtectedRoute && (
+          <button
+            onClick={() => {
+              const event = new CustomEvent('toggle-sidebar');
+              window.dispatchEvent(event);
+            }}
+            className="p-2 rounded-lg hover:bg-muted transition-colors"
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        )}
 
-        {shouldShowProfileIcon && (
+        {/* Show dropdown only on non-protected routes, on protected routes the sidebar handles navigation */}
+        {shouldShowProfileIcon && !isProtectedRoute && (
           <>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
