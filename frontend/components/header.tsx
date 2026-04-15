@@ -144,7 +144,7 @@ export default function Header() {
         <LanguageSwitcher />
         
         {/* Hamburger Menu Button - only on protected routes */}
-        {isProtectedRoute && (
+        {hasMounted && isProtectedRoute && (
           <button
             onClick={() => {
               const event = new CustomEvent('toggle-sidebar');

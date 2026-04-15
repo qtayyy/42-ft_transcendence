@@ -159,7 +159,7 @@ export default function FriendRequestsPage() {
                 {t?.Dashboard?.Search || "Search Friends"}
               </CardTitle>
               <CardDescription>
-                Find and connect with new friends
+                {t?.FriendRequests?.["Find and connect with new friends"] || "Find and connect with new friends"}
               </CardDescription>
             </CardHeader>
             <CardContent className="pb-6">
@@ -181,7 +181,7 @@ export default function FriendRequestsPage() {
                   {t?.DropDown?.FriendRequests || "Friend Requests"}
                 </CardTitle>
                 <CardDescription className="text-base">
-                  {requests.length} pending request{requests.length !== 1 ? 's' : ''}
+                  {requests.length} {requests.length !== 1 ? (t?.FriendRequests?.["pending requests"] || "pending requests") : (t?.FriendRequests?.["pending request"] || "pending request")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -249,7 +249,7 @@ export default function FriendRequestsPage() {
                   {t?.Dashboard?.Friends || "My Friends"}
                 </CardTitle>
                 <CardDescription className="text-base">
-                  {friends.length} friend{friends.length !== 1 ? 's' : ''}
+                  {friends.length} {friends.length !== 1 ? (t?.FriendRequests?.["friends"] || "friends") : (t?.FriendRequests?.["friend"] || "friend")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -258,7 +258,7 @@ export default function FriendRequestsPage() {
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <Users className="h-12 w-12 text-muted-foreground/50 mb-3" />
                       <p className="text-muted-foreground">
-                        No friends yet. Start by accepting friend requests!
+                        {t?.FriendRequests?.["No friends yet. Start by accepting friend requests!"] || "No friends yet. Start by accepting friend requests!"}
                       </p>
                     </div>
                   ) : (
@@ -284,7 +284,7 @@ export default function FriendRequestsPage() {
                           className="gap-2"
                         >
                           <MessageCircle className="h-4 w-4" />
-                          Chat
+                          {t?.FriendRequests?.["Chat"] || "Chat"}
                         </Button>
                       </div>
                     ))

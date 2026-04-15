@@ -123,7 +123,14 @@
   "FriendRequests": {
     "No pending requests": "대기 중인 요청 없음",
     "Accept": "수락",
-    "Decline": "거절"
+    "Decline": "거절",
+    "Find and connect with new friends": "새 친구를 찾아 연결하세요",
+    "pending request": "개의 대기 중 요청",
+    "pending requests": "개의 대기 중 요청",
+    "friend": "명의 친구",
+    "friends": "명의 친구",
+    "No friends yet. Start by accepting friend requests!": "아직 친구가 없습니다. 친구 요청을 수락하여 시작하세요!",
+    "Chat": "채팅"
   },
   "Setting": {
     "Two-factor authentication (2FA)": "2단계 인증 (2FA)",
@@ -152,7 +159,21 @@
     "Blocked Users": "차단된 사용자",
     "Manage users you have blocked.": "차단한 사용자를 관리합니다.",
     "Updated your account password": "계정 비밀번호 업데이트됨",
-    "Add an extra layer of security to your account": "계정에 보안 계층 추가"
+    "Add an extra layer of security to your account": "계정에 보안 계층 추가",
+    "Manage your account security and preferences": "계정 보안 및 기본 설정 관리",
+    "Update your account password": "계정 비밀번호 업데이트",
+    "No blocked users": "차단된 사용자 없음",
+    "Unblock": "차단 해제",
+    "Blocked": "차단:",
+    "Verify & Change Password": "확인 및 비밀번호 변경",
+    "Enable 2FA": "2FA 활성화",
+    "Scan this QR code with your authenticator app:": "인증 앱으로 이 QR 코드를 스캔하세요:",
+    "Enter your OTP from your Google Auth app": "Google Auth 앱에서 OTP를 입력하세요",
+    "Next": "다음",
+    "Finish": "완료",
+    "Enter OTP": "OTP 입력",
+    "Enter 6-digit OTP": "6자리 OTP 입력",
+    "We've sent a 6-digit OTP to": "6자리 OTP를 다음으로 전송했습니다"
   },
   "chat": {
     "SimpleChat": "간편 채팅",
@@ -330,6 +351,46 @@
     "Next": "다음",
     "Review your past matches and track your performance": "과거 경기를 검토하고 성과를 추적하세요",
     "Recent Matches": "최근 경기",
-    "Total Matches": "총 경기 수"
+    "Total Matches": "총 경기 수",
+    "No matches played yet": "아직 진행된 경기 없음",
+    "Play your first game to see your history here": "첫 게임을 플레이하여 여기서 기록을 확인하세요",
+    "Loading match history...": "경기 기록 로딩 중...",
+    "Loading your matches...": "경기 로딩 중...",
+    "match played": "경기 플레이됨",
+    "matches played": "경기 플레이됨",
+    "Achievements": "업적",
+    "Track your unlocked achievements as you progress": "진행하면서 잠금 해제한 업적을 추적하세요"
+  },
+  "ResetPassword": {
+    "Reset password": "비밀번호 재설정",
+    "Enter your email address and we'll send you a 6-digit OTP to reset your password.": "이메일 주소를 입력하면 비밀번호를 재설정하기 위한 6자리 OTP를 보내드립니다.",
+    "We've sent a 6-digit OTP to your email.": "이메일로 6자리 OTP를 발송했습니다.",
+    "OTP verified! Now enter your new password.": "OTP가 확인되었습니다! 새 비밀번호를 입력해주세요.",
+    "OTP": "OTP",
+    "New Password": "새 비밀번호",
+    "Send OTP": "OTP 보내기",
+    "Submit OTP": "OTP 제출",
+    "Back to Login": "로그인으로 돌아가기",
+    "Resend OTP in": "초 후 OTP 재전송",
+    "Didn't receive OTP? Resend Code": "OTP를 받지 못했나요? 코드 재전송",
+    "Please enter your email address.": "이메일 주소를 입력해주세요.",
+    "Please enter the OTP.": "OTP를 입력해주세요.",
+    "Please fill in all fields.": "모든 항목을 입력해주세요.",
+    "Password must be at least 6 characters long.": "비밀번호는 6자 이상이어야 합니다.",
+    "Passwords do not match.": "비밀번호가 일치하지 않습니다.",
+    "Password reset successful! You can now sign in.": "비밀번호가 재설정되었습니다! 이제 로그인할 수 있습니다.",
+    "OTP has been sent to your email!": "OTP가 이메일로 발송되었습니다!",
+    "OTP has been resent to your email!": "OTP가 이메일로 재발송되었습니다!",
+    "Success": "성공",
+    "Error": "오류"
+  },
+  "TwoFA": {
+    "Two-factor Authentication": "2단계 인증",
+    "Enter the 6-digit code from your Google Auth App": "Google 인증 앱에서 6자리 코드를 입력하세요",
+    "Back to Login": "로그인으로 돌아가기",
+    "Submit": "제출",
+    "Please provide a 6-digit verification code.": "6자리 인증 코드를 입력해주세요.",
+    "2FA Code": "2FA 코드",
+    "Error": "오류"
   }
 }

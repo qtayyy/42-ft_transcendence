@@ -122,7 +122,14 @@
   "FriendRequests": {
     "No pending requests": "无待处理请求",
     "Accept": "接受",
-    "Decline": "拒绝"
+    "Decline": "拒绝",
+    "Find and connect with new friends": "查找并添加新朋友",
+    "pending request": "条待处理请求",
+    "pending requests": "条待处理请求",
+    "friend": "位好友",
+    "friends": "位好友",
+    "No friends yet. Start by accepting friend requests!": "还没有好友。开始接受好友请求吧！",
+    "Chat": "聊天"
   },
   "Setting": {
     "Two-factor authentication (2FA)": "双因素认证 (2FA)",
@@ -151,7 +158,21 @@
     "Blocked Users": "已屏蔽用户",
     "Manage users you have blocked.": "管理您已屏蔽的用户。",
     "Updated your account password": "账户密码已更新",
-    "Add an extra layer of security to your account": "为您的账户添加额外的安全层"
+    "Add an extra layer of security to your account": "为您的账户添加额外的安全层",
+    "Manage your account security and preferences": "管理您的账户安全和偏好设置",
+    "Update your account password": "更新您的账户密码",
+    "No blocked users": "没有被屏蔽的用户",
+    "Unblock": "取消屏蔽",
+    "Blocked": "屏蔽于",
+    "Verify & Change Password": "验证并更改密码",
+    "Enable 2FA": "启用 2FA",
+    "Scan this QR code with your authenticator app:": "使用您的验证器应用扫描此二维码：",
+    "Enter your OTP from your Google Auth app": "输入来自 Google Auth 应用的 OTP",
+    "Next": "下一步",
+    "Finish": "完成",
+    "Enter OTP": "输入 OTP",
+    "Enter 6-digit OTP": "输入 6 位 OTP",
+    "We've sent a 6-digit OTP to": "我们已将 6 位 OTP 发送至"
   },
   "chat": {
     "SimpleChat": "简易聊天",
@@ -329,6 +350,46 @@
     "Next": "下一页",
     "Review your past matches and track your performance": "回顾您过去的比赛并跟踪您的表现",
     "Recent Matches": "最近比赛",
-    "Total Matches": "总比赛数"
+    "Total Matches": "总比赛数",
+    "No matches played yet": "暂无已进行的比赛",
+    "Play your first game to see your history here": "进行第一场比赛，在此查看您的历史记录",
+    "Loading match history...": "加载比赛历史中...",
+    "Loading your matches...": "加载您的比赛中...",
+    "match played": "场比赛",
+    "matches played": "场比赛",
+    "Achievements": "成就",
+    "Track your unlocked achievements as you progress": "随着进度跟踪您已解锁的成就"
+  },
+  "ResetPassword": {
+    "Reset password": "重置密码",
+    "Enter your email address and we'll send you a 6-digit OTP to reset your password.": "输入您的电子邮件地址，我们将向您发送6位数OTP以重置密码。",
+    "We've sent a 6-digit OTP to your email.": "我们已向您的电子邮件发送了6位数OTP。",
+    "OTP verified! Now enter your new password.": "OTP已验证！请输入您的新密码。",
+    "OTP": "OTP",
+    "New Password": "新密码",
+    "Send OTP": "发送OTP",
+    "Submit OTP": "提交OTP",
+    "Back to Login": "返回登录",
+    "Resend OTP in": "在...秒后重新发送OTP",
+    "Didn't receive OTP? Resend Code": "没有收到OTP？重新发送验证码",
+    "Please enter your email address.": "请输入您的电子邮件地址。",
+    "Please enter the OTP.": "请输入OTP。",
+    "Please fill in all fields.": "请填写所有字段。",
+    "Password must be at least 6 characters long.": "密码必须至少6个字符。",
+    "Passwords do not match.": "密码不匹配。",
+    "Password reset successful! You can now sign in.": "密码重置成功！您现在可以登录了。",
+    "OTP has been sent to your email!": "OTP已发送到您的电子邮件！",
+    "OTP has been resent to your email!": "OTP已重新发送到您的电子邮件！",
+    "Success": "成功",
+    "Error": "错误"
+  },
+  "TwoFA": {
+    "Two-factor Authentication": "双因素认证",
+    "Enter the 6-digit code from your Google Auth App": "输入Google身份验证器应用中的6位数字代码",
+    "Back to Login": "返回登录",
+    "Submit": "提交",
+    "Please provide a 6-digit verification code.": "请提供6位数验证码。",
+    "2FA Code": "2FA代码",
+    "Error": "错误"
   }
 }
