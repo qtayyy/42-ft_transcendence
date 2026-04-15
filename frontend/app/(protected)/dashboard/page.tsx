@@ -565,7 +565,7 @@ export default function DashboardPage() {
                 className="text-center pb-2 cursor-pointer"
                 onClick={handleFriendsNavigation}
               >
-                    <div className="mx-auto p-4 rounded-2xl bg-blue-500 opacity-10 mb-4 group-hover:opacity-20 transition-colors">
+                    <div className="mx-auto p-4 rounded-2xl bg-blue-500/10 mb-4 transition-colors">
                   <Users className="h-10 w-10 text-blue-500" />
                 </div>
                 <CardTitle className="text-3xl font-bold">{t.Dashboard.Friends}</CardTitle>
@@ -633,7 +633,7 @@ export default function DashboardPage() {
                     <BarChart3 className="h-32 w-32 -mr-8 -mt-8" />
                   </div>
                   <CardHeader className="text-center pb-2">
-                    <div className="mx-auto p-3 rounded-xl bg-purple-500 opacity-10 mb-3">
+                    <div className="mx-auto p-3 rounded-xl bg-purple-500/10 mb-3">
                       <Activity className="h-8 w-8 text-purple-500" />
                     </div>
                     <CardTitle className="text-2xl">{t.Dashboard.Activity}</CardTitle>
@@ -659,30 +659,37 @@ export default function DashboardPage() {
                     {recentMatchesLoading ? (
                       <p className="text-muted-foreground text-center text-xs py-4">{t.Dashboard["Loading..."]}</p>
                     ) : (
-                      <div className="flex items-end justify-between gap-1 h-28 px-1">
-                        {activityBars.map((bar, i) => {
-                          const heightPercent = ((bar.count / maxActivityCount) * 80);
-                          const minHeightValue = bar.count > 0 ? '4px' : '2px';
-                          const opacityValue = bar.count === 0 ? 0.2 : 1;
-                          const barStyle = {
-                            height: heightPercent + '%',
-                            minHeight: minHeightValue,
-                            opacity: opacityValue
-                          };
-                          
-                          return (
-                            <div key={i} className="flex flex-col items-center gap-1 flex-1 h-full justify-end">
-                              <span className="text-[10px] font-semibold text-muted-foreground">
-                                {bar.count > 0 ? bar.count : ''}
-                              </span>
+                      <div className="px-2 space-y-0.5">
+                        {/* Count labels row */}
+                        <div className="flex justify-between gap-1 h-4">
+                          {activityBars.map((bar, i) => (
+                            <span key={i} className="flex-1 text-[10px] font-semibold text-muted-foreground text-center">
+                              {bar.count > 0 ? bar.count : ''}
+                            </span>
+                          ))}
+                        </div>
+                        {/* Bar area */}
+                        <div className="flex items-end justify-between gap-1 h-20">
+                          {activityBars.map((bar, i) => {
+                            const pct = (bar.count / maxActivityCount) * 100;
+                            return (
                               <div
-                                className="w-full rounded-t-sm bg-purple-500 opacity-70 transition-all duration-500"
-                                style={barStyle}
+                                key={i}
+                                className="flex-1 rounded-t-sm bg-purple-500 transition-all duration-500"
+                                style={{
+                                  height: bar.count > 0 ? `${pct}%` : '2px',
+                                  opacity: bar.count === 0 ? 0.2 : 0.7,
+                                }}
                               />
-                              <span className="text-[9px] text-muted-foreground truncate w-full text-center">{bar.label}</span>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
+                        {/* Date labels row */}
+                        <div className="flex justify-between gap-1 mt-0.5">
+                          {activityBars.map((bar, i) => (
+                            <span key={i} className="flex-1 text-[9px] text-muted-foreground truncate text-center">{bar.label}</span>
+                          ))}
+                        </div>
                       </div>
                     )}
 
@@ -712,7 +719,7 @@ export default function DashboardPage() {
                     <PieChart className="h-32 w-32 -mr-8 -mt-8" />
                   </div>
                   <CardHeader className="text-center">
-                    <div className="mx-auto p-3 rounded-xl bg-green-500 opacity-10 mb-3">
+                    <div className="mx-auto p-3 rounded-xl bg-green-500/10 mb-3">
                       <PieChart className="h-8 w-8 text-green-500" />
                     </div>
                     <CardTitle className="text-2xl">{t.Dashboard["Win-Loss"]}</CardTitle>
@@ -768,7 +775,7 @@ export default function DashboardPage() {
                   <Trophy className="h-32 w-32 -mr-8 -mt-8" />
                 </div>
                 <CardHeader className="text-center">
-                  <div className="mx-auto p-3 rounded-xl bg-yellow-500 opacity-10 mb-3">
+                  <div className="mx-auto p-3 rounded-xl bg-yellow-500/10 mb-3">
                     <Trophy className="h-8 w-8 text-yellow-500" />
                   </div>
                   <CardTitle className="text-2xl">{t.Dashboard["Recent Game History"]}</CardTitle>
