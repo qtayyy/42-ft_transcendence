@@ -129,7 +129,11 @@
     "friend": "位好友",
     "friends": "位好友",
     "No friends yet. Start by accepting friend requests!": "还没有好友。开始接受好友请求吧！",
-    "Chat": "聊天"
+    "Chat": "聊天",
+    "Remove Friend": "删除好友",
+    "Are you sure you want to remove": "您确定要删除",
+    "as a friend? This action cannot be undone.": "为好友吗？此操作无法撤销。",
+    "Remove": "删除"
   },
   "Setting": {
     "Two-factor authentication (2FA)": "双因素认证 (2FA)",

@@ -9,7 +9,7 @@ import { FriendRequest } from "@/types/types";
 import { useLanguage } from "@/context/languageContext";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import { Users, UserPlus, MessageCircle, Check, X, Search } from "lucide-react";
+import { Users, UserPlus, MessageCircle, Check, X, Search, UserMinus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SearchBar from "@/components/search-bar";
 import {
@@ -32,6 +32,8 @@ export default function FriendRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [userFound, setUserFound] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [removeFriendTarget, setRemoveFriendTarget] = useState<Friend | null>(null);
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const { t } = useLanguage();
   const { user, loadingAuth } = useAuth();
   const router = useRouter();
@@ -100,6 +102,19 @@ export default function FriendRequestsPage() {
 
   const handleChatClick = (friendId: number) => {
     router.push(`/chat?userId=${friendId}`);
+  };
+
+  const handleRemoveFriend = async () => {
+    if (!removeFriendTarget) return;
+    try {
+      await axios.delete(`/api/friends/${removeFriendTarget.id}`);
+      setFriends((prev) => prev.filter((f) => f.id !== removeFriendTarget.id));
+      setRemoveDialogOpen(false);
+      setRemoveFriendTarget(null);
+    } catch (error: any) {
+      const backendError = error.response?.data?.error;
+      alert(backendError || "Failed to remove friend. Please try again.");
+    }
   };
 
   const handleSearchUser = async (query: string) => {
@@ -277,15 +292,28 @@ export default function FriendRequestsPage() {
                           <span className="font-medium">{friend.username}</span>
                         </div>
 
-                        <Button 
-                          size="sm" 
-                          variant="default"
-                          onClick={() => handleChatClick(friend.id)}
-                          className="gap-2"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                          {t?.FriendRequests?.["Chat"] || "Chat"}
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="default"
+                            onClick={() => handleChatClick(friend.id)}
+                            className="gap-2"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                            {t?.FriendRequests?.["Chat"] || "Chat"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              setRemoveFriendTarget(friend);
+                              setRemoveDialogOpen(true);
+                            }}
+                            className="gap-2"
+                          >
+                            <UserMinus className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))
                   )}
@@ -295,6 +323,30 @@ export default function FriendRequestsPage() {
           </div>
         </div>
       </div>
+
+      {/* Remove Friend Confirmation Dialog */}
+      <Dialog open={removeDialogOpen} onOpenChange={setRemoveDialogOpen}>
+        <DialogContent className="p-10">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">
+              {t?.FriendRequests?.["Remove Friend"] || "Remove Friend"}
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              {t?.FriendRequests?.["Are you sure you want to remove"] || "Are you sure you want to remove"}{" "}
+              <strong>{removeFriendTarget?.username}</strong>{" "}
+              {t?.FriendRequests?.["as a friend? This action cannot be undone."] || "as a friend? This action cannot be undone."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 justify-end pt-4">
+            <Button variant="outline" onClick={() => setRemoveDialogOpen(false)}>
+              {t?.Setting?.Cancel || "Cancel"}
+            </Button>
+            <Button variant="destructive" onClick={handleRemoveFriend}>
+              {t?.FriendRequests?.["Remove"] || "Remove"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Friend Request Dialog */}
       {userFound ? (

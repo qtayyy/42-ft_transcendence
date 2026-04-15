@@ -130,7 +130,11 @@
     "friend": "명의 친구",
     "friends": "명의 친구",
     "No friends yet. Start by accepting friend requests!": "아직 친구가 없습니다. 친구 요청을 수락하여 시작하세요!",
-    "Chat": "채팅"
+    "Chat": "채팅",
+    "Remove Friend": "친구 삭제",
+    "Are you sure you want to remove": "정말로 삭제하시겠습니까",
+    "as a friend? This action cannot be undone.": "를 친구에서 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+    "Remove": "삭제"
   },
   "Setting": {
     "Two-factor authentication (2FA)": "2단계 인증 (2FA)",

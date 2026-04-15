@@ -129,7 +129,11 @@
     "friend": "人の友達",
     "friends": "人の友達",
     "No friends yet. Start by accepting friend requests!": "まだ友達がいません。友達リクエストを承認して始めよう！",
-    "Chat": "チャット"
+    "Chat": "チャット",
+    "Remove Friend": "友達を削除",
+    "Are you sure you want to remove": "削除してもよろしいですか",
+    "as a friend? This action cannot be undone.": "を友達から削除しますか？この操作は元に戻せません。",
+    "Remove": "削除"
   },
   "Setting": {
     "Two-factor authentication (2FA)": "2要素認証 (2FA)",
