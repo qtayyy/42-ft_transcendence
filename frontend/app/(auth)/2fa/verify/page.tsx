@@ -6,12 +6,13 @@ import { AlertCircleIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-
-const fields = [{ name: "code", label: "2FA Code", type: "number" }];
+import { useLanguage } from "@/context/languageContext";
 
 export default function Verify2FAPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const { verify2fa } = useAuth();
+  const { t } = useLanguage();
+  const fields = [{ name: "code", label: t?.TwoFA?.["2FA Code"] || "2FA Code", type: "number" }];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +23,7 @@ export default function Verify2FAPage() {
 
     const code = (data.code || "").toString().trim();
     if (!code || code.length < 6) {
-      setErrorMessage("Please provide a 6-digit verification code.");
+      setErrorMessage(t?.TwoFA?.["Please provide a 6-digit verification code."] || "Please provide a 6-digit verification code.");
       return;
     }
 
@@ -38,18 +39,18 @@ export default function Verify2FAPage() {
 
   return (
     <AuthShell
-      title="Two-factor Authentication"
-      description="Enter the 6-digit code from your Google Auth App"
+      title={t?.TwoFA?.["Two-factor Authentication"] || "Two-factor Authentication"}
+      description={t?.TwoFA?.["Enter the 6-digit code from your Google Auth App"] || "Enter the 6-digit code from your Google Auth App"}
       handleSubmit={handleSubmit}
       fields={fields}
       link="/login"
-      linkText="Back to Login"
-      submitText="Submit"
+      linkText={t?.TwoFA?.["Back to Login"] || "Back to Login"}
+      submitText={t?.TwoFA?.["Submit"] || "Submit"}
     >
       {errorMessage && (
         <Alert variant="destructive">
           <AlertCircleIcon className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>{t?.TwoFA?.["Error"] || "Error"}</AlertTitle>
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       )}

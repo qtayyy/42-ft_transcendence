@@ -122,7 +122,14 @@
   "FriendRequests": {
     "No pending requests": "No pending requests",
     "Accept": "Accept",
-    "Decline": "Decline"
+    "Decline": "Decline",
+    "Find and connect with new friends": "Find and connect with new friends",
+    "pending request": "pending request",
+    "pending requests": "pending requests",
+    "friend": "friend",
+    "friends": "friends",
+    "No friends yet. Start by accepting friend requests!": "No friends yet. Start by accepting friend requests!",
+    "Chat": "Chat"
   },
   "Setting": {
     "Two-factor authentication (2FA)": "Two-factor authentication (2FA)",
@@ -151,7 +158,21 @@
     "Blocked Users": "Blocked Users",
     "Manage users you have blocked.": "Manage users you have blocked.",
     "Updated your account password": "Updated your account password",
-    "Add an extra layer of security to your account": "Add an extra layer of security to your account"
+    "Add an extra layer of security to your account": "Add an extra layer of security to your account",
+    "Manage your account security and preferences": "Manage your account security and preferences",
+    "Update your account password": "Update your account password",
+    "No blocked users": "No blocked users",
+    "Unblock": "Unblock",
+    "Blocked": "Blocked",
+    "Verify & Change Password": "Verify & Change Password",
+    "Enable 2FA": "Enable 2FA",
+    "Scan this QR code with your authenticator app:": "Scan this QR code with your authenticator app:",
+    "Enter your OTP from your Google Auth app": "Enter your OTP from your Google Auth app",
+    "Next": "Next",
+    "Finish": "Finish",
+    "Enter OTP": "Enter OTP",
+    "Enter 6-digit OTP": "Enter 6-digit OTP",
+    "We've sent a 6-digit OTP to": "We've sent a 6-digit OTP to"
   },
   "chat": {
     "SimpleChat": "Simple Chat",
@@ -330,9 +351,46 @@
     "Next": "Next",
     "Review your past matches and track your performance": "Review your past matches and track your performance",
     "Recent Matches": "Recent Matches",
-    "Total Matches": "Total Matches"
-
+    "Total Matches": "Total Matches",
+    "No matches played yet": "No matches played yet",
+    "Play your first game to see your history here": "Play your first game to see your history here",
+    "Loading match history...": "Loading match history...",
+    "Loading your matches...": "Loading your matches...",
+    "match played": "match played",
+    "matches played": "matches played",
+    "Achievements": "Achievements",
+    "Track your unlocked achievements as you progress": "Track your unlocked achievements as you progress"
+  },
+  "ResetPassword": {
+    "Reset password": "Reset Password",
+    "Enter your email address and we'll send you a 6-digit OTP to reset your password.": "Enter your email address and we'll send you a 6-digit OTP to reset your password.",
+    "We've sent a 6-digit OTP to your email.": "We've sent a 6-digit OTP to your email.",
+    "OTP verified! Now enter your new password.": "OTP verified! Now enter your new password.",
+    "OTP": "OTP",
+    "New Password": "New Password",
+    "Send OTP": "Send OTP",
+    "Submit OTP": "Submit OTP",
+    "Back to Login": "Back to Login",
+    "Resend OTP in": "Resend OTP in",
+    "Didn't receive OTP? Resend Code": "Didn't receive OTP? Resend Code",
+    "Please enter your email address.": "Please enter your email address.",
+    "Please enter the OTP.": "Please enter the OTP.",
+    "Please fill in all fields.": "Please fill in all fields.",
+    "Password must be at least 6 characters long.": "Password must be at least 6 characters long.",
+    "Passwords do not match.": "Passwords do not match.",
+    "Password reset successful! You can now sign in.": "Password reset successful! You can now sign in.",
+    "OTP has been sent to your email!": "OTP has been sent to your email!",
+    "OTP has been resent to your email!": "OTP has been resent to your email!",
+    "Success": "Success",
+    "Error": "Error"
+  },
+  "TwoFA": {
+    "Two-factor Authentication": "Two-factor Authentication",
+    "Enter the 6-digit code from your Google Auth App": "Enter the 6-digit code from your Google Auth App",
+    "Back to Login": "Back to Login",
+    "Submit": "Submit",
+    "Please provide a 6-digit verification code.": "Please provide a 6-digit verification code.",
+    "2FA Code": "2FA Code",
+    "Error": "Error"
   }
-
- 
 }

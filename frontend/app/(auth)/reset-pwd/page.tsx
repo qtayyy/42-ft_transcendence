@@ -6,6 +6,7 @@ import axios from "axios";
 import { AlertCircleIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/context/languageContext";
 
 export default function ResetPasswordPage() {
   const [errorMessage, setErrorMessage] = useState("");
@@ -17,6 +18,7 @@ export default function ResetPasswordPage() {
   );
   const [countdown, setCountdown] = useState(0);
   const router = useRouter();
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (countdown > 0) {
@@ -36,7 +38,7 @@ export default function ResetPasswordPage() {
     if (resetStep === "email") {
       const email = (data.email || "").toString().trim();
       if (!email) {
-        setErrorMessage("Please enter your email address.");
+        setErrorMessage(t?.ResetPassword?.["Please enter your email address."] || "Please enter your email address.");
         return;
       }
       try {
@@ -44,7 +46,7 @@ export default function ResetPasswordPage() {
         await axios.post("/api/auth/request-reset-otp", {
           email,
         });
-        setSuccessMessage("OTP has been sent to your email!");
+        setSuccessMessage(t?.ResetPassword?.["OTP has been sent to your email!"] || "OTP has been sent to your email!");
         setResetStep("otp");
         setCountdown(60);
       } catch (error: any) {
@@ -56,7 +58,7 @@ export default function ResetPasswordPage() {
     } else if (resetStep === "otp") {
       const otp = (data.otp || "").toString().trim();
       if (!otp) {
-        setErrorMessage("Please enter the OTP.");
+        setErrorMessage(t?.ResetPassword?.["Please enter the OTP."] || "Please enter the OTP.");
         return;
       }
       try {
@@ -65,7 +67,7 @@ export default function ResetPasswordPage() {
           email: resetEmail,
           otp: otp,
         });
-        setSuccessMessage("OTP verified! Now enter your new password.");
+        setSuccessMessage(t?.ResetPassword?.["OTP verified! Now enter your new password."] || "OTP verified! Now enter your new password.");
         setResetStep("password");
       } catch (error: any) {
         const backendError = error.response?.data?.error;
@@ -75,16 +77,16 @@ export default function ResetPasswordPage() {
       const newPassword = (data.newPassword || "").toString().trim();
       const confirmPassword = (data.confirmPassword || "").toString().trim();
       if (!newPassword || !confirmPassword) {
-        setErrorMessage("Please fill in all fields.");
+        setErrorMessage(t?.ResetPassword?.["Please fill in all fields."] || "Please fill in all fields.");
         return;
       }
       if (newPassword.length < 6 || confirmPassword.length < 6) {
-        setErrorMessage("Password must be at least 6 characters long.");
+        setErrorMessage(t?.ResetPassword?.["Password must be at least 6 characters long."] || "Password must be at least 6 characters long.");
         return;
       }
 
       if (newPassword !== confirmPassword) {
-        setErrorMessage("Passwords do not match.");
+        setErrorMessage(t?.ResetPassword?.["Passwords do not match."] || "Passwords do not match.");
         return;
       }
 
@@ -94,7 +96,7 @@ export default function ResetPasswordPage() {
           otp: otp,
           newPassword: newPassword,
         });
-        setSuccessMessage("Password reset successful! You can now sign in.");
+        setSuccessMessage(t?.ResetPassword?.["Password reset successful! You can now sign in."] || "Password reset successful! You can now sign in.");
         setTimeout(() => {
           setResetStep("email");
           setResetEmail("");
@@ -115,7 +117,7 @@ export default function ResetPasswordPage() {
 
     try {
       await axios.post("/api/auth/request-reset-otp", { email: resetEmail });
-      setSuccessMessage("OTP has been resent to your email!");
+      setSuccessMessage(t?.ResetPassword?.["OTP has been resent to your email!"] || "OTP has been resent to your email!");
       setCountdown(60); // Restart countdown
     } catch (error: any) {
       const backendError = error.response?.data?.error;
@@ -129,18 +131,18 @@ export default function ResetPasswordPage() {
     <div>
       {resetStep === "email" && (
         <AuthShell
-          title="Reset password"
-          description="Enter your email address and we'll send you a 6-digit OTP to reset your password."
+          title={t?.ResetPassword?.["Reset password"] || "Reset Password"}
+          description={t?.ResetPassword?.["Enter your email address and we'll send you a 6-digit OTP to reset your password."] || "Enter your email address and we'll send you a 6-digit OTP to reset your password."}
           handleSubmit={handleSubmit}
-          fields={[{ name: "email", label: "Email", type: "email" }]}
+          fields={[{ name: "email", label: t?.["Login & Sign up"]?.Email || "Email", type: "email" }]}
           link="/login"
-          linkText="Back to Login"
-          submitText="Send OTP"
+          linkText={t?.ResetPassword?.["Back to Login"] || "Back to Login"}
+          submitText={t?.ResetPassword?.["Send OTP"] || "Send OTP"}
         >
           {errorMessage && (
             <Alert variant="destructive">
               <AlertCircleIcon className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
+              <AlertTitle>{t?.ResetPassword?.["Error"] || "Error"}</AlertTitle>
               <AlertDescription>{errorMessage}</AlertDescription>
             </Alert>
           )}
@@ -149,24 +151,24 @@ export default function ResetPasswordPage() {
 
       {resetStep === "otp" && (
         <AuthShell
-          title="Reset password"
-          description="We've sent a 6-digit OTP to your email."
+          title={t?.ResetPassword?.["Reset password"] || "Reset Password"}
+          description={t?.ResetPassword?.["We've sent a 6-digit OTP to your email."] || "We've sent a 6-digit OTP to your email."}
           handleSubmit={handleSubmit}
-          fields={[{ name: "otp", label: "OTP", type: "text" }]}
+          fields={[{ name: "otp", label: t?.ResetPassword?.["OTP"] || "OTP", type: "text" }]}
           link="/login"
-          linkText="Back to Login"
-          submitText="Submit OTP"
+          linkText={t?.ResetPassword?.["Back to Login"] || "Back to Login"}
+          submitText={t?.ResetPassword?.["Submit OTP"] || "Submit OTP"}
         >
           {errorMessage && (
             <Alert variant="destructive">
               <AlertCircleIcon className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
+              <AlertTitle>{t?.ResetPassword?.["Error"] || "Error"}</AlertTitle>
               <AlertDescription>{errorMessage}</AlertDescription>
             </Alert>
           )}
           {countdown > 0 ? (
             <p className="text-sm text-muted-foreground text-center">
-              Resend OTP in <strong>{countdown}s</strong>
+              {t?.ResetPassword?.["Resend OTP in"] || "Resend OTP in"} <strong>{countdown}s</strong>
             </p>
           ) : (
             <button
@@ -174,7 +176,7 @@ export default function ResetPasswordPage() {
               onClick={handleResendOTP}
               className="text-sm text-primary hover:underline w-full text-center"
             >
-              Didn&apos;t receive OTP? Resend Code
+              {t?.ResetPassword?.["Didn't receive OTP? Resend Code"] || "Didn't receive OTP? Resend Code"}
             </button>
           )}
         </AuthShell>
@@ -182,32 +184,32 @@ export default function ResetPasswordPage() {
 
       {resetStep === "password" && (
         <AuthShell
-          title="Reset password"
-          description="OTP verified! Now enter your new password."
+          title={t?.ResetPassword?.["Reset password"] || "Reset Password"}
+          description={t?.ResetPassword?.["OTP verified! Now enter your new password."] || "OTP verified! Now enter your new password."}
           handleSubmit={handleSubmit}
           fields={[
-            { name: "newPassword", label: "New Password", type: "password" },
+            { name: "newPassword", label: t?.ResetPassword?.["New Password"] || "New Password", type: "password" },
             {
               name: "confirmPassword",
-              label: "Confirm Password",
+              label: t?.["Login & Sign up"]?.["Confirm Password"] || "Confirm Password",
               type: "password",
             },
           ]}
           link="/login"
-          linkText="Back to Login"
-          submitText="Reset password"
+          linkText={t?.ResetPassword?.["Back to Login"] || "Back to Login"}
+          submitText={t?.ResetPassword?.["Reset password"] || "Reset password"}
         >
           {successMessage && (
             <Alert className="bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400">
               <AlertCircleIcon className="h-4 w-4" />
-              <AlertTitle>Success</AlertTitle>
+              <AlertTitle>{t?.ResetPassword?.["Success"] || "Success"}</AlertTitle>
               <AlertDescription>{successMessage}</AlertDescription>
             </Alert>
           )}
           {errorMessage && (
             <Alert variant="destructive">
               <AlertCircleIcon className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
+              <AlertTitle>{t?.ResetPassword?.["Error"] || "Error"}</AlertTitle>
               <AlertDescription>{errorMessage}</AlertDescription>
             </Alert>
           )}
