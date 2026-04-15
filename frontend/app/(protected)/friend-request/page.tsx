@@ -71,6 +71,15 @@ export default function FriendRequestsPage() {
     load();
   }, [user, loadingAuth]);
 
+  // Real-time: refresh pending requests when a new friend request arrives via websocket
+  useEffect(() => {
+    const handleFriendRequest = () => {
+      fetchRequests();
+    };
+    window.addEventListener("friendRequest", handleFriendRequest as EventListener);
+    return () => window.removeEventListener("friendRequest", handleFriendRequest as EventListener);
+  }, []);
+
   const accept = async (id: number) => {
     try {
       await axios.put(`/api/friends/request/${id}/accept`);
