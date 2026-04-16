@@ -207,7 +207,11 @@
     "Are you sure you want to block": "Are you sure you want to block",
     "You won't be able to send or receive messages from this user.": "You won't be able to send or receive messages from this user.",
     "Block": "Block",
-    "Cancel": "Cancel"
+    "Cancel": "Cancel",
+    "Clear Chat History": "Clear Chat History",
+    "This will permanently delete all messages between you and": "This will permanently delete all messages between you and",
+    "This action cannot be undone.": "This action cannot be undone.",
+    "Clear History": "Clear History"
   },
   "Game": {
     "Are You Ready?": "Are You Ready?",

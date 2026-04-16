@@ -207,7 +207,11 @@
     "Are you sure you want to block": "ブロックしてもよろしいですか",
     "You won't be able to send or receive messages from this user.": "このユーザーとメッセージのやり取りができなくなります。",
     "Block": "ブロック",
-    "Cancel": "キャンセル"
+    "Cancel": "キャンセル",
+    "Clear Chat History": "チャット履歴を消去",
+    "This will permanently delete all messages between you and": "あなたと次のユーザーの間のすべてのメッセージが永久に削除されます:",
+    "This action cannot be undone.": "この操作は元に戻せません。",
+    "Clear History": "履歴を消去"
   },
   "Game": {
     "Are You Ready?": "準備はいいですか？",

@@ -208,7 +208,11 @@
     "Are you sure you want to block": "정말로 차단하시겠습니까",
     "You won't be able to send or receive messages from this user.": "이 사용자에게 메시지를 보내거나 받을 수 없습니다.",
     "Block": "차단",
-    "Cancel": "취소"
+    "Cancel": "취소",
+    "Clear Chat History": "채팅 기록 지우기",
+    "This will permanently delete all messages between you and": "당신과 다음 사용자 사이의 모든 메시지가 영구적으로 삭제됩니다:",
+    "This action cannot be undone.": "이 작업은 실행 취소가 불가능합니다.",
+    "Clear History": "기록 삭제"
   },
   "Game": {
     "Are You Ready?": "준비되셨나요?",
