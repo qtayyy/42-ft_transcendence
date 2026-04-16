@@ -362,7 +362,18 @@
     "match played": "场比赛",
     "matches played": "场比赛",
     "Achievements": "成就",
-    "Track your unlocked achievements as you progress": "随着进度跟踪您已解锁的成就"
+    "Track your unlocked achievements as you progress": "随着进度跟踪您已解锁的成就",
+    "Loading achievements...": "加载成就中...",
+    "achievements": "项成就",
+    "AchievementDefs": {
+      "FIRST_WIN": { "name": "初次血战", "description": "赢得您的第一场比赛" },
+      "LEVEL_5": { "name": "新星崛起", "description": "达到第5级" },
+      "LEVEL_10": { "name": "传奇玩家", "description": "达到第10级" },
+      "TOTAL_WINS_10": { "name": "收藏家", "description": "累计10场胜利" },
+      "TOTAL_WINS_50": { "name": "冠军", "description": "累计50场胜利" },
+      "DRAW_MATCH": { "name": "平局", "description": "进行一场平局比赛" },
+      "TOURNAMENT_WIN": { "name": "锦标赛冠军", "description": "赢得一场锦标赛" }
+    }
   },
   "ResetPassword": {
     "Reset password": "重置密码",

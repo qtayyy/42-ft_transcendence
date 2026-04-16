@@ -363,7 +363,18 @@
     "match played": "경기 플레이됨",
     "matches played": "경기 플레이됨",
     "Achievements": "업적",
-    "Track your unlocked achievements as you progress": "진행하면서 잠금 해제한 업적을 추적하세요"
+    "Track your unlocked achievements as you progress": "진행하면서 잠금 해제한 업적을 추적하세요",
+    "Loading achievements...": "업적 로딩 중...",
+    "achievements": "업적",
+    "AchievementDefs": {
+      "FIRST_WIN": { "name": "첫 피", "description": "첫 번째 경기에서 승리하세요" },
+      "LEVEL_5": { "name": "떠오르는 별", "description": "5레벨 달성" },
+      "LEVEL_10": { "name": "전설의 플레이어", "description": "10레벨 달성" },
+      "TOTAL_WINS_10": { "name": "콜렉터", "description": "10승리 누적" },
+      "TOTAL_WINS_50": { "name": "챔피언", "description": "50승리 누적" },
+      "DRAW_MATCH": { "name": "무승부", "description": "무승부 경기 플레이" },
+      "TOURNAMENT_WIN": { "name": "토너먼트 우승자", "description": "토너먼트 우승" }
+    }
   },
   "ResetPassword": {
     "Reset password": "비밀번호 재설정",

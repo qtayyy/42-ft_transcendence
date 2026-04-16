@@ -362,7 +362,18 @@
     "match played": "試合プレイ済み",
     "matches played": "試合プレイ済み",
     "Achievements": "実績",
-    "Track your unlocked achievements as you progress": "進行に合わせてアンロックした実績を追跡します"
+    "Track your unlocked achievements as you progress": "進行に合わせてアンロックした実績を追跡します",
+    "Loading achievements...": "実績を読み込み中...",
+    "achievements": "実績",
+    "AchievementDefs": {
+      "FIRST_WIN": { "name": "初めての血", "description": "初めての試合に勝利する" },
+      "LEVEL_5": { "name": "新星", "description": "レベル5に到達" },
+      "LEVEL_10": { "name": "伝説のプレイヤー", "description": "レベル10に到達" },
+      "TOTAL_WINS_10": { "name": "コレクター", "description": "10勝利を積み重ねる" },
+      "TOTAL_WINS_50": { "name": "チャンピオン", "description": "50勝利を積み重ねる" },
+      "DRAW_MATCH": { "name": "引き分け", "description": "引き分けの試合をプレイ" },
+      "TOURNAMENT_WIN": { "name": "トーナメント実績者", "description": "トーナメントに勝利する" }
+    }
   },
   "ResetPassword": {
     "Reset password": "パスワードをリセット",
