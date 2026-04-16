@@ -107,4 +107,34 @@ export default async function (fastify, opts) {
       }
     },
   );
+
+  // DELETE /api/chat/:friendId — permanently delete all messages between two users
+  fastify.delete(
+    "/:friendId",
+    { onRequest: [fastify.authenticate] },
+    async (request, reply) => {
+      try {
+        const myId = request.user.userId;
+        const friendId = parseInt(request.params.friendId);
+
+        if (!friendId || isNaN(friendId)) {
+          return reply.code(400).send({ error: "Invalid friend ID" });
+        }
+
+        await prisma.message.deleteMany({
+          where: {
+            OR: [
+              { senderId: myId, recipientId: friendId },
+              { senderId: friendId, recipientId: myId },
+            ],
+          },
+        });
+
+        return reply.code(200).send({ success: true });
+      } catch (error) {
+        console.error("Error clearing chat history:", error);
+        return reply.code(500).send({ error: "Internal server error" });
+      }
+    },
+  );
 }

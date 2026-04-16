@@ -11,10 +11,12 @@ import { Label } from "@/components/ui/label";
 import { User, UserPlus, X, ArrowLeft, Trophy, Crown } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
+import { useLanguage } from "@/context/languageContext";
 
 export default function LocalTournamentPage() {
 	const router = useRouter();
 	const { user } = useAuth();
+	const { t } = useLanguage();
 	const [tempPlayerName, setTempPlayerName] = useState("");
 	const [tempPlayers, setTempPlayers] = useState<Array<{name: string}>>([]);
 
@@ -76,7 +78,7 @@ export default function LocalTournamentPage() {
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Back to Local Selection
+						{t.Game["Back to Local Selection"]}
 					</Button>
 				</div>
 
@@ -93,10 +95,10 @@ export default function LocalTournamentPage() {
 								<Trophy className="h-10 w-10 text-yellow-500" />
 							</div>
 							<CardTitle className="text-3xl font-bold bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">
-								Local Tournament
+								{t.Game["Local Tournament"]}
 							</CardTitle>
 							<CardDescription className="text-base">
-								Setup a bracket elimination for 3-8 players
+								{t.Game["Setup a bracket elimination for 3-8 players"]}
 							</CardDescription>
 						</CardHeader>
 
@@ -106,30 +108,30 @@ export default function LocalTournamentPage() {
 							<div className="space-y-4">
 								<div className="flex gap-3">
 									<Input
-										placeholder="Add Guest Player Name..."
-										value={tempPlayerName}
-										onChange={(e) => setTempPlayerName(e.target.value)}
-										onKeyPress={(e) => e.key === "Enter" && handleAddTempPlayer()}
-										className="h-12 bg-background/50 text-lg border-muted-foreground/20"
-										disabled={totalPlayers >= 8}
-									/>
-									<Button
-										onClick={handleAddTempPlayer}
-										disabled={!tempPlayerName.trim() || totalPlayers >= 8}
-										className="h-12 px-8 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-black font-semibold shadow-lg shadow-yellow-500/20"
-									>
-										<UserPlus className="h-5 w-5 mr-2" />
-										Add Player
+									placeholder={t.Game["Add Guest Player Name..."]}
+									value={tempPlayerName}
+									onChange={(e) => setTempPlayerName(e.target.value)}
+									onKeyPress={(e) => e.key === "Enter" && handleAddTempPlayer()}
+									className="h-12 bg-background/50 text-lg border-muted-foreground/20"
+									disabled={totalPlayers >= 8}
+								/>
+								<Button
+									onClick={handleAddTempPlayer}
+									disabled={!tempPlayerName.trim() || totalPlayers >= 8}
+									className="h-12 px-8 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-black font-semibold shadow-lg shadow-yellow-500/20"
+								>
+									<UserPlus className="h-5 w-5 mr-2" />
+									{t.Game["Add Player"]}
 									</Button>
 								</div>
 								<p className="text-xs text-muted-foreground text-center uppercase tracking-widest font-semibold">
-									Max 8 Players • {8 - totalPlayers} Spots Remaining
+									{t.Game["MAX 8 PLAYERS"]} • {8 - totalPlayers} {t.Game["SPOTS REMAINING"]}
 								</p>
 							</div>
 
 							{/* Player Registry */}
 							<div className="space-y-3">
-								<Label className="text-sm text-muted-foreground font-semibold uppercase tracking-wider">Registered Contenders ({totalPlayers})</Label>
+								<Label className="text-sm text-muted-foreground font-semibold uppercase tracking-wider">{t.Game["REGISTERED CONTENDERS"]} ({totalPlayers})</Label>
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
 									{/* Account User */}
 									<div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/20 rounded-xl">
@@ -138,7 +140,7 @@ export default function LocalTournamentPage() {
 										</div>
 										<div className="flex-1 min-w-0">
 											<p className="font-bold truncate">{user?.username || "Account User"}</p>
-											<p className="text-xs text-primary/70 font-semibold">Tournament Host</p>
+											<p className="text-xs text-primary/70 font-semibold">{t.Game["Tournament Host"]}</p>
 										</div>
 									</div>
 
@@ -174,11 +176,11 @@ export default function LocalTournamentPage() {
 										</div>
 										<div className="flex-1">
 											<AlertTitle className={`text-sm font-bold ${canStartTournament ? "text-green-500" : "text-destructive"}`}>
-												{canStartTournament ? "Tournament Ready!" : "More Players Needed"}
+												{canStartTournament ? "Tournament Ready!" : t.Game["More Players Needed"]}
 											</AlertTitle>
 											<AlertDescription className="text-xs text-muted-foreground">
 												{totalPlayers < 3 ? (
-													`Recruit ${3 - totalPlayers} more contenders to begin (Min 3).`
+													t.Game["Recruit 2 more contenders to begin (Min 3)."].replace("2", String(3 - totalPlayers))
 												) : totalPlayers > 8 ? (
 													`Too many players! Remove ${totalPlayers - 8} to proceed.`
 												) : (
@@ -196,7 +198,7 @@ export default function LocalTournamentPage() {
 									className="w-full text-lg h-16 font-bold bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-black shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.02]"
 								>
 									<Trophy className="mr-2 h-6 w-6 fill-current" />
-									Begin Tournament
+									{t.Game["Begin Tournament"]}
 								</Button>
 							</div>
 

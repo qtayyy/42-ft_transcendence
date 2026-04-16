@@ -48,14 +48,6 @@ const RESULT_CONFIG: Record<
   },
 };
 
-const MODE_LABEL: Record<string, string> = {
-  "local": "Local 1v1",
-  "local-tournament": "Local Tournament",
-  "remote": "Remote 1v1",
-  "remote-tournament": "Remote Tournament",
-  "ai": "vs AI",
-};
-
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
     year: "numeric",
@@ -66,6 +58,13 @@ function formatDate(iso: string): string {
 
 export default function MatchHistoryPage() {
   const { t } = useLanguage();
+  const MODE_LABEL: Record<string, string> = {
+    "local": t?.Dashboard?.["Local 1v1"] || "Local 1v1",
+    "local-tournament": t?.Dashboard?.["Local Tournament"] || "Local Tournament",
+    "remote": t?.Dashboard?.["Remote 1v1"] || "Remote 1v1",
+    "remote-tournament": t?.Dashboard?.["Remote Tournament"] || "Remote Tournament",
+    "ai": t?.Dashboard?.["vs AI"] || "vs AI",
+  };
   const [matches, setMatches] = useState<MatchEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -99,7 +98,7 @@ export default function MatchHistoryPage() {
             {t?.DropDown?.MatchHistory || "Match History"}
           </h1>
           <p className="text-xl text-muted-foreground font-medium max-w-2xl mx-auto">
-            Review your past matches and track your performance
+            {t?.["Leaderboard & Match History"]?.["Review your past matches and track your performance"] || "Review your past matches and track your performance"}
           </p>
         </div>
 
@@ -107,7 +106,7 @@ export default function MatchHistoryPage() {
         {error && (
           <Alert variant="destructive" className="max-w-3xl mx-auto">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
+            <AlertTitle>{t?.ResetPassword?.["Error"] || "Error"}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -124,7 +123,7 @@ export default function MatchHistoryPage() {
                 ) : (
                   <p className="text-4xl font-black text-foreground">{total}</p>
                 )}
-                <p className="text-sm text-muted-foreground mt-1 font-medium">Total Matches</p>
+                <p className="text-sm text-muted-foreground mt-1 font-medium">{t?.["Leaderboard & Match History"]?.["Total Matches"] || "Total Matches"}</p>
               </CardContent>
             </Card>
           </div>
@@ -139,7 +138,7 @@ export default function MatchHistoryPage() {
                 ) : (
                   <p className="text-4xl font-black text-emerald-400">{wins}</p>
                 )}
-                <p className="text-sm text-muted-foreground mt-1 font-medium">Wins</p>
+                <p className="text-sm text-muted-foreground mt-1 font-medium">{t?.Dashboard?.Wins || "Wins"}</p>
               </CardContent>
             </Card>
           </div>
@@ -154,7 +153,7 @@ export default function MatchHistoryPage() {
                 ) : (
                   <p className="text-4xl font-black text-red-400">{losses}</p>
                 )}
-                <p className="text-sm text-muted-foreground mt-1 font-medium">Losses</p>
+                <p className="text-sm text-muted-foreground mt-1 font-medium">{t?.Dashboard?.Losses || "Losses"}</p>
               </CardContent>
             </Card>
           </div>
@@ -169,7 +168,7 @@ export default function MatchHistoryPage() {
                 ) : (
                   <p className="text-4xl font-black text-yellow-400">{winRate}%</p>
                 )}
-                <p className="text-sm text-muted-foreground mt-1 font-medium">Win Rate</p>
+                <p className="text-sm text-muted-foreground mt-1 font-medium">{t?.Dashboard?.["Win Rate"] || "Win Rate"}</p>
               </CardContent>
             </Card>
           </div>
@@ -188,9 +187,13 @@ export default function MatchHistoryPage() {
                   <Trophy className="h-8 w-8 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-2xl mb-2">Recent Matches</CardTitle>
+                  <CardTitle className="text-2xl mb-2">{t?.["Leaderboard & Match History"]?.["Recent Matches"] || "Recent Matches"}</CardTitle>
                   <CardDescription className="text-base">
-                    {loading ? "Loading your matches..." : `${total} match${total !== 1 ? "es" : ""} played`}
+                    {loading
+                      ? (t?.["Leaderboard & Match History"]?.["Loading your matches..."] || "Loading your matches...")
+                      : `${total} ${total !== 1
+                        ? (t?.["Leaderboard & Match History"]?.["matches played"] || "matches played")
+                        : (t?.["Leaderboard & Match History"]?.["match played"] || "match played")}`}
                   </CardDescription>
                 </div>
               </div>
@@ -200,13 +203,13 @@ export default function MatchHistoryPage() {
                 {loading ? (
                   <div className="flex flex-col items-center justify-center h-40 gap-3 text-muted-foreground">
                     <Loader2 className="h-8 w-8 animate-spin" />
-                    <p className="text-sm">Loading match history…</p>
+                    <p className="text-sm">{t?.["Leaderboard & Match History"]?.["Loading match history..."] || "Loading match history…"}</p>
                   </div>
                 ) : matches.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-40 gap-3 text-muted-foreground">
                     <Swords className="h-10 w-10 opacity-30" />
-                    <p className="text-sm font-medium">No matches played yet</p>
-                    <p className="text-xs">Play your first game to see your history here</p>
+                    <p className="text-sm font-medium">{t?.["Leaderboard & Match History"]?.["No matches played yet"] || "No matches played yet"}</p>
+                    <p className="text-xs">{t?.["Leaderboard & Match History"]?.["Play your first game to see your history here"] || "Play your first game to see your history here"}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -269,7 +272,7 @@ export default function MatchHistoryPage() {
                               className={`${cfg.badgeClass} flex items-center gap-1 px-3 py-1 font-semibold`}
                             >
                               <ResultIcon className="h-3 w-3" />
-                              {cfg.label}
+                              {t?.Dashboard?.[cfg.label] || cfg.label}
                             </Badge>
                           </div>
                         </div>
@@ -287,8 +290,8 @@ export default function MatchHistoryPage() {
           <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500" />
           <Card className="relative border-0 bg-card/95 backdrop-blur-sm overflow-hidden">
             <CardHeader className="pb-4">
-              <CardTitle className="text-2xl">Achievements</CardTitle>
-              <CardDescription>Track your unlocked achievements as you progress</CardDescription>
+              <CardTitle className="text-2xl">{t?.["Leaderboard & Match History"]?.["Achievements"] || "Achievements"}</CardTitle>
+              <CardDescription>{t?.["Leaderboard & Match History"]?.["Track your unlocked achievements as you progress"] || "Track your unlocked achievements as you progress"}</CardDescription>
             </CardHeader>
             <CardContent>
               <Achievements />

@@ -12,7 +12,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Send, Users, UserPlus, Search, MessageSquare, Smile, ChevronLeft, Zap, Ban, UserCircle, Gamepad2, MoreVertical, Check, CheckCheck } from "lucide-react";
+import { Send, Users, UserPlus, Search, MessageSquare, Smile, ChevronLeft, Zap, Ban, UserCircle, Gamepad2, MoreVertical, Check, CheckCheck, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -52,8 +52,8 @@ interface Message {
 export default function ChatPage() {
   const { sendSocketMessage, isReady } = useSocketContext();
   const { user } = useAuth();
-  const { friends, pending, loading: friendsLoading, error: friendsError } = useFriends();
-  const { onlineFriends, invitesReceived, setInvitesReceived } = useGame();
+  const { friends, pending, loading: friendsLoading, error: friendsError,  refetch } = useFriends();
+  const { onlineFriends, invitesReceived, setInvitesReceived, refetchOnlineFriends } = useGame();
   const router = useRouter();
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -64,11 +64,17 @@ export default function ChatPage() {
   const [friendIsTyping, setFriendIsTyping] = useState(false);
   const [unreadByFriend, setUnreadByFriend] = useState<Record<string, number>>({});
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
+  // Global active invite: only one pending invite can exist at a time across all chats.
   const [pendingInviteByFriend, setPendingInviteByFriend] = useState<Record<string, boolean>>({});
+  // Track the active invite's roomId and inviteeId so we can cancel it
+  const [activeInvite, setActiveInvite] = useState<{ roomId: string; inviteeId: string } | null>(null);
+  const activeInviteTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [showClearChatDialog, setShowClearChatDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const markedAsReadRef = useRef<Set<number>>(new Set());
   const { t } = useLanguage();
 
   const clearUnreadForFriend = (friendId: string) => {
@@ -102,6 +108,11 @@ export default function ChatPage() {
       if (!prev[key]) return prev;
       return { ...prev, [key]: false };
     });
+    setActiveInvite(null);
+    if (activeInviteTimerRef.current) {
+      clearTimeout(activeInviteTimerRef.current);
+      activeInviteTimerRef.current = null;
+    }
   };
 
   // Load blocked users
@@ -119,6 +130,52 @@ export default function ChatPage() {
     };
     fetchBlockedUsers();
   }, []);
+
+  // Refresh online friends when chat page loads
+  useEffect(() => {
+    if (refetchOnlineFriends) {
+      console.log("Chat page: Refreshing online friends list");
+      refetchOnlineFriends();
+    }
+  }, [refetchOnlineFriends]);
+
+  // Refresh online friends when friends list changes
+  useEffect(() => {
+    if (refetchOnlineFriends && friends.length > 0) {
+      console.log("Chat page: Friends list changed, refreshing online status");
+      refetchOnlineFriends();
+    }
+  }, [friends.length, refetchOnlineFriends]);
+
+  // Listen for real-time friend requests
+  useEffect(() => {
+    const handleFriendRequest = (event: CustomEvent) => {
+      console.log("New friend request received:", event.detail);
+      // Refetch friends and pending lists to show the new request
+      refetch();
+    };
+
+    window.addEventListener("friendRequest", handleFriendRequest as EventListener);
+    return () => {
+      window.removeEventListener("friendRequest", handleFriendRequest as EventListener);
+    };
+  }, [refetch]);
+
+  // Listen for friend status changes (online/offline)
+  useEffect(() => {
+    const handleFriendStatusChange = (event: CustomEvent) => {
+      console.log("Friend status changed:", event.detail);
+      // Refresh online friends list to get latest status
+      if (refetchOnlineFriends) {
+        refetchOnlineFriends();
+      }
+    };
+
+    window.addEventListener("friendStatusChange", handleFriendStatusChange as EventListener);
+    return () => {
+      window.removeEventListener("friendStatusChange", handleFriendStatusChange as EventListener);
+    };
+  }, [refetchOnlineFriends]);
 
   // Listen for typing indicators
   useEffect(() => {
@@ -144,13 +201,19 @@ export default function ChatPage() {
   useEffect(() => {
     const handleReadReceipt = (event: CustomEvent) => {
       const data = event.detail;
-      setMessages((prev) =>
-        prev.map((msg) =>
+      console.log("Chat page received MESSAGE_READ event:", data);
+      
+      // Update the message as read if it exists in current messages
+      // This works regardless of which friend is currently selected
+      setMessages((prev) => {
+        const updated = prev.map((msg) =>
           msg.id === data.messageId
             ? { ...msg, read: true, readAt: data.readAt }
             : msg
-        )
-      );
+        );
+        console.log("Updated messages after read receipt:", updated.find(m => m.id === data.messageId));
+        return updated;
+      });
     };
 
     window.addEventListener("messageRead", handleReadReceipt as EventListener);
@@ -398,6 +461,29 @@ export default function ChatPage() {
       }
     };
 
+    const handleGameInviteCancelled = (event: CustomEvent) => {
+      const data = event.detail;
+      const roomId = data?.roomId;
+      if (!roomId) return;
+
+      // Remove the invite from invitesReceived (invitee side)
+      setInvitesReceived((prev) => prev.filter((inv) => inv.roomId !== roomId));
+
+      // Update any existing invite message in the chat to show cancelled
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.type === "game-invite" && msg.meta?.roomId === roomId
+            ? {
+                ...msg,
+                type: "notification" as const,
+                message: "The game invitation was cancelled by the host.",
+                meta: { ...msg.meta, inviteStatus: "rejected" as const },
+              }
+            : msg
+        )
+      );
+    };
+
     window.addEventListener("gameInviteSent", handleGameInviteSent as EventListener);
     window.addEventListener("TOURNAMENT_FOUND", handleTournamentFound as EventListener);
     window.addEventListener("TOURNAMENT_START", handleTournamentStart as EventListener);
@@ -406,6 +492,7 @@ export default function ChatPage() {
     window.addEventListener("gameNotification", handleGameNotification as EventListener);
     window.addEventListener("gameInvitePending", handleGameInvitePending as EventListener);
     window.addEventListener("gameInviteResponse", handleGameInviteResponse as EventListener);
+    window.addEventListener("gameInviteCancelled", handleGameInviteCancelled as EventListener);
 
     return () => {
       window.removeEventListener("gameInviteSent", handleGameInviteSent as EventListener);
@@ -416,6 +503,7 @@ export default function ChatPage() {
       window.removeEventListener("gameNotification", handleGameNotification as EventListener);
       window.removeEventListener("gameInvitePending", handleGameInvitePending as EventListener);
       window.removeEventListener("gameInviteResponse", handleGameInviteResponse as EventListener);
+      window.removeEventListener("gameInviteCancelled", handleGameInviteCancelled as EventListener);
     };
   }, [selectedFriend, user]);
 
@@ -449,8 +537,12 @@ export default function ChatPage() {
   useEffect(() => {
     if (!selectedFriend) {
       setMessages([]);
+      markedAsReadRef.current.clear(); // Clear read tracking when no friend selected
       return;
     }
+
+    // Clear read tracking when switching friends
+    markedAsReadRef.current.clear();
 
     const loadChatHistory = async () => {
       if (!selectedFriend?.id) {
@@ -655,25 +747,31 @@ export default function ChatPage() {
 
   // Mark messages as read when viewing them
   useEffect(() => {
-    if (selectedFriend && messages.length > 0) {
+    if (selectedFriend && messages.length > 0 && isReady) {
       const unreadMessages = messages.filter(
-        (msg) => !msg.read && msg.senderId !== user?.id && msg.id
+        (msg) => !msg.read && msg.senderId !== user?.id && msg.id && !markedAsReadRef.current.has(msg.id)
       );
 
       if (unreadMessages.length > 0) {
+        console.log(`Marking ${unreadMessages.length} messages as read for friend ${selectedFriend.id}`);
         clearUnreadForFriend(selectedFriend.id);
       }
 
       unreadMessages.forEach((msg) => {
         if (msg.id) {
+          console.log(`Sending MESSAGE_READ for message ${msg.id}`);
+          // Mark as read via WebSocket
           sendSocketMessage({
             event: "MESSAGE_READ",
             payload: { messageId: msg.id },
           });
+          
+          // Track that we've sent MESSAGE_READ for this message
+          markedAsReadRef.current.add(msg.id);
         }
       });
     }
-  }, [messages, selectedFriend, user, sendSocketMessage]);
+  }, [messages, selectedFriend, user, sendSocketMessage, isReady]);
 
   // Block user
   const handleBlockUser = async () => {
@@ -700,6 +798,28 @@ export default function ChatPage() {
     }
   };
 
+  // Clear chat history
+  const handleClearChat = async () => {
+    if (!selectedFriend) return;
+
+    try {
+      const response = await fetch(`/api/chat/${selectedFriend.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setMessages([]);
+        setShowClearChatDialog(false);
+      } else {
+        const error = await response.json();
+        alert(error.error || "Failed to clear chat history");
+      }
+    } catch (error) {
+      console.error("Error clearing chat history:", error);
+      alert("Failed to clear chat history");
+    }
+  };
+
   // Unblock user
   const handleUnblockUser = async (userId: string) => {
     try {
@@ -723,6 +843,19 @@ export default function ChatPage() {
   const handleGameInvite = async () => {
     if (!selectedFriend || !isReady || !user?.id || !user?.username) return;
     const selectedFriendKey = String(selectedFriend.id);
+
+    // Block invite to offline friends
+    const isFriendOnline = onlineFriends.some(f => String(f.id) === String(selectedFriend.id));
+    if (!isFriendOnline) {
+      pushNotificationMessage("Cannot invite an offline friend.");
+      return;
+    }
+
+    // Block if there's already an active pending invite (global: one at a time)
+    if (activeInvite) {
+      pushNotificationMessage("You already have a pending invitation. Cancel it first or wait for a response.");
+      return;
+    }
 
     if (pendingInviteByFriend[selectedFriendKey]) {
       pushNotificationMessage("Invitation already sent. Waiting for response.");
@@ -769,6 +902,29 @@ export default function ChatPage() {
           meta: { inviteType: "room", roomId, hostId: Number(user.id) },
         },
       ]);
+
+      // Track active invite globally
+      setActiveInvite({ roomId, inviteeId: String(selectedFriend.id) });
+
+      // Auto-cancel after 5 minutes if no response
+      const FIVE_MINUTES = 5 * 60 * 1000;
+      activeInviteTimerRef.current = setTimeout(() => {
+        if (!isReady || !user?.id) return;
+        sendSocketMessage({
+          event: "CANCEL_GAME_INVITE",
+          payload: { roomId, hostId: Number(user.id), inviteeId: Number(selectedFriend.id) },
+        });
+        clearInvitePendingForFriend(selectedFriend.id);
+        pushNotificationMessage(`Invitation to ${selectedFriend.username} expired after 5 minutes.`);
+        // Mark the sent invite message as expired in UI
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.type === "game-invite-sent" && msg.meta?.roomId === roomId
+              ? { ...msg, type: "notification", message: `Invitation to ${selectedFriend?.username} expired.` }
+              : msg
+          )
+        );
+      }, FIVE_MINUTES);
     } catch (error) {
       console.error("Error sending room invite from chat:", error);
       clearInvitePendingForFriend(selectedFriend.id);
@@ -837,6 +993,30 @@ export default function ChatPage() {
     router.push(`/game/remote/single/create?roomId=${roomId}&fromChatInvite=true`);
   };
 
+  const handleCancelInvite = (msg: Message) => {
+    const roomId = msg.meta?.roomId;
+    const inviteeId = activeInvite?.inviteeId;
+    if (!roomId || !inviteeId || !user?.id || !isReady) return;
+
+    sendSocketMessage({
+      event: "CANCEL_GAME_INVITE",
+      payload: { roomId, hostId: Number(user.id), inviteeId: Number(inviteeId) },
+    });
+
+    // Find the friend username for the message
+    const inviteeFriend = friends.find(f => String(f.id) === String(inviteeId));
+    clearInvitePendingForFriend(inviteeId);
+
+    // Convert invite message to notification
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.type === "game-invite-sent" && m.meta?.roomId === roomId
+          ? { ...m, type: "notification" as const, message: `You cancelled the invitation to ${inviteeFriend?.username || "your friend"}.` }
+          : m
+      )
+    );
+  };
+
   // View profile
   const handleViewProfile = () => {
     if (selectedFriend) {
@@ -850,9 +1030,25 @@ export default function ChatPage() {
       friend.username.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+  // Debug: Log online friends status
+  useEffect(() => {
+    console.log("=== Online Friends Status ===");
+    console.log("Online friends from context:", onlineFriends);
+    console.log("All friends:", friends);
+    console.log("Filtered friends:", filteredFriends);
+    
+    filteredFriends.forEach(friend => {
+      const isOnline = onlineFriends.some(f => String(f.id) === String(friend.id));
+      console.log(`Friend ${friend.username} (ID: ${friend.id}): ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+    });
+  }, [onlineFriends, friends, filteredFriends]);
+
   const isSelectedFriendInvitePending = selectedFriend
     ? !!pendingInviteByFriend[String(selectedFriend.id)]
     : false;
+
+  // Invite button disabled if: not ready, any active invite exists globally, or this friend is the active invitee
+  const isInviteButtonDisabled = !isReady || !!activeInvite;
 
   return (
     <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4 md:p-6 bg-gradient-to-b from-background to-muted/20">
@@ -872,7 +1068,7 @@ export default function ChatPage() {
                     </div>
                     <div className="flex-1">
                       <h2 className="text-xl font-black tracking-tight">{t.Dashboard.Friends}</h2>
-                      <p className="text-xs text-muted-foreground font-medium">{friends.length} {friends.length === 1 ? 'contact' : 'contacts'}</p>
+                      <p className="text-xs text-muted-foreground font-medium">{friends.length} {t.chat["contacts"]}</p>
                     </div>
                   </div>
                   {/* Search Bar */}
@@ -880,7 +1076,7 @@ export default function ChatPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       type="text"
-                      placeholder="Search friends..."
+                      placeholder={t.chat["Search friends..."]}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10 bg-background/60 border-border/50 focus:border-primary/50 transition-all"
@@ -953,8 +1149,8 @@ export default function ChatPage() {
                                   selectedFriend?.id === friend.id ? "text-primary-foreground/70" : "text-muted-foreground"
                                 }`}>
                                   {onlineFriends.some(f => Number(f.id) === Number(friend.id)) 
-                                    ? "● Active now" 
-                                    : "Offline"
+                                    ? `● ${t.chat["Active now"]}` 
+                                    : t.chat["Offline"]
                                   }
                                 </p>
                                 {(unreadByFriend[friend.id] || 0) > 0 && (
@@ -991,7 +1187,8 @@ export default function ChatPage() {
                       {pending.map(req => (
                         <div
                           key={req.id}
-                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-orange-500/10 transition-all border border-transparent hover:border-orange-500/20"
+                          onClick={() => router.push('/friend-request')}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-orange-500/10 transition-all border border-transparent hover:border-orange-500/20 cursor-pointer"
                         >
                           <Avatar className="w-8 h-8 shrink-0">
                             <AvatarFallback className="bg-gradient-to-br from-orange-500/30 to-orange-500/10 text-orange-600 dark:text-orange-400 font-bold text-xs">
@@ -1000,7 +1197,7 @@ export default function ChatPage() {
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold truncate">{req.requester.username}</p>
-                            <p className="text-xs text-muted-foreground">Pending request</p>
+                            <p className="text-xs text-muted-foreground">{t.chat["Click to respond"]}</p>
                           </div>
                         </div>
                       ))}
@@ -1059,10 +1256,10 @@ export default function ChatPage() {
                                   <div className="w-2 h-2 rounded-full bg-green-500">
                                     <div className="w-full h-full bg-green-400 rounded-full animate-ping"></div>
                                   </div>
-                                  <p className="text-xs text-muted-foreground font-semibold">Active now</p>
+                                  <p className="text-xs text-muted-foreground font-semibold">{t.chat["Active now"]}</p>
                                 </>
                               ) : (
-                                <p className="text-xs text-muted-foreground font-medium">Offline</p>
+                                <p className="text-xs text-muted-foreground font-medium">{t.chat["Offline"]}</p>
                               )}
                             </div>
                           ) : (
@@ -1074,12 +1271,12 @@ export default function ChatPage() {
                             variant="outline"
                             size="sm"
                             onClick={handleGameInvite}
-                            disabled={!isReady || isSelectedFriendInvitePending}
+                            disabled={isInviteButtonDisabled}
                             className="gap-2"
                           >
                             <Gamepad2 className="w-4 h-4" />
                             <span className="hidden sm:inline">
-                              {isSelectedFriendInvitePending ? "Invitation Pending" : "Invite to Game"}
+                              {isSelectedFriendInvitePending ? t.chat["Invitation Pending"] : t.chat["Invite to Game"]}
                             </span>
                           </Button>
                           <DropdownMenu>
@@ -1091,7 +1288,15 @@ export default function ChatPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={handleViewProfile}>
                                 <UserCircle className="w-4 h-4 mr-2" />
-                                View Profile
+                                {t.chat["View Profile"]}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setShowClearChatDialog(true)}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                {t.chat["Clear Chat History"]}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
@@ -1099,7 +1304,7 @@ export default function ChatPage() {
                                 className="text-destructive"
                               >
                                 <Ban className="w-4 h-4 mr-2" />
-                                Block User
+                                {t.chat["Block User"]}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -1121,7 +1326,7 @@ export default function ChatPage() {
                               <div className="absolute inset-0 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
                               <div className="absolute inset-2 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1s' }}></div>
                             </div>
-                            <p className="text-muted-foreground text-sm font-medium">{t.chat.loading}...</p>
+                            <p className="text-muted-foreground text-sm font-medium">{t.chat.loading}</p>
                           </div>
                         </div>
                       ) : messages.length === 0 ? (
@@ -1135,9 +1340,9 @@ export default function ChatPage() {
                               <Smile className="w-6 h-6 text-white" />
                             </div>
                           </div>
-                          <h3 className="text-2xl font-black tracking-tight mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">No messages yet</h3>
+                          <h3 className="text-2xl font-black tracking-tight mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{t.chat["No messages yet"]}</h3>
                           <p className="text-muted-foreground text-center text-sm max-w-sm font-medium">
-                            Start the conversation by sending a message below!
+                            {t.chat["Start the conversation by sending a message below!"]}
                           </p>
                         </div>
                       ) : (
@@ -1207,7 +1412,7 @@ export default function ChatPage() {
                                   </div>
                                 )}
                                 {msg.type === "game-invite-sent" && isOwnMessage && msg.meta?.roomId && (
-                                  <div className="mt-3">
+                                  <div className="mt-3 flex gap-2">
                                     <Button
                                       size="sm"
                                       variant="secondary"
@@ -1215,6 +1420,15 @@ export default function ChatPage() {
                                     >
                                       Start game now
                                     </Button>
+                                    {activeInvite?.roomId === msg.meta.roomId && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleCancelInvite(msg)}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -1288,9 +1502,9 @@ export default function ChatPage() {
                           <Users className="w-7 h-7 text-white" />
                         </div>
                       </div>
-                      <h2 className="text-3xl font-black tracking-tight mb-3 bg-gradient-to-r from-foreground via-primary/70 to-foreground bg-clip-text text-transparent">Select a friend to start chatting</h2>
+                      <h2 className="text-3xl font-black tracking-tight mb-3 bg-gradient-to-r from-foreground via-primary/70 to-foreground bg-clip-text text-transparent">{t.chat["Select a friend to start chatting"]}</h2>
                       <p className="text-muted-foreground max-w-md mx-auto text-sm font-medium">
-                        Choose someone from your friends list to begin a conversation and stay connected!
+                        {t.chat["Choose someone from your friends list to begin a conversation and stay connected!"]}
                       </p>
                     </div>
                   </div>
@@ -1305,17 +1519,37 @@ export default function ChatPage() {
       <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Block User</DialogTitle>
+            <DialogTitle>{t.chat["Block User"]}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to block {selectedFriend?.username}? You won't be able to send or receive messages from this user.
+              {t.chat["Are you sure you want to block"]} {selectedFriend?.username}? {t.chat["You won't be able to send or receive messages from this user."]}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowBlockDialog(false)}>
-              Cancel
+              {t.chat["Cancel"]}
             </Button>
             <Button variant="destructive" onClick={handleBlockUser}>
-              Block
+              {t.chat["Block"]}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear Chat History Confirmation Dialog */}
+      <Dialog open={showClearChatDialog} onOpenChange={setShowClearChatDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.chat["Clear Chat History"]}</DialogTitle>
+            <DialogDescription>
+              {t.chat["This will permanently delete all messages between you and"]} {selectedFriend?.username}. {t.chat["This action cannot be undone."]}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowClearChatDialog(false)}>
+              {t.chat["Cancel"]}
+            </Button>
+            <Button variant="destructive" onClick={handleClearChat}>
+              {t.chat["Clear History"]}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -36,6 +36,14 @@ export function createWsEventHandlers({
       );
     },
 
+    CANCEL_GAME_INVITE: (payload) => {
+      fastify.cancelGameInvite(
+        payload.roomId,
+        payload.hostId,
+        payload.inviteeId,
+      );
+    },
+
     RESPOND_INVITE: (payload) => {
       fastify.respondInvite(
         payload.response,
@@ -327,9 +335,11 @@ export function createWsEventHandlers({
       // Handle message read receipt
       (async () => {
         try {
+          console.log(`User ${userId} sending MESSAGE_READ for message ${payload.messageId}`);
           const messageId = parseInt(payload.messageId);
 
           if (!messageId || isNaN(messageId)) {
+            console.log(`Invalid messageId: ${payload.messageId}`);
             return;
           }
 
@@ -345,6 +355,8 @@ export function createWsEventHandlers({
             },
           });
 
+          console.log(`Updated ${updatedMessage.count} message(s) as read`);
+
           if (updatedMessage.count > 0) {
             // Notify sender that message was read
             const message = await prisma.message.findUnique({
@@ -352,8 +364,11 @@ export function createWsEventHandlers({
             });
 
             if (message) {
+              console.log(`Message ${messageId} marked as read by user ${userId}, notifying sender ${message.senderId}`);
               const senderSocket = fastify.onlineUsers.get(Number(message.senderId));
+              console.log(`Sender socket found:`, !!senderSocket);
               if (senderSocket) {
+                console.log(`Sending MESSAGE_READ to sender ${message.senderId} for message ${messageId}`);
                 safeSend(
                   senderSocket,
                   {
@@ -361,10 +376,14 @@ export function createWsEventHandlers({
                     payload: {
                       messageId: messageId,
                       readAt: new Date().toISOString(),
+                      senderId: message.senderId,
+                      recipientId: message.recipientId,
                     },
                   },
                   message.senderId,
                 );
+              } else {
+                console.log(`Sender ${message.senderId} is not online, cannot send read receipt`);
               }
             }
           }
