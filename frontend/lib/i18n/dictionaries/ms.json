@@ -363,7 +363,18 @@
     "match played": "perlawanan dimainkan",
     "matches played": "perlawanan dimainkan",
     "Achievements": "Pencapaian",
-    "Track your unlocked achievements as you progress": "Jejaki pencapaian yang telah anda buka semasa kemajuan anda"
+    "Track your unlocked achievements as you progress": "Jejaki pencapaian yang telah anda buka semasa kemajuan anda",
+    "Loading achievements...": "Memuatkan pencapaian...",
+    "achievements": "pencapaian",
+    "AchievementDefs": {
+      "FIRST_WIN": { "name": "Darah Pertama", "description": "Menang perlawanan pertama anda" },
+      "LEVEL_5": { "name": "Bintang Muda", "description": "Capai tahap 5" },
+      "LEVEL_10": { "name": "Pemain Legenda", "description": "Capai tahap 10" },
+      "TOTAL_WINS_10": { "name": "Pengumpul", "description": "Kumpulkan 10 kemenangan" },
+      "TOTAL_WINS_50": { "name": "Juara", "description": "Kumpulkan 50 kemenangan" },
+      "DRAW_MATCH": { "name": "Seri", "description": "Main perlawanan seri" },
+      "TOURNAMENT_WIN": { "name": "Pemenang Kejohanan", "description": "Menang kejohanan" }
+    }
   },
   "ResetPassword": {
     "Reset password": "Tetapkan Semula Kata Laluan",

@@ -363,7 +363,18 @@
     "match played": "match played",
     "matches played": "matches played",
     "Achievements": "Achievements",
-    "Track your unlocked achievements as you progress": "Track your unlocked achievements as you progress"
+    "Track your unlocked achievements as you progress": "Track your unlocked achievements as you progress",
+    "Loading achievements...": "Loading achievements...",
+    "achievements": "achievements",
+    "AchievementDefs": {
+      "FIRST_WIN": { "name": "First Blood", "description": "Win your first match" },
+      "LEVEL_5": { "name": "Rising Star", "description": "Reach level 5" },
+      "LEVEL_10": { "name": "Legendary Player", "description": "Reach level 10" },
+      "TOTAL_WINS_10": { "name": "Collector", "description": "Accumulate 10 wins" },
+      "TOTAL_WINS_50": { "name": "Champion", "description": "Accumulate 50 wins" },
+      "DRAW_MATCH": { "name": "Stalemate", "description": "Play a draw match" },
+      "TOURNAMENT_WIN": { "name": "Tournament Victor", "description": "Win a tournament" }
+    }
   },
   "ResetPassword": {
     "Reset password": "Reset Password",
