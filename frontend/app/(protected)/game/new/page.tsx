@@ -16,10 +16,10 @@ export default function NewGamePage() {
 			<div className="w-full max-w-5xl space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
 				<div className="text-center space-y-4">
 					<h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-white via-primary/50 to-white bg-clip-text text-transparent pb-2">
-						Local or Remote
+						{t.Game["Local or Remote "]}
 					</h1>
 					<p className="text-xl text-muted-foreground font-medium max-w-2xl mx-auto">
-						Choose the play environment first, then pick a mode.
+						{t.Game["Choose the play environment first , then pick a mode"]}
 					</p>
 				</div>
 
@@ -50,7 +50,7 @@ export default function NewGamePage() {
 									</div>
 								</div>
 								<Button variant="outline" className="w-full border-blue-500/20 hover:bg-blue-500/10 hover:text-blue-500">
-									Open Local Selection
+								{t.Game["Open Local Selection"]}
 								</Button>
 							</CardContent>
 						</Card>
@@ -82,7 +82,7 @@ export default function NewGamePage() {
 									</div>
 								</div>
 								<Button variant="outline" className="w-full border-green-500/20 hover:bg-green-500/10 hover:text-green-500">
-									Open Remote Selection
+								{t.Game["Open Remote Selection"]}
 								</Button>
 							</CardContent>
 						</Card>

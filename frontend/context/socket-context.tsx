@@ -122,40 +122,51 @@ export const SocketProvider = ({ children }) => {
 								toast.info(
 									`${payload.requesterUsername} sent you a friend request!`
 								);
-								break;
+							// Dispatch event for chat page to refresh pending requests
+							window.dispatchEvent(
+								new CustomEvent("friendRequest", { detail: payload })
+							);
+							break;
 
-							case "FRIEND_STATUS":
-								const { id, username, status } = msg.payload;
+						case "FRIEND_STATUS":
+							const { id, username, status } = msg.payload;
 
-								stableDeps.current.setOnlineFriends((prev) => {
-									const exists = prev.find((f) => f.id === id);
+							stableDeps.current.setOnlineFriends((prev) => {
+								const exists = prev.find((f) => String(f.id) === String(id));
 
-									if (status === "online" && !exists) {
-										return [...prev, { id, username }];
-									}
+								if (status === "online" && !exists) {
+									return [...prev, { id: String(id), username }];
+								}
 
-									if (status === "offline" && exists) {
-										return prev.filter((f) => f.id !== id);
-									}
+								if (status === "offline" && exists) {
+									return prev.filter((f) => String(f.id) !== String(id));
+								}
 
-									return prev;
-								});
+								return prev;
+							});
 
-								toast.info(`${username} is now ${status}!`);
-								break;
+							// Dispatch event for components to react to status changes
+							window.dispatchEvent(
+								new CustomEvent("friendStatusChange", { 
+									detail: { id, username, status } 
+								})
+							);
 
-							case "GAME_ROOM":
-								stableDeps.current.setGameRoom({
-									roomId: payload.roomId,
-									hostId: payload.hostId,
-									invitedPlayers: payload.invitedPlayers,
-									joinedPlayers: payload.joinedPlayers,
-									maxPlayers: payload.maxPlayers,
-									isTournament: payload.isTournament || false,
-									tournamentStarted: payload.tournamentStarted || false,
-								});
-								stableDeps.current.setGameRoomLoaded(true);
-								break;
+							toast.info(`${username} is now ${status}!`);
+							break;
+
+						case "GAME_ROOM":
+							stableDeps.current.setGameRoom({
+								roomId: payload.roomId,
+								hostId: payload.hostId,
+								invitedPlayers: payload.invitedPlayers,
+								joinedPlayers: payload.joinedPlayers,
+								maxPlayers: payload.maxPlayers,
+								isTournament: payload.isTournament || false,
+								tournamentStarted: payload.tournamentStarted || false,
+							});
+							stableDeps.current.setGameRoomLoaded(true);
+							break;
 
 							case "ROOM_NOT_FOUND":
 								stableDeps.current.setGameRoom(null);
@@ -528,11 +539,16 @@ export const SocketProvider = ({ children }) => {
 								toast.info("Invitation already sent. Waiting for response.");
 								break;
 
-							case "PLAYER_READY_STATE":
-								// Dispatch custom event for ready state persistence
-								window.dispatchEvent(new CustomEvent("PLAYER_READY_STATE", { detail: payload }));
-								break;
-
+						case "GAME_INVITE_CANCELLED":
+							// Invitee: the host cancelled your pending invite
+							stableDeps.current.setInvitesReceived((prev) =>
+								prev.filter((inv) => inv.roomId !== payload?.roomId)
+							);
+							window.dispatchEvent(
+								new CustomEvent("gameInviteCancelled", { detail: payload })
+							);
+							toast.info("The game invite was cancelled by the host.");
+							break;
 							default:
 								console.log("Unknown event:", msg.event);
 								break;

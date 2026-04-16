@@ -67,6 +67,9 @@ export interface GameContextValue {
 	setShowNavGuard: (show: boolean) => void;
 	pendingPath: string | null;
 	setPendingPath: (path: string | null) => void;
+	getLatestGameState: () => GameStateValue | null;
+	getLatestGameRoom: () => GameRoomValue | null;
+	refetchOnlineFriends: () => Promise<void>;
 }
 
 export interface GameRoomValue {

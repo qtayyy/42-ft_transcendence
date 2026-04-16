@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useRef } from "react";
 import { ArrowLeft, LogIn, Loader2, AlertCircle, Users, Crown, User, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/languageContext";
 
 export default function JoinRoomPage() {
 	const router = useRouter();
@@ -18,6 +19,7 @@ export default function JoinRoomPage() {
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady, reconnectSocket } = useSocket();
 	const { gameRoom } = useGame();
+	const { t } = useLanguage();
 	const [roomCode, setRoomCode] = useState("");
 	const [joining, setJoining] = useState(false);
 	const [joined, setJoined] = useState(false);
@@ -112,12 +114,12 @@ export default function JoinRoomPage() {
 		// Issue #26: Basic UUID validation for room code
 		const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 		if (!uuidRegex.test(roomCode.trim())) {
-			setError("Invalid room code format (must be a valid UUID)");
+			setError(t.Game["Invalid room code format (must be a valid UUID)"]);
 			return;
 		}
 
 		if (!isReady) {
-			setError("Connecting to realtime server... joining as soon as it reconnects.");
+			setError(t.Game["Connecting to realtime server... joining as soon as it reconnects."]);
 			setPendingJoin(true);
 			reconnectSocket();
 			return;
@@ -134,7 +136,7 @@ export default function JoinRoomPage() {
 
 		const handleJoinError = (e: CustomEvent) => {
 			// e.detail is the payload
-			setError(e.detail?.message || "Failed to join room");
+			setError(e.detail?.message || t.Game["Failed to join room"]);
 			setJoining(false);
 		};
 
@@ -199,15 +201,15 @@ export default function JoinRoomPage() {
 								<div className="mx-auto p-4 rounded-full bg-purple-500/10 mb-4 ring-1 ring-purple-500/20">
 									<Users className="h-8 w-8 text-purple-500" />
 								</div>
-								<CardTitle className="text-2xl font-bold">Game Lobby</CardTitle>
-								<CardDescription>Waiting for host to start the game</CardDescription>
+							<CardTitle className="text-2xl font-bold">{t.Game["Game Lobby"]}</CardTitle>
+							<CardDescription>{t.Game["Waiting for host to start the game"]}</CardDescription>
 							</CardHeader>
 
 							<CardContent className="space-y-6">
 								{/* Players */}
 								<div className="space-y-3">
 									<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-										Players ({gameRoom.joinedPlayers.length}/2)
+									{t.Game["PLAYERS"]} ({gameRoom.joinedPlayers.length}/2)
 									</label>
 									<div className="space-y-2">
 										{gameRoom.joinedPlayers.map((player, idx) => (
@@ -235,7 +237,7 @@ export default function JoinRoomPage() {
 														"text-xs",
 														player.id === gameRoom.hostId ? "text-primary/70" : "text-green-500/70"
 													)}>
-														{player.id === gameRoom.hostId ? "Host" : "Ready"}
+														{player.id === gameRoom.hostId ? t.Game["Host"] : t.Game["Ready"]}
 													</p>
 												</div>
 											</div>
@@ -246,7 +248,7 @@ export default function JoinRoomPage() {
 												<div className="p-2 bg-muted rounded-full">
 													<Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
 												</div>
-												<p className="text-muted-foreground">Waiting for opponent...</p>
+												<p className="text-muted-foreground">{t.Game["Waiting for opponent..."]}</p>
 											</div>
 										)}
 									</div>
@@ -260,10 +262,10 @@ export default function JoinRoomPage() {
 										: "bg-muted/50 text-muted-foreground"
 								)}>
 									{isHost
-										? (canStart ? "Ready to start!" : "Waiting for opponent to join...")
-										: (canStart ? "Waiting for host to start..." : "Waiting for more players...")
-									}
-								</div>
+									? (canStart ? t.Game["Ready to start!"] : t.Game["Waiting for opponent to join..."])
+									: (canStart ? t.Game["Waiting for host to start..."] : t.Game["Waiting for more players..."])
+								}
+							</div>
 
 								{/* Start button (only for host) */}
 								{isHost && (
@@ -302,7 +304,7 @@ export default function JoinRoomPage() {
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Back
+						{t.Game["Back"]}
 					</Button>
 				</div>
 
@@ -313,19 +315,19 @@ export default function JoinRoomPage() {
 							<div className="mx-auto p-4 rounded-full bg-purple-500/10 mb-4 ring-1 ring-purple-500/20">
 								<LogIn className="h-8 w-8 text-purple-500" />
 							</div>
-							<CardTitle className="text-2xl font-bold">Join Room</CardTitle>
-							<CardDescription>Enter the room code to join a game</CardDescription>
+							<CardTitle className="text-2xl font-bold">{t.Game["Join Room"]}</CardTitle>
+							<CardDescription>{t.Game["Enter the room code to join a game"]}</CardDescription>
 						</CardHeader>
 
 						<CardContent className="space-y-6">
 							<div className="space-y-2">
 								<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-									Room Code
+									{t.Game["ROOM CODE"]}
 								</label>
 								<Input
 									value={roomCode}
 									onChange={(e) => setRoomCode(e.target.value)}
-									placeholder="Enter room code..."
+									placeholder={t.Game["Enter room code..."]}
 									className="font-mono text-lg text-center tracking-widest h-14"
 									onKeyPress={(e) => e.key === "Enter" && handleJoin()}
 									disabled={joining}
@@ -348,12 +350,12 @@ export default function JoinRoomPage() {
 								{joining ? (
 									<>
 										<Loader2 className="mr-2 h-5 w-5 animate-spin" />
-										Joining...
+										{t.Game["Joining..."]}
 									</>
 								) : (
 									<>
 										<LogIn className="mr-2 h-5 w-5" />
-										Join Game
+										{t.Game["Join Game"]}
 									</>
 								)}
 							</Button>

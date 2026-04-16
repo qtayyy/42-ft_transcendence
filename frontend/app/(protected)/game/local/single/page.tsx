@@ -8,12 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, UserPlus, X, Play, ArrowLeft, Gamepad2 } from "lucide-react";
+import { useLanguage } from "@/context/languageContext";
 
 type AIDifficulty = "easy" | "medium" | "hard";
 
 export default function LocalSingleMatchPage() {
 	const router = useRouter();
 	const { user } = useAuth();
+	const { t } = useLanguage();
 	const [tempPlayerName, setTempPlayerName] = useState("");
 	const [player2, setPlayer2] = useState<{ name: string; isTemp: boolean } | null>(null);
 	const [isAIOpponent, setIsAIOpponent] = useState(false);
@@ -87,10 +89,10 @@ export default function LocalSingleMatchPage() {
 								<Gamepad2 className="h-10 w-10 text-purple-500" />
 							</div>
 							<CardTitle className="text-3xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
-								Single Match
-							</CardTitle>
-							<CardDescription className="text-base">
-								Classic 1v1 Duel on this device
+							{t.Game["Single Match"]}
+						</CardTitle>
+						<CardDescription className="text-base">
+							{t.Game["Classic 1v1 Duel on this device"]}
 							</CardDescription>
 						</CardHeader>
 
@@ -98,9 +100,9 @@ export default function LocalSingleMatchPage() {
 							<div className="space-y-4 rounded-xl border bg-background/40 p-4">
 								<div className="flex items-center justify-between">
 									<div>
-										<p className="text-sm font-semibold">AI Opponent Mode</p>
+										<p className="text-sm font-semibold">{t.Game["AI Opponent Mode"]}</p>
 										<p className="text-xs text-muted-foreground">
-											Toggle to play against a bot in Local 1v1.
+											{t.Game["Toggle to play against a bot in Local 1v1."]}
 										</p>
 									</div>
 									<Button
@@ -108,14 +110,14 @@ export default function LocalSingleMatchPage() {
 										variant={isAIOpponent ? "default" : "outline"}
 										onClick={() => setIsAIOpponent((prev) => !prev)}
 									>
-										{isAIOpponent ? "Enabled" : "Disabled"}
+										{isAIOpponent ? t.Game["Enabled"] : t.Game["Disabled"]}
 									</Button>
 								</div>
 
 								{isAIOpponent && (
 									<div className="space-y-2">
 										<Label className="text-xs uppercase tracking-wider text-muted-foreground">
-											AI Difficulty
+											{t.Game["AI Difficulty"]}
 										</Label>
 										<div className="grid grid-cols-3 gap-2">
 											{(["easy", "medium", "hard"] as const).map((difficulty) => (
@@ -126,7 +128,7 @@ export default function LocalSingleMatchPage() {
 													onClick={() => setAIDifficulty(difficulty)}
 													className="capitalize"
 												>
-													{difficulty}
+													{t.Game[difficulty.charAt(0).toUpperCase() + difficulty.slice(1) as "Easy" | "Medium" | "Hard"]}
 												</Button>
 											))}
 										</div>
@@ -147,7 +149,7 @@ export default function LocalSingleMatchPage() {
 											</div>
 										</div>
 										<div className="flex-1">
-											<Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Player 1 (You)</Label>
+											<Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">{t.Game["Player 1 (You)"]}</Label>
 											<p className="font-bold text-lg leading-tight">{user?.username || "Account User"}</p>
 										</div>
 									</div>
@@ -175,7 +177,7 @@ export default function LocalSingleMatchPage() {
 													</div>
 												</div>
 												<div className="flex-1">
-													<Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Player 2 (AI)</Label>
+													<Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">{t.Game["Player 2 (AI)"]}</Label>
 													<p className="font-bold text-lg leading-tight capitalize">{aiDifficulty} Bot</p>
 												</div>
 											</div>
@@ -183,12 +185,12 @@ export default function LocalSingleMatchPage() {
 									) : !player2 ? (
 										<div className="space-y-4 p-6 border-2 border-dashed rounded-xl bg-muted/10 hover:bg-muted/20 transition-colors text-center">
 											<div className="space-y-2">
-												<h3 className="font-medium">Challenger Awaits</h3>
-												<p className="text-sm text-muted-foreground">Enter guest name to join</p>
-											</div>
-											<div className="flex gap-3 max-w-sm mx-auto">
-												<Input
-													placeholder="Player Name..."
+											<h3 className="font-medium">{t.Game["Challenger Awaits"]}</h3>
+											<p className="text-sm text-muted-foreground">{t.Game["Enter guest name to join"]}</p>
+										</div>
+										<div className="flex gap-3 max-w-sm mx-auto">
+											<Input
+												placeholder={t.Game["Player Name ..."]}
 													value={tempPlayerName}
 													onChange={(e) => setTempPlayerName(e.target.value)}
 													onKeyPress={(e) => e.key === "Enter" && handleAddTempPlayer()}
@@ -214,7 +216,7 @@ export default function LocalSingleMatchPage() {
 													</div>
 												</div>
 												<div className="flex-1">
-													<Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Player 2 (Guest)</Label>
+													<Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">{t.Game["Player 2 (Guest)"]}</Label>
 													<p className="font-bold text-lg leading-tight">{player2.name}</p>
 												</div>
 												<Button
@@ -239,24 +241,24 @@ export default function LocalSingleMatchPage() {
 									className="w-full text-lg h-16 font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-xl shadow-purple-500/20 transition-all hover:scale-[1.02]"
 								>
 									<Play className="mr-2 h-6 w-6 fill-current" />
-									Start Match
+									{t.Game["Start Match"]}
 								</Button>
 
 								<div className="flex justify-center gap-8 text-sm text-muted-foreground/80 bg-background/50 p-4 rounded-xl border">
 									<div className="flex gap-2 items-center">
 										<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">W</span>
 										<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">S</span>
-										<span className="font-medium">Player 1</span>
+										<span className="font-medium">{t.Game["Player 1"]}</span>
 									</div>
 									<div className="w-px bg-border"></div>
 									<div className="flex gap-2 items-center">
 										{isAIOpponent ? (
-											<span className="font-medium capitalize">AI ({aiDifficulty}) controls Player 2</span>
+											<span className="font-medium capitalize">AI ({aiDifficulty}) controls {t.Game["Player 2"]}</span>
 										) : (
 											<>
 												<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">↑</span>
 												<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">↓</span>
-												<span className="font-medium">Player 2</span>
+												<span className="font-medium">{t.Game["Player 2"]}</span>
 											</>
 										)}
 									</div>

@@ -287,7 +287,7 @@ export default function SettingsPage() {
             {t?.DropDown?.Settings || "Settings"}
           </h1>
           <p className="text-xl text-muted-foreground font-medium max-w-2xl mx-auto">
-            Manage your account security and preferences
+            {t?.Setting?.["Manage your account security and preferences"] || "Manage your account security and preferences"}
           </p>
         </div>
 
@@ -295,14 +295,14 @@ export default function SettingsPage() {
         {error && (
           <Alert variant="destructive" className="max-w-3xl mx-auto">
             <AlertCircleIcon className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
+            <AlertTitle>{t?.ResetPassword?.["Error"] || "Error"}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
         {success && (
           <Alert className="bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400 max-w-3xl mx-auto">
             <AlertCircleIcon className="h-4 w-4" />
-            <AlertTitle>Success</AlertTitle>
+            <AlertTitle>{t?.ResetPassword?.["Success"] || "Success"}</AlertTitle>
             <AlertDescription>{success}</AlertDescription>
           </Alert>
         )}
@@ -328,7 +328,7 @@ export default function SettingsPage() {
                         {t?.Setting?.["Two-factor authentication (2FA)"] || "Two-factor authentication (2FA)"}
                       </CardTitle>
                       <CardDescription className="text-base">
-                        Add an extra layer of security to your account
+                        {t?.Setting?.["Add an extra layer of security to your account"] || "Add an extra layer of security to your account"}
                       </CardDescription>
                     </div>
                   </div>
@@ -363,9 +363,9 @@ export default function SettingsPage() {
                 >
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Enable 2FA</DialogTitle>
+                      <DialogTitle>{t?.Setting?.["Enable 2FA"] || "Enable 2FA"}</DialogTitle>
                       <DialogDescription>
-                        Scan this QR code with your authenticator app:
+                        {t?.Setting?.["Scan this QR code with your authenticator app:"] || "Scan this QR code with your authenticator app:"}
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid place-items-center">
@@ -405,19 +405,19 @@ export default function SettingsPage() {
                   <DialogContent>
                     <form onSubmit={enableTwoFA}>
                       <DialogHeader>
-                        <DialogTitle>Enable 2FA</DialogTitle>
+                        <DialogTitle>{t?.Setting?.["Enable 2FA"] || "Enable 2FA"}</DialogTitle>
                         <DialogDescription>
-                          Enter your OTP from your Google Auth app
+                          {t?.Setting?.["Enter your OTP from your Google Auth app"] || "Enter your OTP from your Google Auth app"}
                         </DialogDescription>
                         {error && (
                           <Alert variant="destructive">
                             <AlertCircleIcon className="h-4 w-4" />
-                            <AlertTitle>Error</AlertTitle>
+                            <AlertTitle>{t?.ResetPassword?.["Error"] || "Error"}</AlertTitle>
                             <AlertDescription>{error}</AlertDescription>
                           </Alert>
                         )}
                         <Label className="mt-3" htmlFor="code">
-                          OTP
+                          {t?.Setting?.["Enter OTP"] || "Enter OTP"}
                         </Label>
                         <Input
                           className="mb-8"
@@ -434,7 +434,7 @@ export default function SettingsPage() {
                           variant="default"
                           type="submit"
                         >
-                          Finish
+                          {t?.Setting?.["Finish"] || "Finish"}
                         </Button>
                       </div>
                     </form>
@@ -459,7 +459,7 @@ export default function SettingsPage() {
                         {t?.Setting?.ChangePassword || "Change Password"}
                       </CardTitle>
                       <CardDescription className="text-base">
-                        Update your account password
+                        {t?.Setting?.["Update your account password"] || "Update your account password"}
                       </CardDescription>
                     </div>
                   </div>
@@ -524,24 +524,24 @@ export default function SettingsPage() {
                     {passwordChangeStep === "otp" && (
                       <div className="space-y-4">
                         <p className="text-sm text-muted-foreground p-4 bg-muted/30 rounded-lg border border-border/50">
-                          We&apos;ve sent a 6-digit OTP to{" "}
+                          {t?.Setting?.["We've sent a 6-digit OTP to"] || "We've sent a 6-digit OTP to"}{" "}
                           <strong className="text-foreground">{userEmail}</strong>
                         </p>
                         <div className="space-y-2">
-                          <Label htmlFor="otp" className="text-base">Enter OTP</Label>
+                          <Label htmlFor="otp" className="text-base">{t?.Setting?.["Enter OTP"] || "Enter OTP"}</Label>
                           <Input
                             type="text"
                             id="otp"
                             value={otp}
                             onChange={(e) => setOtp(e.target.value)}
-                            placeholder="Enter 6-digit OTP"
+                            placeholder={t?.Setting?.["Enter 6-digit OTP"] || "Enter 6-digit OTP"}
                             maxLength={6}
                             className="text-center text-2xl tracking-widest bg-muted/30 border-border/50"
                           />
                         </div>
                         {countdown > 0 ? (
                           <p className="text-sm text-muted-foreground text-center">
-                            Resend OTP in <strong>{countdown}s</strong>
+                            {t?.ResetPassword?.["Resend OTP in"] || "Resend OTP in"} <strong>{countdown}s</strong>
                           </p>
                         ) : (
                           <button
@@ -549,7 +549,7 @@ export default function SettingsPage() {
                             onClick={handleResendOTP}
                             className="text-sm text-primary hover:underline w-full text-center"
                           >
-                            Didn&apos;t receive OTP? Resend Code
+                            {t?.ResetPassword?.["Didn't receive OTP? Resend Code"] || "Didn't receive OTP? Resend Code"}
                           </button>
                         )}
                       </div>
@@ -559,7 +559,7 @@ export default function SettingsPage() {
                       <Button type="submit" className="flex-1">
                         {passwordChangeStep === "input"
                           ? (t?.Setting?.Save || "Save")
-                          : "Verify & Change Password"}
+                          : (t?.Setting?.["Verify & Change Password"] || "Verify & Change Password")}
                       </Button>
                       <Button
                         type="button"
@@ -592,7 +592,7 @@ export default function SettingsPage() {
                         {t?.Setting?.["Blocked Users"] || "Blocked Users"}
                       </CardTitle>
                       <CardDescription className="text-base">
-                        Manage users you have blocked
+                        {t?.Setting?.["Manage users you have blocked."] || "Manage users you have blocked"}
                       </CardDescription>
                     </div>
                   </div>
@@ -629,7 +629,7 @@ export default function SettingsPage() {
                               {blockedUser.username}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Blocked {new Date(blockedUser.blockedAt).toLocaleDateString()}
+                              {t?.Setting?.["Blocked"] || "Blocked"} {new Date(blockedUser.blockedAt).toLocaleDateString()}
                             </p>
                           </div>
                           <Button
@@ -638,7 +638,7 @@ export default function SettingsPage() {
                             onClick={() => handleUnblock(blockedUser.id)}
                             className="hover:bg-primary hover:text-primary-foreground transition-colors"
                           >
-                            Unblock
+                            {t?.Setting?.["Unblock"] || "Unblock"}
                           </Button>
                         </div>
                       ))}

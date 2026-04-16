@@ -14,7 +14,10 @@ export default async function (fastify, opts) {
 
         const user = await prisma.profile.findFirst({
           where: {
-            OR: [{ username: identifier }, { email: identifier }],
+            OR: [
+                { username: { contains: identifier } },
+                { email: { contains: identifier } }
+              ]
           },
         });
 

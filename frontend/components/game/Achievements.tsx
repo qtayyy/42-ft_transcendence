@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Lock } from "lucide-react";
+import { useTranslation } from "@/hooks/use-translation";
 
 export default function Achievements() {
+  const { t } = useTranslation();
+  const tA = t?.["Leaderboard & Match History"];
+  const tDefs = (tA as any)?.["AchievementDefs"] as Record<string, { name: string; description: string }> | undefined;
   const [unlocked, setUnlocked] = useState<any[]>([]);
   const [definitions, setDefinitions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,13 +31,12 @@ export default function Achievements() {
     fetch();
   }, []);
 
-  if (loading) return <p className="text-muted-foreground text-center">Loading...</p>;
+  if (loading) return <p className="text-muted-foreground text-center">{tA?.["Loading achievements..."] || "Loading achievements..."}</p>;
 
   const unlockedKeys = new Set(unlocked.map((a) => a.key));
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold">Achievements</h3>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         {definitions.map((a) => {
           const isUnlocked = unlockedKeys.has(a.key);
@@ -51,8 +54,8 @@ export default function Achievements() {
               <div className={`text-3xl ${isUnlocked ? "scale-110" : "scale-90"}`}>
                 {a.icon}
               </div>
-              <p className="font-semibold text-sm text-center">{a.name}</p>
-              <p className="text-xs text-muted-foreground text-center">{a.description}</p>
+              <p className="font-semibold text-sm text-center">{tDefs?.[a.key]?.name ?? a.name}</p>
+              <p className="text-xs text-muted-foreground text-center">{tDefs?.[a.key]?.description ?? a.description}</p>
               {isUnlocked && date ? (
                 <p className="text-xs text-primary/70">{date}</p>
               ) : (
@@ -63,7 +66,7 @@ export default function Achievements() {
         })}
       </div>
       <p className="text-sm text-muted-foreground text-center">
-        {unlocked.length} / {definitions.length} achievements
+        {unlocked.length} / {definitions.length} {tA?.["achievements"] || "achievements"}
       </p>
     </div>
   );

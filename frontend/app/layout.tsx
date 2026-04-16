@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/context/authContext";
@@ -13,10 +13,9 @@ import GameInviteDialog from "@/components/game-invite-dialog";
 import { ReconnectionManager } from "@/components/game/reconnection-manager";
 import { NavigationGuard } from "@/components/game/navigation-guard";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({ 
   subsets: ["latin"],
+  variable: "--font-sans",
 });
 
 export const metadata = {
@@ -32,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} font-sans antialiased`}
       >
         <ThemeProvider
           attribute="class"
