@@ -18,7 +18,7 @@ export default async function (fastify, opts) {
 	fastify.get('/google/login', async function (request, reply) {
 		const baseUrl = getBaseUrl(request);
 		const callbackUri = `${baseUrl}/api/auth/google/callback`;
-		const authUri = fastify.googleOAuth2.generateAuthorizationUri(request, reply, {
+		const authUri = await fastify.googleOAuth2.generateAuthorizationUri(request, reply, {
 			redirect_uri: callbackUri,
 		});
 		return reply.redirect(authUri);
@@ -30,7 +30,7 @@ export default async function (fastify, opts) {
 
 		try {
 			// Exchange code for token (uses the registered callbackUri from the plugin)
-			const token = await fastify.googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(request);
+			const token = await fastify.googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(request, reply);
 
 			// Fetch user info from Google
 			const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
