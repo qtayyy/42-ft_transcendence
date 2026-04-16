@@ -208,7 +208,11 @@
     "Are you sure you want to block": "Adakah anda pasti mahu menyekat",
     "You won't be able to send or receive messages from this user.": "Anda tidak akan dapat menghantar atau menerima mesej daripada pengguna ini.",
     "Block": "Sekat",
-    "Cancel": "Batal"
+    "Cancel": "Batal",
+    "Clear Chat History": "Kosongkan Sejarah Sembang",
+    "This will permanently delete all messages between you and": "Ini akan memadam semua mesej antara anda dan",
+    "This action cannot be undone.": "Tindakan ini tidak boleh dibatalkan.",
+    "Clear History": "Kosongkan Sejarah"
   },
   "Game": {
     "Are You Ready?": "Adakah Anda Bersedia?",

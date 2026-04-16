@@ -12,7 +12,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Send, Users, UserPlus, Search, MessageSquare, Smile, ChevronLeft, Zap, Ban, UserCircle, Gamepad2, MoreVertical, Check, CheckCheck } from "lucide-react";
+import { Send, Users, UserPlus, Search, MessageSquare, Smile, ChevronLeft, Zap, Ban, UserCircle, Gamepad2, MoreVertical, Check, CheckCheck, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -70,6 +70,7 @@ export default function ChatPage() {
   const [activeInvite, setActiveInvite] = useState<{ roomId: string; inviteeId: string } | null>(null);
   const activeInviteTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [showClearChatDialog, setShowClearChatDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -797,6 +798,28 @@ export default function ChatPage() {
     }
   };
 
+  // Clear chat history
+  const handleClearChat = async () => {
+    if (!selectedFriend) return;
+
+    try {
+      const response = await fetch(`/api/chat/${selectedFriend.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setMessages([]);
+        setShowClearChatDialog(false);
+      } else {
+        const error = await response.json();
+        alert(error.error || "Failed to clear chat history");
+      }
+    } catch (error) {
+      console.error("Error clearing chat history:", error);
+      alert("Failed to clear chat history");
+    }
+  };
+
   // Unblock user
   const handleUnblockUser = async (userId: string) => {
     try {
@@ -1268,6 +1291,14 @@ export default function ChatPage() {
                                 {t.chat["View Profile"]}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setShowClearChatDialog(true)}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                {t.chat["Clear Chat History"]}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 onClick={() => setShowBlockDialog(true)}
                                 className="text-destructive"
@@ -1499,6 +1530,26 @@ export default function ChatPage() {
             </Button>
             <Button variant="destructive" onClick={handleBlockUser}>
               {t.chat["Block"]}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear Chat History Confirmation Dialog */}
+      <Dialog open={showClearChatDialog} onOpenChange={setShowClearChatDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.chat["Clear Chat History"]}</DialogTitle>
+            <DialogDescription>
+              {t.chat["This will permanently delete all messages between you and"]} {selectedFriend?.username}. {t.chat["This action cannot be undone."]}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowClearChatDialog(false)}>
+              {t.chat["Cancel"]}
+            </Button>
+            <Button variant="destructive" onClick={handleClearChat}>
+              {t.chat["Clear History"]}
             </Button>
           </DialogFooter>
         </DialogContent>
