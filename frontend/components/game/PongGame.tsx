@@ -31,6 +31,7 @@ interface PongGameProps {
 	onPauseToggle?: () => void;
 	pauseOnGuard?: boolean;
 	isAIEnabled?: boolean;
+	background?: BackgroundId;
 }
 
 export default function PongGame({
@@ -48,6 +49,7 @@ export default function PongGame({
 	onPauseToggle,
 	pauseOnGuard = false,
 	isAIEnabled = false,
+	background: externalBackground,
 }: PongGameProps) {
 	const {
 		gameState,
@@ -60,13 +62,14 @@ export default function PongGame({
 	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver, isAIEnabled });
 	const guardPauseSentRef = useRef(false);
 
-	// Background
-	const [background, setBackground] = useState<BackgroundId>(() => {
+	// Background — use external prop if provided (remote view manages its own state)
+	const [internalBackground, setInternalBackground] = useState<BackgroundId>(() => {
 		if (typeof window === 'undefined') return 'default';
 		return (localStorage.getItem('pongBackground') as BackgroundId) ?? 'default';
 	});
+	const background = externalBackground ?? internalBackground;
 	const handleBackgroundChange = (id: BackgroundId) => {
-		setBackground(id);
+		setInternalBackground(id);
 		localStorage.setItem('pongBackground', id);
 	};
 

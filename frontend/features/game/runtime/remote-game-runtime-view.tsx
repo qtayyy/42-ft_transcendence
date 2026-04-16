@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import type { GameState } from "@/types/game";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,8 @@ import { GameControlsTray } from "@/components/game/GameControlsTray";
 import { ReadyOverlay } from "@/components/game/ReadyOverlay";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
 import { GameOverOverlay } from "@/components/game/GameOverOverlay";
+import { defaultBindings, type KeyBindings } from "@/hooks/usePongGame";
+import { type BackgroundId } from "@/utils/gameRenderer";
 
 interface RemoteGameRuntimeViewProps {
 	matchId: string;
@@ -45,6 +48,35 @@ export default function RemoteGameRuntimeView({
 	disconnectInfo,
 	pauseInfo,
 }: RemoteGameRuntimeViewProps) {
+	const [bindings, setBindingsState] = useState<KeyBindings>(() => {
+		if (typeof window === 'undefined') return defaultBindings;
+		try {
+			const saved = localStorage.getItem('pongBindings');
+			return saved ? { ...defaultBindings, ...JSON.parse(saved) } : defaultBindings;
+		} catch { return defaultBindings; }
+	});
+	const setBindings = (b: KeyBindings) => {
+		setBindingsState(b);
+		try { localStorage.setItem('pongBindings', JSON.stringify(b)); } catch { /* ignore */ }
+	};
+
+	const [background, setBackground] = useState<BackgroundId>(() => {
+		if (typeof window === 'undefined') return 'default';
+		return (localStorage.getItem('pongBackground') as BackgroundId) ?? 'default';
+	});
+	const handleBackgroundChange = (id: BackgroundId) => {
+		setBackground(id);
+		localStorage.setItem('pongBackground', id);
+	};
+
+	const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>([]);
+	useEffect(() => {
+		fetch('/api/achievements')
+			.then(r => r.json())
+			.then((data: { key: string }[]) => setUnlockedAchievements(data.map(a => a.key)))
+			.catch(() => {/* ignore */});
+	}, []);
+
 	return (
 		<div className="h-screen pt-32 pb-4 flex flex-col overflow-hidden bg-gradient-to-b from-background to-muted/20 relative">
 			<div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -118,6 +150,7 @@ export default function RemoteGameRuntimeView({
 							gameState={normalizedGameState}
 							layout="canvasOnly"
 							showBuiltInOverlays={false}
+							background={background}
 						/>
 
 						{/* Waiting for players overlay - only show when not paused */}
@@ -151,6 +184,11 @@ export default function RemoteGameRuntimeView({
 						player1Name={gameState.leftPlayer?.username || "Player 1"}
 						player2Name={gameState.rightPlayer?.username || "Player 2"}
 						currentPlayerReady={currentPlayerReady}
+						bindings={bindings}
+						onBindingsChange={setBindings}
+						background={background}
+						onBackgroundChange={handleBackgroundChange}
+						unlockedAchievements={unlockedAchievements}
 						onReady={() => {
 							sendSocketMessage({
 								event: "GAME_EVENTS",
@@ -195,6 +233,11 @@ export default function RemoteGameRuntimeView({
 						const mySide = gameState.me || (String(user?.id) === String(gameState.leftPlayer?.id) ? "LEFT" : "RIGHT");
 						return gameState.resumeReady?.[mySide as "LEFT" | "RIGHT"] || false;
 					})()}
+					bindings={bindings}
+					onBindingsChange={setBindings}
+					background={background}
+					onBackgroundChange={handleBackgroundChange}
+					unlockedAchievements={unlockedAchievements}
 					onResume={() => {
 						sendSocketMessage({
 							event: "GAME_EVENTS",
