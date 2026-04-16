@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, LogOut, Pause } from "lucide-react";
+import { ArrowLeft, LogOut, Pause, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { KeyBindings } from "@/hooks/usePongGame";
 import { BackgroundId } from "@/utils/gameRenderer";
@@ -52,6 +53,8 @@ export function PauseOverlay({
 	isSpectator = false,
 	onReturnToLobby,
 }: PauseOverlayProps) {
+	const [showSettings, setShowSettings] = useState(false);
+
 	if (!isOpen) return null;
 
 	const handleResume = () => {
@@ -122,7 +125,7 @@ export function PauseOverlay({
 	if (mode === "remote") {
 		return (
 			<div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-				<Card className="border-yellow-500/50 bg-yellow-500/10">
+				<Card className="border-yellow-500/50 bg-yellow-500/10 w-full max-w-sm mx-4">
 					<div className="px-8 py-6 flex flex-col items-center gap-4">
 						<Pause className="h-10 w-10 text-yellow-400" />
 						<div className="text-yellow-400 font-bold text-2xl tracking-widest uppercase">
@@ -177,13 +180,49 @@ export function PauseOverlay({
 								<Button
 									onClick={handleResume}
 									variant="default"
-									className="mt-2 bg-green-500 hover:bg-green-600 text-white"
+									className="w-full bg-green-500 hover:bg-green-600 text-white"
 								>
 									{currentPlayerReady ? "Waiting for Opponent..." : "Resume Game"}
 								</Button>
 
+								{/* Settings toggle */}
+								{bindings && onBindingsChange && onBackgroundChange && (
+									<Button
+										onClick={() => setShowSettings(s => !s)}
+										variant="outline"
+										className="w-full border-white/20 text-white/70 hover:bg-white/10 gap-2"
+									>
+										<Settings className="h-4 w-4" />
+										{showSettings ? "Hide Settings" : "Settings"}
+									</Button>
+								)}
+
+								{/* Settings panel */}
+								{showSettings && bindings && onBindingsChange && onBackgroundChange && (
+									<div className="w-full text-left">
+										<GameSettingsPanel
+											bindings={bindings}
+											onBindingsChange={onBindingsChange}
+											background={background}
+											onBackgroundChange={onBackgroundChange}
+											unlockedAchievements={unlockedAchievements}
+										/>
+									</div>
+								)}
+
+								{onExit && (
+									<Button
+										onClick={onExit}
+										variant="outline"
+										className="w-full border-red-500/40 text-red-400 hover:bg-red-500/10 hover:text-red-300 gap-2"
+									>
+										<LogOut className="h-4 w-4" />
+										Exit Game
+									</Button>
+								)}
+
 								<div className="text-xs text-white/50 text-center">
-									Press <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-white font-mono text-xs">SPACE</kbd> to toggle ready
+									Press <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-white font-mono text-xs">Space</kbd> or <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-white font-mono text-xs">Esc</kbd> to toggle ready
 								</div>
 							</>
 						) : (

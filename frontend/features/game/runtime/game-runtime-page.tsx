@@ -392,11 +392,11 @@ export default function GameRuntimePage() {
 		if (!isRemoteGame || !isReady || !gameState || isSpectator) return;
 
 		const onKeyDown = (e: KeyboardEvent) => {
-			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown", "Enter", " "];
+			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown", "Enter", " ", "Escape"];
 			if (!KEYS.includes(e.key)) return;
 
-			// Prevent default scrolling for arrow keys and space
-			if (["ArrowUp", "ArrowDown", " "].includes(e.key)) {
+			// Prevent default scrolling for arrow keys, space, and escape
+			if (["ArrowUp", "ArrowDown", " ", "Escape"].includes(e.key)) {
 				e.preventDefault();
 			}
 
@@ -405,7 +405,7 @@ export default function GameRuntimePage() {
 			// The backend determines which paddle to move based on userId
 			if (e.key === "w" || e.key === "W" || e.key === "ArrowUp") keyEvent = "UP";
 			else if (e.key === "s" || e.key === "S" || e.key === "ArrowDown") keyEvent = "DOWN";
-			else if (e.key === " ") keyEvent = "PAUSE"; // Space = pause/resume game
+			else if (e.key === " " || e.key === "Escape") keyEvent = "PAUSE"; // Space/Esc = pause/resume game
 
 			sendSocketMessage({
 				event: "GAME_EVENTS",

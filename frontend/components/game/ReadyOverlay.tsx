@@ -77,14 +77,12 @@ export function ReadyOverlay({
 
 						<div className="space-y-1">
 							<h2 className="text-2xl font-black bg-clip-text text-transparent bg-linear-to-r from-blue-400 to-purple-400">
-								{mode === "local" ? "Game Setup" : allPlayersReady ? "Ready to Play!" : "Waiting for Players..."}
+								{allPlayersReady ? "Ready to Play!" : "Game Setup"}
 							</h2>
 							<p className="text-muted-foreground text-sm">
-								{mode === "local"
-									? "Configure your game before starting"
-									: allPlayersReady
+								{allPlayersReady
 									? "All players are ready to start"
-									: "Waiting for all players to ready up"}
+									: "Configure your game before starting"}
 							</p>
 						</div>
 
@@ -132,8 +130,8 @@ export function ReadyOverlay({
 							</div>
 						)}
 
-						{/* Local: settings panel */}
-						{mode === "local" && bindings && onBindingsChange && onBackgroundChange && (
+						{/* Settings panel — local and remote */}
+						{bindings && onBindingsChange && onBackgroundChange && (
 							<div className="w-full text-left">
 								<GameSettingsPanel
 									bindings={bindings}
