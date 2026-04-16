@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import axios from "axios";
@@ -11,12 +11,20 @@ import { Label } from "@/components/ui/label";
 import { User, UserPlus, X, ArrowLeft, Trophy, Crown } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
+import { defaultBindings, type KeyBindings } from "@/hooks/usePongGame";
+import { formatKey } from "@/components/game/GameSettingsPanel";
 
 export default function LocalTournamentPage() {
 	const router = useRouter();
 	const { user } = useAuth();
 	const [tempPlayerName, setTempPlayerName] = useState("");
 	const [tempPlayers, setTempPlayers] = useState<Array<{name: string}>>([]);
+	const [bindings] = useState<KeyBindings>(() => {
+		try {
+			const saved = localStorage.getItem('pongBindings');
+			return saved ? { ...defaultBindings, ...JSON.parse(saved) } : defaultBindings;
+		} catch { return defaultBindings; }
+	});
 
 	const totalPlayers = 1 + tempPlayers.length; // Account user + temp players
 
@@ -188,6 +196,20 @@ export default function LocalTournamentPage() {
 										</div>
 									</div>
 								</Alert>
+
+								<div className="flex justify-center gap-8 text-sm text-muted-foreground/80 bg-background/50 p-4 rounded-xl border">
+									<div className="flex gap-2 items-center">
+										<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">{formatKey(bindings.p1Up)}</span>
+										<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">{formatKey(bindings.p1Down)}</span>
+										<span className="font-medium">Player 1</span>
+									</div>
+									<div className="w-px bg-border" />
+									<div className="flex gap-2 items-center">
+										<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">{formatKey(bindings.p2Up)}</span>
+										<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">{formatKey(bindings.p2Down)}</span>
+										<span className="font-medium">Player 2</span>
+									</div>
+								</div>
 
 								<Button
 									onClick={handleStartTournament}

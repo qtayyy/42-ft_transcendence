@@ -12,6 +12,8 @@ import { ArrowLeft, Copy, Check, Users, Loader2, Play, Crown, User, Trophy } fro
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
+import { defaultBindings, type KeyBindings } from "@/hooks/usePongGame";
+import { formatKey } from "@/components/game/GameSettingsPanel";
 
 export default function CreateTournamentRoomPage() {
 	const router = useRouter();
@@ -22,6 +24,12 @@ export default function CreateTournamentRoomPage() {
 	const [copied, setCopied] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [bindings] = useState<KeyBindings>(() => {
+		try {
+			const saved = localStorage.getItem('pongBindings');
+			return saved ? { ...defaultBindings, ...JSON.parse(saved) } : defaultBindings;
+		} catch { return defaultBindings; }
+	});
 	const maxPlayers = 8;
 	const syncRoomState = useCallback(() => {
 		if (!user || !isReady) return;
@@ -241,6 +249,15 @@ export default function CreateTournamentRoomPage() {
 											? `Ready to start with ${playerCount} players!`
 											: `Need ${3 - playerCount} more player${3 - playerCount > 1 ? 's' : ''} to start`
 										}
+									</div>
+
+									{/* Key Bindings Display */}
+									<div className="flex justify-center gap-8 text-sm text-muted-foreground/80 bg-background/50 p-4 rounded-xl border">
+										<div className="flex gap-2 items-center">
+											<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">{formatKey(bindings.p1Up)}</span>
+											<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">{formatKey(bindings.p1Down)}</span>
+											<span className="font-medium">Your Keys</span>
+										</div>
 									</div>
 
 									{/* Start Button */}

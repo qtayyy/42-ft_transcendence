@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, UserPlus, X, Play, ArrowLeft, Gamepad2 } from "lucide-react";
+import { defaultBindings, type KeyBindings } from "@/hooks/usePongGame";
+import { formatKey } from "@/components/game/GameSettingsPanel";
 
 type AIDifficulty = "easy" | "medium" | "hard";
 
@@ -18,6 +20,12 @@ export default function LocalSingleMatchPage() {
 	const [player2, setPlayer2] = useState<{ name: string; isTemp: boolean } | null>(null);
 	const [isAIOpponent, setIsAIOpponent] = useState(false);
 	const [aiDifficulty, setAIDifficulty] = useState<AIDifficulty>("medium");
+	const [bindings] = useState<KeyBindings>(() => {
+		try {
+			const saved = localStorage.getItem('pongBindings');
+			return saved ? { ...defaultBindings, ...JSON.parse(saved) } : defaultBindings;
+		} catch { return defaultBindings; }
+	});
 
 	const handleAddTempPlayer = () => {
 		if (tempPlayerName.trim()) {
@@ -244,8 +252,8 @@ export default function LocalSingleMatchPage() {
 
 								<div className="flex justify-center gap-8 text-sm text-muted-foreground/80 bg-background/50 p-4 rounded-xl border">
 									<div className="flex gap-2 items-center">
-										<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">W</span>
-										<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">S</span>
+										<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">{formatKey(bindings.p1Up)}</span>
+										<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">{formatKey(bindings.p1Down)}</span>
 										<span className="font-medium">Player 1</span>
 									</div>
 									<div className="w-px bg-border"></div>
@@ -254,8 +262,8 @@ export default function LocalSingleMatchPage() {
 											<span className="font-medium capitalize">AI ({aiDifficulty}) controls Player 2</span>
 										) : (
 											<>
-												<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">↑</span>
-												<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">↓</span>
+												<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">{formatKey(bindings.p2Up)}</span>
+												<span className="w-6 h-6 rounded flex items-center justify-center bg-muted font-mono text-xs border">{formatKey(bindings.p2Down)}</span>
 												<span className="font-medium">Player 2</span>
 											</>
 										)}
