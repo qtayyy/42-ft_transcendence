@@ -539,11 +539,16 @@ export const SocketProvider = ({ children }) => {
 								toast.info("Invitation already sent. Waiting for response.");
 								break;
 
-							case "PLAYER_READY_STATE":
-								// Dispatch custom event for ready state persistence
-								window.dispatchEvent(new CustomEvent("PLAYER_READY_STATE", { detail: payload }));
-								break;
-
+						case "GAME_INVITE_CANCELLED":
+							// Invitee: the host cancelled your pending invite
+							stableDeps.current.setInvitesReceived((prev) =>
+								prev.filter((inv) => inv.roomId !== payload?.roomId)
+							);
+							window.dispatchEvent(
+								new CustomEvent("gameInviteCancelled", { detail: payload })
+							);
+							toast.info("The game invite was cancelled by the host.");
+							break;
 							default:
 								console.log("Unknown event:", msg.event);
 								break;

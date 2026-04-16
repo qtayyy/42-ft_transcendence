@@ -147,6 +147,15 @@ export default fp((fastify) => {
       const inviteeInRoom = resolveRoomMembership(numericFriendId);
       if (inviteeInRoom) throw new Error("Player already in another room");
 
+      // Reject invite if friend is not online (no open WS connection)
+      const inviteeSocket = fastify.onlineUsers.get(numericFriendId);
+      if (!inviteeSocket || inviteeSocket.size === 0) {
+        // Clean up the room that was just created for this invite
+        fastify.currentRoom.delete(numericHostId);
+        fastify.gameRooms.delete(roomId);
+        throw new Error("Friend is not online");
+      }
+
       const room = fastify.gameRooms.get(roomId);
       if (!room) throw new Error("Room does not exist");
 
@@ -196,8 +205,7 @@ export default fp((fastify) => {
         username: friendUsername,
       });
 
-      // Send game invite to invitee
-      const inviteeSocket = fastify.onlineUsers.get(numericFriendId);
+      // Send game invite to invitee (socket already fetched above for online check)
       safeSend(
         inviteeSocket,
         {
@@ -344,8 +352,69 @@ export default fp((fastify) => {
     },
   );
 
+  // Cancel a pending invite: remove invitee from room.invitedPlayers and notify them.
+  // If this leaves the host alone with no one in invitedPlayers, destroy the room.
+  fastify.decorate("cancelGameInvite", (roomId, hostId, inviteeId) => {
+    const numericHostId = Number(hostId);
+    const numericInviteeId = Number(inviteeId);
+
+    const room = fastify.gameRooms.get(roomId);
+    const hostSocket = fastify.onlineUsers.get(numericHostId);
+    const inviteeSocket = fastify.onlineUsers.get(numericInviteeId);
+
+    if (room) {
+      room.invitedPlayers = room.invitedPlayers.filter(
+        (p) => Number(p.id) !== numericInviteeId,
+      );
+
+      // Notify invitee that invite was cancelled
+      safeSend(
+        inviteeSocket,
+        {
+          event: "GAME_INVITE_CANCELLED",
+          payload: { roomId, hostId: numericHostId },
+        },
+        numericInviteeId,
+      );
+
+      // If room only has the host and no pending invites, destroy it
+      if (room.joinedPlayers.length <= 1 && room.invitedPlayers.length === 0) {
+        fastify.currentRoom.delete(numericHostId);
+        fastify.gameRooms.delete(roomId);
+        safeSend(hostSocket, { event: "LEAVE_ROOM" }, numericHostId);
+        return;
+      }
+
+      // Otherwise sync updated room state to host
+      safeSend(
+        hostSocket,
+        {
+          event: "GAME_ROOM",
+          payload: {
+            roomId,
+            hostId: room.hostId,
+            invitedPlayers: room.invitedPlayers,
+            joinedPlayers: room.joinedPlayers,
+            maxPlayers: room.maxPlayers,
+          },
+        },
+        numericHostId,
+      );
+    } else {
+      // Room already gone — just notify invitee to clear invite UI
+      safeSend(
+        inviteeSocket,
+        {
+          event: "GAME_INVITE_CANCELLED",
+          payload: { roomId, hostId: numericHostId },
+        },
+        numericInviteeId,
+      );
+      fastify.currentRoom.delete(numericHostId);
+    }
+  });
+
   fastify.decorate("leaveRoom", (roomId, userId) => {
-    // Always clear the user from currentRoom regardless of whether the room still exists
     const numericUserId = Number(userId);
     fastify.currentRoom.delete(numericUserId);
     const userSocket = fastify.onlineUsers.get(numericUserId);

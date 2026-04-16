@@ -64,7 +64,11 @@ export default function ChatPage() {
   const [friendIsTyping, setFriendIsTyping] = useState(false);
   const [unreadByFriend, setUnreadByFriend] = useState<Record<string, number>>({});
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
+  // Global active invite: only one pending invite can exist at a time across all chats.
   const [pendingInviteByFriend, setPendingInviteByFriend] = useState<Record<string, boolean>>({});
+  // Track the active invite's roomId and inviteeId so we can cancel it
+  const [activeInvite, setActiveInvite] = useState<{ roomId: string; inviteeId: string } | null>(null);
+  const activeInviteTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showBlockDialog, setShowBlockDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -103,6 +107,11 @@ export default function ChatPage() {
       if (!prev[key]) return prev;
       return { ...prev, [key]: false };
     });
+    setActiveInvite(null);
+    if (activeInviteTimerRef.current) {
+      clearTimeout(activeInviteTimerRef.current);
+      activeInviteTimerRef.current = null;
+    }
   };
 
   // Load blocked users
@@ -451,6 +460,29 @@ export default function ChatPage() {
       }
     };
 
+    const handleGameInviteCancelled = (event: CustomEvent) => {
+      const data = event.detail;
+      const roomId = data?.roomId;
+      if (!roomId) return;
+
+      // Remove the invite from invitesReceived (invitee side)
+      setInvitesReceived((prev) => prev.filter((inv) => inv.roomId !== roomId));
+
+      // Update any existing invite message in the chat to show cancelled
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.type === "game-invite" && msg.meta?.roomId === roomId
+            ? {
+                ...msg,
+                type: "notification" as const,
+                message: "The game invitation was cancelled by the host.",
+                meta: { ...msg.meta, inviteStatus: "rejected" as const },
+              }
+            : msg
+        )
+      );
+    };
+
     window.addEventListener("gameInviteSent", handleGameInviteSent as EventListener);
     window.addEventListener("TOURNAMENT_FOUND", handleTournamentFound as EventListener);
     window.addEventListener("TOURNAMENT_START", handleTournamentStart as EventListener);
@@ -459,6 +491,7 @@ export default function ChatPage() {
     window.addEventListener("gameNotification", handleGameNotification as EventListener);
     window.addEventListener("gameInvitePending", handleGameInvitePending as EventListener);
     window.addEventListener("gameInviteResponse", handleGameInviteResponse as EventListener);
+    window.addEventListener("gameInviteCancelled", handleGameInviteCancelled as EventListener);
 
     return () => {
       window.removeEventListener("gameInviteSent", handleGameInviteSent as EventListener);
@@ -469,6 +502,7 @@ export default function ChatPage() {
       window.removeEventListener("gameNotification", handleGameNotification as EventListener);
       window.removeEventListener("gameInvitePending", handleGameInvitePending as EventListener);
       window.removeEventListener("gameInviteResponse", handleGameInviteResponse as EventListener);
+      window.removeEventListener("gameInviteCancelled", handleGameInviteCancelled as EventListener);
     };
   }, [selectedFriend, user]);
 
@@ -787,6 +821,19 @@ export default function ChatPage() {
     if (!selectedFriend || !isReady || !user?.id || !user?.username) return;
     const selectedFriendKey = String(selectedFriend.id);
 
+    // Block invite to offline friends
+    const isFriendOnline = onlineFriends.some(f => String(f.id) === String(selectedFriend.id));
+    if (!isFriendOnline) {
+      pushNotificationMessage("Cannot invite an offline friend.");
+      return;
+    }
+
+    // Block if there's already an active pending invite (global: one at a time)
+    if (activeInvite) {
+      pushNotificationMessage("You already have a pending invitation. Cancel it first or wait for a response.");
+      return;
+    }
+
     if (pendingInviteByFriend[selectedFriendKey]) {
       pushNotificationMessage("Invitation already sent. Waiting for response.");
       return;
@@ -832,6 +879,29 @@ export default function ChatPage() {
           meta: { inviteType: "room", roomId, hostId: Number(user.id) },
         },
       ]);
+
+      // Track active invite globally
+      setActiveInvite({ roomId, inviteeId: String(selectedFriend.id) });
+
+      // Auto-cancel after 5 minutes if no response
+      const FIVE_MINUTES = 5 * 60 * 1000;
+      activeInviteTimerRef.current = setTimeout(() => {
+        if (!isReady || !user?.id) return;
+        sendSocketMessage({
+          event: "CANCEL_GAME_INVITE",
+          payload: { roomId, hostId: Number(user.id), inviteeId: Number(selectedFriend.id) },
+        });
+        clearInvitePendingForFriend(selectedFriend.id);
+        pushNotificationMessage(`Invitation to ${selectedFriend.username} expired after 5 minutes.`);
+        // Mark the sent invite message as expired in UI
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.type === "game-invite-sent" && msg.meta?.roomId === roomId
+              ? { ...msg, type: "notification", message: `Invitation to ${selectedFriend?.username} expired.` }
+              : msg
+          )
+        );
+      }, FIVE_MINUTES);
     } catch (error) {
       console.error("Error sending room invite from chat:", error);
       clearInvitePendingForFriend(selectedFriend.id);
@@ -900,6 +970,30 @@ export default function ChatPage() {
     router.push(`/game/remote/single/create?roomId=${roomId}&fromChatInvite=true`);
   };
 
+  const handleCancelInvite = (msg: Message) => {
+    const roomId = msg.meta?.roomId;
+    const inviteeId = activeInvite?.inviteeId;
+    if (!roomId || !inviteeId || !user?.id || !isReady) return;
+
+    sendSocketMessage({
+      event: "CANCEL_GAME_INVITE",
+      payload: { roomId, hostId: Number(user.id), inviteeId: Number(inviteeId) },
+    });
+
+    // Find the friend username for the message
+    const inviteeFriend = friends.find(f => String(f.id) === String(inviteeId));
+    clearInvitePendingForFriend(inviteeId);
+
+    // Convert invite message to notification
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.type === "game-invite-sent" && m.meta?.roomId === roomId
+          ? { ...m, type: "notification" as const, message: `You cancelled the invitation to ${inviteeFriend?.username || "your friend"}.` }
+          : m
+      )
+    );
+  };
+
   // View profile
   const handleViewProfile = () => {
     if (selectedFriend) {
@@ -929,6 +1023,9 @@ export default function ChatPage() {
   const isSelectedFriendInvitePending = selectedFriend
     ? !!pendingInviteByFriend[String(selectedFriend.id)]
     : false;
+
+  // Invite button disabled if: not ready, any active invite exists globally, or this friend is the active invitee
+  const isInviteButtonDisabled = !isReady || !!activeInvite;
 
   return (
     <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4 md:p-6 bg-gradient-to-b from-background to-muted/20">
@@ -1151,7 +1248,7 @@ export default function ChatPage() {
                             variant="outline"
                             size="sm"
                             onClick={handleGameInvite}
-                            disabled={!isReady || isSelectedFriendInvitePending}
+                            disabled={isInviteButtonDisabled}
                             className="gap-2"
                           >
                             <Gamepad2 className="w-4 h-4" />
@@ -1284,7 +1381,7 @@ export default function ChatPage() {
                                   </div>
                                 )}
                                 {msg.type === "game-invite-sent" && isOwnMessage && msg.meta?.roomId && (
-                                  <div className="mt-3">
+                                  <div className="mt-3 flex gap-2">
                                     <Button
                                       size="sm"
                                       variant="secondary"
@@ -1292,6 +1389,15 @@ export default function ChatPage() {
                                     >
                                       Start game now
                                     </Button>
+                                    {activeInvite?.roomId === msg.meta.roomId && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleCancelInvite(msg)}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    )}
                                   </div>
                                 )}
                               </div>

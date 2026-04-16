@@ -36,6 +36,14 @@ export function createWsEventHandlers({
       );
     },
 
+    CANCEL_GAME_INVITE: (payload) => {
+      fastify.cancelGameInvite(
+        payload.roomId,
+        payload.hostId,
+        payload.inviteeId,
+      );
+    },
+
     RESPOND_INVITE: (payload) => {
       fastify.respondInvite(
         payload.response,
