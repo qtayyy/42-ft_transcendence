@@ -118,6 +118,10 @@
     "Save": "Simpan",
     "Cancel": "Batal",
     "Edit": "Sunting",
+    "ProfileSaved": "Profil disimpan",
+    "DeleteAvatarTitle": "Padam gambar profil?",
+    "DeleteAvatarDescription": "Adakah anda pasti mahu memadam gambar profil anda?",
+    "DeleteAvatarConfirm": "Padam",
     "Bio": "Biodata"
   },
   "FriendRequests": {

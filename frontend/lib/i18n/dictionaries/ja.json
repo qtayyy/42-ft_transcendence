@@ -117,6 +117,10 @@
     "Save": "保存",
     "Cancel": "キャンセル",
     "Edit": "編集",
+    "ProfileSaved": "プロフィールを保存しました",
+    "DeleteAvatarTitle": "プロフィール写真を削除しますか？",
+    "DeleteAvatarDescription": "プロフィール写真を削除してもよろしいですか？",
+    "DeleteAvatarConfirm": "削除",
     "Bio": "自己紹介"
   },
   "FriendRequests": {
