@@ -7,12 +7,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@radix-ui/react-label";
 import { Card, CardContent } from "@/components/ui/card";
 import axios from "axios";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AlertCircleIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/context/languageContext";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 export default function ProfilePage() {
@@ -37,7 +48,15 @@ export default function ProfilePage() {
     bio: "",
   });
   const [originalAvatar, setOriginalAvatar] = useState<string | null>(null);
+  const [deleteAvatarDialogOpen, setDeleteAvatarDialogOpen] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
+
+  function revokePreviewIfBlob(url: string | null) {
+    if (url?.startsWith("blob:")) {
+      URL.revokeObjectURL(url);
+    }
+  }
 
   useEffect(() => {
     async function getProfile() {
@@ -64,31 +83,40 @@ export default function ProfilePage() {
     getProfile();
   }, [user]);
 
-  async function handleAvatarChange(e) {
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (!isEditMode) return;
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
-    setPreview(previewUrl);
+    setPreview((prev) => {
+      revokePreviewIfBlob(prev);
+      return URL.createObjectURL(file);
+    });
     setSelectedAvatar(file);
   }
 
-  async function handleDeleteAvatar() {
+  function handleDeleteAvatarClick() {
     if (!isEditMode) return;
+    setDeleteAvatarDialogOpen(true);
+  }
 
-    const confirmed = window.confirm(
-      "Are you sure you want to delete your profile picture?"
-    );
-
-    if (!confirmed) return;
-
-    setPreview(null);
+  function confirmDeleteAvatar() {
+    setPreview((prev) => {
+      revokePreviewIfBlob(prev);
+      return null;
+    });
     setSelectedAvatar("DELETE");
+    setDeleteAvatarDialogOpen(false);
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = "";
+    }
   }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     if (!isEditMode) return;
     const { name, value } = e.target;
+    if (name === "username") {
+      setError("");
+    }
     setProfile((prev) => ({ ...prev, [name]: value }));
   }
 
@@ -99,12 +127,23 @@ export default function ProfilePage() {
   function handleCancel() {
     setIsEditMode(false);
     setProfile(originalProfile);
+    revokePreviewIfBlob(preview);
     setPreview(originalAvatar);
     setSelectedAvatar(null);
     setError("");
+    // Reset file input so choosing the same file again fires `change` (browser quirk).
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = "";
+    }
   }
 
   async function handleSave() {
+    const trimmedUsername = profile.username.trim();
+    if (!trimmedUsername) {
+      setError(t?.Profile?.UsernameRequired ?? "Username cannot be empty.");
+      return;
+    }
+
     try {
       const formData = new FormData();
 
@@ -117,9 +156,11 @@ export default function ProfilePage() {
         formData.append("avatar", selectedAvatar);
       }
 
+      const profilePayload = { ...profile, username: trimmedUsername };
+
       // Append all profile fields
-      Object.keys(profile).forEach((key) => {
-        formData.append(key, profile[key]);
+      Object.keys(profilePayload).forEach((key) => {
+        formData.append(key, profilePayload[key]);
       });
 
       setError("");
@@ -142,8 +183,14 @@ export default function ProfilePage() {
         };
         setProfile(profileData);
         setOriginalProfile(profileData);
-        setPreview(updatedProfile?.avatar || null);
+        setPreview((prev) => {
+          revokePreviewIfBlob(prev);
+          return updatedProfile?.avatar || null;
+        });
         setOriginalAvatar(updatedProfile?.avatar || null);
+        if (avatarInputRef.current) {
+          avatarInputRef.current.value = "";
+        }
 
       } catch (refreshError) {
         console.error("Error refreshing profile:", refreshError);
@@ -151,7 +198,7 @@ export default function ProfilePage() {
         window.location.reload();
       }
 
-      alert("Profile saved");
+      toast.success(t?.Profile?.ProfileSaved ?? "Profile saved");
     } catch (error: any) {
       const backendError = error.response?.data?.error;
       setError(backendError || "Something went wrong. Please try again later.");
@@ -160,6 +207,27 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
+      <AlertDialog open={deleteAvatarDialogOpen} onOpenChange={setDeleteAvatarDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t?.Profile?.DeleteAvatarTitle ?? "Delete profile picture?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t?.Profile?.DeleteAvatarDescription ??
+                "Are you sure you want to delete your profile picture?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t?.Profile?.Cancel ?? "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button variant="destructive" type="button" onClick={confirmDeleteAvatar}>
+                {t?.Profile?.DeleteAvatarConfirm ?? "Delete"}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="w-full max-w-5xl space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {error && (
           <Alert variant="destructive">
@@ -221,7 +289,7 @@ export default function ProfilePage() {
                       </Label>
                       {preview && (
                         <button
-                          onClick={handleDeleteAvatar}
+                          onClick={handleDeleteAvatarClick}
                           className="absolute left-2 bottom-3 h-12 w-12 rounded-full flex items-center justify-center bg-destructive text-white cursor-pointer shadow-lg hover:bg-destructive/90 transition-all"
                           type="button"
                         >
@@ -231,6 +299,7 @@ export default function ProfilePage() {
                     </>
                   )}
                   <Input
+                    ref={avatarInputRef}
                     type="file"
                     id="avatar"
                     name="avatar"
@@ -277,6 +346,9 @@ export default function ProfilePage() {
                     value={profile.username}
                     onChange={handleInputChange}
                     disabled={!isEditMode}
+                    required={isEditMode}
+                    minLength={1}
+                    autoComplete="username"
                     className={cn(!isEditMode && "bg-muted/30")}
                   />
                 </div>

@@ -112,11 +112,16 @@
   },
   "Profile": {
     "Username": "ユーザー名",
+    "UsernameRequired": "ユーザー名を入力してください。",
     "DateofBirth": "生年月日",
     "Country/Region": "国/地域",
     "Save": "保存",
     "Cancel": "キャンセル",
     "Edit": "編集",
+    "ProfileSaved": "プロフィールを保存しました",
+    "DeleteAvatarTitle": "プロフィール写真を削除しますか？",
+    "DeleteAvatarDescription": "プロフィール写真を削除してもよろしいですか？",
+    "DeleteAvatarConfirm": "削除",
     "Bio": "自己紹介"
   },
   "FriendRequests": {

@@ -152,7 +152,9 @@ export const SocketProvider = ({ children }) => {
 								})
 							);
 
-							toast.info(`${username} is now ${status}!`);
+							if (status === "online") {
+								toast.info(`${username} is now online!`);
+							}
 							break;
 
 						case "GAME_ROOM":
@@ -451,7 +453,6 @@ export const SocketProvider = ({ children }) => {
 								window.dispatchEvent(
 									new CustomEvent("gamePaused", { detail: payload })
 								);
-								toast.info(`Game paused by ${payload.pausedByName}`);
 								break;
 
 							case "GAME_RESUMED":
@@ -525,10 +526,37 @@ export const SocketProvider = ({ children }) => {
 								window.dispatchEvent(
 									new CustomEvent("gameInviteResponse", { detail: payload })
 								);
-								if (payload?.response === "rejected") {
-									toast.info(`${payload?.inviteeUsername || "A player"} declined your invite`);
-								} else if (payload?.response === "accepted") {
-									toast.success(`${payload?.inviteeUsername || "A player"} accepted your invite`);
+								// Only the host should see invite outcome toasts (both sides receive this event).
+								if (
+									user?.id &&
+									Number(payload?.hostId) === Number(user.id)
+								) {
+									if (payload?.response === "rejected") {
+										toast.info(
+											`${payload?.inviteeUsername || "A player"} declined your invite`
+										);
+									} else if (payload?.response === "accepted") {
+										toast.success(
+											`${payload?.inviteeUsername || "A player"} accepted your invite`
+										);
+									}
+								}
+								// Invite sent from chat: return host to chat when invitee declines (room is closed server-side).
+								try {
+									const pendingChatRoom = sessionStorage.getItem("ft_chat_invite_room");
+									if (
+										payload?.roomId &&
+										pendingChatRoom === payload.roomId &&
+										user?.id &&
+										Number(payload?.hostId) === Number(user.id)
+									) {
+										sessionStorage.removeItem("ft_chat_invite_room");
+										if (payload.response === "rejected") {
+											stableDeps.current.router.push("/chat");
+										}
+									}
+								} catch {
+									/* sessionStorage unavailable */
 								}
 								break;
 
@@ -631,6 +659,17 @@ export const SocketProvider = ({ children }) => {
 		const gameState = getLatestGameState();
 
 		if (pathname && gameRoom?.roomId && user?.id) {
+			// Host waiting on invite responses: do not auto-leave — that would destroy the room
+			// before the invitee accepts or declines (e.g. navigating from /chat to /dashboard).
+			const myId = Number(user.id);
+			const isHost = Number(gameRoom.hostId) === myId;
+			const hasPendingOutgoingInvite =
+				isHost && (gameRoom.invitedPlayers?.length ?? 0) > 0;
+			if (hasPendingOutgoingInvite) {
+				prevPathname.current = pathname;
+				return;
+			}
+
 			// Define menu pages where we SHOULD auto-leave
 			const isMenuPage = pathname === '/game' ||
 				pathname === '/game/new' ||
