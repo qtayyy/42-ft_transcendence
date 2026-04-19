@@ -118,6 +118,10 @@
     "Save": "저장",
     "Cancel": "취소",
     "Edit": "편집",
+    "ProfileSaved": "프로필이 저장되었습니다",
+    "DeleteAvatarTitle": "프로필 사진을 삭제할까요?",
+    "DeleteAvatarDescription": "프로필 사진을 삭제하시겠습니까?",
+    "DeleteAvatarConfirm": "삭제",
     "Bio": "자기소개"
   },
   "FriendRequests": {

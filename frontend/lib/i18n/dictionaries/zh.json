@@ -117,6 +117,10 @@
     "Save": "保存",
     "Cancel": "取消",
     "Edit": "编辑",
+    "ProfileSaved": "个人资料已保存",
+    "DeleteAvatarTitle": "删除头像？",
+    "DeleteAvatarDescription": "确定要删除个人资料头像吗？",
+    "DeleteAvatarConfirm": "删除",
     "Bio": "个人简介"
   },
   "FriendRequests": {
