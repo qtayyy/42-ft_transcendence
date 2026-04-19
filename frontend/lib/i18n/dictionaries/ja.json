@@ -112,6 +112,7 @@
   },
   "Profile": {
     "Username": "ユーザー名",
+    "UsernameRequired": "ユーザー名を入力してください。",
     "DateofBirth": "生年月日",
     "Country/Region": "国/地域",
     "Save": "保存",

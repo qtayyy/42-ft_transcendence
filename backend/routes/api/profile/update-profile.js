@@ -50,6 +50,15 @@ export default async function (fastify, opts) {
 
         updates.dob = updates.dob ? new Date(updates.dob) : null;
 
+        if (Object.prototype.hasOwnProperty.call(updates, "username")) {
+          updates.username = String(updates.username ?? "").trim();
+          if (!updates.username) {
+            return reply
+              .code(400)
+              .send({ error: "Username cannot be empty." });
+          }
+        }
+
         // Check if username is being updated and if it already exists for another user
         if (updates["username"]) {
           const existingProfile = await prisma.profile.findFirst({ 

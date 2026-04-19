@@ -113,6 +113,7 @@
   },
   "Profile": {
     "Username": "사용자명",
+    "UsernameRequired": "사용자 이름을 입력해 주세요.",
     "DateofBirth": "생년월일",
     "Country/Region": "국가/지역",
     "Save": "저장",
