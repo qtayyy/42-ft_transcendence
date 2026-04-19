@@ -112,11 +112,16 @@
   },
   "Profile": {
     "Username": "Username",
+    "UsernameRequired": "Username cannot be empty.",
     "DateofBirth": "Date of Birth",
     "Country/Region": "Country/Region",
     "Save": "Save",
     "Cancel": "Cancel",
     "Edit": "Edit",
+    "ProfileSaved": "Profile saved",
+    "DeleteAvatarTitle": "Delete profile picture?",
+    "DeleteAvatarDescription": "Are you sure you want to delete your profile picture?",
+    "DeleteAvatarConfirm": "Delete",
     "Bio": "Bio"
   },
   "FriendRequests": {

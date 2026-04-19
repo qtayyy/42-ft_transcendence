@@ -230,10 +230,13 @@ export default fp((fastify) => {
 
       // Send updated game room to host
       const payload = {
+        roomId,
         hostId: room.hostId,
         invitedPlayers: room.invitedPlayers,
         joinedPlayers: room.joinedPlayers,
         maxPlayers: room.maxPlayers,
+        isTournament: room.isTournament || false,
+        tournamentStarted: room.tournamentStarted || false,
       };
       safeSend(
         hostSocket,
@@ -267,10 +270,13 @@ export default fp((fastify) => {
       const inviteeSocket = fastify.onlineUsers.get(numericInviteeId);
 
       const buildPayload = () => ({
+        roomId,
         hostId: room.hostId,
         invitedPlayers: room.invitedPlayers,
         joinedPlayers: room.joinedPlayers,
         maxPlayers: room.maxPlayers,
+        isTournament: room.isTournament || false,
+        tournamentStarted: room.tournamentStarted || false,
       });
 
       const inviteResponsePayload = {
@@ -515,6 +521,7 @@ export default fp((fastify) => {
             event: "GAME_ROOM",
             payload: {
               ...room,
+              roomId,
               joinedPlayers: room.joinedPlayers,
             },
           },
@@ -532,6 +539,7 @@ export default fp((fastify) => {
         // old host socket
         const oldHostSocket = fastify.onlineUsers.get(numericUserId);
         const payload = {
+          roomId,
           hostId: room.hostId,
           invitedPlayers: room.invitedPlayers,
           joinedPlayers: room.joinedPlayers,

@@ -113,6 +113,11 @@ export default function ChatPage() {
       clearTimeout(activeInviteTimerRef.current);
       activeInviteTimerRef.current = null;
     }
+    try {
+      sessionStorage.removeItem("ft_chat_invite_room");
+    } catch {
+      /* noop */
+    }
   };
 
   // Load blocked users
@@ -905,26 +910,12 @@ export default function ChatPage() {
 
       // Track active invite globally
       setActiveInvite({ roomId, inviteeId: String(selectedFriend.id) });
-
-      // Auto-cancel after 5 minutes if no response
-      const FIVE_MINUTES = 5 * 60 * 1000;
-      activeInviteTimerRef.current = setTimeout(() => {
-        if (!isReady || !user?.id) return;
-        sendSocketMessage({
-          event: "CANCEL_GAME_INVITE",
-          payload: { roomId, hostId: Number(user.id), inviteeId: Number(selectedFriend.id) },
-        });
-        clearInvitePendingForFriend(selectedFriend.id);
-        pushNotificationMessage(`Invitation to ${selectedFriend.username} expired after 5 minutes.`);
-        // Mark the sent invite message as expired in UI
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.type === "game-invite-sent" && msg.meta?.roomId === roomId
-              ? { ...msg, type: "notification", message: `Invitation to ${selectedFriend?.username} expired.` }
-              : msg
-          )
-        );
-      }, FIVE_MINUTES);
+      try {
+        sessionStorage.setItem("ft_chat_invite_room", roomId);
+      } catch {
+        /* noop */
+      }
+      router.push(`/game/remote/single/create?roomId=${roomId}&fromChatInvite=true`);
     } catch (error) {
       console.error("Error sending room invite from chat:", error);
       clearInvitePendingForFriend(selectedFriend.id);
