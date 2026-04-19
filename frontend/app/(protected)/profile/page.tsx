@@ -114,6 +114,9 @@ export default function ProfilePage() {
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     if (!isEditMode) return;
     const { name, value } = e.target;
+    if (name === "username") {
+      setError("");
+    }
     setProfile((prev) => ({ ...prev, [name]: value }));
   }
 
@@ -135,6 +138,12 @@ export default function ProfilePage() {
   }
 
   async function handleSave() {
+    const trimmedUsername = profile.username.trim();
+    if (!trimmedUsername) {
+      setError(t?.Profile?.UsernameRequired ?? "Username cannot be empty.");
+      return;
+    }
+
     try {
       const formData = new FormData();
 
@@ -147,9 +156,11 @@ export default function ProfilePage() {
         formData.append("avatar", selectedAvatar);
       }
 
+      const profilePayload = { ...profile, username: trimmedUsername };
+
       // Append all profile fields
-      Object.keys(profile).forEach((key) => {
-        formData.append(key, profile[key]);
+      Object.keys(profilePayload).forEach((key) => {
+        formData.append(key, profilePayload[key]);
       });
 
       setError("");
@@ -335,6 +346,9 @@ export default function ProfilePage() {
                     value={profile.username}
                     onChange={handleInputChange}
                     disabled={!isEditMode}
+                    required={isEditMode}
+                    minLength={1}
+                    autoComplete="username"
                     className={cn(!isEditMode && "bg-muted/30")}
                   />
                 </div>

@@ -112,6 +112,7 @@
   },
   "Profile": {
     "Username": "用户名",
+    "UsernameRequired": "用户名不能为空。",
     "DateofBirth": "出生日期",
     "Country/Region": "国家/地区",
     "Save": "保存",

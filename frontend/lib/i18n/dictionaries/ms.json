@@ -113,6 +113,7 @@
   },
   "Profile": {
     "Username": "Nama Pengguna",
+    "UsernameRequired": "Nama pengguna tidak boleh kosong.",
     "DateofBirth": "Tarikh Lahir",
     "Country/Region": "Negara/Wilayah",
     "Save": "Simpan",

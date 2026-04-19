@@ -112,6 +112,7 @@
   },
   "Profile": {
     "Username": "Username",
+    "UsernameRequired": "Username cannot be empty.",
     "DateofBirth": "Date of Birth",
     "Country/Region": "Country/Region",
     "Save": "Save",
