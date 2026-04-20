@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import axios from "axios";
@@ -11,20 +11,15 @@ import { Label } from "@/components/ui/label";
 import { User, UserPlus, X, ArrowLeft, Trophy, Crown } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
-import { defaultBindings, type KeyBindings } from "@/hooks/usePongGame";
 import { formatKey } from "@/components/game/GameSettingsPanel";
+import { useGameSettings } from "@/hooks/use-game-settings";
 
 export default function LocalTournamentPage() {
 	const router = useRouter();
 	const { user } = useAuth();
 	const [tempPlayerName, setTempPlayerName] = useState("");
 	const [tempPlayers, setTempPlayers] = useState<Array<{name: string}>>([]);
-	const [bindings] = useState<KeyBindings>(() => {
-		try {
-			const saved = localStorage.getItem('pongBindings');
-			return saved ? { ...defaultBindings, ...JSON.parse(saved) } : defaultBindings;
-		} catch { return defaultBindings; }
-	});
+	const { bindings } = useGameSettings();
 
 	const totalPlayers = 1 + tempPlayers.length; // Account user + temp players
 

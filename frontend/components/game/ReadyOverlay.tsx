@@ -140,6 +140,7 @@ export function ReadyOverlay({
 									onBackgroundChange={onBackgroundChange}
 									unlockedAchievements={unlockedAchievements}
 									defaultTab="controls"
+									mode={mode}
 								/>
 							</div>
 						)}

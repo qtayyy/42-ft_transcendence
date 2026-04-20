@@ -32,6 +32,8 @@ interface PongGameProps {
 	pauseOnGuard?: boolean;
 	isAIEnabled?: boolean;
 	background?: BackgroundId;
+	onBackgroundChange?: (id: BackgroundId) => void;
+	onBindingsChange?: (b: import("@/hooks/usePongGame").KeyBindings) => void;
 }
 
 export default function PongGame({
@@ -50,6 +52,8 @@ export default function PongGame({
 	pauseOnGuard = false,
 	isAIEnabled = false,
 	background: externalBackground,
+	onBackgroundChange: externalOnBackgroundChange,
+	onBindingsChange: externalOnBindingsChange,
 }: PongGameProps) {
 	const {
 		gameState,
@@ -58,8 +62,12 @@ export default function PongGame({
 		canvasDimensions,
 		socketRef,
 		bindings,
-		setBindings,
+		setBindings: setBindingsInternal,
 	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver, isAIEnabled });
+	const setBindings = (b: import("@/hooks/usePongGame").KeyBindings) => {
+		setBindingsInternal(b);
+		externalOnBindingsChange?.(b);
+	};
 	const guardPauseSentRef = useRef(false);
 
 	// Background — use external prop if provided (remote view manages its own state)
@@ -71,6 +79,7 @@ export default function PongGame({
 	const handleBackgroundChange = (id: BackgroundId) => {
 		setInternalBackground(id);
 		localStorage.setItem('pongBackground', id);
+		externalOnBackgroundChange?.(id);
 	};
 
 	// Unlocked achievements for background gate

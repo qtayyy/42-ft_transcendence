@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Zap } from "lucide-react";
@@ -16,26 +17,34 @@ interface Stats {
 }
 
 export default function UserStats() {
+  const { user, loadingAuth } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (loadingAuth || !user) return;
+
     async function fetchStats() {
       try {
         const res = await apiFetch("/api/profile/stats");
-        if (!res.ok) throw new Error("Failed to fetch stats");
+        if (!res.ok) {
+          setError(true);
+          return;
+        }
         const data = await res.json();
         setStats(data);
-      } catch (error) {
-        console.error("Failed to load stats", error);
+      } catch {
+        setError(true);
       } finally {
         setLoading(false);
       }
     }
     fetchStats();
-  }, []);
+  }, [loadingAuth, user]);
 
-  if (loading || !stats) return <div className="text-muted-foreground">Loading...</div>;
+  if (loadingAuth || loading) return <div className="text-muted-foreground">Loading...</div>;
+  if (error || !stats) return <div className="text-muted-foreground text-sm">Stats unavailable</div>;
 
   const nextLevelXP = 100 * (stats.level + 1) * stats.level;
   const currentLevelXP = 100 * stats.level * (stats.level - 1);

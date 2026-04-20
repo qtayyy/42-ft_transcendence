@@ -61,6 +61,11 @@ model Profile {
   // Users who have blocked this profile
   blockedBy Block[] @relation("Blocked")
 
+  // Game preferences
+  keyBindings    Json?
+  gameBackground String?
+  aiDifficulty   String?
+
   // Achievements
   achievements Achievement[]
 }

@@ -206,6 +206,7 @@ export function PauseOverlay({
 											background={background}
 											onBackgroundChange={onBackgroundChange}
 											unlockedAchievements={unlockedAchievements}
+											mode="remote"
 										/>
 									</div>
 								)}

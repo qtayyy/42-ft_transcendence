@@ -4,6 +4,7 @@ import PongGame from "@/components/game/PongGame";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, ArrowLeft } from "lucide-react";
+import { useGameSettings } from "@/hooks/use-game-settings";
 
 interface LocalGameRuntimeViewProps {
 	isSpectator: boolean;
@@ -28,6 +29,7 @@ export default function LocalGameRuntimeView({
 	isTournamentMatch,
 	pauseOnGuard,
 }: LocalGameRuntimeViewProps) {
+	const { background, setBackground, setBindings } = useGameSettings();
 	const query = new URLSearchParams({ matchId });
 	if (isAI) {
 		query.set("isAI", "1");
@@ -56,13 +58,16 @@ export default function LocalGameRuntimeView({
 			<PongGame
 				matchId={matchId}
 				mode="local"
-				wsUrl={`wss://${typeof window !== 'undefined' ? window.location.host : 'localhost:8443'}/ws/game?matchId=${matchId}`}
+				wsUrl={`wss://${typeof window !== 'undefined' ? window.location.host : 'localhost:8443'}/ws/game?${query.toString()}`}
 				isAIEnabled={isAI}
 				onGameOver={handleGameOver}
 				onExit={handleExit}
 				isTournamentMatch={isTournamentMatch}
 				showControlsTray={!isSpectator}
 				pauseOnGuard={pauseOnGuard}
+				background={background}
+				onBackgroundChange={setBackground}
+				onBindingsChange={setBindings}
 			/>
 		</div>
 	);

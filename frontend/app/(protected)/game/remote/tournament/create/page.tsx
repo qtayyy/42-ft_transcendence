@@ -12,8 +12,8 @@ import { ArrowLeft, Copy, Check, Users, Loader2, Play, Crown, User, Trophy } fro
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
-import { defaultBindings, type KeyBindings } from "@/hooks/usePongGame";
 import { formatKey } from "@/components/game/GameSettingsPanel";
+import { useGameSettings } from "@/hooks/use-game-settings";
 
 export default function CreateTournamentRoomPage() {
 	const router = useRouter();
@@ -24,12 +24,7 @@ export default function CreateTournamentRoomPage() {
 	const [copied, setCopied] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [bindings] = useState<KeyBindings>(() => {
-		try {
-			const saved = localStorage.getItem('pongBindings');
-			return saved ? { ...defaultBindings, ...JSON.parse(saved) } : defaultBindings;
-		} catch { return defaultBindings; }
-	});
+	const { bindings } = useGameSettings();
 	const maxPlayers = 8;
 	const syncRoomState = useCallback(() => {
 		if (!user || !isReady) return;

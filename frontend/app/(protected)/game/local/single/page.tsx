@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, UserPlus, X, Play, ArrowLeft, Gamepad2 } from "lucide-react";
-import { defaultBindings, type KeyBindings } from "@/hooks/usePongGame";
 import { formatKey } from "@/components/game/GameSettingsPanel";
-
-type AIDifficulty = "easy" | "medium" | "hard";
+import { useGameSettings } from "@/hooks/use-game-settings";
 
 export default function LocalSingleMatchPage() {
 	const router = useRouter();
@@ -19,13 +17,7 @@ export default function LocalSingleMatchPage() {
 	const [tempPlayerName, setTempPlayerName] = useState("");
 	const [player2, setPlayer2] = useState<{ name: string; isTemp: boolean } | null>(null);
 	const [isAIOpponent, setIsAIOpponent] = useState(false);
-	const [aiDifficulty, setAIDifficulty] = useState<AIDifficulty>("medium");
-	const [bindings] = useState<KeyBindings>(() => {
-		try {
-			const saved = localStorage.getItem('pongBindings');
-			return saved ? { ...defaultBindings, ...JSON.parse(saved) } : defaultBindings;
-		} catch { return defaultBindings; }
-	});
+	const { bindings, aiDifficulty, setAiDifficulty } = useGameSettings();
 
 	const handleAddTempPlayer = () => {
 		if (tempPlayerName.trim()) {
@@ -131,7 +123,7 @@ export default function LocalSingleMatchPage() {
 													key={difficulty}
 													type="button"
 													variant={aiDifficulty === difficulty ? "default" : "outline"}
-													onClick={() => setAIDifficulty(difficulty)}
+													onClick={() => setAiDifficulty(difficulty)}
 													className="capitalize"
 												>
 													{difficulty}

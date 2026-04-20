@@ -26,6 +26,7 @@ interface GameSettingsPanelProps {
 	onBackgroundChange: (id: BackgroundId) => void;
 	unlockedAchievements: string[];
 	defaultTab?: SettingsTab;
+	mode?: 'local' | 'remote';
 }
 
 const CONTROLS: { label: string; key: keyof KeyBindings; player: 'P1' | 'P2' }[] = [
@@ -42,6 +43,7 @@ export function GameSettingsPanel({
 	onBackgroundChange,
 	unlockedAchievements,
 	defaultTab = 'controls',
+	mode = 'local',
 }: GameSettingsPanelProps) {
 	const [tab, setTab] = useState<SettingsTab>(defaultTab);
 	const [remapping, setRemapping] = useState<RemappingKey>(null);
@@ -80,10 +82,10 @@ export function GameSettingsPanel({
 
 			{tab === 'controls' && (
 				<div className="space-y-3">
-					{(['P1', 'P2'] as const).map(player => (
+					{(mode === 'remote' ? ['P1'] as const : ['P1', 'P2'] as const).map(player => (
 						<div key={player} className="space-y-1.5">
 							<div className="text-[10px] text-white/40 uppercase tracking-widest font-bold">
-								{player === 'P1' ? 'Player 1' : 'Player 2'}
+								{mode === 'remote' ? 'Your Controls' : player === 'P1' ? 'Player 1' : 'Player 2'}
 							</div>
 							{CONTROLS.filter(c => c.player === player).map(c => (
 								<div key={c.key} className="flex items-center justify-between">
