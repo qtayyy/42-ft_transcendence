@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useGame } from "@/hooks/use-game";
+import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from '@/context/languageContext';
 import { Users, BarChart3, PieChart, Trophy, Activity, MessageCircle, Clock, Calendar, Download, FileSpreadsheet, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { useFriends } from "@/hooks/use-friends";
@@ -54,6 +55,7 @@ export default function DashboardPage() {
   const [modeFilter, setModeFilter] = useState<string>("all");
   const [resultFilter, setResultFilter] = useState<"all" | "win" | "loss" | "draw">("all");
   const [showAnalyticsControls, setShowAnalyticsControls] = useState(false);
+  const { user, loadingAuth } = useAuth();
   const { onlineFriends } = useGame();
   const { t } = useLanguage();
   const { friends: allFriends } = useFriends();
@@ -83,9 +85,11 @@ export default function DashboardPage() {
     friend => !onlineFriends.some(onlineFriend => String(onlineFriend.id) === String(friend.id))
   );
   useEffect(() => {
+    if (loadingAuth || !user) return;
+
     async function fetchRecentMatches() {
       try {
-        const response = await axios.get<MatchEntry[]>("/api/game/match-history");
+        const response = await axios.get<MatchEntry[]>("/api/game/match-history", { withCredentials: true });
         setMatchHistory(response.data || []);
       } catch (error) {
         console.error("Failed to load recent matches", error);
@@ -96,7 +100,7 @@ export default function DashboardPage() {
     }
 
     fetchRecentMatches();
-  }, []);
+  }, [loadingAuth, user]);
 
   useEffect(() => {
     let isMounted = true;

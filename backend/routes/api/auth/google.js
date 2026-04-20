@@ -4,37 +4,62 @@ import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
-const NGROK_URL = process.env.APP_URL || 'https://unmachineable-rosalba-grievingly.ngrok-free.dev';
-const LOCAL_URL = 'https://localhost:8443';
+/**
+ * Detect the origin the user is connecting from.
+ * Used only for post-auth redirect — not for the OAuth callback URI
+ * (that is handled dynamically by the plugin via resolveCallbackUri).
+ */
+function getRequestOrigin(request) {
+	const host = request.headers['x-forwarded-host'] || request.headers['host'] || '';
 
-function getBaseUrl(request) {
-	const host = request.headers['x-forwarded-host'] || request.headers.host || '';
-	return host.includes('ngrok') ? NGROK_URL : LOCAL_URL;
+	if (host.includes('ngrok')) {
+		return process.env.APP_URL || `https://${host}`;
+	}
+
+	const lanIp = process.env.HOST_IP;
+	if (lanIp && host.includes(lanIp)) {
+		return `https://${lanIp}:8443`;
+	}
+
+	return 'https://localhost:8443';
 }
 
 export default async function (fastify, opts) {
 
-	// Custom login route — redirects to Google with the correct redirect_uri for this host
+	// Step 1 — redirect user to Google
 	fastify.get('/google/login', async function (request, reply) {
-		const baseUrl = getBaseUrl(request);
-		const callbackUri = `${baseUrl}/api/auth/google/callback`;
-		const authUri = await fastify.googleOAuth2.generateAuthorizationUri(request, reply, {
-			redirect_uri: callbackUri,
+		const origin = getRequestOrigin(request);
+		const host = request.headers['x-forwarded-host'] || request.headers['host'] || '';
+		console.log('[Google OAuth] login — host:', host, '| origin:', origin);
+
+		// Store the user's origin in a short-lived cookie so we can
+		// redirect them back to the right place after auth completes.
+		reply.setCookie('oauth_origin', origin, {
+			path: '/',
+			httpOnly: true,
+			secure: true,
+			sameSite: 'none',
+			maxAge: 300,
 		});
+
+		// No 3rd argument — v8.1.2 treats a 3rd arg as a callback function.
+		// The callbackUri is resolved dynamically by the plugin (see plugins/oauth.js).
+		const authUri = await fastify.googleOAuth2.generateAuthorizationUri(request, reply);
 		return reply.redirect(authUri);
 	});
 
-	// Google redirects here after user approves
+	// Step 2 — Google redirects back here after user approves
 	fastify.get('/google/callback', async function (request, reply) {
-		const baseUrl = getBaseUrl(request);
+		const redirectOrigin = request.cookies?.oauth_origin || getRequestOrigin(request);
+		reply.clearCookie('oauth_origin', { path: '/' });
 
 		try {
-			// Exchange code for token (uses the registered callbackUri from the plugin)
+			// No 3rd argument — plugin uses the same resolveCallbackUri function
+			// for token exchange, so redirect_uri always matches.
 			const token = await fastify.googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(request, reply);
 
-			// Fetch user info from Google
 			const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-				headers: { Authorization: 'Bearer ' + token.token.access_token }
+				headers: { Authorization: 'Bearer ' + token.token.access_token },
 			});
 			const userData = await userResponse.json();
 
@@ -42,9 +67,8 @@ export default async function (fastify, opts) {
 				return reply.code(400).send({ error: "Google account has no email" });
 			}
 
-			// Find or create user
 			let profile = await prisma.profile.findUnique({
-				where: { email: userData.email }
+				where: { email: userData.email },
 			});
 
 			if (!profile) {
@@ -64,10 +88,10 @@ export default async function (fastify, opts) {
 								avatar: userData.picture || "",
 								dob: null,
 								region: null,
-							}
-						}
+							},
+						},
 					},
-					include: { profile: true }
+					include: { profile: true },
 				});
 
 				profile = newUser.profile;
@@ -75,7 +99,7 @@ export default async function (fastify, opts) {
 
 			const appToken = fastify.jwt.sign(
 				{ userId: profile.id },
-				{ expiresIn: "1h" }
+				{ expiresIn: "1h" },
 			);
 
 			reply.setCookie("token", appToken, {
@@ -86,10 +110,11 @@ export default async function (fastify, opts) {
 				maxAge: 3600,
 			});
 
-			return reply.redirect(`${baseUrl}/dashboard`);
+			return reply.redirect(`${redirectOrigin}/dashboard`);
+
 		} catch (error) {
-			console.error("Google Auth Error: ", error);
-			return reply.code(500).send({ error: "Authentication failed" });
+			console.error("Google Auth Error:", error);
+			return reply.redirect(`${redirectOrigin}/login?error=oauth_failed`);
 		}
 	});
 }
