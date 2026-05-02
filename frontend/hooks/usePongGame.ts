@@ -155,6 +155,11 @@ function isGameOverMessage(data: unknown): data is {
 	return typeof data === "object" && data !== null && (data as { type?: string }).type === "GAME_OVER";
 }
 
+function isLocalControlInput(payload: object) {
+	const type = (payload as { type?: unknown }).type;
+	return type === "START" || type === "PAUSE";
+}
+
 export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isAIEnabled = false }: UsePongGameProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -162,6 +167,8 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 	const onGameOverRef = useRef(onGameOver);
 	const latestGameStateRef = useRef<GameState | null>(null);
 	const heldDirectionsRef = useRef<HeldDirectionState>({ ...EMPTY_HELD_DIRECTIONS });
+	const pendingControlInputRef = useRef<object | null>(null);
+	const reconnectLocalSocketRef = useRef<() => void>(() => {});
 
 	const [localGameState, setLocalGameState] = useState<GameState | null>(null);
 	const [optimisticPaddles, setOptimisticPaddles] =
@@ -222,44 +229,145 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 	}, [matchId, baseCanvasWidth, baseCanvasHeight]);
 
 	useEffect(() => {
-		if (!wsUrl) return;
+		if (!wsUrl) {
+			socketRef.current = null;
+			return;
+		}
 
-		const ws = new WebSocket(wsUrl);
+		let isDisposed = false;
+		let activeSocket: WebSocket | null = null;
+		let reconnectTimer: number | null = null;
 
-		ws.onmessage = (event) => {
-			try {
-				const data = JSON.parse(event.data);
-
-				startTransition(() => {
-					if (isGameOverMessage(data)) {
-						if (onGameOverRef.current) {
-							onGameOverRef.current(data.winner, data.score, data.result || "win");
-						}
-
-						setLocalGameState((prev) =>
-							prev
-								? {
-										...prev,
-										status: "finished",
-										winner: data.winner,
-										score: data.score,
-										result: data.result,
-								  }
-								: null
-						);
-						return;
-					}
-
-					setLocalGameState(data);
-				});
-			} catch (error) {
-				console.error("[usePongGame] WS Parse Error", error);
-			}
+		const clearLocalInputState = () => {
+			heldDirectionsRef.current = { ...EMPTY_HELD_DIRECTIONS };
+			setOptimisticPaddles(EMPTY_OPTIMISTIC_PADDLES);
 		};
 
-		socketRef.current = ws;
+		const shouldReconnect = () =>
+			!isDisposed &&
+			document.visibilityState !== "hidden" &&
+			latestGameStateRef.current?.status !== "finished";
+
+		const clearReconnectTimer = () => {
+			if (reconnectTimer === null) return;
+			window.clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		};
+
+		const sendPendingControlInput = (ws: WebSocket) => {
+			if (socketRef.current !== ws || ws.readyState !== WebSocket.OPEN) return;
+			if (!pendingControlInputRef.current) return;
+
+			const payload = pendingControlInputRef.current;
+			pendingControlInputRef.current = null;
+			ws.send(JSON.stringify(payload));
+		};
+
+		const connect = () => {
+			if (!shouldReconnect()) return;
+
+			const currentSocket = socketRef.current;
+			if (
+				currentSocket?.readyState === WebSocket.OPEN ||
+				currentSocket?.readyState === WebSocket.CONNECTING
+			) {
+				return;
+			}
+
+			const ws = new WebSocket(wsUrl);
+			activeSocket = ws;
+			socketRef.current = ws;
+
+			ws.onopen = () => {
+				sendPendingControlInput(ws);
+			};
+
+			const clearLocalSocket = () => {
+				if (socketRef.current !== ws) return;
+
+				socketRef.current = null;
+				clearLocalInputState();
+			};
+
+			const scheduleReconnect = () => {
+				if (!shouldReconnect() || reconnectTimer !== null) return;
+
+				reconnectTimer = window.setTimeout(() => {
+					reconnectTimer = null;
+					connect();
+				}, 1000);
+			};
+
+			ws.onclose = () => {
+				clearLocalSocket();
+				scheduleReconnect();
+			};
+
+			ws.onerror = () => {
+				clearLocalSocket();
+				if (ws.readyState !== WebSocket.CLOSED && ws.readyState !== WebSocket.CLOSING) {
+					ws.close();
+					return;
+				}
+				scheduleReconnect();
+			};
+
+			ws.onmessage = (event) => {
+				try {
+					const data = JSON.parse(event.data);
+
+					startTransition(() => {
+						if (isGameOverMessage(data)) {
+							clearReconnectTimer();
+							if (onGameOverRef.current) {
+								onGameOverRef.current(data.winner, data.score, data.result || "win");
+							}
+
+							setLocalGameState((prev) =>
+								prev
+									? {
+											...prev,
+											status: "finished",
+											winner: data.winner,
+											score: data.score,
+											result: data.result,
+									  }
+									: null
+							);
+							return;
+						}
+
+						setLocalGameState(data);
+					});
+				} catch (error) {
+					console.error("[usePongGame] WS Parse Error", error);
+				}
+			};
+		};
+
+		const reconnectIfNeeded = () => {
+			if (document.visibilityState === "hidden") return;
+			clearReconnectTimer();
+			connect();
+		};
+
+		reconnectLocalSocketRef.current = reconnectIfNeeded;
+		connect();
+		window.addEventListener("focus", reconnectIfNeeded);
+		document.addEventListener("visibilitychange", reconnectIfNeeded);
+
 		return () => {
-			ws.close();
+			isDisposed = true;
+			reconnectLocalSocketRef.current = () => {};
+			pendingControlInputRef.current = null;
+			clearReconnectTimer();
+			window.removeEventListener("focus", reconnectIfNeeded);
+			document.removeEventListener("visibilitychange", reconnectIfNeeded);
+			if (socketRef.current === activeSocket) {
+				socketRef.current = null;
+			}
+			clearLocalInputState();
+			activeSocket?.close();
 		};
 	}, [wsUrl, matchId]);
 
@@ -271,15 +379,17 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 		if (!wsUrl) return;
 
 		const sendInput = (payload: object) => {
-			if (socketRef.current?.readyState === WebSocket.OPEN) {
-				socketRef.current.send(JSON.stringify(payload));
-				return;
+			const socket = socketRef.current;
+			if (socket?.readyState !== WebSocket.OPEN) {
+				if (isLocalControlInput(payload)) {
+					pendingControlInputRef.current = payload;
+					reconnectLocalSocketRef.current();
+				}
+				return false;
 			}
 
-			console.error(
-				"[usePongGame] WebSocket not ready. Cannot send message.",
-				socketRef.current?.readyState
-			);
+			socket.send(JSON.stringify(payload));
+			return true;
 		};
 
 		const handleKeyDown = (event: KeyboardEvent) => {
@@ -290,12 +400,20 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 				if (movement.player === 2 && isAIEnabled) return;
 				if (heldDirectionsRef.current[movement.player] === movement.direction) return;
 
-				heldDirectionsRef.current[movement.player] = movement.direction;
 				const nextOptimisticY = getNextOptimisticPaddleY(
 					latestGameStateRef.current,
 					movement
 				);
 
+				if (!sendInput({
+					type: "PADDLE_MOVE",
+					direction: movement.direction,
+					player: movement.player,
+				})) {
+					return;
+				}
+
+				heldDirectionsRef.current[movement.player] = movement.direction;
 				setOptimisticPaddles((current) => ({
 					...current,
 					[movement.paddleKey]: {
@@ -304,12 +422,6 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 							latestGameStateRef.current?.paddles[movement.paddleKey].y ?? 0,
 					},
 				}));
-
-				sendInput({
-					type: "PADDLE_MOVE",
-					direction: movement.direction,
-					player: movement.player,
-				});
 				return;
 			}
 
