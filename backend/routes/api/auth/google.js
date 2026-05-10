@@ -82,7 +82,7 @@ export default async function (fastify, opts) {
 				path: "/",
 				secure: true, // for HTTPS 
 				httpOnly: true,
-				sameSite: 'Strict', // Safer settings
+				sameSite: true,
 				maxAge: 3600,
 			});
 

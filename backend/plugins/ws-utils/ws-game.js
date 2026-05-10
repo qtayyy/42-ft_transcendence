@@ -1174,13 +1174,20 @@ export default fp((fastify) => {
    * Start a tournament for all players in the room
    * Notifies all players to navigate to the tournament game page
    */
-  fastify.decorate("startTournament", (roomId, tournamentId) => {
+  fastify.decorate("startTournament", (roomId, tournamentId, actingUserId) => {
     console.log(`[Tournament] START_TOURNAMENT received: roomId=${roomId}, tournamentId=${tournamentId}`);
     const room = fastify.gameRooms.get(roomId);
     if (!room) {
       console.error(`[Tournament] Room NOT FOUND: ${roomId}`);
       console.log(`[Tournament] Available rooms: ${[...fastify.gameRooms.keys()].join(", ")}`);
       throw new Error("Room not found");
+    }
+
+    if (Number(room.hostId) !== Number(actingUserId)) {
+      console.warn(
+        `[Tournament] START_TOURNAMENT rejected: user ${actingUserId} is not host (host=${room.hostId})`,
+      );
+      throw new Error("Only the room host can start the tournament");
     }
     
     console.log(`[Tournament] Room ${roomId} found. Players: ${room.joinedPlayers.length}. tournamentStarted=${room.tournamentStarted}`);

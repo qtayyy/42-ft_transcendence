@@ -1,10 +1,14 @@
 import otplib from "otplib";
 import { PrismaClient } from "../../../generated/prisma/index.js";
+import { authRateLimit } from "../../../utils/auth-rate-limit.js";
 
 const prisma = new PrismaClient();
 
 export default async function (fastify, opts) {
-  fastify.post("/2fa/verify", async (request, reply) => {
+  fastify.post(
+    "/2fa/verify",
+    { config: { rateLimit: authRateLimit.verify2fa } },
+    async (request, reply) => {
     try {
       const { code } = request.body;
       const token = request.cookies.token;
@@ -56,12 +60,14 @@ export default async function (fastify, opts) {
       console.error("2FA verification error:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
-  });
+  },
+  );
 
   fastify.post(
     "/2fa/enable/verify",
     {
       onRequest: [fastify.authenticate],
+      config: { rateLimit: authRateLimit.enable2faVerify },
     },
     async (request, reply) => {
       try {

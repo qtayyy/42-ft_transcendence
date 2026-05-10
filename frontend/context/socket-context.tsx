@@ -401,6 +401,37 @@ export const SocketProvider = ({ children }) => {
 								});
 								break;
 
+							case "GAME_STATE_DENIED": {
+								const deniedMatchId =
+									payload?.matchId != null ? String(payload.matchId) : "";
+								const message =
+									payload?.reason === "not_authorized"
+										? "You cannot view this match (not a player or spectator)."
+										: "Could not load this match.";
+								toast.error(message);
+								window.dispatchEvent(
+									new CustomEvent("gameNotification", {
+										detail: {
+											event: "GAME_STATE_DENIED",
+											message,
+											matchId: deniedMatchId || undefined,
+											reason: payload?.reason,
+										},
+									})
+								);
+								stableDeps.current.setGameState(null);
+								hasActiveGame.current = false;
+								const path = stableDeps.current.pathname || "";
+								if (
+									deniedMatchId &&
+									(path === `/game/${deniedMatchId}` ||
+										path.startsWith(`/game/${deniedMatchId}/`))
+								) {
+									stableDeps.current.router.push("/game/new");
+								}
+								break;
+							}
+
 							case "GAME_OVER":
 								// Dispatch custom event for game page to show results
 								window.dispatchEvent(

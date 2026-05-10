@@ -1,10 +1,14 @@
 import bcrypt from "bcrypt";
 import { PrismaClient } from "../../../generated/prisma/index.js";
+import { authRateLimit } from "../../../utils/auth-rate-limit.js";
 
 const prisma = new PrismaClient();
 
 export default async function (fastify, opts) {
-  fastify.post("/signup", async (request, reply) => {
+  fastify.post(
+    "/signup",
+    { config: { rateLimit: authRateLimit.signup } },
+    async (request, reply) => {
     try {
       const { email, password, fullName } = request.body;
       
@@ -48,5 +52,6 @@ export default async function (fastify, opts) {
       console.error("Error occurred during registration:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
-  });
+  },
+  );
 }

@@ -6,7 +6,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Pass --options via CLI arguments in command to enable these options.
-export const options = {};
+// trustProxy: true - use X-Forwarded-For from Nginx for rate limiting and logs.
+export const options = { trustProxy: true };
 
 export default async function (fastify, opts) {
 
@@ -29,6 +30,12 @@ export default async function (fastify, opts) {
   // Place here your custom code!
   fastify.setErrorHandler((error, request, reply) => {
     console.error(error);
+
+    if (error.statusCode === 429) {
+      return reply
+        .code(429)
+        .send({ error: "Too many requests. Try again later." });
+    }
 
     if (
       error.name === "UnauthorizedError" ||
