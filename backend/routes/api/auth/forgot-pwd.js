@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import { PrismaClient } from "../../../generated/prisma/index.js";
+import { authRateLimit } from "../../../utils/auth-rate-limit.js";
 
 const prisma = new PrismaClient();
 
@@ -24,7 +25,10 @@ const generateOTP = () => {
 
 export default async function (fastify, opts) {
   // Step 1: Request OTP (send to email)
-  fastify.post("/request-reset-otp", async (request, reply) => {
+  fastify.post(
+    "/request-reset-otp",
+    { config: { rateLimit: authRateLimit.forgotRequestOtp } },
+    async (request, reply) => {
     
     try {
       const { email } = request.body;
@@ -97,10 +101,14 @@ export default async function (fastify, opts) {
       console.error("Error in request OTP:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
-  });
+  },
+  );
 
   // Step 2: Verify OTP
-  fastify.post("/verify-reset-otp", async (request, reply) => {
+  fastify.post(
+    "/verify-reset-otp",
+    { config: { rateLimit: authRateLimit.forgotVerifyOtp } },
+    async (request, reply) => {
     try {
       const { email, otp } = request.body;
 
@@ -136,10 +144,14 @@ export default async function (fastify, opts) {
       console.error("Error verifying OTP:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
-  });
+  },
+  );
 
   // Step 3: Reset password with verified OTP
-  fastify.post("/reset-password-with-otp", async (request, reply) => {
+  fastify.post(
+    "/reset-password-with-otp",
+    { config: { rateLimit: authRateLimit.forgotResetPassword } },
+    async (request, reply) => {
     try {
       const { email, otp, newPassword } = request.body;
 
@@ -195,5 +207,6 @@ export default async function (fastify, opts) {
       console.error("Error resetting password:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
-  });
+  },
+  );
 }

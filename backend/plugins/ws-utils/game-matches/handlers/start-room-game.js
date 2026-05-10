@@ -24,8 +24,10 @@ export function createStartRoomGameHandler({
   /**
    * Start a game from a remote room
    * Called when host clicks "Start Game" in the room lobby
+   * @param {string} roomId
+   * @param {number} actingUserId — must be the room host (JWT user)
    */
-  return (roomId) => {
+  return (roomId, actingUserId) => {
     console.log(`🎮 [START_ROOM_GAME] Received request to start room: ${roomId}`);
 
     const room = fastify.gameRooms.get(roomId);
@@ -33,6 +35,13 @@ export function createStartRoomGameHandler({
       console.error(`❌ [START_ROOM_GAME] Room ${roomId} not found!`);
       console.error(`❌ [START_ROOM_GAME] Available rooms:`, Array.from(fastify.gameRooms.keys()));
       throw new Error("Room not found");
+    }
+
+    if (Number(room.hostId) !== Number(actingUserId)) {
+      console.warn(
+        `[START_ROOM_GAME] Rejected: user ${actingUserId} is not host of ${roomId} (host=${room.hostId})`,
+      );
+      throw new Error("Only the room host can start the game");
     }
 
     console.log(`✅ [START_ROOM_GAME] Room found:`, {

@@ -1,13 +1,16 @@
 import bcrypt from "bcrypt";
 import { PrismaClient } from "../../../generated/prisma/index.js";
+import { authRateLimit } from "../../../utils/auth-rate-limit.js";
 
 const prisma = new PrismaClient();
 
 export default async function (fastify, opts) {
-  fastify.post("/password",
+  fastify.post(
+    "/password",
     {
       onRequest: [fastify.authenticate],
-    }, 
+      config: { rateLimit: authRateLimit.changePassword },
+    },
     async (request, reply) => {
     try {
       const { oldPassword, newPassword } = request.body;
@@ -37,5 +40,6 @@ export default async function (fastify, opts) {
       console.error("Error occurred during password change:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
-  });
+  },
+  );
 }
