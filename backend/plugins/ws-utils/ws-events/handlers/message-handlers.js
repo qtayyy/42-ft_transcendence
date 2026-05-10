@@ -6,6 +6,14 @@ It maps incoming event names to the same backend actions previously in switch.
 ===============================================================================
 */
 
+import {
+  assertActorMatchesPayloadId,
+  getProfileUsername,
+  getTournamentMatchForUser,
+  isRoomHost,
+  isTournamentParticipant,
+} from "../ws-auth-guards.js";
+
 export function createWsEventHandlers({
   fastify,
   connection,
@@ -19,89 +27,212 @@ export function createWsEventHandlers({
       safeSend(connection, { event: "PONG" }, userId);
     },
 
-    GET_GAME_ROOM: (payload) => {
-      console.log(
-        `[WS GET_GAME_ROOM] Request from userId: ${payload.userId} (type: ${typeof payload.userId})`,
-      );
-      fastify.sendGameRoom(payload.userId);
+    GET_GAME_ROOM: () => {
+      fastify.sendGameRoom(userId);
     },
 
     SEND_GAME_INVITE: (payload) => {
-      fastify.sendGameInvite(
-        payload.roomId,
-        payload.hostId,
-        payload.hostUsername,
-        payload.friendId,
-        payload.friendUsername,
-      );
+      (async () => {
+        try {
+          if (
+            !assertActorMatchesPayloadId(
+              userId,
+              payload.hostId,
+              "SEND_GAME_INVITE host",
+            )
+          ) {
+            return;
+          }
+          if (!isRoomHost(fastify, payload.roomId, userId)) {
+            console.warn("[WS] SEND_GAME_INVITE rejected: not room host");
+            return;
+          }
+          const hostUsername = await getProfileUsername(prisma, userId);
+          const friendUsername = await getProfileUsername(
+            prisma,
+            Number(payload.friendId),
+          );
+          fastify.sendGameInvite(
+            payload.roomId,
+            userId,
+            hostUsername,
+            payload.friendId,
+            friendUsername,
+          );
+        } catch (err) {
+          console.error("[WS] SEND_GAME_INVITE failed:", err.message);
+          safeSend(
+            connection,
+            { event: "GAME_INVITE_ERROR", error: err.message || "Invite failed" },
+            userId,
+          );
+        }
+      })();
     },
 
     CANCEL_GAME_INVITE: (payload) => {
-      fastify.cancelGameInvite(
-        payload.roomId,
-        payload.hostId,
-        payload.inviteeId,
-      );
+      try {
+        if (
+          !assertActorMatchesPayloadId(
+            userId,
+            payload.hostId,
+            "CANCEL_GAME_INVITE host",
+          )
+        ) {
+          return;
+        }
+        fastify.cancelGameInvite(
+          payload.roomId,
+          userId,
+          payload.inviteeId,
+        );
+      } catch (err) {
+        console.error("[WS] CANCEL_GAME_INVITE failed:", err.message);
+      }
     },
 
     RESPOND_INVITE: (payload) => {
-      fastify.respondInvite(
-        payload.response,
-        payload.roomId,
-        payload.hostId,
-        payload.inviteeId,
-        payload.inviteeUsername,
-      );
+      (async () => {
+        try {
+          if (
+            !assertActorMatchesPayloadId(
+              userId,
+              payload.inviteeId,
+              "RESPOND_INVITE invitee",
+            )
+          ) {
+            return;
+          }
+          const room = fastify.gameRooms.get(payload.roomId);
+          if (!room || Number(room.hostId) !== Number(payload.hostId)) {
+            console.warn("[WS] RESPOND_INVITE rejected: host/room mismatch");
+            return;
+          }
+          const inviteeUsername = await getProfileUsername(prisma, userId);
+          fastify.respondInvite(
+            payload.response,
+            payload.roomId,
+            payload.hostId,
+            userId,
+            inviteeUsername,
+          );
+        } catch (err) {
+          console.error("[WS] RESPOND_INVITE failed:", err.message);
+        }
+      })();
     },
 
     JOIN_ROOM_BY_CODE: (payload) => {
-      fastify.joinRoomByCode(payload.roomId, payload.userId, payload.username);
+      (async () => {
+        try {
+          const username = await getProfileUsername(prisma, userId);
+          fastify.joinRoomByCode(payload.roomId, userId, username);
+        } catch (err) {
+          console.error("[WS] JOIN_ROOM_BY_CODE failed:", err.message);
+        }
+      })();
     },
 
     START_TOURNAMENT: (payload) => {
-      fastify.startTournament(payload.roomId, payload.tournamentId);
+      try {
+        fastify.startTournament(
+          payload.roomId,
+          payload.tournamentId,
+          userId,
+        );
+      } catch (err) {
+        console.error("[WS] START_TOURNAMENT failed:", err.message);
+      }
     },
 
     START_TOURNAMENT_MATCH: (payload) => {
-      fastify.startTournamentMatch(
-        payload.matchId,
+      const ctx = getTournamentMatchForUser(
+        fastify,
         payload.tournamentId,
-        payload.player1Id,
-        payload.player1Name,
-        payload.player2Id,
-        payload.player2Name,
+        payload.matchId,
+        userId,
+      );
+      if (!ctx) {
+        console.warn("[WS] START_TOURNAMENT_MATCH rejected");
+        return;
+      }
+      const { match } = ctx;
+      if (!match.player2) return;
+      fastify.startTournamentMatch(
+        match.matchId,
+        match.tournamentId,
+        match.player1.id,
+        match.player1.username || match.player1.name,
+        match.player2.id,
+        match.player2.username || match.player2.name,
       );
     },
 
     PLAYER_LOBBY_READY: (payload) => {
-      fastify.handleLobbyReady(payload.tournamentId, payload.matchId, payload.userId);
+      fastify.handleLobbyReady(payload.tournamentId, payload.matchId, userId);
     },
 
     REMATCH: (payload) => {
-      fastify.startRematch(
-        payload.player1Id,
-        payload.player1Username,
-        payload.player2Id,
-        payload.player2Username,
-      );
+      (async () => {
+        const p1 = Number(payload.player1Id);
+        const p2 = Number(payload.player2Id);
+        if (!p1 || !p2 || p1 === p2) return;
+        if (userId !== p1 && userId !== p2) {
+          console.warn("[WS] REMATCH rejected: socket user not a declared player");
+          return;
+        }
+        const otherId = userId === p1 ? p2 : p1;
+        const friendship = await prisma.friendship.findFirst({
+          where: {
+            status: "ACCEPTED",
+            OR: [
+              { requesterId: userId, addresseeId: otherId },
+              { requesterId: otherId, addresseeId: userId },
+            ],
+          },
+        });
+        if (!friendship) {
+          console.warn("[WS] REMATCH rejected: players are not friends");
+          safeSend(
+            connection,
+            {
+              event: "REMATCH_FAILED",
+              payload: { reason: "Rematch not allowed" },
+            },
+            userId,
+          );
+          return;
+        }
+        const name1 = await getProfileUsername(prisma, p1);
+        const name2 = await getProfileUsername(prisma, p2);
+        fastify.startRematch(p1, name1, p2, name2);
+      })();
     },
 
     LEAVE_GAME: (payload) => {
-      // Notify opponent that this player left
-      const opponentSocket = fastify.onlineUsers.get(Number(payload.opponentId));
+      const matchId = payload?.matchId;
+      if (!matchId) return;
+      const state = fastify.gameStates?.get(matchId);
+      if (!state || state.gameOver) return;
+      const uid = Number(userId);
+      const leftId = Number(state.leftPlayer?.id);
+      const rightId = Number(state.rightPlayer?.id);
+      if (uid !== leftId && uid !== rightId) return;
+      const opponentId = uid === leftId ? rightId : leftId;
+      const opponentSocket = fastify.onlineUsers.get(opponentId);
       if (opponentSocket) {
         safeSend(
           opponentSocket,
           {
             event: "OPPONENT_LEFT",
           },
-          payload.opponentId,
+          opponentId,
         );
       }
     },
 
     LEAVE_ROOM: (payload) => {
-      fastify.leaveRoom(payload.roomId, payload.userId);
+      fastify.leaveRoom(payload.roomId, userId);
     },
 
     FORCE_CLEANUP: () => {
@@ -149,19 +280,17 @@ export function createWsEventHandlers({
     },
 
     PLAYER_NAVIGATING_AWAY: (payload) => {
-      // Player is navigating away from game page - treat as disconnect
       console.log(
-        `[Navigate Away] User ${payload.userId} navigating away from match ${payload.matchId}`,
+        `[Navigate Away] User ${userId} navigating away from match ${payload.matchId}`,
       );
-      fastify.handlePlayerNavigatingAway(payload.matchId, payload.userId);
+      fastify.handlePlayerNavigatingAway(payload.matchId, userId);
     },
 
     PLAYER_RECONNECTING: (payload) => {
-      // Player returned to game page - handle reconnection
       console.log(
-        `[Reconnect] User ${payload.userId} reconnecting to match ${payload.matchId}`,
+        `[Reconnect] User ${userId} reconnecting to match ${payload.matchId}`,
       );
-      fastify.handlePlayerReconnecting(payload.matchId, payload.userId);
+      fastify.handlePlayerReconnecting(payload.matchId, userId);
     },
 
     CHAT_MESSAGE: (payload) => {
@@ -306,29 +435,40 @@ export function createWsEventHandlers({
     },
 
     TYPING_INDICATOR: (payload) => {
-      // Handle typing indicator
-      const recipientId = parseInt(payload.recipientId);
-      const isTyping = payload.isTyping;
+      (async () => {
+        const recipientId = parseInt(payload.recipientId);
+        const isTyping = payload.isTyping;
 
-      if (!recipientId || isNaN(recipientId)) {
-        return;
-      }
+        if (!recipientId || isNaN(recipientId)) {
+          return;
+        }
 
-      // Send typing indicator to recipient if online
-      const recipientSocket = fastify.onlineUsers.get(Number(recipientId));
-      if (recipientSocket) {
-        safeSend(
-          recipientSocket,
-          {
-            event: "TYPING_INDICATOR",
-            payload: {
-              userId: userId,
-              isTyping: isTyping,
-            },
+        const friendship = await prisma.friendship.findFirst({
+          where: {
+            status: "ACCEPTED",
+            OR: [
+              { requesterId: userId, addresseeId: recipientId },
+              { requesterId: recipientId, addresseeId: userId },
+            ],
           },
-          recipientId,
-        );
-      }
+        });
+        if (!friendship) return;
+
+        const recipientSocket = fastify.onlineUsers.get(Number(recipientId));
+        if (recipientSocket) {
+          safeSend(
+            recipientSocket,
+            {
+              event: "TYPING_INDICATOR",
+              payload: {
+                userId: userId,
+                isTyping: isTyping,
+              },
+            },
+            recipientId,
+          );
+        }
+      })();
     },
 
     MESSAGE_READ: (payload) => {
@@ -508,59 +648,77 @@ export function createWsEventHandlers({
     },
 
     JOIN_MATCHMAKING: (payload) => {
-      fastify.joinMatchmaking(payload.userId, payload.username, payload.mode);
+      (async () => {
+        const username = await getProfileUsername(prisma, userId);
+        fastify.joinMatchmaking(userId, username, payload.mode);
+      })();
     },
 
-    LEAVE_MATCHMAKING: (payload) => {
-      fastify.leaveMatchmaking(payload.userId);
+    LEAVE_MATCHMAKING: () => {
+      fastify.leaveMatchmaking(userId);
     },
 
     START_ROOM_GAME: (payload) => {
-      fastify.startRoomGame(payload.roomId);
-    },
-
-    SET_PLAYER_READY: (payload) => {
-      // Set player ready state in tournament
-      if (fastify.activeTournaments && payload.tournamentId) {
-        const tournament = fastify.activeTournaments.get(payload.tournamentId);
-        if (tournament) {
-          tournament.playerReadyStates.set(payload.userId, payload.isReady);
-          console.log(
-            `[Tournament] Player ${payload.userId} ready state: ${payload.isReady}`,
-          );
-        }
+      try {
+        fastify.startRoomGame(payload.roomId, userId);
+      } catch (err) {
+        console.error("[WS] START_ROOM_GAME failed:", err.message);
       }
     },
 
-    GET_PLAYER_READY: (payload) => {
-      // Get player ready state from tournament
-      if (fastify.activeTournaments && payload.tournamentId) {
-        const tournament = fastify.activeTournaments.get(payload.tournamentId);
-        const isReady =
-          tournament?.playerReadyStates.get(Number(payload.userId)) || false;
-        const socket = fastify.onlineUsers.get(Number(userId));
-        safeSend(
-          socket,
-          {
-            event: "PLAYER_READY_STATE",
-            payload: { userId: Number(payload.userId), isReady },
-          },
-          Number(userId),
+    SET_PLAYER_READY: (payload) => {
+      if (!fastify.activeTournaments || !payload.tournamentId) return;
+      if (!isTournamentParticipant(fastify, payload.tournamentId, userId)) {
+        console.warn("[WS] SET_PLAYER_READY rejected: not a tournament participant");
+        return;
+      }
+      const tournament = fastify.activeTournaments.get(payload.tournamentId);
+      if (tournament) {
+        tournament.playerReadyStates.set(userId, payload.isReady);
+        console.log(
+          `[Tournament] Player ${userId} ready state: ${payload.isReady}`,
         );
       }
     },
 
+    GET_PLAYER_READY: (payload) => {
+      if (!fastify.activeTournaments || !payload.tournamentId) return;
+      const tournament = fastify.activeTournaments.get(payload.tournamentId);
+      if (!tournament) return;
+      const queryId = Number(payload.userId);
+      if (
+        !isTournamentParticipant(fastify, payload.tournamentId, userId) ||
+        !tournament.players.some((p) => Number(p.id) === queryId)
+      ) {
+        console.warn("[WS] GET_PLAYER_READY rejected");
+        return;
+      }
+      const isReady =
+        tournament.playerReadyStates.get(queryId) || false;
+      const socket = fastify.onlineUsers.get(Number(userId));
+      safeSend(
+        socket,
+        {
+          event: "PLAYER_READY_STATE",
+          payload: { userId: queryId, isReady },
+        },
+        Number(userId),
+      );
+    },
+
     VIEW_MATCH: (payload) => {
-      // Subscribe user to match as spectator
       if (payload.matchId && fastify.matchSpectators) {
         const { matchId } = payload;
+        if (!fastify.gameStates?.has(matchId)) {
+          console.warn("[WS] VIEW_MATCH rejected: no active match");
+          return;
+        }
         if (!fastify.matchSpectators.has(matchId)) {
           fastify.matchSpectators.set(matchId, new Set());
         }
         fastify.matchSpectators.get(matchId).add(userId);
         console.log(`[Spectator] User ${userId} viewing match ${matchId}`);
 
-        // Send current game state immediately
         const gameState = fastify.gameStates.get(matchId);
         if (gameState) {
           const socket = fastify.onlineUsers.get(Number(userId));

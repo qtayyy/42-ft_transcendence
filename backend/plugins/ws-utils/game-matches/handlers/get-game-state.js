@@ -21,11 +21,21 @@ export function createGetGameStateHandler({ fastify, safeSend, serializeGameStat
     const isSpectator = fastify.matchSpectators?.get(matchId)?.has(Number(userId));
 
     if (!isPlayer && !isSpectator) {
-      // Optional: check if user is admin or just allow it?
-      // For now, let's allow it but log it
-      console.log(
-        `[getGameState] User ${userId} requested state for ${matchId} but is not player/spectator`,
+      console.warn(
+        `[getGameState] Denied: user ${userId} is not a player or spectator for ${matchId}`,
       );
+      const socket = fastify.onlineUsers.get(Number(userId));
+      if (socket) {
+        safeSend(
+          socket,
+          {
+            event: "GAME_STATE_DENIED",
+            payload: { matchId, reason: "not_authorized" },
+          },
+          Number(userId),
+        );
+      }
+      return;
     }
 
     const socket = fastify.onlineUsers.get(Number(userId));
@@ -40,6 +50,7 @@ export function createGetGameStateHandler({ fastify, safeSend, serializeGameStat
               String(gameState.leftPlayer?.id) === String(userId)
                 ? "LEFT"
                 : "RIGHT",
+            ...(isSpectator && !isPlayer ? { spectatorMode: true } : {}),
           },
         },
         Number(userId),
