@@ -32,7 +32,7 @@ flowchart LR
 
   SPA -->|HTTPS| TLS
   TLS -->|"/"| FE
-  TLS -->|"/api/", "/uploads/", "/ws"| BE
+  TLS -->|/api/, /uploads/, /ws| BE
   BE --> DB
   BE --> FS
 ```
