@@ -305,6 +305,7 @@ class TournamentManager {
     if (Number(match.player1.id) === uid) match.p1Ready = true;
     else if (match.player2 && Number(match.player2.id) === uid)
       match.p2Ready = true;
+    else return { success: false };
 
     // Check if both are ready (or if bye)
     const allReady = match.p1Ready && (match.player2 ? match.p2Ready : true);

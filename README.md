@@ -11,6 +11,32 @@ A full-stack multiplayer Pong web application built as the final project of the 
 | Auth | JWT, Google OAuth2, 2FA (TOTP) |
 | Infra | Docker Compose, Nginx (HTTPS reverse proxy) |
 
+## Architecture
+
+The app runs as three Docker services on a private bridge network (`capybara`). TLS terminates at Nginx; the browser only talks to Nginx on port **8443** (HTTPS/WSS).
+
+```mermaid
+flowchart LR
+  subgraph client [Browser]
+    SPA[Next.js SPA]
+  end
+  subgraph edge [Nginx :443]
+    TLS[TLS termination]
+  end
+  subgraph compose [Docker Compose]
+    FE[frontend :3000]
+    BE[backend :3001]
+  end
+  DB[(SQLite / Prisma\n./data volume)]
+  FS[Uploads\n./uploads volume]
+
+  SPA -->|HTTPS| TLS
+  TLS -->|"/"| FE
+  TLS -->|/api/, /uploads/, /ws| BE
+  BE --> DB
+  BE --> FS
+```
+
 ## Features
 
 - **Pong Game** — real-time multiplayer with local, remote, and AI modes
@@ -37,7 +63,7 @@ A full-stack multiplayer Pong web application built as the final project of the 
 2. Create the backend environment file:
    ```bash
    cp backend/.env.example backend/.env
-   # Fill in JWT_SECRET, Google OAuth credentials, and email credentials
+   # Fill in JWT_SECRET, TEMP_JWT_SECRET, Google OAuth credentials, and email credentials
    ```
 
 3. Build and run:

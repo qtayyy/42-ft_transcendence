@@ -1,6 +1,5 @@
 import fp from 'fastify-plugin';
 import oauth2 from '@fastify/oauth2';
-import fastify from 'fastify';
 
 // Plugin : OAuth2 Configuration
 // Register plugin so Fastify knows how to talk to Google

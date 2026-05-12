@@ -64,8 +64,9 @@ export default function JoinRoomPage() {
 		const roomIdParam = searchParams.get("roomId");
 		const isMatchmaking = searchParams.get("matchmaking") === "true";
 		const isInviteFlow = searchParams.get("invite") === "true";
+		const shouldAutoJoin = Boolean(roomIdParam) && (isMatchmaking || isInviteFlow);
 
-		if (roomIdParam && isMatchmaking && user && !joined && !joining && !hasAttemptedAutoJoin.current) {
+		if (shouldAutoJoin && roomIdParam && user && !joined && !joining && !hasAttemptedAutoJoin.current) {
 			if (!isReady) {
 				setRoomCode(roomIdParam);
 				setPendingJoin(true);
@@ -73,7 +74,7 @@ export default function JoinRoomPage() {
 				return;
 			}
 
-			console.log("[JoinRoom] Auto-joining matched room:", roomIdParam);
+			console.log("[JoinRoom] Auto-joining room:", roomIdParam);
 			hasAttemptedAutoJoin.current = true;
 			setRoomCode(roomIdParam);
 			attemptJoin(roomIdParam);
