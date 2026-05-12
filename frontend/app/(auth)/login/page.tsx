@@ -20,12 +20,8 @@ const GOOGLE_AUTH_URL =
 export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const { login } = useAuth();
   const { t } = useLanguage();
-
-  const bothAgreed = agreedToTerms && agreedToPrivacy;
 
   const fields = [
     { name: "email", label: t["Login & Sign up"].Email, type: "email" },
@@ -40,11 +36,6 @@ export default function LoginPage() {
 
     const email = (data.email || "").toString().trim();
     const password = (data.password || "").toString().trim();
-
-    if (!agreedToTerms || !agreedToPrivacy) {
-      setErrorMessage("You must agree to the Terms of Service and Privacy Policy.");
-      return;
-    }
 
     if (!email || !password) {
       setErrorMessage("Please fill in all required fields.");
@@ -112,42 +103,8 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        {/* 1b. Terms & Privacy checkboxes */}
-        <div className="flex flex-col gap-2 text-sm">
-          <label className="flex items-start gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              className="mt-0.5 h-4 w-4 rounded border accent-primary cursor-pointer"
-              checked={agreedToTerms}
-              onChange={(e) => setAgreedToTerms(e.target.checked)}
-            />
-            <span className="text-muted-foreground leading-snug">
-              {t["Login & Sign up"]["agree prefix"]}
-              <Link href="/terms-of-service" target="_blank" className="underline hover:text-foreground">
-                {t["Login & Sign up"]["Terms of Service"]}
-              </Link>
-              {t["Login & Sign up"]["agree suffix"]}
-            </span>
-          </label>
-          <label className="flex items-start gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              className="mt-0.5 h-4 w-4 rounded border accent-primary cursor-pointer"
-              checked={agreedToPrivacy}
-              onChange={(e) => setAgreedToPrivacy(e.target.checked)}
-            />
-            <span className="text-muted-foreground leading-snug">
-              {t["Login & Sign up"]["agree prefix"]}
-              <Link href="/privacy-policy" target="_blank" className="underline hover:text-foreground">
-                {t["Login & Sign up"]["Privacy Policy"]}
-              </Link>
-              {t["Login & Sign up"]["agree suffix"]}
-            </span>
-          </label>
-        </div>
-
         {/* 2. Login Button */}
-        <Button className="w-full" type="submit" disabled={!bothAgreed}>
+        <Button className="w-full" type="submit">
           {t["Login & Sign up"].Login}
         </Button>
 
@@ -169,9 +126,7 @@ export default function LoginPage() {
           type="button"
           className="w-full flex items-center justify-center gap-2 h-10"
           aria-label={`${t["Login & Sign up"]["Login with Google"]}`}
-          disabled={!bothAgreed}
           onClick={() => {
-            if (!bothAgreed) return;
             window.location.href = GOOGLE_AUTH_URL;
           }}
         >
