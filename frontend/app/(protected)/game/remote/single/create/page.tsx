@@ -21,7 +21,8 @@ export default function CreateRoomPage() {
 	const { sendSocketMessage, isReady, reconnectSocket } = useSocket();
 	const { gameRoom, onlineFriends } = useGame();
 	const { t } = useLanguage();
-	const [roomId, setRoomId] = useState<string | null>(null);
+	const requestedRoomId = searchParams.get("roomId");
+	const [roomId, setRoomId] = useState<string | null>(requestedRoomId);
 	const [copied, setCopied] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -110,7 +111,7 @@ export default function CreateRoomPage() {
 
 			// If we already have a gameRoom (e.g. from matchmaking host redirect), uses that
 			if (gameRoom && gameRoom.hostId === Number(user?.id)) {
-				setRoomId(gameRoom.roomId);
+				if (gameRoom.roomId) setRoomId(gameRoom.roomId);
 				return;
 			}
 
@@ -132,7 +133,7 @@ export default function CreateRoomPage() {
 			}
 		};
 		createRoom();
-	}, [user, gameRoom, isMatchmakingMode]);
+	}, [user, gameRoom, isMatchmakingMode, roomId, t.Game, router, creating]);
 
 	// Poll for room updates every 2 seconds
 	useEffect(() => {

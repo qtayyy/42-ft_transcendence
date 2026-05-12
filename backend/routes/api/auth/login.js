@@ -1,10 +1,14 @@
 import bcrypt from "bcrypt";
 import { PrismaClient } from "../../../generated/prisma/index.js";
+import { authRateLimit } from "../../../utils/auth-rate-limit.js";
 
 const prisma = new PrismaClient();
 
 export default async function (fastify, opts) {
-  fastify.post("/login", async (request, reply) => {
+  fastify.post(
+    "/login",
+    { config: { rateLimit: authRateLimit.login } },
+    async (request, reply) => {
     try {
       const { email, password } = request.body;
       const pepper = process.env.SECURITY_PEPPER;
@@ -78,5 +82,6 @@ export default async function (fastify, opts) {
       console.error("Error occurred during login:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
-  });
+  },
+  );
 }

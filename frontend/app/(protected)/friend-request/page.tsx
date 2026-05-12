@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { Users, UserPlus, MessageCircle, Check, X, Search, UserMinus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import SearchBar from "@/components/search-bar";
 import {
   Dialog,
@@ -113,7 +114,7 @@ export default function FriendRequestsPage() {
       setRemoveFriendTarget(null);
     } catch (error: any) {
       const backendError = error.response?.data?.error;
-      alert(backendError || "Failed to remove friend. Please try again.");
+      toast.error(backendError || "Failed to remove friend. Please try again.");
     }
   };
 
@@ -125,7 +126,7 @@ export default function FriendRequestsPage() {
       setDialogOpen(true);
     } catch (error: any) {
       const backendError = error.response?.data?.error;
-      alert(backendError || "Something went wrong. Please try again later.");
+      toast.error(backendError || "Something went wrong. Please try again later.");
     }
   };
 
@@ -135,12 +136,12 @@ export default function FriendRequestsPage() {
         username: userFound,
       });
       setDialogOpen(false);
-      alert(res.data.message);
+      toast.success(res.data.message ?? "Friend request sent.");
       // Refresh pending requests to show the new request if accepted immediately
       await fetchRequests();
     } catch (error: any) {
       const backendError = error.response?.data?.error;
-      alert(backendError || "Something went wrong. Please try again later.");
+      toast.error(backendError || "Something went wrong. Please try again later.");
     }
   };
 

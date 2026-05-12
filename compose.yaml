@@ -44,8 +44,6 @@ services:
     volumes:
       - ./data:/data
       - ./uploads:/app/uploads
-    ports:
-      - 3001:3001
     develop:
       watch:
         - path: ./backend/package.json
