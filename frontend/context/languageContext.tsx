@@ -15,38 +15,39 @@ type LanguageContextType = {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  // Initialize with default language ('en'), then load user's saved preference if it exists
-  const [locale, setLocaleState] = useState<Locale>(defaultLocale);
-  const [isMounted, setIsMounted] = useState(false);
+export function LanguageProvider({
+  children,
+  initialLocale = defaultLocale,
+}: {
+  children: React.ReactNode;
+  initialLocale?: Locale;
+}) {
+  // initialLocale comes from the server (cookie) so server and client start in sync
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
 
-  // Load user's saved language preference from localStorage on mount
+  // On first mount, sync from localStorage for backward compatibility
+  // (handles users who set a locale before the cookie was introduced)
   useEffect(() => {
-    setIsMounted(true);
-    if (typeof window !== 'undefined') {
-      const savedLocale = localStorage.getItem('locale') as Locale;
-      if (savedLocale && translations[savedLocale]) {
-        setLocaleState(savedLocale);
-      }
+    const savedLocale = localStorage.getItem('locale') as Locale;
+    if (savedLocale && translations[savedLocale]) {
+      setLocaleState(savedLocale);
+      document.cookie = `locale=${savedLocale}; path=/; max-age=31536000; SameSite=Lax`;
+      document.documentElement.lang = savedLocale;
     }
   }, []);
 
   const setLocale = (newLocale: Locale) => {
     setLocaleState(newLocale);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('locale', newLocale);
-      // Update HTML lang attribute
-      document.documentElement.lang = newLocale;
-    }
+    localStorage.setItem('locale', newLocale);
+    // Write to cookie so the server can render the correct locale on next request
+    document.cookie = `locale=${newLocale}; path=/; max-age=31536000; SameSite=Lax`;
+    document.documentElement.lang = newLocale;
   };
 
-  // Use default locale until mounted to prevent hydration mismatch
-  // After mount, use the saved locale from localStorage
-  const activeLocale = isMounted ? locale : defaultLocale;
-  const t = (translations[activeLocale] || translations[defaultLocale]) as TranslationKeys;
+  const t = (translations[locale] || translations[defaultLocale]) as TranslationKeys;
 
   return (
-    <LanguageContext.Provider value={{ locale: activeLocale, setLocale, t }}>
+    <LanguageContext.Provider value={{ locale, setLocale, t }}>
       {children}
     </LanguageContext.Provider>
   );

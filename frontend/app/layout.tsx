@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Inter } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/context/authContext";
@@ -12,6 +13,8 @@ import { Toaster } from "@/components/ui/sonner";
 import GameInviteDialog from "@/components/game-invite-dialog";
 import { ReconnectionManager } from "@/components/game/reconnection-manager";
 import { NavigationGuard } from "@/components/game/navigation-guard";
+import { translations } from "@/lib/i18n/translations";
+import { defaultLocale, type Locale } from "@/lib/i18n/locales";
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -23,11 +26,15 @@ export const metadata = {
   description: "42-ft_transcendence-capybara",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+  const cookieLocale = cookieStore.get('locale')?.value as Locale | undefined;
+  const initialLocale = (cookieLocale && translations[cookieLocale]) ? cookieLocale : defaultLocale;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -39,7 +46,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <LanguageProvider>
+          <LanguageProvider initialLocale={initialLocale}>
             <Suspense fallback={null}>
               <AuthProvider>
                 <GameProvider>
