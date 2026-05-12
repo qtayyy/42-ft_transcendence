@@ -13,7 +13,11 @@
     "Login with Google": "Log Masuk dengan Google",
     "Create an account to start playing!": "Bina akaun untuk mula bermain!",
     "back to login": "kembali ke log masuk",
-    "Full Name": "Nama Penuh"
+    "Full Name": "Nama Penuh",
+    "agree prefix": "Saya bersetuju dengan ",
+    "agree suffix": "",
+    "Terms of Service": "Terma Perkhidmatan",
+    "Privacy Policy": "Dasar Privasi"
   },
   "Dashboard": {
     "Dashboard": "Papan Pemuka",
@@ -82,7 +86,6 @@
     "Remote Tournament": "Kejohanan Jauh",
     "vs AI": "lawan AI",
     "Hide Filters & Export": "Sembunyikan Penapis & Eksport",
-
     "Analytics Controls": "Kawalan Analitik",
     "Custom date range and filters for dashboard stats, with CSV/PDF export.": "Julat tarikh dan penapis tersuai untuk statistik papan pemuka, dengan eksport CSV/PDF.",
     "From": "Dari",
@@ -274,7 +277,7 @@
     "Online 1v1 Duel": "Duel 1v1 Dalam Talian",
     "Create, join, or quick match": "Cipta, sertai, atau perlawanan pantas",
     "Online Bracket": "Kurungan Dalam Talian",
-    "3-8 Players \u2022 Online Competition": "3-8 Pemain \u2022 Pertandingan Dalam Talian",
+    "3-8 Players • Online Competition": "3-8 Pemain • Pertandingan Dalam Talian",
     "Local Tournament ": "Kejohanan Tempatan",
     "Setup a brackert elimination tournament for 3-8 players": "Sediakan kejohanan penyingkiran kurungan untuk 3-8 pemain",
     "Setup a bracket elimination for 3-8 players": "Sediakan penyingkiran kurungan untuk 3-8 pemain",
@@ -376,13 +379,34 @@
     "Loading achievements...": "Memuatkan pencapaian...",
     "achievements": "pencapaian",
     "AchievementDefs": {
-      "FIRST_WIN": { "name": "Darah Pertama", "description": "Menang perlawanan pertama anda" },
-      "LEVEL_5": { "name": "Bintang Muda", "description": "Capai tahap 5" },
-      "LEVEL_10": { "name": "Pemain Legenda", "description": "Capai tahap 10" },
-      "TOTAL_WINS_10": { "name": "Pengumpul", "description": "Kumpulkan 10 kemenangan" },
-      "TOTAL_WINS_50": { "name": "Juara", "description": "Kumpulkan 50 kemenangan" },
-      "DRAW_MATCH": { "name": "Seri", "description": "Main perlawanan seri" },
-      "TOURNAMENT_WIN": { "name": "Pemenang Kejohanan", "description": "Menang kejohanan" }
+      "FIRST_WIN": {
+        "name": "Darah Pertama",
+        "description": "Menang perlawanan pertama anda"
+      },
+      "LEVEL_5": {
+        "name": "Bintang Muda",
+        "description": "Capai tahap 5"
+      },
+      "LEVEL_10": {
+        "name": "Pemain Legenda",
+        "description": "Capai tahap 10"
+      },
+      "TOTAL_WINS_10": {
+        "name": "Pengumpul",
+        "description": "Kumpulkan 10 kemenangan"
+      },
+      "TOTAL_WINS_50": {
+        "name": "Juara",
+        "description": "Kumpulkan 50 kemenangan"
+      },
+      "DRAW_MATCH": {
+        "name": "Seri",
+        "description": "Main perlawanan seri"
+      },
+      "TOURNAMENT_WIN": {
+        "name": "Pemenang Kejohanan",
+        "description": "Menang kejohanan"
+      }
     }
   },
   "ResetPassword": {
@@ -416,5 +440,77 @@
     "Please provide a 6-digit verification code.": "Sila berikan kod pengesahan 6 digit.",
     "2FA Code": "Kod 2FA",
     "Error": "Ralat"
+  },
+  "Privacy Policy": {
+    "title": "Dasar Privasi",
+    "last updated": "Kemaskini terakhir:",
+    "1 title": "1. Tentang Kami",
+    "1 body": "ft_transcendence ialah projek akademik yang dibina oleh pelajar 42 KL. Ia bukan perkhidmatan komersial. Platform ini dikendalikan secara tempatan oleh pasukan untuk tujuan pendidikan dan penilaian sahaja.",
+    "2 title": "2. Maklumat Yang Kami Kumpul",
+    "account label": "Akaun:",
+    "account body": "alamat e-mel, nama pengguna, kata laluan yang telah dihash (bcrypt), dan gambar avatar pilihan yang anda muat naik.",
+    "google label": "Log Masuk Google (pilihan):",
+    "google body": "jika anda memilih untuk masuk dengan Google, kami menerima alamat e-mel dan nama paparan akaun Google anda melalui OAuth. Kami tidak menerima kata laluan Google anda atau sebarang data akaun Google lain di luar keperluan untuk mencipta dan mengenal pasti akaun anda.",
+    "profile label": "Profil:",
+    "profile body": "nama paparan dan bio pilihan yang anda berikan.",
+    "gameplay label": "Permainan:",
+    "gameplay body": "sejarah perlawanan (lawan, markah, tarikh) dan rekod penyertaan kejohanan.",
+    "chat label": "Sembang:",
+    "chat body": "mesej yang anda hantar dalam bilik sembang dan mesej terus, disimpan untuk memaparkan sejarah perbualan.",
+    "activity label": "Aktiviti:",
+    "activity body": "cap waktu log masuk dan bilangan permainan harian yang dimainkan dan mesej yang dihantar, digunakan untuk papan pemuka aktiviti anda.",
+    "session label": "Sesi:",
+    "session body": "Token Web JSON jangka pendek yang disimpan dalam pelayar anda untuk mengekalkan log masuk anda.",
+    "3 title": "3. Maklumat Yang Tidak Kami Kumpul",
+    "3 item1": "Kami tidak mengumpul nombor telefon, maklumat pembayaran, geolokasi IP, atau sebarang pengecam penjejakan pihak ketiga.",
+    "3 item2": "Kami tidak menggunakan kuki iklan atau penjejak analitik pihak ketiga.",
+    "3 item3": "Kami tidak menyimpan sebarang data daripada akaun Google anda di luar alamat e-mel dan nama paparan yang diberikan semasa log masuk OAuth.",
+    "4 title": "4. Cara Kami Menggunakan Data Anda",
+    "4 body": "Data anda digunakan semata-mata untuk mengendalikan platform: mengesahkan identiti anda, memaparkan profil anda, menghantar mesej masa nyata dan acara permainan, serta mengira statistik yang ditunjukkan pada papan pemuka anda. Tiada data digunakan untuk pemasaran atau pemprofilan.",
+    "5 title": "5. Perkongsian Data",
+    "5 body": "Kami tidak menjual, menyewa, atau berkongsi data anda dengan pihak ketiga. Pengguna berdaftar lain pada contoh yang sama boleh melihat profil awam anda (nama pengguna, avatar, nama paparan, sejarah perlawanan, dan mana-mana mesej yang anda hantar dalam bilik bersama).",
+    "6 title": "6. Penyimpanan dan Keselamatan",
+    "6 body": "Data disimpan dalam pangkalan data SQLite yang dihos bersama aplikasi. Kata laluan dihash dengan bcrypt dan tidak pernah disimpan dalam teks biasa.",
+    "7 title": "7. Hak Anda",
+    "7 body": "Anda boleh meminta pemadaman akaun dan semua data berkaitan pada bila-bila masa. Oleh kerana ini adalah contoh akademik, pemadaman dilakukan secara manual atas permintaan.",
+    "8 title": "8. Kuki",
+    "8 body": "Aplikasi ini hanya menggunakan kuki yang diperlukan secara ketat (token sesi). Tiada kuki penjejakan atau iklan ditetapkan.",
+    "9 title": "9. Perubahan pada Dasar Ini",
+    "9 body": "Dasar ini mungkin dikemas kini seiring perkembangan projek. Tarikh kemaskini terakhir di bahagian atas halaman ini mencerminkan semakan terkini.",
+    "10 title": "10. Hubungi Kami",
+    "10 body": "Untuk soalan berkaitan privasi, buka isu di repositori projek atau hubungi pasukan melalui 42 intra.",
+    "Back to Login": "Kembali ke Log Masuk",
+    "Terms of Service link": "Terma Perkhidmatan"
+  },
+  "Terms of Service": {
+    "title": "Terma Perkhidmatan",
+    "last updated": "Kemaskini terakhir:",
+    "1 title": "1. Penerimaan Terma",
+    "1 body": "Dengan mengakses atau menggunakan ft_transcendence (\"Platform\"), anda bersetuju untuk terikat dengan Terma Perkhidmatan ini. Jika anda tidak bersetuju dengan terma ini, sila jangan gunakan Platform. Ini adalah projek akademik yang dicipta oleh pelajar 42 KL dan bukan perkhidmatan komersial.",
+    "2 title": "2. Penggunaan Platform",
+    "2 item1": "Anda mestilah peserta atau penilai projek 42 KL untuk menggunakan Platform ini.",
+    "2 item2": "Anda bersetuju untuk menggunakan Platform hanya untuk tujuan yang sah dan selaras dengan Terma ini.",
+    "2 item3": "Anda tidak boleh cuba mendapatkan akses tanpa kebenaran ke mana-mana bahagian Platform atau infrastrukturnya.",
+    "2 item4": "Anda tidak boleh mengganggu atau campur tangan dengan ketersediaan Platform atau pengalaman pengguna lain.",
+    "3 title": "3. Akaun Pengguna",
+    "3 body": "Anda bertanggungjawab untuk mengekalkan keselamatan kelayakan akaun anda. Anda tidak boleh berkongsi kata laluan anda dengan orang lain. Pasukan berhak untuk menggantung atau memadam akaun yang melanggar Terma ini atau menyalahgunakan Platform.",
+    "4 title": "4. Kandungan Dijana Pengguna",
+    "4 body": "Anda bertanggungjawab sepenuhnya atas sebarang kandungan yang anda serahkan ke Platform, termasuk mesej sembang, nama paparan, dan avatar. Anda bersetuju untuk tidak menyiarkan kandungan yang berbahaya, kasar, penuh kebencian, lucah, atau yang melanggar hak pihak ketiga. Pasukan berhak untuk mengalih keluar kandungan yang melanggar piawaian ini.",
+    "5 title": "5. Permainan Adil",
+    "5 body": "Anda bersetuju untuk mengambil bahagian dalam permainan dan kejohanan secara adil. Percubaan untuk menipu, mengeksploitasi pepijat untuk kelebihan bersaing, atau memanipulasi keputusan permainan adalah dilarang dan boleh mengakibatkan penggantungan akaun.",
+    "6 title": "6. Harta Intelek",
+    "6 body": "Platform dan kandungan asalnya (tidak termasuk kandungan dijana pengguna) adalah hasil kerja pasukan pelajar 42 KL. Projek ini dibangunkan untuk tujuan pendidikan. Konsep permainan Pong adalah rujukan kepada permainan arked klasik dan digunakan untuk pembelajaran akademik.",
+    "7 title": "7. Penafian Waranti",
+    "7 body": "Platform disediakan atas dasar \"seadanya\" dan \"jika tersedia\" untuk penilaian akademik. Kami tidak membuat sebarang waranti, tersurat atau tersirat, mengenai masa aktif, ketersediaan, atau kesesuaian untuk sebarang tujuan tertentu.",
+    "8 title": "8. Had Liabiliti",
+    "8 body": "Setakat yang dibenarkan oleh undang-undang, pasukan tidak akan bertanggungjawab atas sebarang kerosakan tidak langsung, sampingan, atau berbangkit yang timbul daripada penggunaan Platform anda. Memandangkan ini adalah projek akademik bukan komersial, tiada pampasan kewangan atau jaminan perkhidmatan yang tersirat.",
+    "9 title": "9. Penamatan",
+    "9 body": "Pasukan berhak untuk menamatkan atau menggantung akses ke Platform pada bila-bila masa, atas sebarang sebab, termasuk pelanggaran Terma ini. Selepas penamatan, hak anda untuk menggunakan Platform akan segera terhenti.",
+    "10 title": "10. Perubahan pada Terma Ini",
+    "10 body": "Terma ini mungkin dikemas kini pada bila-bila masa. Tarikh kemaskini terakhir di bahagian atas mencerminkan semakan terkini. Penggunaan Platform yang berterusan selepas perubahan merupakan penerimaan Terma yang dikemas kini.",
+    "11 title": "11. Hubungi Kami",
+    "11 body": "Untuk soalan tentang Terma ini, buka isu di repositori projek atau hubungi pasukan melalui 42 intra.",
+    "Back to Login": "Kembali ke Log Masuk",
+    "Privacy Policy link": "Dasar Privasi"
   }
 }

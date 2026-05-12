@@ -122,10 +122,11 @@ export default function LoginPage() {
               onChange={(e) => setAgreedToTerms(e.target.checked)}
             />
             <span className="text-muted-foreground leading-snug">
-              I agree to the{" "}
+              {t["Login & Sign up"]["agree prefix"]}
               <Link href="/terms-of-service" target="_blank" className="underline hover:text-foreground">
-                Terms of Service
+                {t["Login & Sign up"]["Terms of Service"]}
               </Link>
+              {t["Login & Sign up"]["agree suffix"]}
             </span>
           </label>
           <label className="flex items-start gap-2 cursor-pointer">
@@ -136,10 +137,11 @@ export default function LoginPage() {
               onChange={(e) => setAgreedToPrivacy(e.target.checked)}
             />
             <span className="text-muted-foreground leading-snug">
-              I agree to the{" "}
+              {t["Login & Sign up"]["agree prefix"]}
               <Link href="/privacy-policy" target="_blank" className="underline hover:text-foreground">
-                Privacy Policy
+                {t["Login & Sign up"]["Privacy Policy"]}
               </Link>
+              {t["Login & Sign up"]["agree suffix"]}
             </span>
           </label>
         </div>
