@@ -15,6 +15,11 @@ export default fp(async function(fastify, opts) {
 		return;
 	}
 
+	// Keep the public callback configurable so the same code works on localhost
+	// and on the Oracle VM deployment documented in docs/notes.
+	const publicAppUrl =
+		process.env.PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://localhost:8443';
+
 	// Register the @fastify/oauth2 plugin
 	fastify.register(oauth2, {
 		name: 'googleOAuth2',  // used to reference provider
@@ -28,6 +33,6 @@ export default fp(async function(fastify, opts) {
 		},
 		// Match whatever in Google Cloud Console
 		startRedirectPath: '/api/auth/google/login', // URL to start login
-		callbackUri: 'https://localhost:8443/api/auth/google/callback', // this is public Nginx address
+		callbackUri: `${publicAppUrl}/api/auth/google/callback`, // this is public Nginx address
 	});
 });

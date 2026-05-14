@@ -89,13 +89,12 @@ export default async function (fastify, opts) {
       connection.on("message", (message) => {
         const data = JSON.parse(message);
         const { event, payload } = data;
-        console.log(`[WS Message] User ${userId} sent event: ${event}`);
         try {
           const handler = eventHandlers[event];
           if (handler) {
             handler(payload);
           } else {
-            console.log("Unknown event:", event);
+            console.warn("Unknown event:", event);
           }
         } catch (error) {
           console.error("Error processing message:", error);
