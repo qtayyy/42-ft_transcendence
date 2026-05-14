@@ -13,7 +13,7 @@ interface GameOverPlayer {
 }
 
 interface GameOverResult {
-	winner?: string;
+	winner?: string | null;
 	leftPlayer?: GameOverPlayer;
 	rightPlayer?: GameOverPlayer;
 	tournamentId?: number | string | null;
