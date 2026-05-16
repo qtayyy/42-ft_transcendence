@@ -13,7 +13,11 @@
     "Login with Google": "Login with Google",
     "Create an account to start playing!": "Create an account to start playing!",
     "back to login": "back to login",
-    "Full Name": "Full Name"
+    "Full Name": "Full Name",
+    "agree prefix": "I agree to the ",
+    "agree suffix": "",
+    "Terms of Service": "Terms of Service",
+    "Privacy Policy": "Privacy Policy"
   },
   "Dashboard": {
     "Dashboard": "Dashboard",
@@ -273,7 +277,7 @@
     "Online 1v1 Duel": "Online 1v1 Duel",
     "Create, join, or quick match": "Create, join, or quick match",
     "Online Bracket": "Online Bracket",
-    "3-8 Players \u2022 Online Competition": "3-8 Players \u2022 Online Competition",
+    "3-8 Players • Online Competition": "3-8 Players • Online Competition",
     "Local Tournament ": "Local Tournament ",
     "Setup a brackert elimination tournament for 3-8 players": "Setup a bracket elimination tournament for 3-8 players",
     "Setup a bracket elimination for 3-8 players": "Setup a bracket elimination for 3-8 players",
@@ -348,7 +352,6 @@
     "Go Back": "Go Back",
     "Our engineers are hard at work building the ultimate online arena. Stay tuned for the next update!": "Our engineers are hard at work building the ultimate online arena. Stay tuned for the next update!"
   },
-
   "Leaderboard & Match History": {
     "Leaderboard": "Leaderboard",
     "Top players ranked by level and XP": "Top players ranked by level and XP",
@@ -376,13 +379,34 @@
     "Loading achievements...": "Loading achievements...",
     "achievements": "achievements",
     "AchievementDefs": {
-      "FIRST_WIN": { "name": "First Blood", "description": "Win your first match" },
-      "LEVEL_5": { "name": "Rising Star", "description": "Reach level 5" },
-      "LEVEL_10": { "name": "Legendary Player", "description": "Reach level 10" },
-      "TOTAL_WINS_10": { "name": "Collector", "description": "Accumulate 10 wins" },
-      "TOTAL_WINS_50": { "name": "Champion", "description": "Accumulate 50 wins" },
-      "DRAW_MATCH": { "name": "Stalemate", "description": "Play a draw match" },
-      "TOURNAMENT_WIN": { "name": "Tournament Victor", "description": "Win a tournament" }
+      "FIRST_WIN": {
+        "name": "First Blood",
+        "description": "Win your first match"
+      },
+      "LEVEL_5": {
+        "name": "Rising Star",
+        "description": "Reach level 5"
+      },
+      "LEVEL_10": {
+        "name": "Legendary Player",
+        "description": "Reach level 10"
+      },
+      "TOTAL_WINS_10": {
+        "name": "Collector",
+        "description": "Accumulate 10 wins"
+      },
+      "TOTAL_WINS_50": {
+        "name": "Champion",
+        "description": "Accumulate 50 wins"
+      },
+      "DRAW_MATCH": {
+        "name": "Stalemate",
+        "description": "Play a draw match"
+      },
+      "TOURNAMENT_WIN": {
+        "name": "Tournament Victor",
+        "description": "Win a tournament"
+      }
     }
   },
   "ResetPassword": {
@@ -416,5 +440,77 @@
     "Please provide a 6-digit verification code.": "Please provide a 6-digit verification code.",
     "2FA Code": "2FA Code",
     "Error": "Error"
+  },
+  "Privacy Policy": {
+    "title": "Privacy Policy",
+    "last updated": "Last updated:",
+    "1 title": "1. Who We Are",
+    "1 body": "ft_transcendence is an academic project built by 42 KL students. It is not a commercial service. The platform is operated locally by the team for educational and evaluation purposes only.",
+    "2 title": "2. What We Collect",
+    "account label": "Account:",
+    "account body": "email address, username, hashed password (bcrypt), and an optional avatar image you upload.",
+    "google label": "Google Sign-In (optional):",
+    "google body": "if you choose to sign in with Google, we receive your Google account email address and display name via OAuth. We do not receive your Google password or any other Google account data beyond what is needed to create and identify your account.",
+    "profile label": "Profile:",
+    "profile body": "optional display name and bio you provide.",
+    "gameplay label": "Gameplay:",
+    "gameplay body": "match history (opponents, scores, dates) and tournament participation records.",
+    "chat label": "Chat:",
+    "chat body": "messages you send in chat rooms and direct messages, stored to render conversation history.",
+    "activity label": "Activity:",
+    "activity body": "timestamps of logins and per-day counts of games played and messages sent, used to power your activity dashboard.",
+    "session label": "Session:",
+    "session body": "short-lived JSON Web Tokens stored in your browser to keep you signed in.",
+    "3 title": "3. What We Do NOT Collect",
+    "3 item1": "We do not collect phone numbers, payment information, IP geolocation, or any third-party tracking identifiers.",
+    "3 item2": "We do not use advertising cookies or third-party analytics trackers.",
+    "3 item3": "We do not store any data from your Google account beyond the email address and display name provided during OAuth sign-in.",
+    "4 title": "4. How We Use Your Data",
+    "4 body": "Your data is used solely to operate the platform: authenticate you, render your profile, deliver real-time messages and game events, and compute the statistics shown on your dashboard. No data is used for marketing or profiling.",
+    "5 title": "5. Sharing",
+    "5 body": "We do not sell, rent, or share your data with third parties. Other registered users on the same instance can see your public profile (username, avatar, display name, match history, and any messages you send in shared rooms).",
+    "6 title": "6. Storage and Security",
+    "6 body": "Data is stored in a SQLite database hosted alongside the application. Passwords are hashed with bcrypt and are never stored in plaintext.",
+    "7 title": "7. Your Rights",
+    "7 body": "You may request deletion of your account and all associated data at any time. Because this is an academic instance, deletion is performed manually upon request.",
+    "8 title": "8. Cookies",
+    "8 body": "This application uses only strictly necessary cookies (session tokens). No tracking or advertising cookies are set.",
+    "9 title": "9. Changes to This Policy",
+    "9 body": "This policy may be updated as the project evolves. The last updated date at the top of this page reflects the most recent revision.",
+    "10 title": "10. Contact",
+    "10 body": "For privacy-related questions, open an issue on the project repository or contact the team via 42 intra.",
+    "Back to Login": "Back to Login",
+    "Terms of Service link": "Terms of Service"
+  },
+  "Terms of Service": {
+    "title": "Terms of Service",
+    "last updated": "Last updated:",
+    "1 title": "1. Acceptance of Terms",
+    "1 body": "By accessing or using ft_transcendence (the \"Platform\"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Platform. This is an academic project created by 42 KL students and is not a commercial service.",
+    "2 title": "2. Use of the Platform",
+    "2 item1": "You must be a participant or evaluator of the 42 KL project to use this Platform.",
+    "2 item2": "You agree to use the Platform only for lawful purposes and in accordance with these Terms.",
+    "2 item3": "You may not attempt to gain unauthorized access to any part of the Platform or its infrastructure.",
+    "2 item4": "You may not disrupt or interfere with the Platform's availability or the experience of other users.",
+    "3 title": "3. User Accounts",
+    "3 body": "You are responsible for maintaining the security of your account credentials. You must not share your password with others. The team reserves the right to suspend or delete accounts that violate these Terms or abuse the Platform.",
+    "4 title": "4. User-Generated Content",
+    "4 body": "You are solely responsible for any content you submit to the Platform, including chat messages, display names, and avatars. You agree not to post content that is harmful, abusive, hateful, obscene, or that infringes on any third-party rights. The team reserves the right to remove any content that violates these standards.",
+    "5 title": "5. Fair Play",
+    "5 body": "You agree to participate in games and tournaments fairly. Attempts to cheat, exploit bugs for competitive advantage, or otherwise manipulate game outcomes are prohibited and may result in account suspension.",
+    "6 title": "6. Intellectual Property",
+    "6 body": "The Platform and its original content (excluding user-generated content) are the work of the 42 KL student team. The project is developed for educational purposes. The Pong game concept is a reference to the classic arcade game and is used for academic learning.",
+    "7 title": "7. Disclaimer of Warranties",
+    "7 body": "The Platform is provided on an \"as-is\" and \"as-available\" basis for academic evaluation. We make no warranties, express or implied, regarding uptime, availability, or fitness for any particular purpose. The Platform may experience downtime, data loss, or other issues inherent to a development environment.",
+    "8 title": "8. Limitation of Liability",
+    "8 body": "To the fullest extent permitted by law, the team shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Platform. As this is a non-commercial academic project, no financial compensation or service guarantees are implied.",
+    "9 title": "9. Termination",
+    "9 body": "The team reserves the right to terminate or suspend access to the Platform at any time, for any reason, including violations of these Terms. Upon termination, your right to use the Platform will immediately cease.",
+    "10 title": "10. Changes to These Terms",
+    "10 body": "These Terms may be updated at any time. The last updated date at the top reflects the most recent revision. Continued use of the Platform after changes constitutes acceptance of the updated Terms.",
+    "11 title": "11. Contact",
+    "11 body": "For questions about these Terms, open an issue on the project repository or contact the team via 42 intra.",
+    "Back to Login": "Back to Login",
+    "Privacy Policy link": "Privacy Policy"
   }
 }
