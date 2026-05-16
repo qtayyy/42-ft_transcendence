@@ -2,6 +2,7 @@
 import { AuthShell } from "@/components/auth-shell";
 import React from "react";
 import { useState } from "react";
+import Link from "next/link";
 import axios from "axios";
 import { AlertCircleIcon, Eye, EyeOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,8 +16,12 @@ export default function SignUpPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const router = useRouter();
   const { t } = useLanguage();
+
+  const bothAgreed = agreedToTerms && agreedToPrivacy;
 
   const fields = [
     { name: "fullName", label: t?.["Login & Sign up"]?.["Full Name"] || "Full Name", type: "text" },
@@ -37,6 +42,11 @@ export default function SignUpPage() {
 
     if (!email || !password || !fullName) {
       setErrorMessage("Please fill in all required fields.");
+      return;
+    }
+
+    if (!agreedToTerms || !agreedToPrivacy) {
+      setErrorMessage("You must agree to the Terms of Service and Privacy Policy.");
       return;
     }
 
@@ -100,11 +110,46 @@ export default function SignUpPage() {
           </div>
         </div>
 
+        {/* Terms & Privacy checkboxes */}
+        <div className="flex flex-col gap-2">
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded-full border accent-primary cursor-pointer shrink-0"
+              checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)}
+            />
+            <span className="text-xs text-muted-foreground leading-snug">
+              {t?.["Login & Sign up"]?.["agree prefix"] || "I agree to the "}
+              <Link href="/terms-of-service" target="_blank" className="underline hover:text-foreground">
+                {t?.["Login & Sign up"]?.["Terms of Service"] || "Terms of Service"}
+              </Link>
+              {t?.["Login & Sign up"]?.["agree suffix"] || "."}
+            </span>
+          </label>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded-full border accent-primary cursor-pointer shrink-0"
+              checked={agreedToPrivacy}
+              onChange={(e) => setAgreedToPrivacy(e.target.checked)}
+            />
+            <span className="text-xs text-muted-foreground leading-snug">
+              {t?.["Login & Sign up"]?.["agree prefix"] || "I agree to the "}
+              <Link href="/privacy-policy" target="_blank" className="underline hover:text-foreground">
+                {t?.["Login & Sign up"]?.["Privacy Policy"] || "Privacy Policy"}
+              </Link>
+              {t?.["Login & Sign up"]?.["agree suffix"] || "."}
+            </span>
+          </label>
+        </div>
+
         {/* Added Custom Sign Up Button */}
         <div className="mt-4">
           <Button
             className="w-full"
             type="submit"
+            disabled={!bothAgreed}
           >
             {t?.["Login & Sign up"]?.["Sign up"] || "Sign Up"}
           </Button>

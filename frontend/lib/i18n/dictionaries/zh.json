@@ -13,7 +13,11 @@
     "Login with Google": "使用Google登录",
     "Create an account to start playing!": "创建账户开始游戏！",
     "back to login": "返回登录",
-    "Full Name": "全名"
+    "Full Name": "全名",
+    "agree prefix": "我同意",
+    "agree suffix": "",
+    "Terms of Service": "服务条款",
+    "Privacy Policy": "隐私政策"
   },
   "Dashboard": {
     "Dashboard": "仪表板",
@@ -273,7 +277,7 @@
     "Online 1v1 Duel": "在线1对1决斗",
     "Create, join, or quick match": "创建、加入或快速匹配",
     "Online Bracket": "在线淘汰赛",
-    "3-8 Players \u2022 Online Competition": "3-8名玩家 \u2022 在线竞赛",
+    "3-8 Players • Online Competition": "3-8名玩家 • 在线竞赛",
     "Local Tournament ": "本地锦标赛",
     "Setup a brackert elimination tournament for 3-8 players": "为3-8名玩家设置淘汰赛锦标赛",
     "Setup a bracket elimination for 3-8 players": "为3-8名玩家设置淘汰赛",
@@ -375,13 +379,34 @@
     "Loading achievements...": "加载成就中...",
     "achievements": "项成就",
     "AchievementDefs": {
-      "FIRST_WIN": { "name": "初次血战", "description": "赢得您的第一场比赛" },
-      "LEVEL_5": { "name": "新星崛起", "description": "达到第5级" },
-      "LEVEL_10": { "name": "传奇玩家", "description": "达到第10级" },
-      "TOTAL_WINS_10": { "name": "收藏家", "description": "累计10场胜利" },
-      "TOTAL_WINS_50": { "name": "冠军", "description": "累计50场胜利" },
-      "DRAW_MATCH": { "name": "平局", "description": "进行一场平局比赛" },
-      "TOURNAMENT_WIN": { "name": "锦标赛冠军", "description": "赢得一场锦标赛" }
+      "FIRST_WIN": {
+        "name": "初次血战",
+        "description": "赢得您的第一场比赛"
+      },
+      "LEVEL_5": {
+        "name": "新星崛起",
+        "description": "达到第5级"
+      },
+      "LEVEL_10": {
+        "name": "传奇玩家",
+        "description": "达到第10级"
+      },
+      "TOTAL_WINS_10": {
+        "name": "收藏家",
+        "description": "累计10场胜利"
+      },
+      "TOTAL_WINS_50": {
+        "name": "冠军",
+        "description": "累计50场胜利"
+      },
+      "DRAW_MATCH": {
+        "name": "平局",
+        "description": "进行一场平局比赛"
+      },
+      "TOURNAMENT_WIN": {
+        "name": "锦标赛冠军",
+        "description": "赢得一场锦标赛"
+      }
     }
   },
   "ResetPassword": {
@@ -415,5 +440,77 @@
     "Please provide a 6-digit verification code.": "请提供6位数验证码。",
     "2FA Code": "2FA代码",
     "Error": "错误"
+  },
+  "Privacy Policy": {
+    "title": "隐私政策",
+    "last updated": "最后更新：",
+    "1 title": "1. 关于我们",
+    "1 body": "ft_transcendence 是由42 KL学生开发的学术项目，不是商业服务。该平台由团队在本地运营，仅供教育和评估目的使用。",
+    "2 title": "2. 我们收集的信息",
+    "account label": "账户：",
+    "account body": "电子邮件地址、用户名、经过哈希处理的密码（bcrypt）以及您上传的可选头像图片。",
+    "google label": "Google登录（可选）：",
+    "google body": "如果您选择使用Google登录，我们将通过OAuth接收您的Google账户电子邮件地址和显示名称。我们不会接收您的Google密码或创建和识别账户所需以外的任何其他Google账户数据。",
+    "profile label": "个人资料：",
+    "profile body": "您提供的可选显示名称和个人简介。",
+    "gameplay label": "游戏记录：",
+    "gameplay body": "对战历史（对手、分数、日期）和锦标赛参与记录。",
+    "chat label": "聊天：",
+    "chat body": "您在聊天室和私信中发送的消息，用于渲染对话历史。",
+    "activity label": "活动：",
+    "activity body": "登录时间戳以及每日游戏次数和发送消息次数，用于支持您的活动仪表板。",
+    "session label": "会话：",
+    "session body": "存储在浏览器中的短期JSON Web Token，用于保持您的登录状态。",
+    "3 title": "3. 我们不收集的信息",
+    "3 item1": "我们不收集电话号码、付款信息、IP地理位置或任何第三方跟踪标识符。",
+    "3 item2": "我们不使用广告Cookie或第三方分析跟踪器。",
+    "3 item3": "我们不会存储OAuth登录期间提供的电子邮件地址和显示名称以外的任何Google账户数据。",
+    "4 title": "4. 数据使用方式",
+    "4 body": "您的数据仅用于运营平台：验证身份、渲染个人资料、传递实时消息和游戏事件，以及计算仪表板上显示的统计数据。数据不用于营销或画像。",
+    "5 title": "5. 数据共享",
+    "5 body": "我们不会出售、出租或与第三方共享您的数据。同一实例上的其他注册用户可以查看您的公开资料（用户名、头像、显示名称、对战历史以及您在共享房间中发送的消息）。",
+    "6 title": "6. 存储与安全",
+    "6 body": "数据存储在与应用程序一同托管的SQLite数据库中。密码经过bcrypt哈希处理，从不以明文形式存储。",
+    "7 title": "7. 您的权利",
+    "7 body": "您可以随时申请删除您的账户和所有相关数据。由于这是一个学术实例，删除操作需手动处理。",
+    "8 title": "8. Cookie",
+    "8 body": "本应用程序仅使用严格必要的Cookie（会话令牌）。不设置跟踪或广告Cookie。",
+    "9 title": "9. 政策变更",
+    "9 body": "本政策可能随项目发展而更新。页面顶部的最后更新日期反映最近一次修订。",
+    "10 title": "10. 联系方式",
+    "10 body": "如有隐私相关问题，请在项目仓库开issue或通过42 intra联系团队。",
+    "Back to Login": "返回登录",
+    "Terms of Service link": "服务条款"
+  },
+  "Terms of Service": {
+    "title": "服务条款",
+    "last updated": "最后更新：",
+    "1 title": "1. 条款接受",
+    "1 body": "访问或使用ft_transcendence（以下简称\"平台\"），即表示您同意遵守本服务条款。如您不同意这些条款，请勿使用本平台。这是由42 KL学生创建的学术项目，不是商业服务。",
+    "2 title": "2. 平台使用规则",
+    "2 item1": "您必须是42 KL项目的参与者或评估员才能使用本平台。",
+    "2 item2": "您同意仅将本平台用于合法目的，并遵守本条款。",
+    "2 item3": "您不得试图未经授权访问平台的任何部分或其基础设施。",
+    "2 item4": "您不得中断或干扰平台的可用性或其他用户的使用体验。",
+    "3 title": "3. 用户账户",
+    "3 body": "您负责维护账户凭证的安全。您不得与他人共享密码。团队保留暂停或删除违反本条款或滥用平台的账户的权利。",
+    "4 title": "4. 用户生成内容",
+    "4 body": "您对提交到平台的任何内容（包括聊天消息、显示名称和头像）负全责。您同意不发布有害、滥用性、仇恨、淫秽或侵犯任何第三方权利的内容。团队保留删除违反这些标准的任何内容的权利。",
+    "5 title": "5. 公平竞技",
+    "5 body": "您同意公平参与游戏和锦标赛。禁止作弊、利用漏洞获取竞争优势或以其他方式操纵游戏结果，违者可能导致账户被暂停。",
+    "6 title": "6. 知识产权",
+    "6 body": "本平台及其原创内容（不包括用户生成内容）是42 KL学生团队的作品，用于教育目的开发。Pong游戏概念是对经典街机游戏的致敬，用于学术学习。",
+    "7 title": "7. 免责声明",
+    "7 body": "本平台按\"原样\"和\"可用时\"的基础提供，用于学术评估。我们不对正常运行时间、可用性或适用于任何特定目的作出任何明示或暗示的保证。",
+    "8 title": "8. 责任限制",
+    "8 body": "在法律允许的最大范围内，团队不对因您使用本平台而产生的任何间接、附带或后果性损害负责。由于这是一个非商业性学术项目，不隐含任何经济赔偿或服务保证。",
+    "9 title": "9. 终止",
+    "9 body": "团队保留随时以任何理由终止或暂停您访问平台的权利，包括违反本条款。终止后，您使用本平台的权利将立即停止。",
+    "10 title": "10. 条款变更",
+    "10 body": "本条款可能随时更新。页面顶部的最后更新日期反映最近一次修订。在变更后继续使用本平台即表示您接受更新后的条款。",
+    "11 title": "11. 联系方式",
+    "11 body": "如有关于本条款的问题，请在项目仓库开issue或通过42 intra联系团队。",
+    "Back to Login": "返回登录",
+    "Privacy Policy link": "隐私政策"
   }
 }
