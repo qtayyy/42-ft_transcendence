@@ -69,7 +69,6 @@ The application is served as a single-page app over HTTPS via Nginx, with a Fast
 - **Fastify over Express:** Faster, schema-based validation, plugin architecture, and first-class WebSocket support.
 
 ---
->>>>>>> 680a838 (Add more info to ReadMe)
 
 ## Architecture
 
