@@ -27,6 +27,7 @@ interface MatchEntry {
   playerScore: number;
   opponentScore: number;
   result: "win" | "loss" | "draw";
+  mode: string;
   durationSeconds?: number | null;
   date: string;
 }
@@ -39,12 +40,20 @@ export default function DashboardPage() {
   const [recentMatchesLoading, setRecentMatchesLoading] = useState(true);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [modeFilter, setModeFilter] = useState<string>("all");
   const [resultFilter, setResultFilter] = useState<"all" | "win" | "loss" | "draw">("all");
   const [showAnalyticsControls, setShowAnalyticsControls] = useState(false);
   const { onlineFriends } = useGame();
   const { t } = useLanguage();
   const { friends: allFriends } = useFriends();
 
+  const MODE_LABEL: Record<string, string> = {
+    local: t.Dashboard["Local 1v1"],
+    "local-tournament": t.Dashboard["Local Tournament"],
+    remote: t.Dashboard["Remote 1v1"],
+    "remote-tournament": t.Dashboard["Remote Tournament"],
+    ai: t.Dashboard["vs AI"],
+  };
 
   const escapeCsvCell = (value: string | number | null | undefined) => {
     const safeValue = value == null ? '' : String(value);
@@ -63,6 +72,7 @@ export default function DashboardPage() {
   const clearFilters = () => {
     setFromDate("");
     setToDate("");
+    setModeFilter("all");
     setResultFilter("all");
   };
 
@@ -156,8 +166,10 @@ export default function DashboardPage() {
 
     const withinFrom = !fromBoundary || matchDate >= fromBoundary;
     const withinTo = !toBoundary || matchDate <= toBoundary;
+    const modeMatches = modeFilter === "all" || match.mode === modeFilter;
     const resultMatches = resultFilter === "all" || match.result === resultFilter;
 
+    return withinFrom && withinTo && modeMatches && resultMatches;
   });
 
   const sortedFilteredMatches = [...filteredMatchHistory].sort(
@@ -165,6 +177,7 @@ export default function DashboardPage() {
   );
 
   const recentMatches = sortedFilteredMatches.slice(0, 3);
+  const modeOptions = Array.from(new Set(matchHistory.map((match) => match.mode)));
 
   const handleExportCsv = () => {
     if (sortedFilteredMatches.length === 0) {
@@ -474,6 +487,21 @@ export default function DashboardPage() {
                         onChange={(e) => setToDate(e.target.value)}
                         className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                       />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground font-medium">{t.Dashboard["Mode"]}</label>
+                      <select
+                        value={modeFilter}
+                        onChange={(e) => setModeFilter(e.target.value)}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="all">{t.Dashboard["All modes"]}</option>
+                        {modeOptions.map((mode) => (
+                          <option key={mode} value={mode}>
+                            {MODE_LABEL[mode] || mode}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-muted-foreground font-medium">{t.Dashboard["Result"]}</label>
