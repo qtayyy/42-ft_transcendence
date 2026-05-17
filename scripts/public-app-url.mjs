@@ -1,6 +1,9 @@
-import { access, copyFile, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import fs from "fs";
+import http from "http";
+import path from "path";
+import { fileURLToPath, pathToFileURL } from "url";
+
+const { access, copyFile, readFile, writeFile } = fs.promises;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,13 +14,13 @@ const envExamplePath = path.join(repoRoot, "backend", ".env.example");
 async function ensureEnvFile() {
 	try {
 		await access(envPath);
-	} catch {
+	} catch (error) {
 		await copyFile(envExamplePath, envPath);
 	}
 }
 
 function normalizeUrl(url) {
-	const trimmed = url?.trim().replace(/\/$/, "");
+	const trimmed = url ? url.trim().replace(/\/$/, "") : "";
 	if (!trimmed) {
 		throw new Error("PUBLIC_APP_URL cannot be empty.");
 	}
@@ -27,6 +30,36 @@ function normalizeUrl(url) {
 	}
 
 	return trimmed;
+}
+
+function fetchJson(url) {
+	return new Promise((resolve, reject) => {
+		const request = http.get(url, (response) => {
+			let body = "";
+
+			response.setEncoding("utf8");
+			response.on("data", (chunk) => {
+				body += chunk;
+			});
+			response.on("end", () => {
+				if (response.statusCode < 200 || response.statusCode >= 300) {
+					reject(new Error(`Failed to read ngrok tunnel list: HTTP ${response.statusCode}`));
+					return;
+				}
+
+				try {
+					resolve(JSON.parse(body));
+				} catch (error) {
+					reject(new Error(`Failed to parse ngrok tunnel list: ${error.message}`));
+				}
+			});
+		});
+
+		request.on("error", reject);
+		request.setTimeout(3000, () => {
+			request.destroy(new Error("Timed out reading ngrok tunnel list."));
+		});
+	});
 }
 
 export async function updatePublicAppUrl(nextUrl) {
@@ -56,17 +89,13 @@ export async function getNgrokPublicUrl(maxAttempts = 15, delayMs = 1000) {
 
 	for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
 		try {
-			const response = await fetch("http://127.0.0.1:4040/api/tunnels");
-			if (!response.ok) {
-				throw new Error(`Failed to read ngrok tunnel list: HTTP ${response.status}`);
-			}
-
-			const data = await response.json();
-			const tunnel = data.tunnels?.find(
-				(item) => typeof item.public_url === "string" && item.public_url.startsWith("https://")
+			const data = await fetchJson("http://127.0.0.1:4040/api/tunnels");
+			const tunnels = Array.isArray(data.tunnels) ? data.tunnels : [];
+			const tunnel = tunnels.find(
+				(item) => item && typeof item.public_url === "string" && item.public_url.startsWith("https://")
 			);
 
-			if (!tunnel?.public_url) {
+			if (!tunnel || !tunnel.public_url) {
 				throw new Error("No active HTTPS ngrok tunnel found yet.");
 			}
 
@@ -79,7 +108,9 @@ export async function getNgrokPublicUrl(maxAttempts = 15, delayMs = 1000) {
 		}
 	}
 
-	throw new Error(lastError?.message || "No active HTTPS ngrok tunnel found. Start ngrok first.");
+	throw new Error(
+		(lastError && lastError.message) || "No active HTTPS ngrok tunnel found. Start ngrok first."
+	);
 }
 
 export async function syncNgrokPublicUrl(consoleUrl, maxAttempts, delayMs) {
@@ -107,7 +138,7 @@ async function main() {
 	}
 
 	if (mode === "ngrok") {
-		const consoleUrl = process.argv[3]?.trim();
+		const consoleUrl = process.argv[3] ? process.argv[3].trim() : "";
 		const maxAttempts = Number(process.argv[4] || "15");
 		const delayMs = Number(process.argv[5] || "1000");
 		await syncNgrokPublicUrl(consoleUrl, maxAttempts, delayMs);
