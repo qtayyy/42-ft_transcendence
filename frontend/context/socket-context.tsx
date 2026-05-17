@@ -610,6 +610,10 @@ export const SocketProvider = ({ children }) => {
 
 							case "REMATCH_FAILED":
 								toast.error(payload.reason || "Rematch failed");
+								if (payload.reason === "Opponent has left the game") {
+									window.dispatchEvent(new CustomEvent("opponentLeft"));
+									break;
+								}
 								stableDeps.current.setGameState(null);
 								stableDeps.current.setRemoteRenderGameState(null);
 								stableDeps.current.setGameRoom(null);

@@ -301,6 +301,10 @@ export function createGameLifecycle({
       right.id,
     );
 
+    if (typeof fastify.registerPostGameRematchSession === "function") {
+      fastify.registerPostGameRematchSession(gameState);
+    }
+
     // Send GAME_OVER to active spectators
     const spectators = matchSpectators.get(matchId);
     if (spectators) {
