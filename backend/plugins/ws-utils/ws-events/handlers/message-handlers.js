@@ -176,9 +176,25 @@ export function createWsEventHandlers({
       (async () => {
         const p1 = Number(payload.player1Id);
         const p2 = Number(payload.player2Id);
+        const matchId = payload.matchId;
         if (!p1 || !p2 || p1 === p2) return;
         if (userId !== p1 && userId !== p2) {
           console.warn("[WS] REMATCH rejected: socket user not a declared player");
+          return;
+        }
+        const rematchStatus =
+          typeof fastify.canStartPostGameRematch === "function"
+            ? fastify.canStartPostGameRematch(matchId, p1, p2)
+            : { ok: false, reason: "Rematch not allowed" };
+        if (!rematchStatus.ok) {
+          safeSend(
+            connection,
+            {
+              event: "REMATCH_FAILED",
+              payload: { reason: rematchStatus.reason || "Rematch not allowed" },
+            },
+            userId,
+          );
           return;
         }
         const otherId = userId === p1 ? p2 : p1;
@@ -205,7 +221,13 @@ export function createWsEventHandlers({
         }
         const name1 = await getProfileUsername(prisma, p1);
         const name2 = await getProfileUsername(prisma, p2);
-        fastify.startRematch(p1, name1, p2, name2);
+        const newMatchId = fastify.startRematch(p1, name1, p2, name2);
+        if (
+          newMatchId &&
+          typeof fastify.clearPostGameRematchSession === "function"
+        ) {
+          fastify.clearPostGameRematchSession(matchId);
+        }
       })();
     },
 
@@ -213,12 +235,23 @@ export function createWsEventHandlers({
       const matchId = payload?.matchId;
       if (!matchId) return;
       const state = fastify.gameStates?.get(matchId);
-      if (!state || state.gameOver) return;
       const uid = Number(userId);
-      const leftId = Number(state.leftPlayer?.id);
-      const rightId = Number(state.rightPlayer?.id);
-      if (uid !== leftId && uid !== rightId) return;
-      const opponentId = uid === leftId ? rightId : leftId;
+      let opponentId = null;
+
+      if (state && !state.gameOver) {
+        const leftId = Number(state.leftPlayer?.id);
+        const rightId = Number(state.rightPlayer?.id);
+        if (uid !== leftId && uid !== rightId) return;
+        opponentId = uid === leftId ? rightId : leftId;
+      } else {
+        const leaveResult =
+          typeof fastify.markPostGamePlayerLeft === "function"
+            ? fastify.markPostGamePlayerLeft(matchId, uid)
+            : null;
+        if (!leaveResult) return;
+        opponentId = leaveResult.opponentId;
+      }
+
       const opponentSocket = fastify.onlineUsers.get(opponentId);
       if (opponentSocket) {
         safeSend(
