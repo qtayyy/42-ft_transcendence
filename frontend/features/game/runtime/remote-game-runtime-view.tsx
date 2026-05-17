@@ -114,7 +114,7 @@ export default function RemoteGameRuntimeView({
 	};
 
 	return (
-		<div className="h-screen pt-32 pb-4 flex flex-col overflow-hidden bg-gradient-to-b from-background to-muted/20 relative">
+		<div className="h-dvh pt-32 pb-4 flex flex-col overflow-hidden bg-gradient-to-b from-background to-muted/20 relative">
 			<div className="absolute inset-0 overflow-hidden pointer-events-none">
 				<div className="absolute top-[20%] left-[10%] w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
 				<div
