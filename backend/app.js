@@ -1,13 +1,18 @@
 import path from "node:path";
 import AutoLoad from "@fastify/autoload";
 import { fileURLToPath } from "node:url";
+import { getTlsOptions } from "./lib/tls-options.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Pass --options via CLI arguments in command to enable these options.
 // trustProxy: true - use X-Forwarded-For from Nginx for rate limiting and logs.
-export const options = { trustProxy: true };
+// https: TLS for all Fastify HTTP and WebSocket listeners.
+export const options = {
+  trustProxy: true,
+  https: getTlsOptions(),
+};
 
 export default async function (fastify, opts) {
 
