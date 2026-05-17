@@ -1,25 +1,6 @@
 all: build start
 
-LAN_IP_CMD = sh -c '\
-	if [ "$$(uname -s)" = "Darwin" ]; then \
-		for iface in en0 en1; do \
-			ip="$$(ipconfig getifaddr $$iface 2>/dev/null || true)"; \
-			if [ -n "$$ip" ]; then \
-				echo "$$ip"; \
-				exit 0; \
-			fi; \
-		done; \
-	elif [ "$$(uname -s)" = "Linux" ]; then \
-		ip="$$(ip -4 -o addr show up primary scope global 2>/dev/null | awk '\''$$2 !~ /^(docker|br-|veth|lo|tailscale|tun|tap|virbr|zt|wg)/ {split($$4, a, "/"); print a[1]; exit}'\'')"; \
-		if [ -z "$$ip" ]; then \
-			ip="$$(hostname -I 2>/dev/null | awk '\''{for (i = 1; i <= NF; i++) if ($$i !~ /^(127\.|172\.17\.|172\.18\.|172\.19\.|172\.2[0-9]\.|172\.3[0-1]\.|192\.168\.122\.)/) {print $$i; exit}}'\'')"; \
-		fi; \
-		if [ -n "$$ip" ]; then \
-			echo "$$ip"; \
-			exit 0; \
-		fi; \
-	fi; \
-	exit 1'
+LAN_IP_CMD = node ./scripts/lan-ip.mjs
 
 build:
 	@docker compose -f ./compose.yaml build
@@ -64,7 +45,7 @@ prune:
 re: stop down all
 
 lan-ip:
-	@LAN_IP="$$( $(LAN_IP_CMD) )"; \
+	@LAN_IP="$${LAN_IP:-$$( $(LAN_IP_CMD) )}"; \
 	if [ -z "$$LAN_IP" ]; then \
 		echo "No LAN IPv4 address found."; \
 		echo "Make sure this machine is connected to Wi-Fi or Ethernet, then try again."; \
@@ -74,7 +55,7 @@ lan-ip:
 	echo "$$LAN_IP"
 
 lan-url:
-	@LAN_IP="$$( $(LAN_IP_CMD) )"; \
+	@LAN_IP="$${LAN_IP:-$$( $(LAN_IP_CMD) )}"; \
 	if [ -z "$$LAN_IP" ]; then \
 		echo "No LAN IPv4 address found."; \
 		echo "Make sure this machine is connected to Wi-Fi or Ethernet, then try again."; \
@@ -87,11 +68,15 @@ lan-url:
 	echo "Updated backend/.env PUBLIC_APP_URL to https://$$LAN_IP:8443"; \
 	echo "If the other device cannot connect, check the host firewall and accept the browser HTTPS warning once."
 
+lan-expose:
+	@LAN_IP="$${LAN_IP:-$$( $(LAN_IP_CMD) )}" PORT="$${PORT:-8443}" ./scripts/expose-lan.sh --admin
+
 lan-help:
 	@echo "LAN checklist"; \
 	echo "  1. Start the stack: make start"; \
-	echo "  2. Print the shareable link: make lan-url"; \
-	echo "  3. Open the printed URL on another device on the same Wi-Fi."; \
+	echo "  2. Open the local firewall / WSL portproxy: make lan-expose"; \
+	echo "  3. Print the shareable link: make lan-url"; \
+	echo "  4. Open the printed URL on another device on the same Wi-Fi."; \
 	echo ""; \
 	echo "Host firewall help"; \
 	echo "  macOS"; \
@@ -111,6 +96,14 @@ lan-help:
 	echo ""; \
 	echo "  Windows host"; \
 	echo "      New-NetFirewallRule -DisplayName \"LAN 8443\" -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow"; \
+	echo ""; \
+	echo "  WSL2"; \
+	echo "      From WSL/zsh: make lan-expose LAN_IP=<Windows Wi-Fi IPv4>"; \
+	echo "      From Admin PowerShell: .\\scripts\\expose-lan.ps1 -ListenIp <Windows Wi-Fi IPv4>"; \
+	echo "      make lan-url now prints the Windows LAN IP, not the private WSL 172.x IP."; \
+	echo "      If it cannot detect the right adapter, run: make lan-url LAN_IP=<Windows Wi-Fi IPv4>"; \
+	echo "      If another device still cannot connect, Windows is not forwarding LAN traffic to WSL/Docker."; \
+	echo "      Use ngrok, WSL mirrored networking, or a Windows portproxy/firewall rule."; \
 	echo ""; \
 	echo "If the host machine can open the LAN URL but another device still cannot,"; \
 	echo "the Wi-Fi may be using client isolation. Try the same phone hotspot instead."
@@ -148,4 +141,4 @@ ngrok-restart-backend:
 gameplay-test:
 	@node ./scripts/chrome-devtools-gameplay-smoke.mjs
 
-.PHONY: all build start dev stop down logs clean prune re lan-ip lan-url lan-help ngrok ngrok-sync ngrok-restart-backend gameplay-test
+.PHONY: all build start dev stop down logs clean prune re lan-ip lan-url lan-expose lan-help ngrok ngrok-sync ngrok-restart-backend gameplay-test
