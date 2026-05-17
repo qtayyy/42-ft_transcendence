@@ -71,25 +71,45 @@ export default async function (fastify, opts) {
 				profile = newUser.profile;
 			}
 
-			// 6. Generate our own JWT token for the session
-			// We need to match logic that used in login.js
+			const user = await prisma.user.findUnique({
+				where: { id: profile.id },
+			});
+			if (!user) {
+				return reply.code(500).send({ error: "User not found" });
+			}
+
+			const cookieOptions = {
+				path: "/",
+				secure: true,
+				httpOnly: true,
+				sameSite: true,
+			};
+
+			// 6. Match login.js: require TOTP when 2FA is enabled
+			if (user.twoFA) {
+				const tempToken = fastify.jwt.temp.sign(
+					{ userId: profile.id },
+					{ expiresIn: "5m" }
+				);
+				reply.setCookie("token", tempToken, {
+					...cookieOptions,
+					maxAge: 300,
+				});
+				return reply.redirect(`${publicAppUrl}/2fa/verify`);
+			}
+
 			const appToken = fastify.jwt.sign(
 				{ userId: profile.id },
 				{ expiresIn: "1h" }
 			);
 
 			// 7. Set the cookie and redirect to the frontend dashboard
-			// We use a redirect here because this is a browser navigation, not an AJAX call
 			reply.setCookie("token", appToken, {
-				path: "/",
-				secure: true, // for HTTPS 
-				httpOnly: true,
-				sameSite: true,
+				...cookieOptions,
 				maxAge: 3600,
 			});
 
-			// Redirect user back to the frontend
-			return (reply.redirect(`${publicAppUrl}/dashboard`));
+			return reply.redirect(`${publicAppUrl}/dashboard`);
 		} catch (error) {
 			console.error("Google Auth Error: ", error);
 			return (reply.code(500).send({ error: "Authentication failed" }));
