@@ -10,7 +10,11 @@ This Fastify plugin manages remote WebSocket game matches:
 */
 
 import fp from "fastify-plugin";
-import { safeSend, serializeGameState } from "../../utils/ws-utils.js";
+import {
+  safeSend,
+  serializeGameState,
+  serializeRoutineGameTick,
+} from "../../utils/ws-utils.js";
 import { activeTournaments } from "../../game/TournamentManager.js";
 import { createGameLifecycle } from "./game-matches/lifecycle.js";
 import { createGameMatchHandlers } from "./game-matches/handlers/index.js";
@@ -30,28 +34,34 @@ setInterval(() => {
   }
 }, 30000); // Log every 30 seconds if there are active loops
 
-function broadcastState(gameState, fastify) {
-  const leftId = Number(gameState.leftPlayer.id);
-  const rightId = Number(gameState.rightPlayer.id);
-  const leftPlayerSocket = fastify.onlineUsers.get(leftId);
-  const rightPlayerSocket = fastify.onlineUsers.get(rightId);
-
+function buildDisconnectCountdown(gameState) {
   // Compute disconnect countdown if game is paused due to disconnect
-  let disconnectCountdown = null;
   if (gameState.paused && gameState.disconnectedPlayer && gameState.pausedAt) {
     const gracePeriodEndsAt = gameState.pausedAt + 30000; // 30 second grace period
-    disconnectCountdown = {
+    return {
       disconnectedPlayer: gameState.disconnectedPlayer,
       gracePeriodEndsAt,
       countdown: Math.max(0, Math.ceil((gracePeriodEndsAt - Date.now()) / 1000)),
     };
   }
 
+  return null;
+}
+
+function buildFullStatePayload(gameState) {
   // Build base payload - use helper to convert Set to array for JSON serialization
-  const basePayload = {
+  return {
     ...serializeGameState(gameState),
-    disconnectCountdown,
+    disconnectCountdown: buildDisconnectCountdown(gameState),
   };
+}
+
+function broadcastState(gameState, fastify) {
+  const leftId = Number(gameState.leftPlayer.id);
+  const rightId = Number(gameState.rightPlayer.id);
+  const leftPlayerSocket = fastify.onlineUsers.get(leftId);
+  const rightPlayerSocket = fastify.onlineUsers.get(rightId);
+  const basePayload = buildFullStatePayload(gameState);
 
   // Send to players
   safeSend(
@@ -86,6 +96,41 @@ function broadcastState(gameState, fastify) {
   }
 }
 
+function broadcastGameplayTick(
+  gameState,
+  fastify,
+  { includeSpectators = true } = {},
+) {
+  const leftId = Number(gameState.leftPlayer.id);
+  const rightId = Number(gameState.rightPlayer.id);
+  const leftPlayerSocket = fastify.onlineUsers.get(leftId);
+  const rightPlayerSocket = fastify.onlineUsers.get(rightId);
+  const routinePayload = serializeRoutineGameTick(gameState);
+
+  safeSend(
+    leftPlayerSocket,
+    { event: "GAME_TICK", payload: routinePayload },
+    leftId,
+  );
+  safeSend(
+    rightPlayerSocket,
+    { event: "GAME_TICK", payload: routinePayload },
+    rightId,
+  );
+
+  const spectators = matchSpectators.get(gameState.matchId);
+  if (includeSpectators && spectators && spectators.size > 0) {
+    spectators.forEach((spectatorId) => {
+      const spectatorSocket = fastify.onlineUsers.get(spectatorId);
+      safeSend(
+        spectatorSocket,
+        { event: "GAME_TICK", payload: routinePayload },
+        spectatorId,
+      );
+    });
+  }
+}
+
 // Fastify plugin
 export default fp(async (fastify) => {
   // Expose matchSpectators to fastify instance
@@ -98,6 +143,7 @@ export default fp(async (fastify) => {
     safeSend,
     activeTournaments,
     broadcastState,
+    broadcastGameplayTick,
   });
 
   const handlers = createGameMatchHandlers({

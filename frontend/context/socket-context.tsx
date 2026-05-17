@@ -2,6 +2,7 @@
 
 import {
 	createContext,
+	startTransition,
 	useRef,
 	useEffect,
 	useContext,
@@ -11,11 +12,100 @@ import {
 } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-import { SocketContextValue } from "@/types/types";
+import {
+	GameStateValue,
+	RemoteGameplayTickPayload,
+	SocketContextValue,
+} from "@/types/types";
+import type { GameState } from "@/types/game";
 import { useGameDispatch } from "@/hooks/use-game";
 import { usePathname, useRouter } from "next/navigation";
+import { getWebSocketBaseUrl } from "@/lib/runtime-url";
+import { normalizeRemoteGameState } from "@/features/game/runtime/runtime-helpers";
 
 const SocketContext = createContext<SocketContextValue | null>(null);
+
+function hasSamePowerUps(prevPowerUps: any[] = [], nextPowerUps: any[] = []) {
+	if (prevPowerUps.length !== nextPowerUps.length) return false;
+
+	return prevPowerUps.every((powerUp, index) => {
+		const nextPowerUp = nextPowerUps[index];
+		return (
+			powerUp?.id === nextPowerUp?.id &&
+			powerUp?.type === nextPowerUp?.type &&
+			powerUp?.x === nextPowerUp?.x &&
+			powerUp?.y === nextPowerUp?.y
+		);
+	});
+}
+
+function hasSameActiveEffect(prevEffect: any, nextEffect: any) {
+	return (
+		prevEffect?.type === nextEffect?.type &&
+		prevEffect?.expiresAt === nextEffect?.expiresAt
+	);
+}
+
+function getRemoteRenderStatus(payload: RemoteGameplayTickPayload) {
+	return payload.paused ? "paused" : payload.gameStarted ? "playing" : "waiting";
+}
+
+function mergeRemoteGameplayTickIntoRenderState(
+	prev: GameState | null,
+	payload: RemoteGameplayTickPayload
+) {
+	if (!prev) return prev;
+
+	const timer = payload.timer
+		? {
+			...(prev.timer || {
+				timeElapsed: 0,
+				timeRemaining: 0,
+			}),
+			...payload.timer,
+		}
+		: prev.timer;
+	const nextStatus = getRemoteRenderStatus(payload);
+	const ballUnchanged =
+		prev.ball?.x === payload.ball?.posX &&
+		prev.ball?.y === payload.ball?.posY &&
+		prev.ball?.dx === payload.ball?.dx &&
+		prev.ball?.dy === payload.ball?.dy;
+	const paddlesUnchanged =
+		prev.paddles?.p1?.y === payload.leftPlayer?.paddleY &&
+		prev.paddles?.p2?.y === payload.rightPlayer?.paddleY;
+	const timerUnchanged =
+		(prev.timer?.timeElapsed ?? null) === (timer?.timeElapsed ?? null) &&
+		(prev.timer?.timeRemaining ?? null) === (timer?.timeRemaining ?? null);
+
+	if (ballUnchanged && paddlesUnchanged && timerUnchanged && prev.status === nextStatus) {
+		return prev;
+	}
+
+	return {
+		...prev,
+		status: nextStatus,
+		ball: {
+			...prev.ball,
+			x: payload.ball.posX,
+			y: payload.ball.posY,
+			dx: payload.ball.dx,
+			dy: payload.ball.dy,
+		},
+		timer,
+		paddles: {
+			...prev.paddles,
+			p1: {
+				...prev.paddles.p1,
+				y: payload.leftPlayer.paddleY,
+			},
+			p2: {
+				...prev.paddles.p2,
+				y: payload.rightPlayer.paddleY,
+			},
+		},
+	};
+}
 
 export const SocketProvider = ({ children }) => {
 	const wsRef = useRef<WebSocket | null>(null);
@@ -28,6 +118,7 @@ export const SocketProvider = ({ children }) => {
 		setGameRoom,
 		setGameRoomLoaded,
 		setGameState,
+		setRemoteRenderGameState,
 		getLatestGameRoom,
 		getLatestGameState,
 	} = gameDispatch;
@@ -38,6 +129,7 @@ export const SocketProvider = ({ children }) => {
 	// Set this to NULL when a match ends
 	const hasActiveGame = useRef(false);
 	const prevPathname = useRef(pathname);
+	const suppressMatchmakingRedirectsUntil = useRef(0);
 
 	// STABLE DEPS REF: This pattern prevents the WebSocket from re-connecting
 	// whenever the router or context setters change identity/reference.
@@ -47,6 +139,7 @@ export const SocketProvider = ({ children }) => {
 		setGameRoom,
 		setGameRoomLoaded,
 		setGameState,
+		setRemoteRenderGameState,
 		getLatestGameRoom,
 		getLatestGameState,
 		router,
@@ -60,6 +153,7 @@ export const SocketProvider = ({ children }) => {
 			setGameRoom,
 			setGameRoomLoaded,
 			setGameState,
+			setRemoteRenderGameState,
 			getLatestGameRoom,
 			getLatestGameState,
 			router,
@@ -87,7 +181,7 @@ export const SocketProvider = ({ children }) => {
 				return;
 			}
 
-			const websocket = new WebSocket(process.env.NEXT_PUBLIC_WS_URL || "wss://localhost:8443/ws");
+			const websocket = new WebSocket(getWebSocketBaseUrl());
 			wsRef.current = websocket;
 
 			// Heartbeat
@@ -158,6 +252,10 @@ export const SocketProvider = ({ children }) => {
 							break;
 
 						case "GAME_ROOM":
+							if (Date.now() < suppressMatchmakingRedirectsUntil.current) {
+								console.log("[SocketContext] Ignoring late GAME_ROOM after room exit");
+								break;
+							}
 							stableDeps.current.setGameRoom({
 								roomId: payload.roomId,
 								hostId: payload.hostId,
@@ -232,9 +330,13 @@ export const SocketProvider = ({ children }) => {
 								break;
 
 
-							case "MATCH_FOUND":
-								// Navigate to lobby based on actual host identity (more reliable than pathname checks).
-								{
+								case "MATCH_FOUND":
+									if (Date.now() < suppressMatchmakingRedirectsUntil.current) {
+										console.log("[SocketContext] Ignoring late MATCH_FOUND after room exit");
+										break;
+									}
+									// Navigate to lobby based on actual host identity (more reliable than pathname checks).
+									{
 									const hostId = Number(payload?.hostId);
 									const myId = Number(user?.id);
 									const hostKnown = !Number.isNaN(hostId);
@@ -284,15 +386,23 @@ export const SocketProvider = ({ children }) => {
 								);
 								break;
 
-							case "MATCHMAKING_HOST":
-								// User has been designated as host for a new matchmade room
-								// Redirect to the create page which acts as the lobby
-								stableDeps.current.router.push("/game/remote/single/create?matchmaking=true");
-								break;
+								case "MATCHMAKING_HOST":
+									if (Date.now() < suppressMatchmakingRedirectsUntil.current) {
+										console.log("[SocketContext] Ignoring late MATCHMAKING_HOST after room exit");
+										break;
+									}
+									// User has been designated as host for a new matchmade room
+									// Redirect to the create page which acts as the lobby
+									stableDeps.current.router.push("/game/remote/single/create?matchmaking=true");
+									break;
 
-							case "MATCHMAKING_LEFT":
-								// Confirm left queue
-								break;
+								case "MATCHMAKING_LEFT":
+									stableDeps.current.setGameRoom(null);
+									stableDeps.current.setGameRoomLoaded(true);
+									stableDeps.current.setGameState(null);
+									stableDeps.current.setRemoteRenderGameState(null);
+									hasActiveGame.current = false;
+									break;
 
 							case "TOURNAMENT_UPDATE":
 								console.log("Socket Context: Dispatching TOURNAMENT_UPDATE", payload);
@@ -305,6 +415,7 @@ export const SocketProvider = ({ children }) => {
 								stableDeps.current.setGameRoom(null);
 								// Safely clear undefined property access if any component relies on it
 								stableDeps.current.setGameState(null);
+								stableDeps.current.setRemoteRenderGameState(null);
 								hasActiveGame.current = false;
 								toast.info("You're removed from the game room");
 								window.dispatchEvent(
@@ -320,6 +431,9 @@ export const SocketProvider = ({ children }) => {
 
 							case "GAME_MATCH_START":
 								stableDeps.current.setGameState(payload);
+								stableDeps.current.setRemoteRenderGameState(
+									normalizeRemoteGameState(payload, null)
+								);
 								window.dispatchEvent(
 									new CustomEvent("gameNotification", {
 										detail: {
@@ -368,37 +482,80 @@ export const SocketProvider = ({ children }) => {
 								}
 
 								// Only update if something actually changed to avoid excessive re-render loops
-								stableDeps.current.setGameState((prev: any) => {
-									if (!prev) return { ...payload };
+								startTransition(() => {
+									stableDeps.current.setGameState((prev: any) => {
+										if (!prev) return { ...payload };
 
-									// Increased threshold for ball movement to avoid jitter/loops if updates are too fast
-									const ballMovedSignificantly =
-										Math.abs((prev.ball?.posX || 0) - (payload.ball?.posX || 0)) > 0.1 ||
-										Math.abs((prev.ball?.posY || 0) - (payload.ball?.posY || 0)) > 0.1;
-									const disconnectStateChanged =
-										prev.disconnectedPlayer !== payload.disconnectedPlayer ||
-										prev.pausedAt !== payload.pausedAt ||
-										prev.disconnectCountdown?.disconnectedPlayer !== payload.disconnectCountdown?.disconnectedPlayer ||
-										prev.disconnectCountdown?.gracePeriodEndsAt !== payload.disconnectCountdown?.gracePeriodEndsAt;
+										// Remote matches are server-authoritative, so dedupe must still
+										// notice effect/power-up snapshots even when paddles barely move.
+										const ballMovedSignificantly =
+											Math.abs((prev.ball?.posX || 0) - (payload.ball?.posX || 0)) > 0.1 ||
+											Math.abs((prev.ball?.posY || 0) - (payload.ball?.posY || 0)) > 0.1;
+										const disconnectStateChanged =
+											prev.disconnectedPlayer !== payload.disconnectedPlayer ||
+											prev.pausedAt !== payload.pausedAt ||
+											prev.disconnectCountdown?.disconnectedPlayer !== payload.disconnectCountdown?.disconnectedPlayer ||
+											prev.disconnectCountdown?.gracePeriodEndsAt !== payload.disconnectCountdown?.gracePeriodEndsAt;
+										const powerUpsChanged = !hasSamePowerUps(prev.powerUps, payload.powerUps);
+										const activeEffectChanged = !hasSameActiveEffect(prev.activeEffect, payload.activeEffect);
+										const paddleSizingChanged =
+											prev.leftPlayer?.paddleHeight !== payload.leftPlayer?.paddleHeight ||
+											prev.rightPlayer?.paddleHeight !== payload.rightPlayer?.paddleHeight;
+										const ballSizingChanged =
+											prev.constant?.ballSize !== payload.constant?.ballSize;
 
-									if (prev.matchId === payload.matchId &&
-										!ballMovedSignificantly &&
-										!disconnectStateChanged &&
-										prev.leftPlayer?.score === payload.leftPlayer?.score &&
-										prev.rightPlayer?.score === payload.rightPlayer?.score &&
-										prev.leftPlayer?.gamePaused === payload.leftPlayer?.gamePaused &&
-										prev.rightPlayer?.gamePaused === payload.rightPlayer?.gamePaused &&
-										prev.gameStarted === payload.gameStarted &&
-										prev.paused === payload.paused &&
-										prev.resumeReady?.LEFT === payload.resumeReady?.LEFT &&
-										prev.resumeReady?.RIGHT === payload.resumeReady?.RIGHT &&
-										prev.leftPlayer?.paddleY === payload.leftPlayer?.paddleY &&
-										prev.rightPlayer?.paddleY === payload.rightPlayer?.paddleY
-									) {
-										return prev;
-									}
-									return { ...payload };
+										if (prev.matchId === payload.matchId &&
+											!ballMovedSignificantly &&
+											!disconnectStateChanged &&
+											!powerUpsChanged &&
+											!activeEffectChanged &&
+											!paddleSizingChanged &&
+											!ballSizingChanged &&
+											prev.leftPlayer?.score === payload.leftPlayer?.score &&
+											prev.rightPlayer?.score === payload.rightPlayer?.score &&
+											prev.leftPlayer?.gamePaused === payload.leftPlayer?.gamePaused &&
+											prev.rightPlayer?.gamePaused === payload.rightPlayer?.gamePaused &&
+											prev.gameStarted === payload.gameStarted &&
+											prev.paused === payload.paused &&
+											prev.resumeReady?.LEFT === payload.resumeReady?.LEFT &&
+											prev.resumeReady?.RIGHT === payload.resumeReady?.RIGHT &&
+											prev.leftPlayer?.paddleY === payload.leftPlayer?.paddleY &&
+											prev.rightPlayer?.paddleY === payload.rightPlayer?.paddleY
+										) {
+											return prev;
+										}
+										return { ...payload };
+									});
 								});
+								stableDeps.current.setRemoteRenderGameState(
+									normalizeRemoteGameState(payload, null)
+								);
+								break;
+
+							case "GAME_TICK":
+								if (!hasActiveGame.current) {
+									hasActiveGame.current = true;
+									const matchId = String(payload.matchId);
+									const currentPath = window.location.pathname;
+									if (!currentPath.includes(`/game/${matchId}`)) {
+										console.log(`[SocketContext] Redirecting to active match ${matchId}`);
+										const latestGameState = stableDeps.current.getLatestGameState();
+										const shouldOpenAsSpectator =
+											latestGameState?.spectatorMode === true ||
+											window.location.search.includes("spectator=true");
+										const targetPath = shouldOpenAsSpectator
+											? `/game/${matchId}?spectator=true`
+											: `/game/${matchId}`;
+										stableDeps.current.router.push(targetPath);
+									}
+								}
+
+								stableDeps.current.setRemoteRenderGameState((prev: GameState | null) =>
+									mergeRemoteGameplayTickIntoRenderState(
+										prev,
+										payload as RemoteGameplayTickPayload
+									)
+								);
 								break;
 
 							case "GAME_STATE_DENIED": {
@@ -440,6 +597,7 @@ export const SocketProvider = ({ children }) => {
 								// Reset state after a delay to allow results screen
 								setTimeout(() => {
 									stableDeps.current.setGameState(null);
+									stableDeps.current.setRemoteRenderGameState(null);
 									// IMPORTANT: Don't clear gameRoom if we're in a tournament!
 									// The user is still in the tournament lobby, and we need this state
 									// so that navigating away to the dashboard correctly fires LEAVE_ROOM.
@@ -453,6 +611,7 @@ export const SocketProvider = ({ children }) => {
 							case "REMATCH_FAILED":
 								toast.error(payload.reason || "Rematch failed");
 								stableDeps.current.setGameState(null);
+								stableDeps.current.setRemoteRenderGameState(null);
 								stableDeps.current.setGameRoom(null);
 								hasActiveGame.current = false;
 								stableDeps.current.router.push("/game/new");
@@ -672,6 +831,15 @@ export const SocketProvider = ({ children }) => {
 
 	const sendSocketMessage = useCallback((payload: any) => {
 		const socket = wsRef.current;
+		if (payload?.event === "LEAVE_MATCHMAKING" || payload?.event === "LEAVE_ROOM") {
+			suppressMatchmakingRedirectsUntil.current = Date.now() + 3000;
+		}
+		if (
+			payload?.event === "JOIN_MATCHMAKING" ||
+			payload?.event === "JOIN_ROOM_BY_CODE"
+		) {
+			suppressMatchmakingRedirectsUntil.current = 0;
+		}
 		if (!socket || socket.readyState !== WebSocket.OPEN) {
 			console.warn("Client socket isn't ready");
 			connectRef.current?.();
@@ -759,6 +927,7 @@ export const SocketProvider = ({ children }) => {
 	const forceCleanup = useCallback(() => {
 		stableDeps.current.setGameRoom(null);
 		stableDeps.current.setGameState(null);
+		stableDeps.current.setRemoteRenderGameState(null);
 		hasActiveGame.current = false;
 		if (wsRef.current?.readyState === WebSocket.OPEN) {
 			wsRef.current.send(JSON.stringify({ event: "FORCE_CLEANUP" }));

@@ -9,33 +9,44 @@ A full-stack multiplayer Pong web application built as the final project of the 
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS, shadcn/ui |
 | Backend | Fastify 5, Prisma (SQLite), WebSockets |
 | Auth | JWT, Google OAuth2, 2FA (TOTP) |
-| Infra | Docker Compose, Nginx (HTTPS reverse proxy) |
+| Infra | Docker Compose, Nginx (HTTPS edge), Fastify (HTTPS) |
 
 ## Architecture
 
-The app runs as three Docker services on a private bridge network (`capybara`). TLS terminates at Nginx; the browser only talks to Nginx on port **8443** (HTTPS/WSS).
+The app runs as three Docker services on a private bridge network (`capybara`). Only **Nginx** is exposed on the host (`8443` → container `443`). The browser always uses **HTTPS/WSS** to Nginx; API, uploads, and WebSocket traffic is proxied to **Fastify over HTTPS** on the internal network. The Next.js frontend is reached over plain HTTP inside the network (TLS ends at Nginx for `/`).
+
+| Hop | Protocol | TLS certificate |
+|-----|----------|-----------------|
+| Browser → Nginx | HTTPS / WSS | `nginx` image (`qtay.crt` / `qtay.key`) |
+| Nginx → frontend | HTTP | — |
+| Nginx → backend | HTTPS | `backend` image (`certs/server.crt`, CN=`backend`) |
+| Fastify listener | HTTPS on `:3001` | Same backend certs (`app.js` → `getTlsOptions()`) |
+
+Self-signed certificates are generated at **image build** in `nginx/Dockerfile` and `backend/Dockerfile`. Nginx uses `proxy_ssl_verify off` when connecting to the backend so the dev self-signed cert is accepted.
 
 ```mermaid
 flowchart LR
   subgraph client [Browser]
     SPA[Next.js SPA]
   end
-  subgraph edge [Nginx :443]
-    TLS[TLS termination]
+  subgraph edge [Nginx :443 published as 8443]
+    TLS1[TLS - public edge]
   end
-  subgraph compose [Docker Compose]
-    FE[frontend :3000]
-    BE[backend :3001]
+  subgraph compose [Docker network capybara]
+    FE[frontend :3000 HTTP]
+    BE[backend :3001 HTTPS Fastify]
   end
   DB[(SQLite / Prisma\n./data volume)]
   FS[Uploads\n./uploads volume]
 
-  SPA -->|HTTPS| TLS
-  TLS -->|"/"| FE
-  TLS -->|/api/, /uploads/, /ws| BE
+  SPA -->|"HTTPS / WSS"| TLS1
+  TLS1 -->|"/"| FE
+  TLS1 -->|"HTTPS /api, /uploads, /ws"| BE
   BE --> DB
   BE --> FS
 ```
+
+**Backend TLS config:** `backend/app.js` exports `options` (`https`, `trustProxy`). fastify-cli must be started with **`-o`** so those options apply (`npm run start` / `npm run dev` in `backend/package.json`). Compose file watch ignores `backend/certs/` so dev sync does not remove certs baked into the image.
 
 ## Features
 

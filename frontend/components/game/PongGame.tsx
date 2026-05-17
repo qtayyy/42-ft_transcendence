@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GameState, GameMode } from "@/types/game";
 import { usePongGame } from "@/hooks/usePongGame";
-import { renderGame, BackgroundId } from "@/utils/gameRenderer";
+import { BackgroundId, interpolateGameState, renderGame } from "@/utils/gameRenderer";
 import { GameOverOverlay } from "@/components/game/GameOverOverlay";
 import { ReadyOverlay } from "@/components/game/ReadyOverlay";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
@@ -11,6 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Timer, Hash, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+interface RemoteOptimisticPaddlePreview {
+	paddleKey: "p1" | "p2";
+	previewY: number;
+	direction: "UP" | "DOWN";
+}
 
 /** 
  * "?:" means it can be optional
@@ -31,6 +37,9 @@ interface PongGameProps {
 	onPauseToggle?: () => void;
 	pauseOnGuard?: boolean;
 	isAIEnabled?: boolean;
+	getLiveGameState?: () => GameState | null;
+	subscribeToLiveGameState?: (listener: () => void) => () => void;
+	remoteOptimisticPaddlePreview?: RemoteOptimisticPaddlePreview | null;
 }
 
 export default function PongGame({
@@ -48,6 +57,9 @@ export default function PongGame({
 	onPauseToggle,
 	pauseOnGuard = false,
 	isAIEnabled = false,
+	getLiveGameState,
+	subscribeToLiveGameState,
+	remoteOptimisticPaddlePreview = null,
 }: PongGameProps) {
 	const {
 		gameState,
@@ -59,6 +71,13 @@ export default function PongGame({
 		setBindings,
 	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver, isAIEnabled });
 	const guardPauseSentRef = useRef(false);
+	const previousSnapshotRef = useRef<GameState | null>(null);
+	const latestSnapshotRef = useRef<GameState | null>(null);
+	const lastSnapshotAtRef = useRef(0);
+	const snapshotIntervalRef = useRef(1000 / 60);
+	const remoteOptimisticPaddlePreviewRef =
+		useRef<RemoteOptimisticPaddlePreview | null>(remoteOptimisticPaddlePreview);
+	const showDebugOverlay = process.env.NEXT_PUBLIC_DEBUG_GAME === "1";
 
 	// Background
 	const [background, setBackground] = useState<BackgroundId>(() => {
@@ -102,15 +121,109 @@ export default function PongGame({
 		? (isTournamentMatch ? `LT-${cleanId}` : `LS-${cleanId}`)
 		: cleanId;
 
+	const syncIncomingSnapshot = useCallback((nextGameState: GameState | null) => {
+		if (!nextGameState) return;
+		const now = performance.now();
+		const baseTickMs = nextGameState.constant?.TICK_MS || 16.67;
+		const maxInterpolationWindow = baseTickMs * 3;
+		if (
+			latestSnapshotRef.current &&
+			latestSnapshotRef.current !== nextGameState &&
+			latestSnapshotRef.current.status === "playing" &&
+			nextGameState.status === "playing"
+		) {
+			if (lastSnapshotAtRef.current > 0) {
+				const measuredInterval = now - lastSnapshotAtRef.current;
+				if (measuredInterval > maxInterpolationWindow) {
+					previousSnapshotRef.current = nextGameState;
+					snapshotIntervalRef.current = baseTickMs;
+				} else {
+					previousSnapshotRef.current = latestSnapshotRef.current;
+					snapshotIntervalRef.current = Math.max(8, measuredInterval);
+				}
+			} else {
+				previousSnapshotRef.current = latestSnapshotRef.current;
+			}
+		} else {
+			previousSnapshotRef.current = nextGameState;
+			snapshotIntervalRef.current = baseTickMs;
+		}
+
+		latestSnapshotRef.current = nextGameState;
+		lastSnapshotAtRef.current = now;
+	}, []);
+
+	useEffect(() => {
+		syncIncomingSnapshot(gameState);
+	}, [gameState, syncIncomingSnapshot]);
+
+	useEffect(() => {
+		remoteOptimisticPaddlePreviewRef.current = remoteOptimisticPaddlePreview;
+	}, [remoteOptimisticPaddlePreview]);
+
+	useEffect(() => {
+		if (!getLiveGameState || !subscribeToLiveGameState) return;
+
+		syncIncomingSnapshot(getLiveGameState());
+		return subscribeToLiveGameState(() => {
+			syncIncomingSnapshot(getLiveGameState());
+		});
+	}, [getLiveGameState, subscribeToLiveGameState, syncIncomingSnapshot]);
+
 	// Game Loop / Rendering
 	useEffect(() => {
-		if (!gameState || !canvasRef.current) return;
-		const canvas = canvasRef.current;
-		const context = canvas.getContext("2d");
-		if (!context) return;
+		let frameId = 0;
 
-		renderGame(context, gameState, canvasDimensions, background);
-	}, [gameState, canvasDimensions, background]);
+		const drawFrame = (now: number) => {
+			const canvas = canvasRef.current;
+			const latestSnapshot = latestSnapshotRef.current;
+			if (!canvas || !latestSnapshot) {
+				frameId = requestAnimationFrame(drawFrame);
+				return;
+			}
+
+			const context = canvas.getContext("2d");
+			if (!context) {
+				frameId = requestAnimationFrame(drawFrame);
+				return;
+			}
+
+			const elapsedSinceSnapshot = now - lastSnapshotAtRef.current;
+			const alpha = Math.min(
+				1,
+				elapsedSinceSnapshot / Math.max(snapshotIntervalRef.current, latestSnapshot.constant.TICK_MS || 16.67)
+			);
+			const frameState = interpolateGameState(
+				previousSnapshotRef.current,
+				latestSnapshot,
+				alpha
+			);
+			const activePreview = remoteOptimisticPaddlePreviewRef.current;
+			const renderState =
+				activePreview &&
+				frameState.status === "playing" &&
+				(activePreview.direction === "UP"
+					? frameState.paddles[activePreview.paddleKey].y > activePreview.previewY
+					: frameState.paddles[activePreview.paddleKey].y < activePreview.previewY)
+					? {
+							...frameState,
+							paddles: {
+								...frameState.paddles,
+								[activePreview.paddleKey]: {
+									...frameState.paddles[activePreview.paddleKey],
+									y: activePreview.previewY,
+								},
+							},
+					  }
+					: frameState;
+
+			renderGame(context, renderState, canvasDimensions, background);
+			frameId = requestAnimationFrame(drawFrame);
+		};
+
+		frameId = requestAnimationFrame(drawFrame);
+		return () => cancelAnimationFrame(frameId);
+	}, [canvasDimensions, background]);
 
 	const localGameOverResult =
 		gameState?.status === "finished"
@@ -257,7 +370,7 @@ export default function PongGame({
 			</div>
 
 			{/* DEBUG OVERLAY */}
-			{gameState && process.env.NODE_ENV === 'development' && (
+			{gameState && showDebugOverlay && (
 				<div className="absolute top-4 right-4 bg-black/80 text-white p-3 rounded-lg text-xs font-mono backdrop-blur-md z-50 border border-white/10 shadow-xl pointer-events-none mt-24">
 					<div className="flex items-center gap-2 mb-1 text-muted-foreground"><Zap className="h-3 w-3 text-yellow-500" /> Debug Info</div>
 					<div>Status: <span className="text-green-400">{gameState.status}</span></div>

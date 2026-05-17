@@ -1,9 +1,5 @@
 export function safeSend(socket, data, userId) {
   if (!socket) {
-    if (userId) {
-      console.warn(`WS missing for user ${userId}. Was trying to send:`);
-      console.warn(data);
-    }
     return;
   }
 
@@ -14,13 +10,10 @@ export function safeSend(socket, data, userId) {
   }
 
   if (socket.readyState !== (global.WebSocket?.OPEN || 1)) {
-    // console.warn(`WS for user ${userId} is not open`);
     return;
   }
 
   try {
-    console.log(`Sending to user ${userId}:`);
-    console.log(data);
     socket.send(JSON.stringify(data));
   } catch (err) {
     console.error(`Failed to send to user ${userId}`, err);
@@ -48,5 +41,37 @@ export function serializeGameState(gameState) {
       gameState.disconnectedPlayers instanceof Set
         ? [...gameState.disconnectedPlayers]
         : gameState.disconnectedPlayers || [],
+  };
+}
+
+/**
+ * Serialize the high-frequency gameplay fields used during active remote play.
+ * This keeps routine websocket packets smaller than full state snapshots.
+ */
+export function serializeRoutineGameTick(gameState) {
+  if (!gameState) return null;
+
+  return {
+    matchId: gameState.matchId,
+    gameStarted: Boolean(gameState.gameStarted),
+    paused: Boolean(gameState.paused),
+    ball: {
+      posX: gameState.ball?.posX ?? 0,
+      posY: gameState.ball?.posY ?? 0,
+      dx: gameState.ball?.dx ?? 0,
+      dy: gameState.ball?.dy ?? 0,
+    },
+    leftPlayer: {
+      paddleY: gameState.leftPlayer?.paddleY ?? 0,
+    },
+    rightPlayer: {
+      paddleY: gameState.rightPlayer?.paddleY ?? 0,
+    },
+    timer: gameState.timer
+      ? {
+          timeElapsed: gameState.timer.timeElapsed ?? 0,
+          timeRemaining: gameState.timer.timeRemaining ?? 0,
+        }
+      : null,
   };
 }

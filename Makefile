@@ -1,5 +1,7 @@
 all: build start
 
+LAN_IP_CMD = node ./scripts/lan-ip.mjs
+
 build:
 	@docker compose -f ./compose.yaml build
 
@@ -42,4 +44,101 @@ prune:
 
 re: stop down all
 
-.PHONY: all build start dev stop down logs clean prune re
+lan-ip:
+	@LAN_IP="$${LAN_IP:-$$( $(LAN_IP_CMD) )}"; \
+	if [ -z "$$LAN_IP" ]; then \
+		echo "No LAN IPv4 address found."; \
+		echo "Make sure this machine is connected to Wi-Fi or Ethernet, then try again."; \
+		exit 1; \
+	fi; \
+	node ./scripts/public-app-url.mjs set "https://$$LAN_IP:8443"; \
+	echo "$$LAN_IP"
+
+lan-url:
+	@LAN_IP="$${LAN_IP:-$$( $(LAN_IP_CMD) )}"; \
+	if [ -z "$$LAN_IP" ]; then \
+		echo "No LAN IPv4 address found."; \
+		echo "Make sure this machine is connected to Wi-Fi or Ethernet, then try again."; \
+		exit 1; \
+	fi; \
+	node ./scripts/public-app-url.mjs set "https://$$LAN_IP:8443"; \
+	echo "Host machine LAN IP: $$LAN_IP"; \
+	echo "Open this on the host machine:   https://localhost:8443"; \
+	echo "Open this on another LAN device: https://$$LAN_IP:8443"; \
+	echo "Updated backend/.env PUBLIC_APP_URL to https://$$LAN_IP:8443"; \
+	echo "If the other device cannot connect, check the host firewall and accept the browser HTTPS warning once."
+
+lan-expose:
+	@LAN_IP="$${LAN_IP:-$$( $(LAN_IP_CMD) )}" PORT="$${PORT:-8443}" ./scripts/expose-lan.sh --admin
+
+lan-help:
+	@echo "LAN checklist"; \
+	echo "  1. Start the stack: make start"; \
+	echo "  2. Open the local firewall / WSL portproxy: make lan-expose"; \
+	echo "  3. Print the shareable link: make lan-url"; \
+	echo "  4. Open the printed URL on another device on the same Wi-Fi."; \
+	echo ""; \
+	echo "Host firewall help"; \
+	echo "  macOS"; \
+	echo "    Check firewall state:"; \
+	echo "      sudo /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate"; \
+	echo "    If devices still cannot connect, allow incoming connections for Docker/Desktop/terminal"; \
+	echo "    in System Settings -> Network -> Firewall."; \
+	echo ""; \
+	echo "  Ubuntu with ufw"; \
+	echo "      sudo ufw allow 8443/tcp"; \
+	echo "      sudo ufw status"; \
+	echo ""; \
+	echo "  Ubuntu without ufw"; \
+	echo "      sudo systemctl status firewalld"; \
+	echo "      sudo iptables -S"; \
+	echo "      sudo nft list ruleset"; \
+	echo ""; \
+	echo "  Windows host"; \
+	echo "      New-NetFirewallRule -DisplayName \"LAN 8443\" -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow"; \
+	echo ""; \
+	echo "  WSL2"; \
+	echo "      From WSL/zsh: make lan-expose LAN_IP=<Windows Wi-Fi IPv4>"; \
+	echo "      From Admin PowerShell: .\\scripts\\expose-lan.ps1 -ListenIp <Windows Wi-Fi IPv4>"; \
+	echo "      make lan-url now prints the Windows LAN IP, not the private WSL 172.x IP."; \
+	echo "      If it cannot detect the right adapter, run: make lan-url LAN_IP=<Windows Wi-Fi IPv4>"; \
+	echo "      If another device still cannot connect, Windows is not forwarding LAN traffic to WSL/Docker."; \
+	echo "      Use ngrok, WSL mirrored networking, or a Windows portproxy/firewall rule."; \
+	echo ""; \
+	echo "If the host machine can open the LAN URL but another device still cannot,"; \
+	echo "the Wi-Fi may be using client isolation. Try the same phone hotspot instead."
+
+# Short-term public access via ngrok. Start the local stack first, then run:
+#   make ngrok
+# The target updates backend/.env automatically and restarts the backend so
+# OAuth redirects use the current tunnel URL.
+ngrok:
+	@command -v ngrok >/dev/null 2>&1 || (echo "ngrok is not installed. Install it first, then run 'ngrok config add-authtoken <token>'."; exit 1)
+	@TMP_LOG="$$(mktemp -t ft_transcendence_ngrok.XXXXXX)"; \
+	cleanup() { \
+		if [ -n "$$NGROK_PID" ] && kill -0 "$$NGROK_PID" 2>/dev/null; then \
+			kill "$$NGROK_PID" 2>/dev/null || true; \
+			wait "$$NGROK_PID" 2>/dev/null || true; \
+		fi; \
+		rm -f "$$TMP_LOG"; \
+	}; \
+	trap cleanup EXIT INT TERM; \
+	ngrok http https://localhost:8443 --upstream-tls-verify=false >"$$TMP_LOG" 2>&1 & \
+	NGROK_PID=$$!; \
+	node ./scripts/public-app-url.mjs ngrok "$(GOOGLE_CONSOLE_URL)" 20 1000; \
+	docker compose -f ./compose.yaml up -d --force-recreate backend; \
+	echo "ngrok is running. Press Ctrl+C to stop it."; \
+	wait "$$NGROK_PID"
+
+# make ngrok-sync GOOGLE_CONSOLE_URL='https://console.cloud.google.com/auth/clients/XXXXX'
+ngrok-sync:
+	@node ./scripts/sync-ngrok-url.mjs "$(GOOGLE_CONSOLE_URL)"
+	@docker compose -f ./compose.yaml up -d --force-recreate backend
+
+ngrok-restart-backend:
+	@docker compose -f ./compose.yaml up -d --force-recreate backend
+
+gameplay-test:
+	@node ./scripts/chrome-devtools-gameplay-smoke.mjs
+
+.PHONY: all build start dev stop down logs clean prune re lan-ip lan-url lan-expose lan-help ngrok ngrok-sync ngrok-restart-backend gameplay-test
