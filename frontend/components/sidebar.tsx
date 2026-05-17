@@ -18,6 +18,7 @@ import {
   Settings,
   LogOut,
   MessageSquare,
+  SlidersHorizontal,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -256,6 +257,19 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
           })}
         </ul>
       </nav>
+
+      {/* Filters & Export — only on dashboard */}
+      {pathname === "/dashboard" && (
+        <div className="px-3 pb-2">
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("toggle-analytics"))}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <SlidersHorizontal className="w-5 h-5 flex-shrink-0" />
+            <span>{t?.Dashboard?.["Show Filters & Export"] || "Filters & Export"}</span>
+          </button>
+        </div>
+      )}
 
       {/* Logout Button */}
       <div className="px-3 pt-4 border-t border-border">
