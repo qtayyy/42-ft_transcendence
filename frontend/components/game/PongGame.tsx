@@ -361,7 +361,7 @@ export default function PongGame({
 	}
 
 	return (
-		<div className="h-screen pt-32 pb-4 flex flex-col overflow-hidden bg-linear-to-b from-background to-muted/20 relative">
+		<div className="h-dvh pt-32 pb-4 flex flex-col overflow-hidden bg-linear-to-b from-background to-muted/20 relative">
 
 			{/* Decorative Background Elements */}
 			<div className="absolute inset-0 overflow-hidden pointer-events-none">
