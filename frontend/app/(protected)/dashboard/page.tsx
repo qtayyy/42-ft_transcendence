@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useGame } from "@/hooks/use-game";
 import { useLanguage } from '@/context/languageContext';
-import { Users, BarChart3, PieChart, Trophy, Activity, Clock, Calendar, Download, FileSpreadsheet, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, BarChart3, PieChart, Trophy, Activity, Clock, Calendar, Download, FileSpreadsheet, FileText, X } from "lucide-react";
 import { useFriends } from "@/hooks/use-friends";
 import { Badge } from "@/components/ui/badge";
 import { jsPDF } from "jspdf";
@@ -27,7 +27,6 @@ interface MatchEntry {
   playerScore: number;
   opponentScore: number;
   result: "win" | "loss" | "draw";
-  mode: string;
   durationSeconds?: number | null;
   date: string;
 }
@@ -40,20 +39,12 @@ export default function DashboardPage() {
   const [recentMatchesLoading, setRecentMatchesLoading] = useState(true);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [modeFilter, setModeFilter] = useState<string>("all");
   const [resultFilter, setResultFilter] = useState<"all" | "win" | "loss" | "draw">("all");
   const [showAnalyticsControls, setShowAnalyticsControls] = useState(false);
   const { onlineFriends } = useGame();
   const { t } = useLanguage();
   const { friends: allFriends } = useFriends();
 
-  const MODE_LABEL: Record<string, string> = {
-    local: t.Dashboard["Local 1v1"],
-    "local-tournament": t.Dashboard["Local Tournament"],
-    remote: t.Dashboard["Remote 1v1"],
-    "remote-tournament": t.Dashboard["Remote Tournament"],
-    ai: t.Dashboard["vs AI"],
-  };
 
   const escapeCsvCell = (value: string | number | null | undefined) => {
     const safeValue = value == null ? '' : String(value);
@@ -72,7 +63,6 @@ export default function DashboardPage() {
   const clearFilters = () => {
     setFromDate("");
     setToDate("");
-    setModeFilter("all");
     setResultFilter("all");
   };
 
@@ -96,7 +86,13 @@ export default function DashboardPage() {
     fetchRecentMatches();
   }, []);
 
-
+  useEffect(() => {
+    const handleToggleAnalytics = () => {
+      setShowAnalyticsControls((prev) => !prev);
+    };
+    window.addEventListener("toggle-analytics", handleToggleAnalytics);
+    return () => window.removeEventListener("toggle-analytics", handleToggleAnalytics);
+  }, []);
 
   async function handleSearchUser(query) {
     try {
@@ -160,10 +156,8 @@ export default function DashboardPage() {
 
     const withinFrom = !fromBoundary || matchDate >= fromBoundary;
     const withinTo = !toBoundary || matchDate <= toBoundary;
-    const modeMatches = modeFilter === "all" || match.mode === modeFilter;
     const resultMatches = resultFilter === "all" || match.result === resultFilter;
 
-    return withinFrom && withinTo && modeMatches && resultMatches;
   });
 
   const sortedFilteredMatches = [...filteredMatchHistory].sort(
@@ -171,7 +165,6 @@ export default function DashboardPage() {
   );
 
   const recentMatches = sortedFilteredMatches.slice(0, 3);
-  const modeOptions = Array.from(new Set(matchHistory.map((match) => match.mode)));
 
   const handleExportCsv = () => {
     if (sortedFilteredMatches.length === 0) {
@@ -182,7 +175,6 @@ export default function DashboardPage() {
     const headers = [
       "Match ID",
       "Date",
-      "Mode",
       "Opponent",
       "Result",
       "Player Score",
@@ -193,7 +185,6 @@ export default function DashboardPage() {
     const rows = sortedFilteredMatches.map((match) => [
       match.id,
       new Date(match.date).toLocaleString(),
-      MODE_LABEL[match.mode] || match.mode,
       match.opponent,
       match.result,
       match.playerScore,
@@ -225,7 +216,6 @@ export default function DashboardPage() {
     const filtersSummary = [
       fromDate ? `From: ${fromDate}` : "From: Any",
       toDate ? `To: ${toDate}` : "To: Any",
-      `Mode: ${modeFilter === "all" ? "All" : MODE_LABEL[modeFilter] || modeFilter}`,
       `Result: ${resultFilter === "all" ? "All" : resultFilter}`,
     ].join(" | ");
 
@@ -266,7 +256,6 @@ export default function DashboardPage() {
     const headers = [
       "Match ID",
       "Date",
-      "Mode",
       "Opponent",
       "Result",
       "Player",
@@ -306,7 +295,6 @@ export default function DashboardPage() {
       const row = [
         String(match.id),
         new Date(match.date).toLocaleString(),
-        MODE_LABEL[match.mode] || match.mode,
         match.opponent,
         match.result.charAt(0).toUpperCase() + match.result.slice(1),
         String(match.playerScore),
@@ -443,30 +431,29 @@ export default function DashboardPage() {
         </div>
 
         <div className="w-full max-w-6xl mx-auto space-y-3">
-          <div className="flex justify-center">
-            <Button
-              variant="outline"
-              onClick={() => setShowAnalyticsControls((prev) => !prev)}
-              className="gap-2"
-            >
-              <Download className="h-4 w-4" />
-              {showAnalyticsControls ? t.Dashboard["Hide Filters & Export"] : t.Dashboard["Show Filters & Export"]}
-              {showAnalyticsControls ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-          </div>
-
           {showAnalyticsControls && (
             <div className="group relative">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-500 rounded-2xl blur opacity-20 group-hover:opacity-50 transition duration-500"></div>
               <Card className="relative border-0 bg-card backdrop-blur-sm overflow-hidden">
                 <CardHeader className="pb-4">
-                  <CardTitle className="text-2xl flex items-center gap-2">
-                    <Download className="h-6 w-6 text-sky-500" />
-                    {t.Dashboard["Analytics Controls"]}
-                  </CardTitle>
-                  <CardDescription>
-                    {t.Dashboard["Custom date range and filters for dashboard stats, with CSV/PDF export."]}
-                  </CardDescription>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-2xl flex items-center gap-2">
+                        <Download className="h-6 w-6 text-sky-500" />
+                        {t.Dashboard["Analytics Controls"]}
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        {t.Dashboard["Custom date range and filters for dashboard stats, with CSV/PDF export."]}
+                      </CardDescription>
+                    </div>
+                    <button
+                      onClick={() => setShowAnalyticsControls(false)}
+                      className="ml-4 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      aria-label="Close"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -489,21 +476,6 @@ export default function DashboardPage() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground font-medium">{t.Dashboard["Mode"]}</label>
-                      <select
-                        value={modeFilter}
-                        onChange={(e) => setModeFilter(e.target.value)}
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                      >
-                        <option value="all">{t.Dashboard["All modes"]}</option>
-                        {modeOptions.map((mode) => (
-                          <option key={mode} value={mode}>
-                            {MODE_LABEL[mode] || mode}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
                       <label className="text-xs text-muted-foreground font-medium">{t.Dashboard["Result"]}</label>
                       <select
                         value={resultFilter}
@@ -523,12 +495,12 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  {/* <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" size="sm" onClick={() => setQuickRange(7)}>{t.Dashboard["Last 7 days"]}</Button>
                     <Button variant="secondary" size="sm" onClick={() => setQuickRange(30)}>{t.Dashboard["Last 30 days"]}</Button>
                     <Button variant="secondary" size="sm" onClick={() => setQuickRange(90)}>{t.Dashboard["Last 90 days"]}</Button>
                     <Button variant="ghost" size="sm" onClick={clearFilters}>{t.Dashboard["All time"]}</Button>
-                  </div>
+                  </div> */}
 
                   <div className="flex flex-wrap items-center gap-3 pt-1">
                     <Badge variant="secondary" className="px-3 py-1">
@@ -804,10 +776,7 @@ export default function DashboardPage() {
                                 {new Date(match.date).toLocaleDateString()}
                               </span>
                             </div>
-                            <div>
-                              <span className="text-muted-foreground">{t.Dashboard["Mode:"]} </span>
-                              <span className="font-medium">{MODE_LABEL[match.mode] || match.mode}</span>
-                            </div>
+                        
                             <div>
                               <span className="text-muted-foreground">{t.Dashboard["Result:"]} </span>
                               <span className="font-medium text-primary capitalize">{match.result}</span>
