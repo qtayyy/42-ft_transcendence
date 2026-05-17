@@ -25,6 +25,11 @@ const gameLoops = new Map(); // matchId -> intervalHandle
 // Track spectators per match
 const matchSpectators = new Map(); // matchId -> Set of spectatorIds
 
+// Track finished single remote matches briefly so result-screen rematch/leave
+// actions can still be validated after the live game state is cleaned up.
+const postGameRematchSessions = new Map(); // matchId -> session
+const POST_GAME_REMATCH_SESSION_TTL_MS = 10 * 60 * 1000;
+
 // Periodic diagnostic to monitor for memory leaks
 setInterval(() => {
   if (gameLoops.size > 0) {
@@ -33,6 +38,77 @@ setInterval(() => {
     );
   }
 }, 30000); // Log every 30 seconds if there are active loops
+
+function clearPostGameRematchSession(matchId) {
+  const session = postGameRematchSessions.get(matchId);
+  if (!session) return;
+
+  clearTimeout(session.timeout);
+  postGameRematchSessions.delete(matchId);
+}
+
+function registerPostGameRematchSession(gameState) {
+  if (gameState.tournamentId || !gameState.isRemote) return;
+
+  const matchId = gameState.matchId;
+  clearPostGameRematchSession(matchId);
+
+  const session = {
+    matchId,
+    leftId: Number(gameState.leftPlayer.id),
+    rightId: Number(gameState.rightPlayer.id),
+    leftLeft: false,
+    rightLeft: false,
+    timeout: null,
+  };
+  session.timeout = setTimeout(() => {
+    postGameRematchSessions.delete(matchId);
+  }, POST_GAME_REMATCH_SESSION_TTL_MS);
+  postGameRematchSessions.set(matchId, session);
+}
+
+function getPostGameRematchSession(matchId) {
+  return postGameRematchSessions.get(matchId) || null;
+}
+
+function markPostGamePlayerLeft(matchId, userId) {
+  const session = getPostGameRematchSession(matchId);
+  if (!session) return null;
+
+  const uid = Number(userId);
+  if (uid !== session.leftId && uid !== session.rightId) return null;
+
+  if (uid === session.leftId) {
+    session.leftLeft = true;
+    return { session, opponentId: session.rightId };
+  }
+
+  session.rightLeft = true;
+  return { session, opponentId: session.leftId };
+}
+
+function canStartPostGameRematch(matchId, player1Id, player2Id) {
+  const session = getPostGameRematchSession(matchId);
+  if (!session) {
+    return { ok: false, reason: "Rematch expired" };
+  }
+
+  const p1 = Number(player1Id);
+  const p2 = Number(player2Id);
+  const samePlayers =
+    (p1 === session.leftId && p2 === session.rightId) ||
+    (p1 === session.rightId && p2 === session.leftId);
+
+  if (!samePlayers) {
+    return { ok: false, reason: "Rematch not allowed" };
+  }
+
+  if (session.leftLeft || session.rightLeft) {
+    return { ok: false, reason: "Opponent has left the game" };
+  }
+
+  return { ok: true };
+}
 
 function buildDisconnectCountdown(gameState) {
   // Compute disconnect countdown if game is paused due to disconnect
@@ -135,6 +211,10 @@ function broadcastGameplayTick(
 export default fp(async (fastify) => {
   // Expose matchSpectators to fastify instance
   fastify.decorate("matchSpectators", matchSpectators);
+  fastify.decorate("registerPostGameRematchSession", registerPostGameRematchSession);
+  fastify.decorate("markPostGamePlayerLeft", markPostGamePlayerLeft);
+  fastify.decorate("canStartPostGameRematch", canStartPostGameRematch);
+  fastify.decorate("clearPostGameRematchSession", clearPostGameRematchSession);
 
   const { endGame, startGameLoop } = createGameLifecycle({
     fastify,
