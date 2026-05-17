@@ -61,3 +61,7 @@ profile-*
 /generated/prisma
 
 .env
+
+# TLS material generated at image build or for local dev (see backend/Dockerfile)
+certs/server.key
+certs/server.crt
