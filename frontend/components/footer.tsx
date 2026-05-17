@@ -1,9 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
 import { useMemo } from "react";
-import { LanguageSwitcher } from "@/components/language-switcher";
+import Link from "next/link";
 
 const NON_AUTHENTICATED_ROUTES = [
   "/",
@@ -22,16 +21,27 @@ export default function Footer() {
   }, [pathname]);
 
   return (
-    <div
+    <footer
       suppressHydrationWarning
-      className={cn(
-        "z-40 w-full p-3 text-gray-100",
-        "fixed inset-x-0 bottom-0 bg-background/60 backdrop-blur"
-      )}
+      className="w-full px-4 py-3 text-gray-400 text-xs border-t border-white/10 bg-background"
     >
-      {/* <div className="flex items-center justify-end"> */}
-        {/* <LanguageSwitcher /> */}
-      {/* </div> */}
-    </div>
+      <div className="flex items-center justify-center gap-4">
+        <span>© {new Date().getFullYear()} Transcendence Into Unknown. All rights reserved.</span>
+        <span className="text-gray-600">|</span>
+        <Link
+          href="/terms-of-service"
+          className="hover:text-gray-100 transition-colors"
+        >
+          Terms of Service
+        </Link>
+        <span className="text-gray-600">|</span>
+        <Link
+          href="/privacy-policy"
+          className="hover:text-gray-100 transition-colors"
+        >
+          Privacy Policy
+        </Link>
+      </div>
+    </footer>
   );
 }
