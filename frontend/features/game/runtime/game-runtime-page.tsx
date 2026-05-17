@@ -852,7 +852,7 @@ export default function GameRuntimePage() {
 
 		if ((!gameState || !isGameStateValid) && !gameOverResult) {
 			return (
-				<div className="h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted/20">
+				<div className="h-dvh flex flex-col items-center justify-center bg-gradient-to-b from-background to-muted/20">
 					<div className="flex flex-col items-center gap-4">
 						<Loader2 className="h-12 w-12 animate-spin text-primary" />
 						<h2 className="text-2xl font-bold">Connecting to game...</h2>
