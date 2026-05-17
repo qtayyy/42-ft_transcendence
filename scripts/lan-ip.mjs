@@ -1,6 +1,6 @@
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { networkInterfaces } from "node:os";
+import { execFileSync } from "child_process";
+import { readFileSync } from "fs";
+import { networkInterfaces } from "os";
 
 const ignoredInterfaceName =
 	/^(docker|br-|veth|lo|tailscale|tun|tap|virbr|zt|wg|vEthernet|WSL|Loopback|VirtualBox|VMware|Radmin|Hamachi|ZeroTier)/i;
@@ -18,13 +18,15 @@ function isUsableLanAddress(ip) {
 function isWsl() {
 	try {
 		return /microsoft|wsl/i.test(readFileSync("/proc/version", "utf8"));
-	} catch {
+	} catch (error) {
 		return false;
 	}
 }
 
 function firstLocalInterfaceIp() {
-	for (const [name, addresses] of Object.entries(networkInterfaces())) {
+	const interfaces = networkInterfaces();
+	for (const name of Object.keys(interfaces)) {
+		const addresses = interfaces[name];
 		if (ignoredInterfaceName.test(name)) {
 			continue;
 		}
@@ -59,13 +61,13 @@ function firstWindowsLanIp() {
 			.replace(/\r/g, "")
 			.trim()
 			.split("\n")[0]
-			?.trim();
-	} catch {
+			.trim();
+	} catch (error) {
 		return "";
 	}
 }
 
-const overrideIp = process.env.LAN_IP?.trim();
+const overrideIp = process.env.LAN_IP ? process.env.LAN_IP.trim() : "";
 
 if (overrideIp) {
 	if (!isUsableLanAddress(overrideIp)) {
