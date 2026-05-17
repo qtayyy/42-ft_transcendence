@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { GameState, GameMode } from "@/types/game";
 
 export const defaultBindings = {
@@ -19,24 +19,175 @@ interface UsePongGameProps {
 	isAIEnabled?: boolean;
 }
 
+type LocalPlayer = 1 | 2;
+type LocalDirection = "UP" | "DOWN";
+type LocalPaddleKey = "p1" | "p2";
+type HeldDirectionState = Record<LocalPlayer, LocalDirection | null>;
+
+interface OptimisticPaddlePreview {
+	previewY: number;
+	sourceY: number;
+}
+
+type OptimisticPaddleState = Record<LocalPaddleKey, OptimisticPaddlePreview | null>;
+
+interface LocalMovement {
+	player: LocalPlayer;
+	direction: LocalDirection;
+	paddleKey: LocalPaddleKey;
+	shouldPreventDefault: boolean;
+}
+
+const DEFAULT_CANVAS_DIMENSIONS = { width: 800, height: 400 };
+const EMPTY_HELD_DIRECTIONS: HeldDirectionState = { 1: null, 2: null };
+const EMPTY_OPTIMISTIC_PADDLES: OptimisticPaddleState = { p1: null, p2: null };
+
+function isBoundKey(pressed: string, binding: string): boolean {
+	return pressed.toLowerCase() === binding.toLowerCase();
+}
+
+function getLocalMovementForKey(key: string, bindings: KeyBindings): LocalMovement | null {
+	if (isBoundKey(key, bindings.p1Up)) {
+		return { player: 1, direction: "UP", paddleKey: "p1", shouldPreventDefault: key.startsWith("Arrow") };
+	}
+	if (isBoundKey(key, bindings.p1Down)) {
+		return { player: 1, direction: "DOWN", paddleKey: "p1", shouldPreventDefault: key.startsWith("Arrow") };
+	}
+	if (isBoundKey(key, bindings.p2Up)) {
+		return { player: 2, direction: "UP", paddleKey: "p2", shouldPreventDefault: true };
+	}
+	if (isBoundKey(key, bindings.p2Down)) {
+		return { player: 2, direction: "DOWN", paddleKey: "p2", shouldPreventDefault: true };
+	}
+
+	return null;
+}
+
+function withOptimisticPaddles(
+	baseGameState: GameState | null | undefined,
+	optimisticPaddles: OptimisticPaddleState,
+	wsUrl?: string
+) {
+	if (!wsUrl || !baseGameState) return baseGameState ?? null;
+
+	const { p1, p2 } = optimisticPaddles;
+	if (p1 === null && p2 === null) return baseGameState;
+
+	return {
+		...baseGameState,
+		paddles: {
+			...baseGameState.paddles,
+			p1: {
+				...baseGameState.paddles.p1,
+				y:
+					p1 && baseGameState.paddles.p1.y === p1.sourceY
+						? p1.previewY
+						: baseGameState.paddles.p1.y,
+			},
+			p2: {
+				...baseGameState.paddles.p2,
+				y:
+					p2 && baseGameState.paddles.p2.y === p2.sourceY
+						? p2.previewY
+						: baseGameState.paddles.p2.y,
+			},
+		},
+	};
+}
+
+function getNextOptimisticPaddleY(
+	gameState: GameState | null,
+	movement: LocalMovement
+) {
+	const currentY = gameState?.paddles[movement.paddleKey].y ?? 0;
+	const paddleHeight = gameState?.constant?.paddleHeight ?? 80;
+	const paddleSpeed = gameState?.constant?.paddleSpeed ?? 10;
+	const canvasHeight = gameState?.constant?.canvasHeight ?? 400;
+
+	if (movement.direction === "UP") {
+		return Math.max(0, currentY - paddleSpeed);
+	}
+
+	return Math.min(canvasHeight - paddleHeight, currentY + paddleSpeed);
+}
+
+function getCanvasDimensions(
+	container: HTMLDivElement,
+	baseCanvasWidth: number,
+	baseCanvasHeight: number
+) {
+	const aspectRatio = baseCanvasWidth / baseCanvasHeight;
+	const computedStyle = window.getComputedStyle(container);
+	const horizontalPadding =
+		(parseFloat(computedStyle.paddingLeft) || 0) +
+		(parseFloat(computedStyle.paddingRight) || 0);
+	const verticalPadding =
+		(parseFloat(computedStyle.paddingTop) || 0) +
+		(parseFloat(computedStyle.paddingBottom) || 0);
+
+	const maxWidth = Math.max(container.clientWidth - horizontalPadding, 0);
+	const maxHeight = Math.max(container.clientHeight - verticalPadding, 0);
+	if (!maxWidth || !maxHeight) return null;
+
+	let width = maxWidth;
+	let height = width / aspectRatio;
+
+	if (height > maxHeight) {
+		height = maxHeight;
+		width = height * aspectRatio;
+	}
+
+	width = Math.min(width, 1400);
+	height = width / aspectRatio;
+
+	return {
+		width: Math.round(width),
+		height: Math.round(height),
+	};
+}
+
+function isGameOverMessage(data: unknown): data is {
+	type: "GAME_OVER";
+	winner: number | null;
+	score: { p1: number; p2: number };
+	result?: "win" | "draw";
+} {
+	return typeof data === "object" && data !== null && (data as { type?: string }).type === "GAME_OVER";
+}
+
+function isLocalControlInput(payload: object) {
+	const type = (payload as { type?: unknown }).type;
+	return type === "START" || type === "PAUSE";
+}
+
 export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isAIEnabled = false }: UsePongGameProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const socketRef = useRef<WebSocket | null>(null);
 	const onGameOverRef = useRef(onGameOver);
+	const latestGameStateRef = useRef<GameState | null>(null);
+	const heldDirectionsRef = useRef<HeldDirectionState>({ ...EMPTY_HELD_DIRECTIONS });
+	const pendingControlInputRef = useRef<object | null>(null);
+	const reconnectLocalSocketRef = useRef<() => void>(() => {});
 
-	// Local state for direct WebSocket mode
 	const [localGameState, setLocalGameState] = useState<GameState | null>(null);
+	const [optimisticPaddles, setOptimisticPaddles] =
+		useState<OptimisticPaddleState>(EMPTY_OPTIMISTIC_PADDLES);
+	const [canvasDimensions, setCanvasDimensions] = useState(DEFAULT_CANVAS_DIMENSIONS);
 
-	// Determine active game state
-	const gameState = wsUrl ? localGameState : externalGameState;
-	const baseCanvasWidth = gameState?.constant?.canvasWidth || 800;
-	const baseCanvasHeight = gameState?.constant?.canvasHeight || 400;
+	const baseGameState = wsUrl ? localGameState : externalGameState;
+	const gameState = useMemo(
+		() => withOptimisticPaddles(baseGameState, optimisticPaddles, wsUrl),
+		[baseGameState, optimisticPaddles, wsUrl]
+	);
 
-	// Responsive canvas
-	const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 400 });
+	const baseCanvasWidth = gameState?.constant?.canvasWidth || DEFAULT_CANVAS_DIMENSIONS.width;
+	const baseCanvasHeight = gameState?.constant?.canvasHeight || DEFAULT_CANVAS_DIMENSIONS.height;
 
-	// Keybindings
+	useEffect(() => {
+		latestGameStateRef.current = gameState;
+	}, [gameState]);
+
 	const [bindings, setBindingsState] = useState<KeyBindings>(() => {
 		if (typeof window === 'undefined') return defaultBindings;
 		try {
@@ -53,78 +204,170 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 	};
 
 	useEffect(() => {
-		console.log(`[usePongGame] Setting up canvas resize observer for match: ${matchId}`);
-
 		const updateCanvasSize = () => {
 			if (!containerRef.current) return;
-			const container = containerRef.current;
-			const aspectRatio = baseCanvasWidth / baseCanvasHeight;
-			const computed = window.getComputedStyle(container);
-			const paddingX = (parseFloat(computed.paddingLeft) || 0) + (parseFloat(computed.paddingRight) || 0);
-			const paddingY = (parseFloat(computed.paddingTop) || 0) + (parseFloat(computed.paddingBottom) || 0);
 
-			// Use actual container padding to avoid mode-specific shrink differences.
-			const maxWidth = Math.max(container.clientWidth - paddingX, 0);
-			const maxHeight = Math.max(container.clientHeight - paddingY, 0);
-			if (!maxWidth || !maxHeight) return;
+			const nextDimensions = getCanvasDimensions(
+				containerRef.current,
+				baseCanvasWidth,
+				baseCanvasHeight
+			);
+			if (!nextDimensions) return;
 
-			let width = maxWidth;
-			let height = width / aspectRatio;
-
-			// If height exceeds container, scale down
-			if (height > maxHeight) {
-				height = maxHeight;
-				width = height * aspectRatio;
-			}
-
-			// Cap extremely large desktops, but allow small windows/mobile widths.
-			width = Math.min(width, 1400);
-			height = width / aspectRatio;
-
-			setCanvasDimensions({
-				width: Math.round(width),
-				height: Math.round(height),
-			});
+			setCanvasDimensions(nextDimensions);
 		};
 
 		updateCanvasSize();
 		const resizeObserver = new ResizeObserver(updateCanvasSize);
-		if (containerRef.current) resizeObserver.observe(containerRef.current);
+		if (containerRef.current) {
+			resizeObserver.observe(containerRef.current);
+		}
 
 		return () => {
-			console.log(`[usePongGame] Cleaning up resize observer for match: ${matchId}`);
 			resizeObserver.disconnect();
 		};
 	}, [matchId, baseCanvasWidth, baseCanvasHeight]);
 
-	// WebSocket Connection
 	useEffect(() => {
-		if (!wsUrl) return;
+		if (!wsUrl) {
+			socketRef.current = null;
+			return;
+		}
 
-		console.log(`[usePongGame] Opening WebSocket connection for match: ${matchId}`);
-		const ws = new WebSocket(wsUrl);
+		let isDisposed = false;
+		let activeSocket: WebSocket | null = null;
+		let reconnectTimer: number | null = null;
 
-		ws.onopen = () => console.log(`[usePongGame] ✅ Connected to Game Server (Match: ${matchId})`);
-
-		ws.onmessage = (event) => {
-			try {
-				const data = JSON.parse(event.data);
-				if (data.type === "GAME_OVER") {
-					if (onGameOverRef.current) onGameOverRef.current(data.winner, data.score, data.result || 'win');
-					// Store final result
-					setLocalGameState(prev => prev ? ({ ...prev, status: 'finished', winner: data.winner, score: data.score, result: data.result }) : null);
-				} else {
-					setLocalGameState(data);
-				}
-			} catch (e) {
-				console.error("[usePongGame] WS Parse Error", e);
-			}
+		const clearLocalInputState = () => {
+			heldDirectionsRef.current = { ...EMPTY_HELD_DIRECTIONS };
+			setOptimisticPaddles(EMPTY_OPTIMISTIC_PADDLES);
 		};
 
-		socketRef.current = ws;
+		const shouldReconnect = () =>
+			!isDisposed &&
+			document.visibilityState !== "hidden" &&
+			latestGameStateRef.current?.status !== "finished";
+
+		const clearReconnectTimer = () => {
+			if (reconnectTimer === null) return;
+			window.clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		};
+
+		const sendPendingControlInput = (ws: WebSocket) => {
+			if (socketRef.current !== ws || ws.readyState !== WebSocket.OPEN) return;
+			if (!pendingControlInputRef.current) return;
+
+			const payload = pendingControlInputRef.current;
+			pendingControlInputRef.current = null;
+			ws.send(JSON.stringify(payload));
+		};
+
+		const connect = () => {
+			if (!shouldReconnect()) return;
+
+			const currentSocket = socketRef.current;
+			if (
+				currentSocket?.readyState === WebSocket.OPEN ||
+				currentSocket?.readyState === WebSocket.CONNECTING
+			) {
+				return;
+			}
+
+			const ws = new WebSocket(wsUrl);
+			activeSocket = ws;
+			socketRef.current = ws;
+
+			ws.onopen = () => {
+				sendPendingControlInput(ws);
+			};
+
+			const clearLocalSocket = () => {
+				if (socketRef.current !== ws) return;
+
+				socketRef.current = null;
+				clearLocalInputState();
+			};
+
+			const scheduleReconnect = () => {
+				if (!shouldReconnect() || reconnectTimer !== null) return;
+
+				reconnectTimer = window.setTimeout(() => {
+					reconnectTimer = null;
+					connect();
+				}, 1000);
+			};
+
+			ws.onclose = () => {
+				clearLocalSocket();
+				scheduleReconnect();
+			};
+
+			ws.onerror = () => {
+				clearLocalSocket();
+				if (ws.readyState !== WebSocket.CLOSED && ws.readyState !== WebSocket.CLOSING) {
+					ws.close();
+					return;
+				}
+				scheduleReconnect();
+			};
+
+			ws.onmessage = (event) => {
+				try {
+					const data = JSON.parse(event.data);
+
+					startTransition(() => {
+						if (isGameOverMessage(data)) {
+							clearReconnectTimer();
+							if (onGameOverRef.current) {
+								onGameOverRef.current(data.winner, data.score, data.result || "win");
+							}
+
+							setLocalGameState((prev) =>
+								prev
+									? {
+											...prev,
+											status: "finished",
+											winner: data.winner,
+											score: data.score,
+											result: data.result,
+									  }
+									: null
+							);
+							return;
+						}
+
+						setLocalGameState(data);
+					});
+				} catch (error) {
+					console.error("[usePongGame] WS Parse Error", error);
+				}
+			};
+		};
+
+		const reconnectIfNeeded = () => {
+			if (document.visibilityState === "hidden") return;
+			clearReconnectTimer();
+			connect();
+		};
+
+		reconnectLocalSocketRef.current = reconnectIfNeeded;
+		connect();
+		window.addEventListener("focus", reconnectIfNeeded);
+		document.addEventListener("visibilitychange", reconnectIfNeeded);
+
 		return () => {
-			console.log(`[usePongGame] 🔌 Closing WebSocket connection for match: ${matchId}`);
-			ws.close();
+			isDisposed = true;
+			reconnectLocalSocketRef.current = () => {};
+			pendingControlInputRef.current = null;
+			clearReconnectTimer();
+			window.removeEventListener("focus", reconnectIfNeeded);
+			document.removeEventListener("visibilitychange", reconnectIfNeeded);
+			if (socketRef.current === activeSocket) {
+				socketRef.current = null;
+			}
+			clearLocalInputState();
+			activeSocket?.close();
 		};
 	}, [wsUrl, matchId]);
 
@@ -132,52 +375,91 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 		onGameOverRef.current = onGameOver;
 	}, [onGameOver]);
 
-	// Input Handling
 	useEffect(() => {
 		if (!wsUrl) return;
-		console.log(`[usePongGame] Registering keyboard input listeners for match: ${matchId}`);
 
 		const sendInput = (payload: object) => {
-			console.log('[usePongGame] 🎮 Attempting to send input:', payload);
-			console.log('[usePongGame] 🔌 WebSocket state:', socketRef.current?.readyState, '(1=OPEN, 0=CONNECTING, 2=CLOSING, 3=CLOSED)');
-			if (socketRef.current?.readyState === WebSocket.OPEN) {
-				socketRef.current.send(JSON.stringify(payload));
-				console.log('[usePongGame] ✅ Message sent successfully');
-			} else {
-				console.error('[usePongGame] ❌ WebSocket NOT READY! Cannot send message. State:', socketRef.current?.readyState);
+			const socket = socketRef.current;
+			if (socket?.readyState !== WebSocket.OPEN) {
+				if (isLocalControlInput(payload)) {
+					pendingControlInputRef.current = payload;
+					reconnectLocalSocketRef.current();
+				}
+				return false;
+			}
+
+			socket.send(JSON.stringify(payload));
+			return true;
+		};
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			const movement = getLocalMovementForKey(event.key, bindings);
+			if (movement) {
+				if (event.repeat) return;
+				if (movement.shouldPreventDefault) event.preventDefault();
+				if (movement.player === 2 && isAIEnabled) return;
+				if (heldDirectionsRef.current[movement.player] === movement.direction) return;
+
+				const nextOptimisticY = getNextOptimisticPaddleY(
+					latestGameStateRef.current,
+					movement
+				);
+
+				if (!sendInput({
+					type: "PADDLE_MOVE",
+					direction: movement.direction,
+					player: movement.player,
+				})) {
+					return;
+				}
+
+				heldDirectionsRef.current[movement.player] = movement.direction;
+				setOptimisticPaddles((current) => ({
+					...current,
+					[movement.paddleKey]: {
+						previewY: nextOptimisticY,
+						sourceY:
+							latestGameStateRef.current?.paddles[movement.paddleKey].y ?? 0,
+					},
+				}));
+				return;
+			}
+
+			if (event.key === "Enter") {
+				sendInput({ type: "START" });
+				return;
+			}
+
+			if (event.key === " " || event.key === "Escape") {
+				event.preventDefault();
+				sendInput({ type: "PAUSE" });
 			}
 		};
 
-		const matchKey = (pressed: string, binding: string) =>
-			pressed.toLowerCase() === binding.toLowerCase();
+		const handleKeyUp = (event: KeyboardEvent) => {
+			const movement = getLocalMovementForKey(event.key, bindings);
+			if (!movement) return;
+			if (movement.player === 2 && isAIEnabled) return;
+			if (heldDirectionsRef.current[movement.player] !== movement.direction) return;
 
-		const handleKeyDown = (e: KeyboardEvent) => {
-			console.log('[usePongGame] ⌨️ Key pressed:', e.key);
-			if (matchKey(e.key, bindings.p1Up)) sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 1 });
-			else if (matchKey(e.key, bindings.p1Down)) sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 1 });
-			else if (matchKey(e.key, bindings.p2Up)) {
-				e.preventDefault();
-				if (!isAIEnabled) sendInput({ type: "PADDLE_MOVE", direction: "UP", player: 2 });
-			}
-			else if (matchKey(e.key, bindings.p2Down)) {
-				e.preventDefault();
-				if (!isAIEnabled) sendInput({ type: "PADDLE_MOVE", direction: "DOWN", player: 2 });
-			}
-			else if (e.key === "Enter") sendInput({ type: "START" });
-			else if (e.key === " " || e.key === "Escape") { e.preventDefault(); sendInput({ type: "PAUSE" }); }
-		};
+			heldDirectionsRef.current[movement.player] = null;
+			setOptimisticPaddles((current) => ({
+				...current,
+				[movement.paddleKey]: null,
+			}));
 
-		const handleKeyUp = (e: KeyboardEvent) => {
-			if (matchKey(e.key, bindings.p1Up) || matchKey(e.key, bindings.p1Down))
-				sendInput({ type: "PADDLE_MOVE", direction: null, player: 1 });
-			else if ((matchKey(e.key, bindings.p2Up) || matchKey(e.key, bindings.p2Down)) && !isAIEnabled)
-				sendInput({ type: "PADDLE_MOVE", direction: null, player: 2 });
+			sendInput({
+				type: "PADDLE_MOVE",
+				direction: null,
+				player: movement.player,
+			});
 		};
 
 		window.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("keyup", handleKeyUp);
+
 		return () => {
-			console.log(`[usePongGame] Removing keyboard input listeners for match: ${matchId}`);
+			heldDirectionsRef.current = { ...EMPTY_HELD_DIRECTIONS };
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("keyup", handleKeyUp);
 		};

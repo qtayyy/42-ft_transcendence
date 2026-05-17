@@ -38,6 +38,7 @@ jspm_packages
 
 # 0x
 profile-*
+!services/profile-progression.js
 
 # mac files
 .DS_Store
@@ -60,3 +61,7 @@ profile-*
 /generated/prisma
 
 .env
+
+# TLS material generated at image build or for local dev (see backend/Dockerfile)
+certs/server.key
+certs/server.crt
