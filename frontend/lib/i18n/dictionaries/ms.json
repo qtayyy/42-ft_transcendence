@@ -14,6 +14,8 @@
     "Create an account to start playing!": "Bina akaun untuk mula bermain!",
     "back to login": "kembali ke log masuk",
     "Full Name": "Nama Penuh",
+    "FullNameLength": "Nama penuh mestilah antara 3 dan 20 aksara.",
+    "FullNameTaken": "Nama ini sudah digunakan. Sila pilih nama lain.",
     "agree prefix": "Saya bersetuju dengan ",
     "agree suffix": "",
     "Terms of Service": "Terma Perkhidmatan",
@@ -123,6 +125,7 @@
   "Profile": {
     "Username": "Nama Pengguna",
     "UsernameRequired": "Nama pengguna tidak boleh kosong.",
+    "UsernameLength": "Nama pengguna mestilah antara 3 dan 20 aksara.",
     "DateofBirth": "Tarikh Lahir",
     "Country/Region": "Negara/Wilayah",
     "Save": "Simpan",

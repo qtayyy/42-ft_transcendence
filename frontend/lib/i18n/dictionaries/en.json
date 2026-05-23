@@ -14,6 +14,8 @@
     "Create an account to start playing!": "Create an account to start playing!",
     "back to login": "back to login",
     "Full Name": "Full Name",
+    "FullNameLength": "Full name must be between 3 and 20 characters.",
+    "FullNameTaken": "This name is already taken. Please choose another.",
     "agree prefix": "I agree to the ",
     "agree suffix": "",
     "Terms of Service": "Terms of Service",
@@ -123,6 +125,7 @@
   "Profile": {
     "Username": "Username",
     "UsernameRequired": "Username cannot be empty.",
+    "UsernameLength": "Username must be between 3 and 20 characters.",
     "DateofBirth": "Date of Birth",
     "Country/Region": "Country/Region",
     "Save": "Save",
