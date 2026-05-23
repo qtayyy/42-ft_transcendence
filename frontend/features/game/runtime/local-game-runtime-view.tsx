@@ -16,6 +16,8 @@ interface LocalGameRuntimeViewProps {
 	handleExit: () => void;
 	isTournamentMatch: boolean;
 	pauseOnGuard: boolean;
+	player1Name?: string;
+	player2Name?: string;
 }
 
 export default function LocalGameRuntimeView({
@@ -28,6 +30,8 @@ export default function LocalGameRuntimeView({
 	handleExit,
 	isTournamentMatch,
 	pauseOnGuard,
+	player1Name,
+	player2Name,
 }: LocalGameRuntimeViewProps) {
 	return (
 		<div className="relative">
@@ -61,6 +65,8 @@ export default function LocalGameRuntimeView({
 				isTournamentMatch={isTournamentMatch}
 				showControlsTray={!isSpectator}
 				pauseOnGuard={pauseOnGuard}
+				player1Name={player1Name}
+				player2Name={player2Name}
 			/>
 		</div>
 	);

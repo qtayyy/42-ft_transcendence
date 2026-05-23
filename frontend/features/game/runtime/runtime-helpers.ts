@@ -25,8 +25,8 @@ export interface LocalMatchData {
 	isTournamentMatch?: boolean;
 	isAI?: boolean;
 	aiDifficulty?: "easy" | "medium" | "hard";
-	player1?: { id?: number | string | null } | null;
-	player2?: { id?: number | string | null } | null;
+	player1?: { id?: number | string | null; name?: string } | null;
+	player2?: { id?: number | string | null; name?: string } | null;
 }
 
 export interface RuntimeGameOverResult {

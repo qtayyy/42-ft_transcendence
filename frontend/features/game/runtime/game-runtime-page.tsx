@@ -929,6 +929,8 @@ export default function GameRuntimePage() {
 				handleExit={handleExit}
 				isTournamentMatch={!!matchData?.isTournamentMatch}
 				pauseOnGuard={showNavGuard && !isSpectator && !gameOverResult}
+				player1Name={matchData?.player1?.name || user?.username || "Player 1"}
+				player2Name={matchData?.player2?.name || "Player 2"}
 			/>
 			<NavigationGuard />
 		</>
