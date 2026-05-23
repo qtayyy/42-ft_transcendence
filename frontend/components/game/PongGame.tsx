@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Timer, Hash, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/languageContext";
 
 interface RemoteOptimisticPaddlePreview {
 	paddleKey: "p1" | "p2";
@@ -70,6 +71,7 @@ export default function PongGame({
 		bindings,
 		setBindings,
 	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver, isAIEnabled });
+	const { t } = useLanguage();
 	const guardPauseSentRef = useRef(false);
 	const previousSnapshotRef = useRef<GameState | null>(null);
 	const latestSnapshotRef = useRef<GameState | null>(null);
@@ -414,7 +416,7 @@ export default function PongGame({
 									{formatTime(gameState.timer.timeRemaining)}
 								</div>
 								<div className="flex items-center gap-1.5 text-[9px] uppercase font-bold text-muted-foreground/80 tracking-[0.2em] mt-1">
-									<Timer className="h-2.5 w-2.5" /> Time Remaining
+									<Timer className="h-2.5 w-2.5" /> {t.Game["Time Remaining"]}
 								</div>
 							</div>
 						</div>
@@ -439,7 +441,7 @@ export default function PongGame({
 						<Card className="border-yellow-500/50 bg-yellow-500/10 animate-pulse">
 							<div className="px-6 py-4 text-yellow-500 font-bold text-lg flex items-center gap-2">
 								<div className="h-2 w-2 bg-yellow-500 rounded-full animate-bounce" />
-								Waiting for players...
+								{t.Game["Waiting for players..."]}
 							</div>
 						</Card>
 					</div>

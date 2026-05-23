@@ -139,7 +139,7 @@ export default function CreateTournamentRoomPage() {
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Leave Room
+						{t.Game["Leave Room"]}
 					</Button>
 				</div>
 
@@ -262,10 +262,10 @@ export default function CreateTournamentRoomPage() {
 										{canStart ? (
 											<>
 												<Trophy className="mr-2 h-5 w-5" />
-												Start Tournament
+												{t.Game["Start Tournament"]}
 											</>
 										) : (
-											"Waiting for players..."
+											t.Game["Waiting for players..."]
 										)}
 									</Button>
 								</>

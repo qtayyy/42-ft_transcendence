@@ -119,7 +119,7 @@ export function GameOverOverlay({
 					{isTournament && isRemote ? (
 						<div className="space-y-4">
 							<p className="text-white/80 animate-pulse">
-								Returning to tournament lobby in 5 seconds...
+								{t.Game["Returning to tournament lobby in 5 seconds..."]}
 							</p>
 							<Button
 								onClick={() => {
@@ -176,7 +176,7 @@ export function GameOverOverlay({
 								size="lg"
 								className="text-lg h-14 px-8 border-white/20 text-white hover:bg-white/10"
 							>
-								Leave
+								{t.Game["Leave"]}
 							</Button>
 						</>
 						) : (

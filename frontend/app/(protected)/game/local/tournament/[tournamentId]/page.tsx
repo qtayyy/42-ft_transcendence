@@ -13,6 +13,7 @@ import { Tournament, TournamentMatch } from "@/lib/tournament";
 import { Play, Trophy, ArrowLeft, Crown, History, Medal, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
+import { useLanguage } from "@/context/languageContext";
 
 const LOCAL_TOURNAMENT_PENDING_RESULT_PREFIX = "pending-local-tournament-result:";
 type PendingTournamentResult = {
@@ -30,7 +31,14 @@ export default function TournamentPage() {
 	const router = useRouter();
 	const { user } = useAuth();
 	const { setShowNavGuard, setPendingPath } = useGame();
+	const { t } = useLanguage();
 	const tournamentId = params.tournamentId as string;
+
+	const formatLabel = (template: string, values: Record<string, string | number>) =>
+		Object.entries(values).reduce(
+			(text, [key, value]) => text.replace(`{${key}}`, String(value)),
+			template,
+		);
 
 	const [tournament, setTournament] = useState<Tournament | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -111,7 +119,7 @@ export default function TournamentPage() {
 	useEffect(() => {
 		if (!shouldGuardNavigation) return;
 
-		const warningMessage = "Navigating away will forfeit the entire tournament. Are you sure you want to leave?";
+		const warningMessage = t.Game["Navigating to another page will forfeit the entire tournament. Are you sure you want to leave the tournament?"];
 		const handleRouteChange = (e: BeforeUnloadEvent) => {
 			e.preventDefault();
 			e.returnValue = warningMessage;
@@ -139,7 +147,7 @@ export default function TournamentPage() {
 			window.removeEventListener("beforeunload", handleRouteChange);
 			document.removeEventListener("click", handleNavigationClick, true);
 		};
-	}, [shouldGuardNavigation, pathname, setPendingPath, setShowNavGuard]);
+	}, [shouldGuardNavigation, pathname, setPendingPath, setShowNavGuard, t.Game]);
 
 	const handleExitTournament = () => {
 		setPendingPath("/game/new");
@@ -202,7 +210,7 @@ export default function TournamentPage() {
 			<div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background">
 				<div className="flex flex-col items-center gap-4 animate-pulse">
 					<Trophy className="h-12 w-12 text-muted-foreground/50" />
-					<div className="text-xl font-medium text-muted-foreground">Loading tournament...</div>
+					<div className="text-xl font-medium text-muted-foreground">{t.Game["Loading tournament..."]}</div>
 				</div>
 			</div>
 		);
@@ -214,8 +222,8 @@ export default function TournamentPage() {
 				<Card className="max-w-md w-full border-destructive/20 bg-destructive/5">
 					<CardContent className="flex flex-col items-center p-8 text-center space-y-4">
 						<History className="h-12 w-12 text-destructive/50" />
-						<h2 className="text-2xl font-bold">Tournament Not Found</h2>
-						<Button onClick={() => router.push("/game/new")}>Return to Game Menu</Button>
+						<h2 className="text-2xl font-bold">{t.Game["Tournament Not Found"]}</h2>
+						<Button onClick={() => router.push("/game/new")}>{t.Game["Return to Game Menu"]}</Button>
 					</CardContent>
 				</Card>
 			</div>
@@ -238,10 +246,11 @@ export default function TournamentPage() {
 								<Trophy className="h-16 w-16 text-yellow-500 drop-shadow-lg" />
 							</div>
 							<CardTitle className="text-5xl font-black bg-gradient-to-r from-yellow-500 via-orange-500 to-yellow-500 bg-clip-text text-transparent pb-2">
-								Tournament Complete!
+								{t.Game["Tournament Complete!"]}
 							</CardTitle>
 							<CardDescription className="text-xl font-medium text-muted-foreground">
-								{tournament.format === 'round-robin' ? 'Round Robin' : 'Swiss'} • {tournament.playerCount} Contenders
+								{tournament.format === 'round-robin' ? t.Game["Round Robin"] : t.Game["Swiss"]}{" "}
+								• {formatLabel(t.Game["{count} Contenders"], { count: tournament.playerCount })}
 							</CardDescription>
 						</CardHeader>
 
@@ -252,10 +261,10 @@ export default function TournamentPage() {
 								<div className="relative bg-black/80 p-8 rounded-2xl border border-yellow-500/50 flex flex-col items-center text-center space-y-4">
 									<Crown className="h-12 w-12 text-yellow-500" />
 									<div className="space-y-1">
-										<p className="text-yellow-500 font-bold tracking-widest uppercase text-sm">Grand Champion</p>
+										<p className="text-yellow-500 font-bold tracking-widest uppercase text-sm">{t.Game["Grand Champion"]}</p>
 										<p className="text-4xl font-bold text-white">{winner.playerName}</p>
 										<Badge variant="outline" className="border-yellow-500/50 text-yellow-400 bg-yellow-500/10 mt-2">
-											{winner.matchPoints} Match Points
+											{winner.matchPoints} {t.Game["Match Points"]}
 										</Badge>
 									</div>
 									<div className="flex gap-1">
@@ -269,7 +278,7 @@ export default function TournamentPage() {
 							{/* Full Leaderboard */}
 							<div className="max-w-2xl mx-auto">
 								<h3 className="text-center text-lg font-semibold mb-4 text-muted-foreground flex items-center justify-center gap-2">
-									<Medal className="h-5 w-5" /> Final Standings
+									<Medal className="h-5 w-5" /> {t.Game["Final Standings"]}
 								</h3>
 								<Leaderboard standings={tournament.leaderboard} currentUserId={user?.id} />
 							</div>
@@ -281,7 +290,7 @@ export default function TournamentPage() {
 									size="lg"
 									className="h-14 text-lg bg-primary hover:bg-primary/90"
 								>
-									New Game
+									{t.Dashboard["New Game"]}
 								</Button>
 								<Button
 									onClick={() => router.push("/dashboard")}
@@ -289,7 +298,7 @@ export default function TournamentPage() {
 									size="lg"
 									className="h-14 text-lg"
 								>
-									Dashboard
+									{t.Dashboard["Dashboard"]}
 								</Button>
 							</div>
 						</CardContent>
@@ -311,14 +320,20 @@ export default function TournamentPage() {
 							className="text-muted-foreground hover:text-foreground pl-0 gap-2 self-start md:self-center"
 						>
 							<ArrowLeft className="h-4 w-4" />
-							Exit Tournament
+							{t.Game["Exit Tournament"]}
 					</Button>
 					
 					<div className="text-center md:text-right">
 						<h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-							{tournament.format === 'round-robin' ? 'Round Robin' : 'Swiss'} Tournament
+							<Badge variant="secondary" className="text-sm px-2 py-0.5">
+								{t.Game["Local"]}
+							</Badge>
+							{tournament.format === 'round-robin' ? t.Game["Round Robin Tournament"] : t.Game["Swiss Tournament"]}
 							<Badge variant="secondary" className="text-lg px-3 py-1">
-								Round {tournament.currentRound} / {tournament.totalRounds}
+								{formatLabel(t.Game["Round {current} / {total}"], {
+									current: tournament.currentRound,
+									total: tournament.totalRounds,
+								})}
 							</Badge>
 						</h1>
 					</div>
@@ -338,7 +353,7 @@ export default function TournamentPage() {
 									</div>
 									<CardHeader>
 										<CardTitle className="flex items-center gap-2 text-xl text-blue-500">
-											<Play className="h-5 w-5 fill-current" /> Next Match
+											<Play className="h-5 w-5 fill-current" /> {t.Game["Next Match"]}
 										</CardTitle>
 									</CardHeader>
 									<CardContent className="space-y-6">
@@ -350,20 +365,20 @@ export default function TournamentPage() {
 												</div>
 												<div className="flex flex-col">
 													<span className="font-bold text-lg">{currentMatch.player1.name}</span>
-													<span className="text-xs text-muted-foreground uppercase">Challenger 1</span>
+													<span className="text-xs text-muted-foreground uppercase">{t.Game["Challenger 1"]}</span>
 												</div>
 											</div>
 
 											{/* VS / BYE */}
 											<div className="flex flex-col items-center px-4">
-												<span className="text-xl font-black text-muted-foreground italic">VS</span>
+												<span className="text-xl font-black text-muted-foreground italic">{t.Game["VS"]}</span>
 											</div>
 
 											{/* Player 2 */}
 											<div className="flex items-center gap-4 flex-1 justify-end text-right">
 												<div className="flex flex-col">
-													<span className="font-bold text-lg">{currentMatch.player2?.name || 'BYE'}</span>
-													<span className="text-xs text-muted-foreground uppercase">Challenger 2</span>
+													<span className="font-bold text-lg">{currentMatch.player2?.name || t.Game["BYE"]}</span>
+													<span className="text-xs text-muted-foreground uppercase">{t.Game["Challenger 2"]}</span>
 												</div>
 												<div className={`h-12 w-12 rounded-full flex items-center justify-center ${currentMatch.player2 ? "bg-red-500/10" : "bg-yellow-500/10"}`}>
 													{currentMatch.player2 ? (
@@ -378,8 +393,10 @@ export default function TournamentPage() {
 										{!currentMatch.player2 ? (
 											<div className="flex flex-col items-center gap-4">
 												<div className="text-center">
-													<p className="font-medium text-yellow-500">Automatic Bye</p>
-													<p className="text-sm text-muted-foreground">{currentMatch.player1.name} advances automatically with 3 points.</p>
+													<p className="font-medium text-yellow-500">{t.Game["Automatic Bye"]}</p>
+													<p className="text-sm text-muted-foreground">
+														{formatLabel(t.Game["{name} advances automatically with 3 points."], { name: currentMatch.player1.name })}
+													</p>
 												</div>
 												<Button
 													onClick={async () => {
@@ -402,7 +419,7 @@ export default function TournamentPage() {
 													className="w-full md:w-auto bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-black font-semibold shadow-lg shadow-orange-500/20"
 													size="lg"
 												>
-													Process Bye & Advance
+													{t.Game["Process Bye & Advance"]}
 												</Button>
 											</div>
 										) : (
@@ -410,7 +427,7 @@ export default function TournamentPage() {
 												onClick={handleStartMatch}
 												className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg h-14 shadow-lg shadow-blue-500/20 font-bold"
 											>
-												<Play className="mr-2 h-5 w-5 fill-current" /> Start Match
+												<Play className="mr-2 h-5 w-5 fill-current" /> {t.Game["Start Match"]}
 											</Button>
 										)}
 									</CardContent>
@@ -422,13 +439,13 @@ export default function TournamentPage() {
 						<Card className="bg-card/50 backdrop-blur-sm">
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2 text-lg">
-									<History className="h-5 w-5" /> Match History
+									<History className="h-5 w-5" /> {t.Game["Match History"]}
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
 								<div className="space-y-3">
 									{tournament.matches.filter(m => m.status === 'completed' || m.status === 'bye').length === 0 ? (
-										<p className="text-center text-muted-foreground py-8 italic">No matches completed yet.</p>
+										<p className="text-center text-muted-foreground py-8 italic">{t.Game["No matches completed yet."]}</p>
 									) : (
 										tournament.matches
 											.filter(m => m.status === 'completed' || m.status === 'bye')
@@ -441,20 +458,27 @@ export default function TournamentPage() {
 														<Badge variant="outline" className="w-16 justify-center">R{match.round}</Badge>
 														<div className="flex flex-col gap-0.5">
 															<div className="font-semibold text-sm">
-																{match.player1.name} <span className="text-muted-foreground font-normal">vs</span> {match.player2?.name || 'BYE'}
+																{match.player1.name}{" "}
+																<span className="text-muted-foreground font-normal">{t.Game["vs"]}</span>{" "}
+																{match.player2?.name || t.Game["BYE"]}
 															</div>
 															<div className="text-xs text-muted-foreground">
 																{match.result?.outcome === 'bye' ? (
-																	<span className="text-yellow-500 font-medium">Automatic Bye</span>
+																	<span className="text-yellow-500 font-medium">{t.Game["Automatic Bye"]}</span>
 																) : (
-																	<span>Score: {match.result?.score.p1} - {match.result?.score.p2}</span>
+																	<span>
+																		{formatLabel(t.Game["Score: {p1} - {p2}"], {
+																			p1: match.result?.score.p1 ?? 0,
+																			p2: match.result?.score.p2 ?? 0,
+																		})}
+																	</span>
 																)}
 															</div>
 														</div>
 													</div>
 													
 													{match.result?.outcome === 'draw' && (
-														<Badge variant="secondary">Draw</Badge>
+														<Badge variant="secondary">{t.Game["Draw"]}</Badge>
 													)}
 												</div>
 											))
@@ -470,7 +494,7 @@ export default function TournamentPage() {
 							<Card className="bg-card/50 backdrop-blur-sm h-full">
 								<CardHeader>
 									<CardTitle className="flex items-center gap-2 text-lg">
-										<Trophy className="h-5 w-5 text-yellow-500" /> Standings
+										<Trophy className="h-5 w-5 text-yellow-500" /> {t.Game["Standings"]}
 									</CardTitle>
 								</CardHeader>
 								<CardContent className="px-2">
