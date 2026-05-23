@@ -1,45 +1,37 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { useMemo } from "react";
 import Link from "next/link";
-
-const NON_AUTHENTICATED_ROUTES = [
-  "/",
-  "/login",
-  "/signup",
-  "/reset-password",
-  "/reset-pwd",
-  "/2fa/verify",
-];
+import { useLanguage } from "@/context/languageContext";
 
 export default function Footer() {
-  const pathname = usePathname();
-  
-  const isNonAuthenticatedPage = useMemo(() => {
-    return NON_AUTHENTICATED_ROUTES.includes(pathname);
-  }, [pathname]);
+  const { t } = useLanguage();
+  const year = new Date().getFullYear();
+  const copyright = t.Footer.Copyright.replace("{year}", String(year));
 
   return (
     <footer
       suppressHydrationWarning
       className="w-full px-4 py-3 text-gray-400 text-xs border-t border-white/10 bg-background"
     >
-      <div className="flex items-center justify-center gap-4">
-        <span>© {new Date().getFullYear()} Transcendence Into Unknown. All rights reserved.</span>
-        <span className="text-gray-600">|</span>
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+        <span>{copyright}</span>
+        <span className="text-gray-600" aria-hidden>
+          |
+        </span>
         <Link
           href="/terms-of-service"
           className="hover:text-gray-100 transition-colors"
         >
-          Terms of Service
+          {t.Footer["Terms of Service"]}
         </Link>
-        <span className="text-gray-600">|</span>
+        <span className="text-gray-600" aria-hidden>
+          |
+        </span>
         <Link
           href="/privacy-policy"
           className="hover:text-gray-100 transition-colors"
         >
-          Privacy Policy
+          {t.Footer["Privacy Policy"]}
         </Link>
       </div>
     </footer>

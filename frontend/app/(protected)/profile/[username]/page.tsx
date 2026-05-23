@@ -51,6 +51,22 @@ export default function UserProfilePage() {
   const [sendingRequest, setSendingRequest] = useState(false);
   const [requestFeedback, setRequestFeedback] = useState("");
 
+  const formatLabel = (template: string, values: Record<string, string | number>) =>
+    Object.entries(values).reduce(
+      (text, [key, value]) => text.replace(`{${key}}`, String(value)),
+      template,
+    );
+
+  const translateFriendRequestMessage = (message: string) => {
+    const map: Record<string, string> = {
+      "Request already sent": t.Profile["Request already sent"],
+      "Already friends": t.Profile["Already friends"],
+      "Friend request sent": t.Profile["Friend request sent"],
+      "Failed to send friend request": t.Profile["Failed to send friend request"],
+    };
+    return map[message] ?? message;
+  };
+
   // Redirect to own profile if viewing self
   useEffect(() => {
     if (user?.username === username) {
@@ -68,14 +84,19 @@ export default function UserProfilePage() {
         
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || "Failed to fetch profile");
+          throw new Error(data.error || t.Profile["Failed to load profile"]);
         }
 
         const data = await response.json();
         setProfile(data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error fetching profile:", err);
-        setError(err.message || "Failed to load profile");
+        const message = err instanceof Error ? err.message : t.Profile["Failed to load profile"];
+        setError(
+          message === "Failed to fetch profile" || message === "Failed to load profile"
+            ? t.Profile["Failed to load profile"]
+            : message
+        );
       } finally {
         setLoading(false);
       }
@@ -84,7 +105,7 @@ export default function UserProfilePage() {
     if (username && user?.username !== username) {
       fetchUserProfile();
     }
-  }, [username, user]);
+  }, [username, user, t.Profile]);
 
   useEffect(() => {
     if (!profile) return;
@@ -125,17 +146,17 @@ export default function UserProfilePage() {
       const data = await response.json();
 
       if (!response.ok) {
-        const message = data.error || "Failed to send friend request";
+        const message = data.error || t.Profile["Failed to send friend request"];
 
         if (message === "Request already sent") {
           setRelationshipStatus("pending");
-          setRequestFeedback(message);
+          setRequestFeedback(translateFriendRequestMessage(message));
           return;
         }
 
         if (message === "Already friends") {
           setRelationshipStatus("friends");
-          setRequestFeedback(message);
+          setRequestFeedback(translateFriendRequestMessage(message));
           return;
         }
 
@@ -143,9 +164,12 @@ export default function UserProfilePage() {
       }
 
       setRelationshipStatus("pending");
-      setRequestFeedback(data.message || "Friend request sent");
-    } catch (err: any) {
-      setRequestFeedback(err.message || "Failed to send friend request");
+      setRequestFeedback(
+        translateFriendRequestMessage(data.message || "Friend request sent")
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : t.Profile["Failed to send friend request"];
+      setRequestFeedback(translateFriendRequestMessage(message));
     } finally {
       setSendingRequest(false);
     }
@@ -168,11 +192,11 @@ export default function UserProfilePage() {
           className="mb-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
+          {t.Profile["Back"]}
         </Button>
         <Alert variant="destructive">
           <AlertDescription>
-            {error || "User not found"}
+            {error || t.Profile["User not found"]}
           </AlertDescription>
         </Alert>
       </div>
@@ -191,7 +215,7 @@ export default function UserProfilePage() {
         className="mb-4"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Back
+        {t.Profile["Back"]}
       </Button>
 
       <div className="max-w-4xl mx-auto space-y-6">
@@ -218,11 +242,11 @@ export default function UserProfilePage() {
                   {relationshipStatus === "friends" ? (
                     <Badge className="gap-2 bg-green-500/15 text-green-700 hover:bg-green-500/15 dark:text-green-400 border border-green-500/30">
                       <Users className="h-3.5 w-3.5" />
-                      Friends
+                      {t.Dashboard["Friends"]}
                     </Badge>
                   ) : relationshipStatus === "pending" ? (
                     <Badge className="bg-yellow-500/15 text-yellow-700 hover:bg-yellow-500/15 dark:text-yellow-400 border border-yellow-500/30">
-                      Request Pending
+                      {t.Profile["Request Pending"]}
                     </Badge>
                   ) : (
                     <Button
@@ -231,7 +255,7 @@ export default function UserProfilePage() {
                       className="gap-2"
                     >
                       <UserPlus className="h-4 w-4" />
-                      {sendingRequest ? "Sending..." : "Send Friend Request"}
+                      {sendingRequest ? t.Profile["Sending..."] : t.Profile["Send Friend Request"]}
                     </Button>
                   )}
                 </div>
@@ -253,7 +277,9 @@ export default function UserProfilePage() {
                     <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground">
                       <Calendar className="h-4 w-4" />
                       <span>
-                        Joined {new Date(profile.createdAt).toLocaleDateString()}
+                        {formatLabel(t.Profile["Joined {date}"], {
+                          date: new Date(profile.createdAt).toLocaleDateString(),
+                        })}
                       </span>
                     </div>
                   )}
@@ -269,7 +295,7 @@ export default function UserProfilePage() {
               <div className="flex items-start gap-2">
                 <FileText className="h-4 w-4 mt-1 text-muted-foreground" />
                 <p className="text-muted-foreground">
-                  {profile.bio || "No bio yet."}
+                  {profile.bio || t.Profile["No bio yet."]}
                 </p>
               </div>
             </div>
@@ -281,7 +307,7 @@ export default function UserProfilePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="h-5 w-5" />
-              Game Statistics
+              {t.Profile["Game Statistics"]}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -291,7 +317,7 @@ export default function UserProfilePage() {
                   {profile.wins}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Wins
+                  {t.Dashboard["Wins"]}
                 </div>
               </div>
               
@@ -300,7 +326,7 @@ export default function UserProfilePage() {
                   {profile.losses}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Losses
+                  {t.Dashboard["Losses"]}
                 </div>
               </div>
               
@@ -309,7 +335,7 @@ export default function UserProfilePage() {
                   {profile.wins + profile.losses}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Total Games
+                  {t.Profile["Total Games"]}
                 </div>
               </div>
               
@@ -318,7 +344,7 @@ export default function UserProfilePage() {
                   {winRate}%
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Win Rate
+                  {t.Dashboard["Win Rate"]}
                 </div>
               </div>
             </div>

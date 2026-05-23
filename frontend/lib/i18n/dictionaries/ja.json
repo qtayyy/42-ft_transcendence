@@ -78,7 +78,13 @@
     "Never": "なし",
     "7 Days": "7日",
     "8 Wks": "8週",
+    "4 Wks": "4週",
     "6 Mo": "6ヶ月",
+    "Activity period": "活動期間",
+    "Games played per period": "期間ごとのプレイ数",
+    "Total minutes help": "保存された試合のゲーム内プレイ時間の合計（各試合終了時に記録）。ダッシュボードのフィルターが適用されます。画面やアプリの総時間ではありません。",
+    "Week {n}": "第{n}週",
+    "No games in this period": "この期間に試合なし",
     "Local 1v1": "ローカル1対1",
     "Local Tournament": "ローカルトーナメント",
     "Remote 1v1": "リモート1対1",
@@ -126,7 +132,21 @@
     "DeleteAvatarTitle": "プロフィール写真を削除しますか？",
     "DeleteAvatarDescription": "プロフィール写真を削除してもよろしいですか？",
     "DeleteAvatarConfirm": "削除",
-    "Bio": "自己紹介"
+    "Bio": "自己紹介",
+    "Back": "戻る",
+    "User not found": "ユーザーが見つかりません",
+    "Failed to load profile": "プロフィールの読み込みに失敗しました",
+    "Request Pending": "リクエスト保留中",
+    "Sending...": "送信中...",
+    "Send Friend Request": "フレンドリクエストを送信",
+    "Request already sent": "リクエストは既に送信済みです",
+    "Already friends": "既にフレンドです",
+    "Friend request sent": "フレンドリクエストを送信しました",
+    "Failed to send friend request": "フレンドリクエストの送信に失敗しました",
+    "No bio yet.": "自己紹介はまだありません。",
+    "Joined {date}": "{date}に参加",
+    "Game Statistics": "ゲーム統計",
+    "Total Games": "総試合数"
   },
   "FriendRequests": {
     "No pending requests": "保留中のリクエストはありません",
@@ -675,5 +695,10 @@
     "11 body": "本規約に関するご質問は、プロジェクトリポジトリでissueを開くか、42 intraからチームにご連絡ください。",
     "Back to Login": "ログインに戻る",
     "Privacy Policy link": "プライバシーポリシー"
+  },
+  "Footer": {
+    "Copyright": "© {year} Transcendence Into Unknown. 無断転載を禁じます。",
+    "Terms of Service": "利用規約",
+    "Privacy Policy": "プライバシーポリシー"
   }
 }
