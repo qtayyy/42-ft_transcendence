@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, LogIn, Loader2, AlertCircle, Trophy, Crown, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/languageContext";
 
 export default function JoinTournamentPage() {
 	const router = useRouter();
@@ -21,6 +22,7 @@ export default function JoinTournamentPage() {
 	const [joined, setJoined] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [pendingJoin, setPendingJoin] = useState(false);
+	const { t } = useLanguage();
 
 	useEffect(() => {
 		if (!user || isReady || joined) return;
@@ -66,7 +68,7 @@ export default function JoinTournamentPage() {
 		timeoutId = setTimeout(() => {
 			cleanupJoinListener();
 			setJoining((prev) => {
-				if (prev) setError("Join timed out — room may not exist. Please check the code.");
+				if (prev) setError(t.Game["Join timed out — room may not exist. Please check the code."] || "Join timed out — room may not exist. Please check the code.");
 				return false;
 			});
 		}, 5000);
@@ -105,7 +107,7 @@ export default function JoinTournamentPage() {
 	// Listen for join errors
 	useEffect(() => {
 		const handleError = (e: CustomEvent) => {
-			setError(e.detail.message || "Failed to join room");
+			setError(e.detail.message || t.Game["Failed to join room"] || "Failed to join room");
 			setJoining(false);
 			setJoined(false);
 		};
@@ -117,7 +119,7 @@ export default function JoinTournamentPage() {
 	const handleJoin = () => {
 		if (!roomCode.trim() || !user) return;
 		if (!isReady) {
-			setError("Connecting to realtime server... joining as soon as it reconnects.");
+			setError(t.Game["Connecting to realtime server... joining as soon as it reconnects."] || "Connecting to realtime server... joining as soon as it reconnects.");
 			setPendingJoin(true);
 			reconnectSocket();
 			return;
@@ -179,7 +181,7 @@ export default function JoinTournamentPage() {
 							className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 						>
 							<ArrowLeft className="h-4 w-4" />
-							Leave Tournament
+							{t.Game["Leave Tournament"]}
 						</Button>
 					</div>
 
@@ -190,10 +192,10 @@ export default function JoinTournamentPage() {
 								<div className="mx-auto p-4 rounded-full bg-emerald-500/10 mb-4 ring-1 ring-emerald-500/20">
 									<Trophy className="h-8 w-8 text-emerald-500" />
 								</div>
-								<CardTitle className="text-2xl font-bold">Tournament Lobby</CardTitle>
+								<CardTitle className="text-2xl font-bold">{t.Game["Tournament Lobby"]}</CardTitle>
 								<CardDescription className="flex flex-col gap-1">
 									<span className="text-xs font-mono bg-muted px-2 py-0.5 rounded">ID: {gameRoom.roomId}</span>
-									<span>Waiting for host to start</span>
+									<span>{t.Game["Waiting for host to start"]}</span>
 								</CardDescription>
 							</CardHeader>
 
@@ -224,7 +226,7 @@ export default function JoinTournamentPage() {
 														"text-xs",
 														player.id === gameRoom.hostId ? "text-primary/70" : "text-green-500/70"
 													)}>
-														{player.id === gameRoom.hostId ? "Host" : "Ready"}
+														{player.id === gameRoom.hostId ? t.Game["Host"] : t.Game["Ready"]}
 													</p>
 												</div>
 											</div>
@@ -247,8 +249,8 @@ export default function JoinTournamentPage() {
 										: "bg-muted/50 text-muted-foreground"
 								)}>
 									{isHost 
-										? (canStart ? `Ready with ${playerCount} players!` : `Need ${3 - playerCount} more player(s)`)
-										: (canStart ? "Waiting for host to start..." : `Waiting for ${3 - playerCount} more player(s)...`)
+										? (canStart ? (t.Game["Ready with {count} players!"] || "Ready with {count} players!").replace("{count}", String(playerCount)) : (t.Game["Need {count} more player(s)"] || "Need {count} more player(s)").replace("{count}", String(3 - playerCount)))
+										: (canStart ? t.Game["Waiting for host to start..."] : (t.Game["Waiting for {count} more player(s)..."] || "Waiting for {count} more player(s)...").replace("{count}", String(3 - playerCount)))
 									}
 								</div>
 
@@ -266,7 +268,7 @@ export default function JoinTournamentPage() {
 										)}
 									>
 										<Trophy className="mr-2 h-5 w-5" />
-										Start Tournament
+										{t.Game["Start Tournament"]}
 									</Button>
 								)}
 							</CardContent>
@@ -300,19 +302,19 @@ export default function JoinTournamentPage() {
 							<div className="mx-auto p-4 rounded-full bg-emerald-500/10 mb-4 ring-1 ring-emerald-500/20">
 								<Trophy className="h-8 w-8 text-emerald-500" />
 							</div>
-							<CardTitle className="text-2xl font-bold">Join Tournament</CardTitle>
-							<CardDescription>Enter the tournament code to join</CardDescription>
+							<CardTitle className="text-2xl font-bold">{t.Game["Join Tournament"]}</CardTitle>
+							<CardDescription>{t.Game["Enter the tournament code to join"]}</CardDescription>
 						</CardHeader>
 
 						<CardContent className="space-y-6">
 							<div className="space-y-2">
 								<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-									Tournament Code
+									{t.Game["Tournament Code"]}
 								</label>
 								<Input
 									value={roomCode}
 									onChange={(e) => setRoomCode(e.target.value)}
-									placeholder="Enter tournament code..."
+									placeholder={t.Game["Enter tournament code..."] || "Enter tournament code..."}
 									className="font-mono text-lg text-center tracking-widest h-14"
 									onKeyPress={(e) => e.key === "Enter" && handleJoin()}
 									disabled={joining}
@@ -335,12 +337,12 @@ export default function JoinTournamentPage() {
 								{joining ? (
 									<>
 										<Loader2 className="mr-2 h-5 w-5 animate-spin" />
-										Joining...
+										{t.Game["Joining..."]}
 									</>
 								) : (
 									<>
 										<LogIn className="mr-2 h-5 w-5" />
-										Join Tournament
+										{t.Game["Join Tournament"]}
 									</>
 								)}
 							</Button>

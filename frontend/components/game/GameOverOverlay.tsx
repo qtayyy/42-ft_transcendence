@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/languageContext";
 
 interface GameOverPlayer {
 	id?: number | string;
@@ -60,6 +61,7 @@ export function GameOverOverlay({
 	const [localCountdown, setLocalCountdown] = useState(
 		isLocalAutoExitEnabled ? localAutoExitSeconds : 0,
 	);
+	const { t } = useLanguage();
 	const hasAutoExitedRef = useRef(false);
 	const triggerLocalExit = useCallback(() => {
 		if (!onExit || hasAutoExitedRef.current) return;
@@ -93,14 +95,14 @@ export function GameOverOverlay({
 	return (
 		<div className="absolute inset-0 bg-black/80 flex items-center justify-center backdrop-blur-md z-30">
 			<div className="text-center space-y-6 animate-in fade-in zoom-in duration-500">
-				<h2 className="text-5xl font-black text-white tracking-tight">GAME OVER</h2>
+				<h2 className="text-5xl font-black text-white tracking-tight">{t.Game["GAME OVER"]}</h2>
 
 				<div className="flex items-center justify-center gap-8 py-8">
 					<div className={`text-center p-6 rounded-2xl transition-all duration-500 ${gameOverResult.winner === "LEFT" ? "bg-green-500/20 ring-4 ring-green-500 scale-110 shadow-2xl shadow-green-500/20" : "bg-white/5 grayscale opacity-70"}`}>
 						<p className="text-lg font-semibold text-white mb-1">{gameOverResult.leftPlayer?.username}</p>
 						<p className="text-6xl font-black text-white">{gameOverResult.leftPlayer?.score}</p>
 						{gameOverResult.winner === "LEFT" && (
-							<Badge className="mt-4 bg-green-500 hover:bg-green-600 text-white border-0 text-sm px-3 py-1">WINNER</Badge>
+							<Badge className="mt-4 bg-green-500 hover:bg-green-600 text-white border-0 text-sm px-3 py-1">{t.Game["WINNER"]}</Badge>
 						)}
 					</div>
 					<span className="text-4xl text-white/30 font-thin">vs</span>
@@ -108,7 +110,7 @@ export function GameOverOverlay({
 						<p className="text-lg font-semibold text-white mb-1">{gameOverResult.rightPlayer?.username}</p>
 						<p className="text-6xl font-black text-white">{gameOverResult.rightPlayer?.score}</p>
 						{gameOverResult.winner === "RIGHT" && (
-							<Badge className="mt-4 bg-green-500 hover:bg-green-600 text-white border-0 text-sm px-3 py-1">WINNER</Badge>
+							<Badge className="mt-4 bg-green-500 hover:bg-green-600 text-white border-0 text-sm px-3 py-1">{t.Game["WINNER"]}</Badge>
 						)}
 					</div>
 				</div>
@@ -126,7 +128,7 @@ export function GameOverOverlay({
 								size="lg"
 								className="bg-white/10 hover:bg-white/20 text-white border-0"
 							>
-								Return Now <ArrowLeft className="ml-2 h-4 w-4" />
+								{t.Game["Return Now"]} <ArrowLeft className="ml-2 h-4 w-4" />
 							</Button>
 						</div>
 					) : isRemote ? (
@@ -152,7 +154,7 @@ export function GameOverOverlay({
 									!canRematch && "opacity-50 cursor-not-allowed grayscale"
 								)}
 							>
-								{!canRematch ? "Opponent Left" : "Rematch"}
+								{!canRematch ? t.Game["Opponent Left"] : t.Game["Rematch"]}
 							</Button>
 							<Button
 								onClick={() => {
@@ -180,7 +182,7 @@ export function GameOverOverlay({
 							<div className="space-y-4">
 								{isLocalAutoExitEnabled && (
 									<p className="text-white/80 animate-pulse">
-										Auto returning to lobby in {localCountdown} second{localCountdown === 1 ? "" : "s"}...
+										{(localCountdown === 1 ? t.Game["Auto returning to lobby in {count} second..."] : t.Game["Auto returning to lobby in {count} seconds..."]).replace("{count}", String(localCountdown))}
 									</p>
 								)}
 								<Button
