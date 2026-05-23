@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Keyboard, Gamepad2, Pause, ChevronDown, ChevronUp } from "lucide-react";
 import { KeyBindings, defaultBindings } from "@/hooks/usePongGame";
+import { useLanguage } from "@/context/languageContext";
 
 type GameControlsTrayMode = "local" | "remote";
 
@@ -32,6 +33,7 @@ export function GameControlsTray({
 	defaultHidden = true,
 	className,
 }: GameControlsTrayProps) {
+	const { t } = useLanguage();
 	const [isHidden, setIsHidden] = useState(defaultHidden);
 	const b = bindings ?? defaultBindings;
 
@@ -47,7 +49,7 @@ export function GameControlsTray({
 										<Keyboard className="h-4 w-4" />
 									</div>
 									<div className="flex flex-col min-w-0">
-										<span className="text-xs font-bold text-foreground">Player 1</span>
+										<span className="text-xs font-bold text-foreground">{t.Game["Player 1"]}</span>
 										<span className="text-[10px] text-muted-foreground font-mono">
 											{formatKey(b.p1Up)} / {formatKey(b.p1Down)}
 										</span>
@@ -58,14 +60,14 @@ export function GameControlsTray({
 
 								<div className="flex flex-col items-center px-2">
 									<Pause className="h-3.5 w-3.5 text-muted-foreground mb-0.5" />
-									<span className="text-[10px] text-muted-foreground font-mono">SPACE</span>
+									<span className="text-[10px] text-muted-foreground font-mono">{t.Game["SPACE"]}</span>
 								</div>
 
 								<div className="h-6 w-px bg-border/50" />
 
 								<div className="flex items-center gap-3 text-right min-w-0">
 									<div className="flex flex-col items-end min-w-0">
-										<span className="text-xs font-bold text-foreground">Player 2</span>
+										<span className="text-xs font-bold text-foreground">{t.Game["Player 2"]}</span>
 										<span className="text-[10px] text-muted-foreground font-mono">
 											{formatKey(b.p2Up)} / {formatKey(b.p2Down)}
 										</span>
@@ -82,9 +84,9 @@ export function GameControlsTray({
 										<Keyboard className="h-4 w-4" />
 									</div>
 									<div className="flex flex-col min-w-0">
-										<span className="text-xs font-bold text-foreground">Your Paddle</span>
+										<span className="text-xs font-bold text-foreground">{t.Game["Your Paddle"]}</span>
 										<span className="text-[10px] text-muted-foreground font-mono">
-											W / S<span className="hidden sm:inline"> or Arrow Keys</span>
+											{t.Game["W / S or Arrow Keys"]}
 										</span>
 									</div>
 								</div>
@@ -92,16 +94,16 @@ export function GameControlsTray({
 								<div className="h-6 w-px bg-border/50" />
 
 								<div className="flex flex-col items-center px-2">
-									<span className="text-xs font-bold text-foreground">Ready</span>
-									<span className="text-[10px] text-muted-foreground font-mono">ENTER</span>
+									<span className="text-xs font-bold text-foreground">{t.Game["Ready"]}</span>
+									<span className="text-[10px] text-muted-foreground font-mono">{t.Game["ENTER"]}</span>
 								</div>
 
 								<div className="h-6 w-px bg-border/50" />
 
 								<div className="flex items-center gap-3 text-right min-w-0">
 									<div className="flex flex-col items-end min-w-0">
-										<span className="text-xs font-bold text-foreground">Pause / Resume</span>
-										<span className="text-[10px] text-muted-foreground font-mono">SPACE</span>
+										<span className="text-xs font-bold text-foreground">{t.Game["Pause / Resume"]}</span>
+										<span className="text-[10px] text-muted-foreground font-mono">{t.Game["SPACE"]}</span>
 									</div>
 									<div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 ring-1 ring-purple-500/20">
 										<Gamepad2 className="h-4 w-4" />
@@ -124,11 +126,11 @@ export function GameControlsTray({
 				>
 					{isHidden ? (
 						<>
-							<ChevronUp className="mr-1.5 h-4 w-4" /> Show Controls
+							<ChevronUp className="mr-1.5 h-4 w-4" /> {t.Game["Show Controls"]}
 						</>
 					) : (
 						<>
-							<ChevronDown className="mr-1.5 h-4 w-4" /> Hide Controls
+							<ChevronDown className="mr-1.5 h-4 w-4" /> {t.Game["Hide Controls"]}
 						</>
 					)}
 				</Button>

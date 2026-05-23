@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Trophy, Loader2, X, Crown, User, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/languageContext";
 
 interface TournamentRoom {
 	roomId: string;
@@ -21,6 +22,7 @@ interface TournamentRoom {
 
 export default function TournamentMatchmakingPage() {
 	const router = useRouter();
+	const { t } = useLanguage();
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
 	const { gameRoom, setGameRoom } = useGame();
@@ -202,11 +204,11 @@ export default function TournamentMatchmakingPage() {
 
 		if (!roomId || !isReady) {
 			console.warn("[Tournament] Cannot start: missing roomId or socket not ready");
-			toast.error("Cannot start tournament: Socket not ready or Room ID missing");
+			toast.error(t.Game["Cannot start tournament: Socket not ready or Room ID missing"]);
 			return;
 		}
 
-		toast.loading("Starting tournament...", { id: "start-tournament" });
+		toast.loading(t.Game["Starting tournament..."], { id: "start-tournament" });
 
 		sendSocketMessage({
 			event: "START_TOURNAMENT",
@@ -244,7 +246,7 @@ export default function TournamentMatchmakingPage() {
 							className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 						>
 							<ArrowLeft className="h-4 w-4" />
-							Leave Room
+							{t.Game["Leave Room"]}
 						</Button>
 					</div>
 
@@ -255,9 +257,11 @@ export default function TournamentMatchmakingPage() {
 								<div className="mx-auto p-4 rounded-full bg-yellow-500/10 mb-4 ring-1 ring-yellow-500/20">
 									<Trophy className="h-8 w-8 text-yellow-500" />
 								</div>
-								<CardTitle className="text-2xl font-bold">Tournament Lobby</CardTitle>
+								<CardTitle className="text-2xl font-bold">{t.Game["Tournament Lobby"]}</CardTitle>
 								<CardDescription>
-									{isHost ? "You are the host - share the code or wait for players" : "Waiting for host to start"}
+									{isHost
+										? t.Game["You are the host - share the code or wait for players"]
+										: t.Game["Waiting for host to start"]}
 								</CardDescription>
 							</CardHeader>
 
@@ -265,7 +269,7 @@ export default function TournamentMatchmakingPage() {
 								{/* Room Code */}
 								<div className="space-y-2">
 									<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-										Tournament Code
+										{t.Game["Tournament Code"]}
 									</label>
 									<div className="flex gap-2">
 										<Input
@@ -290,7 +294,7 @@ export default function TournamentMatchmakingPage() {
 								{/* Players */}
 								<div className="space-y-3">
 									<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-										Players ({playerCount}/8)
+										{t.Game["Players ({count}/8)"].replace("{count}", String(playerCount))}
 									</label>
 									<div className="grid grid-cols-2 gap-2 max-h-[250px] overflow-y-auto pr-2">
 										{(gameRoom?.joinedPlayers || activeTournamentRoom.players).map((player, idx) => {
@@ -313,10 +317,10 @@ export default function TournamentMatchmakingPage() {
 													)}
 													<div className="flex-1 min-w-0">
 														<p className="font-semibold truncate text-sm">
-															{player.username}{isCurrentUser ? " (You)" : ""}
+															{player.username}{isCurrentUser ? ` ${t.Game["(You)"]}` : ""}
 														</p>
 														<p className={cn("text-xs", isPlayerHost ? "text-primary/70" : "text-green-500/70")}>
-															{isPlayerHost ? "Host" : "Ready"}
+															{isPlayerHost ? t.Game["Host"] : t.Game["Ready"]}
 														</p>
 													</div>
 												</div>
@@ -327,7 +331,7 @@ export default function TournamentMatchmakingPage() {
 										{Array.from({ length: Math.max(0, 3 - playerCount) }).map((_, idx) => (
 											<div key={`empty-${idx}`} className="flex items-center gap-2 p-3 border border-dashed border-muted-foreground/30 rounded-xl">
 												<Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
-												<p className="text-sm text-muted-foreground">Waiting...</p>
+												<p className="text-sm text-muted-foreground">{t.Game["Waiting..."]}</p>
 											</div>
 										))}
 									</div>
@@ -341,8 +345,10 @@ export default function TournamentMatchmakingPage() {
 										: "bg-muted/50 text-muted-foreground"
 								)}>
 									{canStart
-										? `Ready to start with ${playerCount} players!`
-										: `Need ${3 - playerCount} more player${3 - playerCount > 1 ? 's' : ''} to start`
+										? t.Game["Ready to start with {count} players!"].replace("{count}", String(playerCount))
+										: (3 - playerCount > 1
+											? t.Game["Need {count} more players to start"].replace("{count}", String(3 - playerCount))
+											: t.Game["Need {count} more player to start"].replace("{count}", String(3 - playerCount)))
 									}
 								</div>
 
@@ -362,10 +368,10 @@ export default function TournamentMatchmakingPage() {
 										{canStart ? (
 											<>
 												<Trophy className="mr-2 h-5 w-5" />
-												Start Tournament
+												{t.Game["Start Tournament"]}
 											</>
 										) : (
-											"Waiting for players..."
+											t.Game["Waiting for players..."]
 										)}
 									</Button>
 								) : (
@@ -376,7 +382,7 @@ export default function TournamentMatchmakingPage() {
 										className="w-full text-lg h-14 font-semibold border-destructive/30 text-destructive hover:bg-destructive/10"
 									>
 										<X className="mr-2 h-5 w-5" />
-										Leave Tournament
+										{t.Game["Leave Tournament"]}
 									</Button>
 								)}
 							</CardContent>
@@ -399,7 +405,7 @@ export default function TournamentMatchmakingPage() {
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Cancel
+						{t.Game["Cancel"]}
 					</Button>
 				</div>
 
@@ -411,8 +417,8 @@ export default function TournamentMatchmakingPage() {
 								<Trophy className="h-8 w-8 text-rose-500" />
 								<div className="absolute inset-0 rounded-full border-2 border-rose-500/30 animate-ping"></div>
 							</div>
-							<CardTitle className="text-2xl font-bold">Finding Tournament</CardTitle>
-							<CardDescription>Looking for an available room...</CardDescription>
+							<CardTitle className="text-2xl font-bold">{t.Game["Finding Tournament"]}</CardTitle>
+							<CardDescription>{t.Game["Looking for an available room..."]}</CardDescription>
 						</CardHeader>
 
 						<CardContent className="space-y-6">
@@ -431,7 +437,7 @@ export default function TournamentMatchmakingPage() {
 							{/* Stats */}
 							<div className="text-center p-4 bg-muted/30 rounded-xl">
 								<p className="text-2xl font-bold font-mono">{formatTime(searchTime)}</p>
-								<p className="text-xs text-muted-foreground uppercase tracking-wider">Search Time</p>
+								<p className="text-xs text-muted-foreground uppercase tracking-wider">{t.Game["Search Time"]}</p>
 							</div>
 
 							{/* Cancel Button */}
@@ -442,7 +448,7 @@ export default function TournamentMatchmakingPage() {
 								className="w-full text-lg h-14 font-semibold border-destructive/30 text-destructive hover:bg-destructive/10"
 							>
 								<X className="mr-2 h-5 w-5" />
-								Cancel Search
+								{t.Game["Cancel Search"]}
 							</Button>
 						</CardContent>
 					</Card>

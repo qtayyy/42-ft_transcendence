@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { GameRoomValue } from "@/types/types";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
+import { useLanguage } from "@/context/languageContext";
 
 interface RemoteTournamentState {
 	tournamentId: string;
@@ -39,7 +40,14 @@ export default function RemoteTournamentPage() {
 	const { user, loadingAuth } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
 	const { gameRoom, setGameRoom, setGameState } = useGame();
+	const { t } = useLanguage();
 	const tournamentId = params.tournamentId as string;
+
+	const formatLabel = (template: string, values: Record<string, string | number>) =>
+		Object.entries(values).reduce(
+			(text, [key, value]) => text.replace(`{${key}}`, String(value)),
+			template,
+		);
 
 	const [tournament, setTournament] = useState<RemoteTournamentState | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -308,7 +316,7 @@ export default function RemoteTournamentPage() {
 
         const handleTournamentPlayerLeft = (event: CustomEvent) => {
             console.log("Received TOURNAMENT_PLAYER_LEFT:", event.detail);
-            toast.info("A player has left the tournament.");
+            toast.info(t.Game["A player has left the tournament."]);
             
             // Re-fetch the entire tournament to get the latest updated matches/brackets (walkovers)
             fetchTournament();
@@ -321,7 +329,7 @@ export default function RemoteTournamentPage() {
             window.removeEventListener("tournamentUpdate", handleTournamentUpdate as EventListener);
             window.removeEventListener("tournamentPlayerLeft", handleTournamentPlayerLeft as EventListener);
         };
-    }, [user, getNextMatch, fetchTournament]);
+    }, [user, getNextMatch, fetchTournament, t.Game]);
 
 	// Poll for tournament updates
 	useEffect(() => {
@@ -377,7 +385,7 @@ export default function RemoteTournamentPage() {
 
 	const watchMatch = (matchId: string) => {
 		if (hasLockedReadyForNextMatch) {
-			toast.info("You are ready. Please wait for your next match to start.");
+			toast.info(t.Game["You are ready. Please wait for your next match to start."]);
 			return;
 		}
 		sendSocketMessage({
@@ -398,7 +406,7 @@ export default function RemoteTournamentPage() {
 			<div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] bg-background gap-8">
 				<div className="flex flex-col items-center gap-4 animate-pulse">
 					<Loader2 className="h-12 w-12 text-primary animate-spin" />
-					<div className="text-xl font-medium text-muted-foreground">Loading tournament...</div>
+					<div className="text-xl font-medium text-muted-foreground">{t.Game["Loading tournament..."]}</div>
 					<div className="text-xs font-mono text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border">
 						{debugInfo}
 					</div>
@@ -407,7 +415,7 @@ export default function RemoteTournamentPage() {
 				{isHost && (
 					<div className="flex flex-col items-center gap-4 mt-8 pt-8 border-t border-muted w-full max-w-sm">
 						<p className="text-xs text-center text-muted-foreground px-4">
-							Host Controls: Use this as a last resort if automatic creation fails.
+							{t.Game["Host Controls: Use this as a last resort if automatic creation fails."]}
 						</p>
 						<Button 
 							variant="outline" 
@@ -416,7 +424,7 @@ export default function RemoteTournamentPage() {
 							onClick={() => gameRoom && createTournamentInternal(gameRoom)}
 							disabled={isCreatingTournament}
 						>
-							{isCreatingTournament ? "Creating..." : "Force Create Tournament"}
+							{isCreatingTournament ? t.Game["Creating..."] : t.Game["Force Create Tournament"]}
 						</Button>
 					</div>
 				)}
@@ -430,9 +438,9 @@ export default function RemoteTournamentPage() {
 				<Card className="max-w-md w-full border-destructive/20 bg-destructive/5">
 						<CardContent className="flex flex-col items-center p-8 text-center space-y-4">
 							<History className="h-12 w-12 text-destructive/50" />
-							<h2 className="text-2xl font-bold">Tournament Not Found</h2>
-							<p className="text-muted-foreground">This tournament does not exist or has ended.</p>
-							<Button onClick={handleExit}>Return to Game Menu</Button>
+							<h2 className="text-2xl font-bold">{t.Game["Tournament Not Found"]}</h2>
+							<p className="text-muted-foreground">{t.Game["This tournament does not exist or has ended."]}</p>
+							<Button onClick={handleExit}>{t.Game["Return to Game Menu"]}</Button>
 						</CardContent>
 					</Card>
 			</div>
@@ -455,10 +463,11 @@ export default function RemoteTournamentPage() {
 								<Trophy className="h-16 w-16 text-yellow-500 drop-shadow-lg" />
 							</div>
 							<CardTitle className="text-5xl font-black bg-gradient-to-r from-yellow-500 via-orange-500 to-yellow-500 bg-clip-text text-transparent pb-2">
-								Tournament Complete!
+								{t.Game["Tournament Complete!"]}
 							</CardTitle>
 							<CardDescription className="text-xl font-medium text-muted-foreground">
-								{tournament.format === 'round-robin' ? 'Round Robin' : 'Swiss'} • {tournament.playerCount} Contenders
+								{tournament.format === 'round-robin' ? t.Game["Round Robin"] : t.Game["Swiss"]}{" "}
+								• {formatLabel(t.Game["{count} Contenders"], { count: tournament.playerCount })}
 							</CardDescription>
 						</CardHeader>
 
@@ -469,10 +478,10 @@ export default function RemoteTournamentPage() {
 								<div className="relative bg-black/80 p-8 rounded-2xl border border-yellow-500/50 flex flex-col items-center text-center space-y-4">
 									<Crown className="h-12 w-12 text-yellow-500" />
 									<div className="space-y-1">
-										<p className="text-yellow-500 font-bold tracking-widest uppercase text-sm">Grand Champion</p>
+										<p className="text-yellow-500 font-bold tracking-widest uppercase text-sm">{t.Game["Grand Champion"]}</p>
 										<p className="text-4xl font-bold text-white">{winner.playerName}</p>
 										<Badge variant="outline" className="border-yellow-500/50 text-yellow-400 bg-yellow-500/10 mt-2">
-											{winner.matchPoints} Match Points
+											{winner.matchPoints} {t.Game["Match Points"]}
 										</Badge>
 									</div>
 									<div className="flex gap-1">
@@ -486,7 +495,7 @@ export default function RemoteTournamentPage() {
 							{/* Full Leaderboard */}
 							<div className="max-w-2xl mx-auto">
 								<h3 className="text-center text-lg font-semibold mb-4 text-muted-foreground flex items-center justify-center gap-2">
-									<Medal className="h-5 w-5" /> Final Standings
+									<Medal className="h-5 w-5" /> {t.Game["Final Standings"]}
 								</h3>
 								<Leaderboard standings={tournament.leaderboard} currentUserId={user?.id} />
 							</div>
@@ -502,7 +511,7 @@ export default function RemoteTournamentPage() {
 									size="lg"
 									className="h-14 text-lg bg-primary hover:bg-primary/90"
 								>
-									New Game
+									{t.Dashboard["New Game"]}
 								</Button>
 								<Button
 									onClick={() => {
@@ -513,7 +522,7 @@ export default function RemoteTournamentPage() {
 									size="lg"
 									className="h-14 text-lg"
 								>
-									Dashboard
+									{t.Dashboard["Dashboard"]}
 								</Button>
 							</div>
 						</CardContent>
@@ -536,18 +545,21 @@ export default function RemoteTournamentPage() {
 						className="text-muted-foreground hover:text-foreground pl-0 gap-2 self-start md:self-center"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Exit Tournament
+						{t.Game["Exit Tournament"]}
 					</Button>
 					
 					<div className="text-center md:text-right">
 						<h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
 							<Badge variant="secondary" className="text-sm px-2 py-0.5">
 								<Users className="h-3 w-3 mr-1" />
-								Remote
+								{t.Game["Remote"]}
 							</Badge>
-							{tournament.format === 'round-robin' ? 'Round Robin' : 'Swiss'} Tournament
+							{tournament.format === 'round-robin' ? t.Game["Round Robin Tournament"] : t.Game["Swiss Tournament"]}
 							<Badge variant="secondary" className="text-lg px-3 py-1">
-								Round {tournament.currentRound} / {tournament.totalRounds}
+								{formatLabel(t.Game["Round {current} / {total}"], {
+									current: tournament.currentRound,
+									total: tournament.totalRounds,
+								})}
 							</Badge>
 						</h1>
 					</div>
@@ -567,7 +579,7 @@ export default function RemoteTournamentPage() {
 									</div>
 									<CardHeader>
 										<CardTitle className="flex items-center gap-2 text-xl text-blue-500">
-											<Play className="h-5 w-5 fill-current" /> Next Match
+											<Play className="h-5 w-5 fill-current" /> {t.Game["Next Match"]}
 										</CardTitle>
 									</CardHeader>
 									<CardContent className="space-y-6">
@@ -579,20 +591,20 @@ export default function RemoteTournamentPage() {
 												</div>
 												<div className="flex flex-col">
 													<span className="font-bold text-lg">{currentMatch.player1.name}</span>
-													<span className="text-xs text-muted-foreground uppercase">Challenger 1</span>
+													<span className="text-xs text-muted-foreground uppercase">{t.Game["Challenger 1"]}</span>
 												</div>
 											</div>
 
 											{/* VS */}
 											<div className="flex flex-col items-center px-4">
-												<span className="text-xl font-black text-muted-foreground italic">VS</span>
+												<span className="text-xl font-black text-muted-foreground italic">{t.Game["VS"]}</span>
 											</div>
 
 											{/* Player 2 */}
 											<div className="flex items-center gap-4 flex-1 justify-end text-right">
 												<div className="flex flex-col">
-													<span className="font-bold text-lg">{currentMatch.player2?.name || 'BYE'}</span>
-													<span className="text-xs text-muted-foreground uppercase">Challenger 2</span>
+													<span className="font-bold text-lg">{currentMatch.player2?.name || t.Game["BYE"]}</span>
+													<span className="text-xs text-muted-foreground uppercase">{t.Game["Challenger 2"]}</span>
 												</div>
 												<div className={`h-12 w-12 rounded-full flex items-center justify-center ${currentMatch.player2 ? "bg-red-500/10" : "bg-yellow-500/10"}`}>
 													{currentMatch.player2 ? (
@@ -609,22 +621,21 @@ export default function RemoteTournamentPage() {
 												<div className="text-center space-y-2">
 													<Badge variant="outline" className="text-yellow-500 border-yellow-500/50 bg-yellow-500/10 px-4 py-1 text-base">
 														<Crown className="w-4 h-4 mr-2 inline-block" />
-														Automatic Bye
+														{t.Game["Automatic Bye"]}
 													</Badge>
 													<p className="text-muted-foreground max-w-md mx-auto">
-														You have a bye for this round! You automatically advance with 3 points.
-														While you wait for the next round, you can spectate other ongoing matches.
+														{t.Game["You have a bye for this round! You automatically advance with 3 points. While you wait for the next round, you can spectate other ongoing matches."]}
 													</p>
 												</div>
 
 												{/* Spectator Options for Bye Player */}
 													<div className="w-full space-y-4">
 														<h4 className="font-semibold flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wider">
-															<Eye className="w-4 h-4" /> Available Matches to Watch
+															<Eye className="w-4 h-4" /> {t.Game["Available Matches to Watch"]}
 														</h4>
 														{hasLockedReadyForNextMatch && (
 															<p className="text-xs text-yellow-500">
-																You are ready for your next match. Spectating is disabled while waiting.
+																{t.Game["You are ready for your next match. Spectating is disabled while waiting."]}
 															</p>
 														)}
 														
@@ -640,12 +651,12 @@ export default function RemoteTournamentPage() {
 																		<div className="flex items-center gap-4">
 																			<div className="flex flex-col">
 																				<span className="font-bold text-lg">{match.player1.name}</span>
-																				<span className="text-xs text-muted-foreground">Player 1</span>
+																				<span className="text-xs text-muted-foreground">{t.Game["Player 1"]}</span>
 																			</div>
-																			<span className="text-muted-foreground font-black italic">VS</span>
+																			<span className="text-muted-foreground font-black italic">{t.Game["VS"]}</span>
 																			<div className="flex flex-col text-right">
 																				<span className="font-bold text-lg">{match.player2?.name}</span>
-																				<span className="text-xs text-muted-foreground">Player 2</span>
+																				<span className="text-xs text-muted-foreground">{t.Game["Player 2"]}</span>
 																			</div>
 																		</div>
 																			<Button
@@ -658,21 +669,21 @@ export default function RemoteTournamentPage() {
 																						: "bg-red-500 hover:bg-red-600 shadow-red-500/20 opacity-0 group-hover/match:opacity-100"
 																				)}
 																			>
-																				<Eye className="mr-2 h-4 w-4" /> {hasLockedReadyForNextMatch ? "Waiting..." : "Watch"}
+																				<Eye className="mr-2 h-4 w-4" /> {hasLockedReadyForNextMatch ? t.Game["Waiting..."] : t.Game["Watch"]}
 																			</Button>
 																		</div>
 																	))}
 															</div>
 													) : (
 														<div className="p-6 text-center border border-dashed rounded-xl bg-muted/10 text-muted-foreground">
-															No matches currently in progress.
+															{t.Game["No matches currently in progress."]}
 														</div>
 													)}
 												</div>
 
 												<div className="flex gap-4 w-full md:w-auto pt-4 border-t border-white/5">
 													<div className="w-full text-center text-muted-foreground italic">
-														Waiting for other matches in this round to complete...
+														{t.Game["Waiting for other matches in this round to complete..."]}
 													</div>
 												</div>
 											</div>
@@ -681,8 +692,8 @@ export default function RemoteTournamentPage() {
 												{isMeReady ? (
 													<div className="flex flex-col items-center justify-center py-8 space-y-4 bg-muted/20 rounded-xl animate-in fade-in duration-300">
 														<Loader2 className="h-10 w-10 text-primary animate-spin" />
-														<p className="font-medium text-lg">You are ready for the next match</p>
-														<p className="text-sm text-muted-foreground">Waiting for game to start...</p>
+														<p className="font-medium text-lg">{t.Game["You are ready for the next match"]}</p>
+														<p className="text-sm text-muted-foreground">{t.Game["Waiting for game to start..."]}</p>
 													</div>
 												) : (
 													<div className="flex gap-4">
@@ -695,14 +706,14 @@ export default function RemoteTournamentPage() {
 																	onClick={() => router.push(`/game/${currentMatch.matchId}`)}
 																	className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-lg h-14 shadow-lg shadow-emerald-500/20 font-bold animate-pulse"
 																>
-																	<Play className="mr-2 h-5 w-5 fill-current" /> Rejoin Game
+																	<Play className="mr-2 h-5 w-5 fill-current" /> {t.Game["Rejoin Game"]}
 																</Button>
 															) : (
 																<Button
 																	onClick={handleStartMatch}
 																	className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg h-14 shadow-lg shadow-blue-500/20 font-bold"
 																>
-																	<Play className="mr-2 h-5 w-5 fill-current" /> Ready
+																	<Play className="mr-2 h-5 w-5 fill-current" /> {t.Game["Ready"]}
 																</Button>
 															)
 														) : (
@@ -710,7 +721,7 @@ export default function RemoteTournamentPage() {
 																disabled
 																className="flex-1 bg-muted text-muted-foreground text-lg h-14 font-medium"
 															>
-																Waiting for players...
+																{t.Game["Waiting for players..."]}
 															</Button>
 														)}
 														{currentMatch.status !== 'inprogress' && (
@@ -719,7 +730,7 @@ export default function RemoteTournamentPage() {
 																variant="outline"
 																className="flex-1 text-lg h-14 border-white/10 hover:bg-white/5"
 															>
-																Leave
+																{t.Game["Leave"]}
 															</Button>
 														)}
 													</div>
@@ -737,13 +748,13 @@ export default function RemoteTournamentPage() {
 									<CardHeader>
 										<CardTitle className="flex items-center gap-2 text-lg">
 										<div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-										Live Matches
+										{t.Game["Live Matches"]}
 									</CardTitle>
 									</CardHeader>
 									<CardContent className="space-y-3">
 										{hasLockedReadyForNextMatch && (
 											<p className="text-xs text-yellow-500">
-												You are ready for your next match. Watch Live is disabled until your match starts.
+												{t.Game["You are ready for your next match. Watch Live is disabled until your match starts."]}
 											</p>
 										)}
 										{tournament.matches
@@ -755,9 +766,11 @@ export default function RemoteTournamentPage() {
 											>
 												<div>
 													<div className="font-semibold">
-														{match.player1.name} <span className="text-muted-foreground">vs</span> {match.player2?.name}
+														{match.player1.name} <span className="text-muted-foreground">{t.Game["vs"]}</span> {match.player2?.name}
 													</div>
-													<div className="text-xs text-muted-foreground">Round {match.round}</div>
+													<div className="text-xs text-muted-foreground">
+														{formatLabel(t.Game["Round {round}"], { round: match.round })}
+													</div>
 												</div>
 													<Button
 														onClick={() => watchMatch(match.matchId)}
@@ -769,7 +782,7 @@ export default function RemoteTournamentPage() {
 																: "bg-red-500 hover:bg-red-600"
 														)}
 													>
-														<Eye className="mr-2 h-4 w-4" /> {hasLockedReadyForNextMatch ? "Waiting..." : "Watch Live"}
+														<Eye className="mr-2 h-4 w-4" /> {hasLockedReadyForNextMatch ? t.Game["Waiting..."] : t.Game["Watch Live"]}
 													</Button>
 												</div>
 											))}
@@ -781,13 +794,13 @@ export default function RemoteTournamentPage() {
 						<Card className="bg-card/50 backdrop-blur-sm">
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2 text-lg">
-									<History className="h-5 w-5" /> Match History
+									<History className="h-5 w-5" /> {t.Game["Match History"]}
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
 								<div className="space-y-3">
 									{tournament.matches.filter(m => m.status === 'completed' || m.status === 'bye').length === 0 ? (
-										<p className="text-center text-muted-foreground py-8 italic">No matches completed yet.</p>
+										<p className="text-center text-muted-foreground py-8 italic">{t.Game["No matches completed yet."]}</p>
 									) : (
 										tournament.matches
 											.filter(m => m.status === 'completed' || m.status === 'bye')
@@ -800,20 +813,27 @@ export default function RemoteTournamentPage() {
 														<Badge variant="outline" className="w-16 justify-center">R{match.round}</Badge>
 														<div className="flex flex-col gap-0.5">
 															<div className="font-semibold text-sm">
-																{match.player1.name} <span className="text-muted-foreground font-normal">vs</span> {match.player2?.name || 'BYE'}
+																{match.player1.name}{" "}
+																<span className="text-muted-foreground font-normal">{t.Game["vs"]}</span>{" "}
+																{match.player2?.name || t.Game["BYE"]}
 															</div>
 															<div className="text-xs text-muted-foreground">
 																{match.result?.outcome === 'bye' ? (
-																	<span className="text-yellow-500 font-medium">Automatic Bye</span>
+																	<span className="text-yellow-500 font-medium">{t.Game["Automatic Bye"]}</span>
 																) : (
-																	<span>Score: {match.result?.score.p1} - {match.result?.score.p2}</span>
+																	<span>
+																		{formatLabel(t.Game["Score: {p1} - {p2}"], {
+																			p1: match.result?.score.p1 ?? 0,
+																			p2: match.result?.score.p2 ?? 0,
+																		})}
+																	</span>
 																)}
 															</div>
 														</div>
 													</div>
 													
 													{match.result?.outcome === 'draw' && (
-														<Badge variant="secondary">Draw</Badge>
+														<Badge variant="secondary">{t.Game["Draw"]}</Badge>
 													)}
 												</div>
 											))
@@ -829,7 +849,7 @@ export default function RemoteTournamentPage() {
 							<Card className="bg-card/50 backdrop-blur-sm h-full">
 								<CardHeader>
 									<CardTitle className="flex items-center gap-2 text-lg">
-										<Trophy className="h-5 w-5 text-yellow-500" /> Standings
+										<Trophy className="h-5 w-5 text-yellow-500" /> {t.Game["Standings"]}
 									</CardTitle>
 								</CardHeader>
 								<CardContent className="px-2">

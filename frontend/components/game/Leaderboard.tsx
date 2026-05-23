@@ -2,6 +2,7 @@ import { PlayerStanding } from "@/lib/tournament";
 import { Trophy, TrendingUp, Target, Medal, Crown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/languageContext";
 
 interface LeaderboardProps {
 	standings: PlayerStanding[];
@@ -9,6 +10,8 @@ interface LeaderboardProps {
 }
 
 export default function Leaderboard({ standings, currentUserId }: LeaderboardProps) {
+	const { t } = useLanguage();
+
 	return (
 		<div className="space-y-4">
 			{standings.map((standing, index) => {
@@ -50,10 +53,10 @@ export default function Leaderboard({ standings, currentUserId }: LeaderboardPro
 									{standing.playerName}
 								</span>
 								{isCurrentUser && (
-									<Badge variant="secondary" className="text-[10px] h-4 px-1">You</Badge>
+									<Badge variant="secondary" className="text-[10px] h-4 px-1">{t.Game["You"]}</Badge>
 								)}
 								{standing.isTemp && (
-									<Badge variant="outline" className="text-[10px] h-4 px-1 border-muted-foreground/30 text-muted-foreground">Guest</Badge>
+									<Badge variant="outline" className="text-[10px] h-4 px-1 border-muted-foreground/30 text-muted-foreground">{t.Game["Guest"]}</Badge>
 								)}
 							</div>
 							<div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
@@ -67,7 +70,7 @@ export default function Leaderboard({ standings, currentUserId }: LeaderboardPro
 						<div className="flex items-center gap-2 text-right">
 							{/* Avg Score Diff */}
 							<div className="hidden sm:block text-xs text-muted-foreground w-14 text-center">
-								<div className="text-[10px] uppercase font-bold tracking-wider mb-0.5 text-muted-foreground/60">Avg Diff</div>
+								<div className="text-[10px] uppercase font-bold tracking-wider mb-0.5 text-muted-foreground/60">{t.Game["Avg Diff"]}</div>
 								<span className={cn(
 									"font-mono font-medium",
 									standing.avgScoreDifferential > 0 ? "text-green-500" : standing.avgScoreDifferential < 0 ? "text-red-500" : ""
@@ -78,7 +81,7 @@ export default function Leaderboard({ standings, currentUserId }: LeaderboardPro
 
 							{/* Avg Total Points Scored */}
 							<div className="hidden sm:block text-xs text-muted-foreground w-14 text-center border-l border-border/30 pl-2">
-								<div className="text-[10px] uppercase font-bold tracking-wider mb-0.5 text-muted-foreground/60">Avg Pts</div>
+								<div className="text-[10px] uppercase font-bold tracking-wider mb-0.5 text-muted-foreground/60">{t.Game["Avg Pts"]}</div>
 								<span className="font-mono font-medium text-foreground/80">
 									{standing.avgTotalPointsScored}
 								</span>
@@ -86,7 +89,7 @@ export default function Leaderboard({ standings, currentUserId }: LeaderboardPro
 
 							{/* Match Points (Highlight) */}
 							<div className="w-14 text-center bg-background/50 rounded-lg py-1 border border-border/50 shadow-sm ml-2">
-								<div className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground/70 mb-0.5">Pts</div>
+								<div className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground/70 mb-0.5">{t.Game["Pts"]}</div>
 								<span className="text-lg font-black text-primary">
 									{standing.matchPoints}
 								</span>
@@ -98,8 +101,8 @@ export default function Leaderboard({ standings, currentUserId }: LeaderboardPro
 			
 			{/* Minimal Legend */}
 			<div className="flex flex-wrap justify-between gap-2 px-2 pt-2 text-[10px] text-muted-foreground/50 border-t border-border/30">
-				<span>Win: 3 | Draw: 1 | Bye: 3</span>
-				<span>Tie-break: Points → Diff → Total Scored</span>
+				<span>{t.Game["Win: 3 | Draw: 1 | Bye: 3"]}</span>
+				<span>{t.Game["Tie-break: Points → Diff → Total Scored"]}</span>
 			</div>
 		</div>
 	);
