@@ -201,6 +201,17 @@ export default function RemoteGameRuntimeView({
 						remoteOptimisticPaddlePreview={optimisticPaddlePreview}
 						layout="canvasOnly"
 						showBuiltInOverlays={false}
+						player1Name={gameState?.leftPlayer?.username || "Player 1"}
+						player2Name={gameState?.rightPlayer?.username || "Player 2"}
+						mySide={
+							gameState?.me === "LEFT" || gameState?.me === "RIGHT"
+								? gameState.me
+								: String(user?.id) === String(gameState?.leftPlayer?.id)
+									? "LEFT"
+									: String(user?.id) === String(gameState?.rightPlayer?.id)
+										? "RIGHT"
+										: null
+						}
 					/>
 
 					{shouldShowSpectatorWaitingOverlay && (

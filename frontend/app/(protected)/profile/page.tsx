@@ -62,9 +62,17 @@ export default function ProfilePage() {
     async function getProfile() {
       try {
         setError("");
+        const storedUsername = user?.username || "";
+        const fullname = user?.fullname?.trim() || "";
+        // Older signups stored email as username — show full name instead (max 20 chars).
+        const displayUsername =
+          storedUsername.includes("@") && fullname
+            ? fullname.slice(0, 20)
+            : storedUsername;
+
         const profileData = {
           email: user?.email || "",
-          username: user?.username || "",
+          username: displayUsername,
           dob: user?.dob ? new Date(user?.dob).toISOString().split("T")[0] : "",
           region: user?.region || "",
           bio: user?.bio || "",
@@ -141,6 +149,13 @@ export default function ProfilePage() {
     const trimmedUsername = profile.username.trim();
     if (!trimmedUsername) {
       setError(t?.Profile?.UsernameRequired ?? "Username cannot be empty.");
+      return;
+    }
+    if (trimmedUsername.length < 3 || trimmedUsername.length > 20) {
+      setError(
+        t?.Profile?.UsernameLength ??
+          "Username must be between 3 and 20 characters.",
+      );
       return;
     }
 
@@ -347,7 +362,8 @@ export default function ProfilePage() {
                     onChange={handleInputChange}
                     disabled={!isEditMode}
                     required={isEditMode}
-                    minLength={1}
+                    minLength={3}
+                    maxLength={20}
                     autoComplete="username"
                     className={cn(!isEditMode && "bg-muted/30")}
                   />

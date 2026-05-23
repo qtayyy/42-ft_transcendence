@@ -737,11 +737,11 @@ export default function DashboardPage() {
 
           {/* Activity & Win-Loss Charts */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
               {/* Activity Bar Chart */}
-              <div className="group relative w-full">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
-                <Card className="relative border-0 bg-card backdrop-blur-sm overflow-hidden transition-all">
+              <div className="group relative w-full h-full">
+                <div className="pointer-events-none absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500" aria-hidden />
+                <Card className="relative h-full border-0 bg-card backdrop-blur-sm overflow-hidden transition-all flex flex-col">
                   <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                     <BarChart3 className="h-32 w-32 -mr-8 -mt-8" />
                   </div>
@@ -843,10 +843,10 @@ export default function DashboardPage() {
                 </Card>
               </div>
 
-              {/* Win-Loss Pie Chart — self-start so neon glow matches card height, not the Activity row */}
-              <div className="group relative w-full self-start">
+              {/* Win-Loss Pie Chart */}
+              <div className="group relative w-full h-full">
                 <div className="pointer-events-none absolute -inset-0.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500" aria-hidden />
-                <Card className="relative cursor-pointer border-0 bg-card backdrop-blur-sm overflow-hidden transition-all">
+                <Card className="relative h-full cursor-pointer border-0 bg-card backdrop-blur-sm overflow-hidden transition-all flex flex-col">
                   <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                     <PieChart className="h-32 w-32 -mr-8 -mt-8" />
                   </div>
@@ -857,13 +857,13 @@ export default function DashboardPage() {
                     <CardTitle className="text-2xl">{t.Dashboard["Win-Loss"]}</CardTitle>
                     <CardDescription>{t.Dashboard["Performance Stats"]}</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="flex flex-1 flex-col justify-center space-y-3">
                     {recentMatchesLoading ? (
                       <p className="text-muted-foreground text-center text-xs py-4">{t.Dashboard["Loading stats..."]}</p>
                     ) : totalGames === 0 ? (
                       <p className="text-muted-foreground text-sm text-center py-4 px-4">{t.Dashboard["No matches yet."]}</p>
                     ) : (
-                      <div className="flex items-center justify-center gap-5 py-2">
+                      <div className="flex flex-1 items-center justify-center gap-5 py-2">
                         <div
                           className="relative h-32 w-32 shrink-0 rounded-full p-1.5"
                           style={{ background: pieBackground }}

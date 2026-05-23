@@ -52,6 +52,8 @@ export function AuthShell({
                     id={field.name}
                     name={field.name}
                     required
+                    minLength={field.minLength}
+                    maxLength={field.maxLength}
                   />
                 </div>
               ))}

@@ -6,6 +6,7 @@ import { GameOverOverlay } from "@/components/game/GameOverOverlay";
 import { ReadyOverlay } from "@/components/game/ReadyOverlay";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
 import { GameControlsTray } from "@/components/game/GameControlsTray";
+import { MatchPlayerBanner } from "@/components/game/MatchPlayerBanner";
 import { formatTime } from "@/utils/gameHelpers";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -41,6 +42,12 @@ interface PongGameProps {
 	getLiveGameState?: () => GameState | null;
 	subscribeToLiveGameState?: (listener: () => void) => () => void;
 	remoteOptimisticPaddlePreview?: RemoteOptimisticPaddlePreview | null;
+	/** Left paddle (player 1) display name */
+	player1Name?: string;
+	/** Right paddle (player 2) display name */
+	player2Name?: string;
+	/** Which side is the logged-in user (remote); omit for local */
+	mySide?: "LEFT" | "RIGHT" | null;
 }
 
 export default function PongGame({
@@ -61,6 +68,9 @@ export default function PongGame({
 	getLiveGameState,
 	subscribeToLiveGameState,
 	remoteOptimisticPaddlePreview = null,
+	player1Name: player1NameProp,
+	player2Name: player2NameProp,
+	mySide = null,
 }: PongGameProps) {
 	const {
 		gameState,
@@ -122,6 +132,33 @@ export default function PongGame({
 	const displayMatchId = mode === "local"
 		? (isTournamentMatch ? `LT-${cleanId}` : `LS-${cleanId}`)
 		: cleanId;
+
+	const [localPlayerNames, setLocalPlayerNames] = useState<{
+		left: string;
+		right: string;
+	} | null>(null);
+
+	useEffect(() => {
+		if (mode !== "local" || player1NameProp || player2NameProp) return;
+		try {
+			const raw = localStorage.getItem("current-match");
+			if (!raw) return;
+			const data = JSON.parse(raw) as {
+				player1?: { name?: string };
+				player2?: { name?: string };
+			};
+			setLocalPlayerNames({
+				left: data.player1?.name || "Player 1",
+				right: data.player2?.name || "Player 2",
+			});
+		} catch {
+			/* ignore */
+		}
+	}, [mode, player1NameProp, player2NameProp]);
+
+	const player1Name = player1NameProp ?? localPlayerNames?.left ?? "Player 1";
+	const player2Name = player2NameProp ?? localPlayerNames?.right ?? "Player 2";
+	const showPlayerBanner = Boolean(player1Name || player2Name);
 
 	const syncIncomingSnapshot = useCallback((nextGameState: GameState | null) => {
 		if (!nextGameState) return;
@@ -338,26 +375,66 @@ export default function PongGame({
 		};
 	}, [mode, wsUrl, requestLocalPauseBeforeUnload]);
 
+	const canvasBlock = (
+		<div
+			className={cn(
+				"w-full overflow-hidden shadow-2xl ring-1 ring-white/10 group",
+				showPlayerBanner ? "rounded-b-xl" : "rounded-xl",
+			)}
+			style={
+				layout === "canvasOnly"
+					? {
+							maxWidth: `${canvasDimensions.width}px`,
+							maxHeight: showPlayerBanner
+								? `${canvasDimensions.height + 56}px`
+								: `${canvasDimensions.height}px`,
+							aspectRatio: showPlayerBanner
+								? undefined
+								: `${canvasDimensions.width} / ${canvasDimensions.height}`,
+						}
+					: undefined
+			}
+		>
+			{showPlayerBanner && (
+				<MatchPlayerBanner
+					leftName={player1Name}
+					rightName={player2Name}
+					leftScore={gameState?.score?.p1 ?? 0}
+					rightScore={gameState?.score?.p2 ?? 0}
+					mySide={mySide}
+				/>
+			)}
+			<div
+				className={cn(
+					"relative bg-[#020817]",
+					layout === "canvasOnly" && "w-full",
+					layout === "full" && "rounded-b-xl overflow-hidden",
+				)}
+				style={
+					layout === "canvasOnly"
+						? { aspectRatio: `${canvasDimensions.width} / ${canvasDimensions.height}` }
+						: undefined
+				}
+			>
+				<div className="absolute inset-0 bg-linear-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
+				<canvas
+					ref={canvasRef}
+					width={canvasDimensions.width}
+					height={canvasDimensions.height}
+					className={cn(
+						"block bg-[#020817]",
+						layout === "canvasOnly" ? "w-full h-full" : "max-w-full h-auto",
+					)}
+					style={{ touchAction: "none", width: layout === "full" ? "100%" : undefined, height: layout === "full" ? "auto" : undefined }}
+				/>
+			</div>
+		</div>
+	);
+
 	if (layout === "canvasOnly") {
 		return (
-			<div ref={containerRef} className="relative h-full w-full overflow-hidden">
-				<div
-					className="absolute left-1/2 top-1/2 w-full -translate-x-1/2 -translate-y-1/2 rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group"
-					style={{
-						maxWidth: `${canvasDimensions.width}px`,
-						maxHeight: `${canvasDimensions.height}px`,
-						aspectRatio: `${canvasDimensions.width} / ${canvasDimensions.height}`,
-					}}
-				>
-					<div className="absolute inset-0 bg-linear-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
-					<canvas
-						ref={canvasRef}
-						width={canvasDimensions.width}
-						height={canvasDimensions.height}
-						className="block bg-[#020817] w-full h-full"
-						style={{ touchAction: "none" }}
-					/>
-				</div>
+			<div ref={containerRef} className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden p-2">
+				{canvasBlock}
 			</div>
 		);
 	}
@@ -459,20 +536,13 @@ export default function PongGame({
 						background={background}
 						onBackgroundChange={handleBackgroundChange}
 						unlockedAchievements={unlockedAchievements}
+						player1Name={player1Name}
+						player2Name={player2Name}
 					/>
 				)}
 
-				{/* Canvas */}
-				<div className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group max-w-full">
-					<div className="absolute inset-0 bg-linear-to-tr from-blue-500/5 to-purple-500/5 pointer-events-none z-10" />
-					<canvas
-						ref={canvasRef}
-						width={canvasDimensions.width}
-						height={canvasDimensions.height}
-						className="block bg-[#020817] max-w-full h-auto"
-						style={{ touchAction: 'none', width: '100%', height: 'auto' }}
-					/>
-				</div>
+				{/* Canvas + player names */}
+				<div className="max-w-full">{canvasBlock}</div>
 			</div>
 
 			{showControlsTray && <GameControlsTray mode={mode === "remote" ? "remote" : "local"} bindings={bindings} />}
@@ -494,8 +564,8 @@ export default function PongGame({
 					mode={mode}
 					player1Ready={true} // TODO: Get from game state for remote matches
 					player2Ready={true} // TODO: Get from game state for remote matches
-					player1Name="Player 1" // TODO: Get from game state
-					player2Name="Player 2" // TODO: Get from game state
+					player1Name={player1Name}
+					player2Name={player2Name}
 					onStart={handleStart}
 					bindings={bindings}
 					onBindingsChange={setBindings}
