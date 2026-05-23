@@ -139,6 +139,7 @@ export function GameOverOverlay({
 									sendSocketMessage({
 										event: "REMATCH",
 										payload: {
+											matchId: gameOverResult.matchId,
 											player1Id: gameOverResult.leftPlayer?.id,
 											player1Username: gameOverResult.leftPlayer?.username,
 											player2Id: gameOverResult.rightPlayer?.id,
