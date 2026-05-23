@@ -14,6 +14,8 @@
     "Create an account to start playing!": "アカウントを作成してプレイを始めましょう！",
     "back to login": "ログインに戻る",
     "Full Name": "氏名",
+    "FullNameLength": "氏名は3文字以上20文字以内にしてください。",
+    "FullNameTaken": "この名前は既に使われています。別の名前を選んでください。",
     "agree prefix": "",
     "agree suffix": "に同意します",
     "Terms of Service": "利用規約",
@@ -123,6 +125,7 @@
   "Profile": {
     "Username": "ユーザー名",
     "UsernameRequired": "ユーザー名を入力してください。",
+    "UsernameLength": "ユーザー名は3文字以上20文字以内にしてください。",
     "DateofBirth": "生年月日",
     "Country/Region": "国/地域",
     "Save": "保存",

@@ -14,6 +14,8 @@
     "Create an account to start playing!": "계정을 만들고 게임을 시작하세요!",
     "back to login": "로그인으로 돌아가기",
     "Full Name": "성명",
+    "FullNameLength": "이름은 3자 이상 20자 이하여야 합니다.",
+    "FullNameTaken": "이미 사용 중인 이름입니다. 다른 이름을 선택해 주세요.",
     "agree prefix": "",
     "agree suffix": "에 동의합니다",
     "Terms of Service": "서비스 이용약관",
@@ -123,6 +125,7 @@
   "Profile": {
     "Username": "사용자명",
     "UsernameRequired": "사용자 이름을 입력해 주세요.",
+    "UsernameLength": "사용자 이름은 3자 이상 20자 이하여야 합니다.",
     "DateofBirth": "생년월일",
     "Country/Region": "국가/지역",
     "Save": "저장",

@@ -10,17 +10,33 @@ export default async function (fastify, opts) {
     { config: { rateLimit: authRateLimit.signup } },
     async (request, reply) => {
     try {
-      const { email, password, fullName } = request.body;
-      
+      const { email, password, fullName: rawFullName } = request.body;
+      const fullName = String(rawFullName ?? "").trim();
+
       const pepper = process.env.SECURITY_PEPPER;
       const saltRounds = parseInt(process.env.SALT_ROUNDS);
 
       if (!email || !password || !fullName)
         return reply.code(400).send({ error: "Missing fields" });
 
+      if (fullName.length < 3 || fullName.length > 20) {
+        return reply.code(400).send({
+          error: "Full name must be between 3 and 20 characters.",
+        });
+      }
+
       const existing = await prisma.profile.findUnique({ where: { email } });
       if (existing)
         return reply.code(400).send({ error: "Email already used" });
+
+      const usernameTaken = await prisma.profile.findFirst({
+        where: { username: fullName },
+      });
+      if (usernameTaken) {
+        return reply.code(400).send({
+          error: "This name is already taken. Please choose another.",
+        });
+      }
 
       // Combine Password with Pepper
       const passwordWithPepper = password + pepper;
@@ -34,7 +50,7 @@ export default async function (fastify, opts) {
             create: {
               email: email,
               avatar: "",
-              username: email || "",
+              username: fullName,
               fullname: fullName,
               dob: null,
               region: null,

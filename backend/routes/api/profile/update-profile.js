@@ -110,6 +110,11 @@ export default async function (fastify, opts) {
               .code(400)
               .send({ error: "Username cannot be empty." });
           }
+          if (updates.username.length < 3 || updates.username.length > 20) {
+            return reply
+              .code(400)
+              .send({ error: "Username must be between 3 and 20 characters." });
+          }
         }
 
         // Check if username is being updated and if it already exists for another user

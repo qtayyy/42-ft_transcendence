@@ -24,7 +24,13 @@ export default function SignUpPage() {
   const bothAgreed = agreedToTerms && agreedToPrivacy;
 
   const fields = [
-    { name: "fullName", label: t?.["Login & Sign up"]?.["Full Name"] || "Full Name", type: "text" },
+    {
+      name: "fullName",
+      label: t?.["Login & Sign up"]?.["Full Name"] || "Full Name",
+      type: "text",
+      minLength: 3,
+      maxLength: 20,
+    },
     { name: "email", label: t?.["Login & Sign up"]?.Email || "Email", type: "email" },
   ];
 
@@ -55,8 +61,20 @@ export default function SignUpPage() {
       return;
     }
 
+    if (fullName.length < 3 || fullName.length > 20) {
+      setErrorMessage(
+        t?.["Login & Sign up"]?.FullNameLength ??
+          "Full name must be between 3 and 20 characters.",
+      );
+      return;
+    }
+
     try {
-      const response = await axios.post("/api/auth/signup", data);
+      const response = await axios.post("/api/auth/signup", {
+        email,
+        password,
+        fullName,
+      });
 
       if (response.status === 200) {
         setSuccessMessage("Sign up successful!");
@@ -67,9 +85,23 @@ export default function SignUpPage() {
 
       }
     } catch (error: any) {
-      const backendError = error.response?.data?.error;
+      const backendError = error.response?.data?.error as string | undefined;
+      if (backendError?.includes("3 and 20")) {
+        setErrorMessage(
+          t?.["Login & Sign up"]?.FullNameLength ??
+            "Full name must be between 3 and 20 characters.",
+        );
+        return;
+      }
+      if (backendError?.toLowerCase().includes("already taken")) {
+        setErrorMessage(
+          t?.["Login & Sign up"]?.FullNameTaken ??
+            "This name is already taken. Please choose another.",
+        );
+        return;
+      }
       setErrorMessage(
-        backendError || "Something went wrong. Please try again later."
+        backendError || "Something went wrong. Please try again later.",
       );
     }
   };
