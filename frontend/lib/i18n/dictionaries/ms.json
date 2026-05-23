@@ -55,7 +55,13 @@
     "Draws": "Seri",
     "7 Days": "7 Hari",
     "8 Wks": "8 Minggu",
+    "4 Wks": "4 Minggu",
     "6 Mo": "6 Bulan",
+    "Activity period": "Tempoh aktiviti",
+    "Games played per period": "Permainan dimainkan setiap tempoh",
+    "Total minutes help": "Jumlah masa permainan yang disimpan (jam dalam permainan apabila setiap perlawanan tamat). Mengikut penapis papan pemuka anda. Bukan jumlah masa skrin atau aplikasi.",
+    "Week {n}": "Minggu {n}",
+    "No games in this period": "Tiada permainan dalam tempoh ini",
     "Loading...": "Memuatkan...",
     "Loading stats...": "Memuatkan statistik...",
     "Loading recent matches...": "Memuatkan perlawanan terkini...",
@@ -126,7 +132,21 @@
     "DeleteAvatarTitle": "Padam gambar profil?",
     "DeleteAvatarDescription": "Adakah anda pasti mahu memadam gambar profil anda?",
     "DeleteAvatarConfirm": "Padam",
-    "Bio": "Biodata"
+    "Bio": "Biodata",
+    "Back": "Kembali",
+    "User not found": "Pengguna tidak dijumpai",
+    "Failed to load profile": "Gagal memuatkan profil",
+    "Request Pending": "Permintaan Menunggu",
+    "Sending...": "Menghantar...",
+    "Send Friend Request": "Hantar Permintaan Rakan",
+    "Request already sent": "Permintaan sudah dihantar",
+    "Already friends": "Sudah berkawan",
+    "Friend request sent": "Permintaan rakan dihantar",
+    "Failed to send friend request": "Gagal menghantar permintaan rakan",
+    "No bio yet.": "Tiada biodata lagi.",
+    "Joined {date}": "Menyertai {date}",
+    "Game Statistics": "Statistik Permainan",
+    "Total Games": "Jumlah Permainan"
   },
   "FriendRequests": {
     "No pending requests": "Tiada permintaan menunggu",
@@ -675,5 +695,10 @@
     "11 body": "Untuk soalan tentang Terma ini, buka isu di repositori projek atau hubungi pasukan melalui 42 intra.",
     "Back to Login": "Kembali ke Log Masuk",
     "Privacy Policy link": "Dasar Privasi"
+  },
+  "Footer": {
+    "Copyright": "© {year} Transcendence Into Unknown. Hak cipta terpelihara.",
+    "Terms of Service": "Terma Perkhidmatan",
+    "Privacy Policy": "Dasar Privasi"
   }
 }

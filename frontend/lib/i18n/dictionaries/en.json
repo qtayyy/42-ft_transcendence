@@ -55,7 +55,13 @@
     "Draws": "Draws",
     "7 Days": "7 Days",
     "8 Wks": "8 Wks",
+    "4 Wks": "4 Wks",
     "6 Mo": "6 Mo",
+    "Activity period": "Activity period",
+    "Games played per period": "Games played per period",
+    "Total minutes help": "Sum of saved match play time (in-game clock when each match ended). Uses your current dashboard filters. This is not total screen or app time.",
+    "Week {n}": "Week {n}",
+    "No games in this period": "No games in this period",
     "Loading...": "Loading...",
     "Loading stats...": "Loading stats...",
     "Loading recent matches...": "Loading recent matches...",
@@ -126,7 +132,21 @@
     "DeleteAvatarTitle": "Delete profile picture?",
     "DeleteAvatarDescription": "Are you sure you want to delete your profile picture?",
     "DeleteAvatarConfirm": "Delete",
-    "Bio": "Bio"
+    "Bio": "Bio",
+    "Back": "Back",
+    "User not found": "User not found",
+    "Failed to load profile": "Failed to load profile",
+    "Request Pending": "Request Pending",
+    "Sending...": "Sending...",
+    "Send Friend Request": "Send Friend Request",
+    "Request already sent": "Request already sent",
+    "Already friends": "Already friends",
+    "Friend request sent": "Friend request sent",
+    "Failed to send friend request": "Failed to send friend request",
+    "No bio yet.": "No bio yet.",
+    "Joined {date}": "Joined {date}",
+    "Game Statistics": "Game Statistics",
+    "Total Games": "Total Games"
   },
   "FriendRequests": {
     "No pending requests": "No pending requests",
@@ -675,5 +695,10 @@
     "11 body": "For questions about these Terms, open an issue on the project repository or contact the team via 42 intra.",
     "Back to Login": "Back to Login",
     "Privacy Policy link": "Privacy Policy"
+  },
+  "Footer": {
+    "Copyright": "© {year} Transcendence Into Unknown. All rights reserved.",
+    "Terms of Service": "Terms of Service",
+    "Privacy Policy": "Privacy Policy"
   }
 }

@@ -55,7 +55,13 @@
     "Draws": "무승부",
     "7 Days": "7일",
     "8 Wks": "8주",
+    "4 Wks": "4주",
     "6 Mo": "6개월",
+    "Activity period": "활동 기간",
+    "Games played per period": "기간별 플레이한 게임 수",
+    "Total minutes help": "저장된 경기의 인게임 플레이 시간 합계(각 경기 종료 시 기록). 대시보드 필터가 적용됩니다. 화면/앱 사용 시간이 아닙니다.",
+    "Week {n}": "{n}주차",
+    "No games in this period": "이 기간에 경기 없음",
     "Loading...": "로딩 중...",
     "Loading stats...": "통계 로딩 중...",
     "Loading recent matches...": "최근 경기 로딩 중...",
@@ -126,7 +132,21 @@
     "DeleteAvatarTitle": "프로필 사진을 삭제할까요?",
     "DeleteAvatarDescription": "프로필 사진을 삭제하시겠습니까?",
     "DeleteAvatarConfirm": "삭제",
-    "Bio": "자기소개"
+    "Bio": "자기소개",
+    "Back": "뒤로",
+    "User not found": "사용자를 찾을 수 없습니다",
+    "Failed to load profile": "프로필을 불러오지 못했습니다",
+    "Request Pending": "요청 대기 중",
+    "Sending...": "전송 중...",
+    "Send Friend Request": "친구 요청 보내기",
+    "Request already sent": "이미 요청을 보냈습니다",
+    "Already friends": "이미 친구입니다",
+    "Friend request sent": "친구 요청을 보냈습니다",
+    "Failed to send friend request": "친구 요청 전송 실패",
+    "No bio yet.": "아직 자기소개가 없습니다.",
+    "Joined {date}": "{date}에 가입",
+    "Game Statistics": "게임 통계",
+    "Total Games": "총 게임 수"
   },
   "FriendRequests": {
     "No pending requests": "대기 중인 요청 없음",
@@ -675,5 +695,10 @@
     "11 body": "본 약관에 관한 질문은 프로젝트 저장소에 이슈를 열거나 42 intra를 통해 팀에 문의하세요.",
     "Back to Login": "로그인으로 돌아가기",
     "Privacy Policy link": "개인정보 처리방침"
+  },
+  "Footer": {
+    "Copyright": "© {year} Transcendence Into Unknown. 모든 권리 보유.",
+    "Terms of Service": "서비스 약관",
+    "Privacy Policy": "개인정보 처리방침"
   }
 }

@@ -59,7 +59,13 @@
     "Total": "总计",
     "7 Days": "7天",
     "8 Wks": "8周",
+    "4 Wks": "4周",
     "6 Mo": "6月",
+    "Activity period": "活动周期",
+    "Games played per period": "每段时间的游戏场次",
+    "Total minutes help": "已保存比赛的游戏内时长总和（每场结束时记录）。受当前仪表板筛选影响。不是屏幕或应用总使用时间。",
+    "Week {n}": "第{n}周",
+    "No games in this period": "该时段无比赛",
     "Loading...": "加载中...",
     "Loading stats...": "加载统计中...",
     "Loading recent matches...": "加载最近比赛中...",
@@ -126,7 +132,21 @@
     "DeleteAvatarTitle": "删除头像？",
     "DeleteAvatarDescription": "确定要删除个人资料头像吗？",
     "DeleteAvatarConfirm": "删除",
-    "Bio": "个人简介"
+    "Bio": "个人简介",
+    "Back": "返回",
+    "User not found": "未找到用户",
+    "Failed to load profile": "加载个人资料失败",
+    "Request Pending": "请求待处理",
+    "Sending...": "发送中...",
+    "Send Friend Request": "发送好友请求",
+    "Request already sent": "请求已发送",
+    "Already friends": "已是好友",
+    "Friend request sent": "好友请求已发送",
+    "Failed to send friend request": "发送好友请求失败",
+    "No bio yet.": "暂无个人简介。",
+    "Joined {date}": "加入于 {date}",
+    "Game Statistics": "游戏统计",
+    "Total Games": "总场次"
   },
   "FriendRequests": {
     "No pending requests": "无待处理请求",
@@ -675,5 +695,10 @@
     "11 body": "如有关于本条款的问题，请在项目仓库开issue或通过42 intra联系团队。",
     "Back to Login": "返回登录",
     "Privacy Policy link": "隐私政策"
+  },
+  "Footer": {
+    "Copyright": "© {year} Transcendence Into Unknown。保留所有权利。",
+    "Terms of Service": "服务条款",
+    "Privacy Policy": "隐私政策"
   }
 }
