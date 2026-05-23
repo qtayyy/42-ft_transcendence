@@ -12,12 +12,14 @@ import { ArrowLeft, Copy, Check, Users, Loader2, Play, Crown, User, Trophy } fro
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
+import { useLanguage } from "@/context/languageContext";
 
 export default function CreateTournamentRoomPage() {
 	const router = useRouter();
 	const { user } = useAuth();
 	const { sendSocketMessage, isReady } = useSocket();
 	const { gameRoom } = useGame();
+	const { t } = useLanguage();
 	const [roomId, setRoomId] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
 	const [creating, setCreating] = useState(false);
@@ -148,21 +150,21 @@ export default function CreateTournamentRoomPage() {
 							<div className="mx-auto p-4 rounded-full bg-yellow-500/10 mb-4 ring-1 ring-yellow-500/20">
 								<Trophy className="h-8 w-8 text-yellow-500" />
 							</div>
-							<CardTitle className="text-2xl font-bold">Tournament Lobby</CardTitle>
-							<CardDescription>Share the code to invite players (3-8 players)</CardDescription>
+						<CardTitle className="text-2xl font-bold">{t.Game["Tournament Lobby"]}</CardTitle>
+						<CardDescription>{t.Game["Share the code to invite players (3-8 players)"]}</CardDescription>
 						</CardHeader>
 
 						<CardContent className="space-y-6">
 							{creating ? (
 								<div className="flex items-center justify-center py-8">
 									<Loader2 className="h-8 w-8 animate-spin text-yellow-500" />
-									<span className="ml-3 text-muted-foreground">Creating tournament...</span>
+									<span className="ml-3 text-muted-foreground">{t.Game["Creating tournament..."]}</span>
 								</div>
 							) : error ? (
 								<div className="text-center py-8">
 									<p className="text-destructive mb-4">{error}</p>
 									<Button onClick={() => router.push("/game/remote/tournament")}>
-										Go Back
+									{t.Game["Go Back"]}
 									</Button>
 								</div>
 							) : roomId && (
@@ -170,7 +172,7 @@ export default function CreateTournamentRoomPage() {
 									{/* Room Code */}
 									<div className="space-y-2">
 										<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-											Tournament Code
+										{t.Game["Tournament Code"]}
 										</label>
 										<div className="flex gap-2">
 											<Input
@@ -195,7 +197,7 @@ export default function CreateTournamentRoomPage() {
 									{/* Players */}
 									<div className="space-y-3">
 										<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-											Players ({playerCount}/8)
+										{(t.Game["Players ({count}/8)"] || "Players ({count}/8)").replace("{count}", String(playerCount))}
 										</label>
 										<div className="grid grid-cols-2 gap-2 max-h-[250px] overflow-y-auto pr-2">
 											{/* Host */}
@@ -203,7 +205,7 @@ export default function CreateTournamentRoomPage() {
 												<Crown className="h-4 w-4 text-primary" />
 												<div className="flex-1 min-w-0">
 													<p className="font-semibold truncate text-sm">{user?.username || "You"}</p>
-													<p className="text-xs text-primary/70">Host</p>
+													<p className="text-xs text-primary/70">{t.Game["Host"]}</p>
 												</div>
 											</div>
 
@@ -215,7 +217,7 @@ export default function CreateTournamentRoomPage() {
 														<User className="h-4 w-4 text-green-500" />
 														<div className="flex-1 min-w-0">
 															<p className="font-semibold truncate text-sm">{player.username}</p>
-															<p className="text-xs text-green-500/70">Ready</p>
+															<p className="text-xs text-green-500/70">{t.Game["Ready"]}</p>
 														</div>
 													</div>
 												))}
@@ -224,7 +226,7 @@ export default function CreateTournamentRoomPage() {
 											{Array.from({ length: Math.max(0, 3 - playerCount) }).map((_, idx) => (
 												<div key={`empty-${idx}`} className="flex items-center gap-2 p-3 border border-dashed border-muted-foreground/30 rounded-xl">
 													<Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
-													<p className="text-sm text-muted-foreground">Waiting...</p>
+													<p className="text-sm text-muted-foreground">{t.Game["Waiting..."]}</p>
 												</div>
 											))}
 										</div>
@@ -238,8 +240,10 @@ export default function CreateTournamentRoomPage() {
 											: "bg-muted/50 text-muted-foreground"
 									)}>
 										{canStart 
-											? `Ready to start with ${playerCount} players!`
-											: `Need ${3 - playerCount} more player${3 - playerCount > 1 ? 's' : ''} to start`
+										? (t.Game["Ready to start with {count} players!"] || "Ready to start with {count} players!").replace("{count}", String(playerCount))
+										: (3 - playerCount > 1
+											? (t.Game["Need {count} more players to start"] || "Need {count} more players to start").replace("{count}", String(3 - playerCount))
+											: (t.Game["Need {count} more player to start"] || "Need {count} more player to start").replace("{count}", String(3 - playerCount)))
 										}
 									</div>
 

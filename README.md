@@ -1,8 +1,4 @@
-*This project has been created as part of the 42 curriculum by Qiter, Nelson, Winnie, Xuan.*
-
----
-
-# ft_transcendence
+# ft_transcendence 
 
 ## Description
 

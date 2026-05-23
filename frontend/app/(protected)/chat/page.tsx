@@ -266,7 +266,7 @@ export default function ChatPage() {
             username: data.inviterName || "Unknown",
             senderId: Number(data.inviterId),
             avatar: data.inviterAvatar || null,
-            message: `${data.inviterName || "A friend"} invited you to play a game`,
+            message: (t.chat["{inviterName} invited you to play a game"] || "{inviterName} invited you to play a game").replace("{inviterName}", data.inviterName || "A friend"),
             timestamp: data.timestamp || new Date().toISOString(),
             type: "game-invite",
             meta: {
@@ -280,7 +280,7 @@ export default function ChatPage() {
         return;
       }
 
-      pushNotificationMessage(`${data.inviterName || "A friend"} sent you a game invite`);
+      pushNotificationMessage((t.chat["{inviterName} sent you a game invite"] || "{inviterName} sent you a game invite").replace("{inviterName}", data.inviterName || "A friend"));
     };
 
     window.addEventListener("gameInvite", handleGameInvite as EventListener);
@@ -313,7 +313,7 @@ export default function ChatPage() {
         {
           username: roomInviteFromSelectedFriend.hostUsername,
           senderId: Number(roomInviteFromSelectedFriend.hostId),
-          message: `${roomInviteFromSelectedFriend.hostUsername} invited you to join a private game room`,
+          message: (t.chat["{hostUsername} invited you to join a private game room"] || "{hostUsername} invited you to join a private game room").replace("{hostUsername}", roomInviteFromSelectedFriend.hostUsername),
           timestamp: new Date().toISOString(),
           type: "game-invite",
           meta: {
@@ -340,7 +340,7 @@ export default function ChatPage() {
         {
           username: user?.username || "You",
           senderId: user?.id ? parseInt(user.id) : undefined,
-          message: `You invited ${selectedFriend.username} to play`,
+          message: (t.chat["You invited {name} to play"] || "You invited {name} to play").replace("{name}", selectedFriend.username),
           timestamp: new Date().toISOString(),
           type: "game-invite-sent",
           meta: {
@@ -353,7 +353,7 @@ export default function ChatPage() {
     const handleTournamentFound = (event: CustomEvent) => {
       const data = event.detail;
       pushNotificationMessage(
-        `Tournament found (${data?.tournamentId || "pending id"}). Opening lobby...`,
+        (t.chat["Tournament found ({tournamentId}). Opening lobby..."] || "Tournament found ({tournamentId}). Opening lobby...").replace("{tournamentId}", data?.tournamentId || "pending id"),
         { tournamentId: data?.tournamentId }
       );
     };
@@ -361,17 +361,17 @@ export default function ChatPage() {
     const handleTournamentStart = (event: CustomEvent) => {
       const data = event.detail;
       pushNotificationMessage(
-        `Tournament started (${data?.tournamentId || "no id"}). Good luck!`,
+        (t.chat["Tournament started ({tournamentId}). Good luck!"] || "Tournament started ({tournamentId}). Good luck!").replace("{tournamentId}", data?.tournamentId || "no id"),
         { tournamentId: data?.tournamentId }
       );
     };
 
     const handleTournamentPlayerLeft = () => {
-      pushNotificationMessage("Tournament update: a player left the tournament.");
+      pushNotificationMessage(t.chat["Tournament update: a player left the tournament."] || "Tournament update: a player left the tournament.");
     };
 
     const handleTournamentUpdate = () => {
-      pushNotificationMessage("Tournament standings were updated.");
+      pushNotificationMessage(t.chat["Tournament standings were updated."] || "Tournament standings were updated.");
     };
 
     const handleGameNotification = (event: CustomEvent) => {
@@ -390,7 +390,7 @@ export default function ChatPage() {
       markInvitePendingForFriend(data.friendId);
 
       if (selectedFriend?.id && Number(selectedFriend.id) === Number(data.friendId)) {
-        pushNotificationMessage("Invitation already sent. Waiting for response.", {
+        pushNotificationMessage(t.chat["Invitation already sent. Waiting for response."] || "Invitation already sent. Waiting for response.", {
           roomId: data.roomId,
           inviteStatus: "pending",
         });
@@ -417,7 +417,7 @@ export default function ChatPage() {
               return {
                 ...msg,
                 type: "notification",
-                message: `${data?.inviteeUsername || "Your friend"} declined your game invite. Room closed.`,
+                message: (t.chat["{name} declined your game invite. Room closed."] || "{name} declined your game invite. Room closed.").replace("{name}", data?.inviteeUsername || "Your friend"),
                 meta: {
                   ...msg.meta,
                   inviteStatus: "rejected",
@@ -428,7 +428,7 @@ export default function ChatPage() {
             return {
               ...msg,
               type: "notification",
-              message: "You declined the game invite. You were not added to the room.",
+              message: t.chat["You declined the game invite. You were not added to the room."] || "You declined the game invite. You were not added to the room.",
               meta: {
                 ...msg.meta,
                 inviteStatus: "rejected",
@@ -438,7 +438,7 @@ export default function ChatPage() {
         );
 
         if (isHost && !selectedFriendMatchesInvitee) {
-          pushNotificationMessage(`${data?.inviteeUsername || "Your friend"} declined your game invite. Room closed.`, {
+          pushNotificationMessage((t.chat["{name} declined your game invite. Room closed."] || "{name} declined your game invite. Room closed.").replace("{name}", data?.inviteeUsername || "Your friend"), {
             roomId,
             inviteStatus: "rejected",
           });
@@ -481,7 +481,7 @@ export default function ChatPage() {
             ? {
                 ...msg,
                 type: "notification" as const,
-                message: "The game invitation was cancelled by the host.",
+                message: t.chat["The game invitation was cancelled by the host."] || "The game invitation was cancelled by the host.",
                 meta: { ...msg.meta, inviteStatus: "rejected" as const },
               }
             : msg
@@ -852,18 +852,18 @@ export default function ChatPage() {
     // Block invite to offline friends
     const isFriendOnline = onlineFriends.some(f => String(f.id) === String(selectedFriend.id));
     if (!isFriendOnline) {
-      pushNotificationMessage("Cannot invite an offline friend.");
+      pushNotificationMessage(t.chat["Cannot invite an offline friend."] || "Cannot invite an offline friend.");
       return;
     }
 
     // Block if there's already an active pending invite (global: one at a time)
     if (activeInvite) {
-      pushNotificationMessage("You already have a pending invitation. Cancel it first or wait for a response.");
+      pushNotificationMessage(t.chat["You already have a pending invitation. Cancel it first or wait for a response."] || "You already have a pending invitation. Cancel it first or wait for a response.");
       return;
     }
 
     if (pendingInviteByFriend[selectedFriendKey]) {
-      pushNotificationMessage("Invitation already sent. Waiting for response.");
+      pushNotificationMessage(t.chat["Invitation already sent. Waiting for response."] || "Invitation already sent. Waiting for response.");
       return;
     }
 
@@ -873,7 +873,7 @@ export default function ChatPage() {
       const response = await fetch('/api/game/room/create?maxPlayers=2');
       if (!response.ok) {
         clearInvitePendingForFriend(selectedFriend.id);
-        pushNotificationMessage("Failed to create room for invite.");
+        pushNotificationMessage(t.chat["Failed to create room for invite."] || "Failed to create room for invite.");
         return;
       }
 
@@ -881,7 +881,7 @@ export default function ChatPage() {
       const roomId = data?.roomId;
       if (!roomId) {
         clearInvitePendingForFriend(selectedFriend.id);
-        pushNotificationMessage("Room creation failed. Missing room id.");
+        pushNotificationMessage(t.chat["Room creation failed. Missing room id."] || "Room creation failed. Missing room id.");
         return;
       }
 
@@ -901,7 +901,7 @@ export default function ChatPage() {
         {
           username: user.username,
           senderId: Number(user.id),
-          message: `You invited ${selectedFriend.username} to room ${roomId}`,
+          message: (t.chat["You invited {name} to room {roomId}"] || "You invited {name} to room {roomId}").replace("{name}", selectedFriend.username).replace("{roomId}", roomId),
           timestamp: new Date().toISOString(),
           type: "game-invite-sent",
           meta: { inviteType: "room", roomId, hostId: Number(user.id) },
@@ -919,7 +919,7 @@ export default function ChatPage() {
     } catch (error) {
       console.error("Error sending room invite from chat:", error);
       clearInvitePendingForFriend(selectedFriend.id);
-      pushNotificationMessage("Failed to send room invite.");
+      pushNotificationMessage(t.chat["Failed to create room for invite."] || "Failed to create room for invite.");
     }
   };
 
@@ -928,7 +928,7 @@ export default function ChatPage() {
     const hostId = msg.meta?.hostId;
 
     if (!roomId || !hostId || !user?.id || !user?.username || !isReady) {
-      pushNotificationMessage("Cannot respond to invite. Missing room details.");
+      pushNotificationMessage(t.chat["Cannot respond to invite. Missing room details."] || "Cannot respond to invite. Missing room details.");
       return;
     }
 
@@ -939,7 +939,7 @@ export default function ChatPage() {
             ? {
                 ...entry,
                 type: "notification",
-                message: "You declined the game invite. You were not added to the room.",
+                message: t.chat["You declined the game invite. You were not added to the room."] || "You declined the game invite. You were not added to the room.",
                 meta: {
                   ...entry.meta,
                   inviteStatus: "rejected",
@@ -971,7 +971,7 @@ export default function ChatPage() {
   const handleHostStartGameFromChat = (msg: Message) => {
     const roomId = msg.meta?.roomId;
     if (!roomId || !isReady) {
-      pushNotificationMessage("Room is not ready to start yet.");
+      pushNotificationMessage(t.chat["Room is not ready to start yet."] || "Room is not ready to start yet.");
       return;
     }
 
@@ -1002,7 +1002,7 @@ export default function ChatPage() {
     setMessages((prev) =>
       prev.map((m) =>
         m.type === "game-invite-sent" && m.meta?.roomId === roomId
-          ? { ...m, type: "notification" as const, message: `You cancelled the invitation to ${inviteeFriend?.username || "your friend"}.` }
+          ? { ...m, type: "notification" as const, message: (t.chat["You cancelled the invitation to {name}."] || "You cancelled the invitation to {name}.").replace("{name}", inviteeFriend?.username || "your friend") }
           : m
       )
     );
