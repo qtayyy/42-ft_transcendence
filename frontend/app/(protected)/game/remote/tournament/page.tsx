@@ -3,10 +3,12 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Trophy, Plus, LogIn, Shuffle, Users, Crown, Zap } from "lucide-react";
+import { ArrowLeft, Trophy, Plus, Shuffle, Crown, Zap } from "lucide-react";
+import { useLanguage } from "@/context/languageContext";
 
 export default function RemoteTournamentPage() {
 	const router = useRouter();
+	const { t } = useLanguage();
 
 	const handleNavigate = (path: string) => {
 		router.push(path);
@@ -24,7 +26,7 @@ export default function RemoteTournamentPage() {
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Back to Remote Selection
+						{t.Game["Back to Remote Selection"]}
 					</Button>
 				</div>
 
@@ -34,10 +36,10 @@ export default function RemoteTournamentPage() {
 						<Trophy className="h-8 w-8 text-yellow-500" />
 					</div>
 					<h1 className="text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
-						Remote Tournament
+						{t.Game["Remote Tournament"]}
 					</h1>
 					<p className="text-lg text-muted-foreground max-w-xl mx-auto">
-						Enter the bracket. Choose your path.
+						{t.Game["Enter the bracket. Choose your path."]}
 					</p>
 				</div>
 
@@ -57,16 +59,16 @@ export default function RemoteTournamentPage() {
 								<div className="mx-auto p-4 rounded-xl bg-rose-500/10 mb-3 group-hover:bg-rose-500/20 transition-colors">
 									<Shuffle className="h-8 w-8 text-rose-500" />
 								</div>
-								<CardTitle className="text-2xl">Public Tournament</CardTitle>
-								<CardDescription>Global Series</CardDescription>
+								<CardTitle className="text-2xl">{t.Game["Public Tournament"]}</CardTitle>
+								<CardDescription>{t.Game["Global Series"]}</CardDescription>
 							</CardHeader>
 							<CardContent className="text-center space-y-4 pb-8">
 								<p className="text-sm text-muted-foreground">
-									Join a public bracket with random players from around the world
+									{t.Game["Join a public bracket with random players from around the world"]}
 								</p>
 								<div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/70 border border-muted-foreground/20 rounded-full py-1 px-3 w-fit mx-auto">
 									<Zap className="h-3 w-3" />
-									<span>Auto-filling bracket</span>
+									<span>{t.Game["Auto-filling bracket"]}</span>
 								</div>
 							</CardContent>
 						</Card>
@@ -86,16 +88,16 @@ export default function RemoteTournamentPage() {
 								<div className="mx-auto p-4 rounded-xl bg-emerald-500/10 mb-3 group-hover:bg-emerald-500/20 transition-colors">
 									<Plus className="h-8 w-8 text-emerald-500" />
 								</div>
-								<CardTitle className="text-2xl">Private Tournament</CardTitle>
-								<CardDescription>Custom Competition</CardDescription>
+								<CardTitle className="text-2xl">{t.Game["Private Tournament"]}</CardTitle>
+								<CardDescription>{t.Game["Custom Competition"]}</CardDescription>
 							</CardHeader>
 							<CardContent className="text-center space-y-4 pb-8">
 								<p className="text-sm text-muted-foreground">
-									Set up a private bracket for your friends using a room code
+									{t.Game["Set up a private bracket for your friends using a room code"]}
 								</p>
 								<div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/70 border border-muted-foreground/20 rounded-full py-1 px-3 w-fit mx-auto">
 									<Plus className="h-3 w-3" />
-									<span>Invite Only</span>
+									<span>{t.Game["Invite Only"]}</span>
 								</div>
 							</CardContent>
 						</Card>

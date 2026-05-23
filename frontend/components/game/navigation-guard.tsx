@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 import { useMemo } from "react";
+import { useLanguage } from "@/context/languageContext";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
 
 export function NavigationGuard() {
@@ -33,6 +34,7 @@ export function NavigationGuard() {
 		setPendingPath
 	} = useGame();
 	const { sendSocketMessage } = useSocket();
+	const { t } = useLanguage();
 
 	const isSpectator = gameState?.spectatorMode === true;
 	const matchId = gameState?.matchId;
@@ -91,14 +93,14 @@ export function NavigationGuard() {
 	const isLocalMatch = isRuntimeMatchRoute && !isRemoteRuntimeMatch && !isLocalTournamentMatch && !isSpectator;
 	const isAnyTournamentContext = isTournamentLobby || isLocalTournamentLobby || isLocalTournamentMatch;
 	const guardTitle = isAnyTournamentContext
-		? "Active Tournament in Progress"
-		: "Active Match in Progress";
+		? t.Game["Active Tournament in Progress"]
+		: t.Game["Active Match in Progress"];
 	const stayLabel = isSpectator
-		? "Stay Here"
+		? t.Game["Stay Here"]
 		: isAnyTournamentContext
-			? "Stay in Tournament"
-			: "Stay in Match";
-	const leaveLabel = isAnyTournamentContext ? "Leave Tournament" : "Leave Game";
+			? t.Game["Stay in Tournament"]
+			: t.Game["Stay in Match"];
+	const leaveLabel = isAnyTournamentContext ? t.Game["Leave Tournament"] : t.Game["Leave Game"];
 
 	const handleStay = () => {
 		setShowNavGuard(false);
@@ -182,30 +184,30 @@ export function NavigationGuard() {
 						<DialogDescription className="pt-2">
 							{isTournamentLobby || isLocalTournamentLobby ? (
 								<span className="block space-y-2">
-									<span className="block">You are currently in an active tournament lobby.</span>
+									<span className="block">{t.Game["You are currently in an active tournament lobby."]}</span>
 									<span className="block text-sm">
-										Leaving now will withdraw you from the tournament and affect remaining matches.
+										{t.Game["Leaving now will withdraw you from the tournament and affect remaining matches."]}
 									</span>
 									</span>
 							) : isLocalTournamentMatch ? (
 								<span className="block space-y-2">
-									<span className="block font-semibold text-foreground">You are currently in an active local tournament match.</span>
-									<span className="block text-sm">Navigating to another page will forfeit the entire tournament. Are you sure you want to leave the tournament?</span>
+									<span className="block font-semibold text-foreground">{t.Game["You are currently in an active local tournament match."]}</span>
+									<span className="block text-sm">{t.Game["Navigating to another page will forfeit the entire tournament. Are you sure you want to leave the tournament?"]}</span>
 								</span>
 							) : isLocalMatch ? (
 								<span className="block space-y-2">
-									<span className="block font-semibold text-foreground">You are currently in an active local match.</span>
-									<span className="block text-sm">Navigating to another page will forfeit this match. Are you sure you want to leave the game?</span>
+									<span className="block font-semibold text-foreground">{t.Game["You are currently in an active local match."]}</span>
+									<span className="block text-sm">{t.Game["Navigating to another page will forfeit this match. Are you sure you want to leave the game?"]}</span>
 								</span>
 							) : isSpectator ? (
 								<span className="block space-y-2">
-									<span className="block">You are currently spectating an active tournament match.</span>
-								<span className="block font-medium">What would you like to do?</span>
+									<span className="block">{t.Game["You are currently spectating an active tournament match."]}</span>
+								<span className="block font-medium">{t.Game["What would you like to do?"]}</span>
 							</span>
 						) : (
 							<span className="block space-y-2">
-								<span className="block font-semibold text-foreground">You are a player in this active match!</span>
-								<span className="block text-sm">Leaving now may result in disqualification or a loss. What would you like to do?</span>
+								<span className="block font-semibold text-foreground">{t.Game["You are a player in this active match!"]}</span>
+								<span className="block text-sm">{t.Game["Leaving now may result in disqualification or a loss. What would you like to do?"]}</span>
 							</span>
 						)}
 					</DialogDescription>

@@ -18,6 +18,7 @@ import type {
 	PauseInfo,
 	RuntimeGameOverResult,
 } from "@/features/game/runtime/runtime-helpers";
+import { useLanguage } from "@/context/languageContext";
 
 interface RouterLike {
 	push: (path: string) => void;
@@ -66,6 +67,7 @@ export default function RemoteGameRuntimeView({
 	disconnectInfo,
 	pauseInfo,
 }: RemoteGameRuntimeViewProps) {
+	const { t } = useLanguage();
 	const showWaitingOverlay =
 		!!gameState &&
 		!gameState.gameStarted &&
@@ -155,7 +157,7 @@ export default function RemoteGameRuntimeView({
 									{formatTime(gameState.timer.timeRemaining)}
 								</div>
 								<div className="flex items-center gap-1.5 text-[9px] uppercase font-bold text-muted-foreground/80 tracking-[0.2em] mt-1">
-									<Timer className="h-2.5 w-2.5" /> Time Remaining
+									<Timer className="h-2.5 w-2.5" /> {t.Game["Time Remaining"]}
 								</div>
 							</div>
 						</div>
@@ -206,10 +208,10 @@ export default function RemoteGameRuntimeView({
 							<div className="flex flex-col items-center justify-center space-y-4">
 								<Loader2 className="h-12 w-12 text-primary animate-spin" />
 								<h3 className="text-2xl font-bold text-white">
-									Match Starting Soon
+									{t.Game["Match Starting Soon"]}
 								</h3>
 								<p className="text-white/80">
-									Waiting for players to get ready...
+									{t.Game["Waiting for players to get ready..."]}
 								</p>
 							</div>
 						</div>

@@ -22,6 +22,7 @@ import { useGameDispatch } from "@/hooks/use-game";
 import { usePathname, useRouter } from "next/navigation";
 import { getWebSocketBaseUrl } from "@/lib/runtime-url";
 import { normalizeRemoteGameState } from "@/features/game/runtime/runtime-helpers";
+import { useLanguage } from "@/context/languageContext";
 
 const SocketContext = createContext<SocketContextValue | null>(null);
 
@@ -111,6 +112,7 @@ export const SocketProvider = ({ children }) => {
 	const wsRef = useRef<WebSocket | null>(null);
 	const connectRef = useRef<(() => void) | null>(null);
 	const { user } = useAuth();
+	const { t } = useLanguage();
 	const gameDispatch = useGameDispatch();
 	const {
 		setOnlineFriends,
@@ -144,6 +146,7 @@ export const SocketProvider = ({ children }) => {
 		getLatestGameState,
 		router,
 		pathname,
+		gameT: t.Game,
 	});
 
 	useEffect(() => {
@@ -158,6 +161,7 @@ export const SocketProvider = ({ children }) => {
 			getLatestGameState,
 			router,
 			pathname,
+			gameT: t.Game,
 		};
 	});
 
@@ -417,12 +421,12 @@ export const SocketProvider = ({ children }) => {
 								stableDeps.current.setGameState(null);
 								stableDeps.current.setRemoteRenderGameState(null);
 								hasActiveGame.current = false;
-								toast.info("You're removed from the game room");
+								toast.info(stableDeps.current.gameT["You're removed from the game room"]);
 								window.dispatchEvent(
 									new CustomEvent("gameNotification", {
 										detail: {
 											event: "LEAVE_ROOM",
-											message: "You were removed from the game room",
+											message: stableDeps.current.gameT["You were removed from the game room"],
 											roomId: payload?.roomId,
 										},
 									})

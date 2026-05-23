@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import SearchBar from "@/components/search-bar";
@@ -32,6 +32,14 @@ interface MatchEntry {
   date: string;
 }
 
+/** YYYY-MM-DD in local timezone (matches `<input type="date">`). */
+function formatLocalDateInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [userFound, setUserFound] = useState("");
@@ -59,14 +67,6 @@ export default function DashboardPage() {
     const safeValue = value == null ? '' : String(value);
     const doubleQuoteRegex = new RegExp('"', 'g');
     return `"${safeValue.replace(doubleQuoteRegex, '""')}"`;
-  };
-
-  const setQuickRange = (days: number) => {
-    const now = new Date();
-    const start = new Date();
-    start.setDate(now.getDate() - (days - 1));
-    setFromDate(start.toISOString().slice(0, 10));
-    setToDate(now.toISOString().slice(0, 10));
   };
 
   const clearFilters = () => {
@@ -158,6 +158,91 @@ export default function DashboardPage() {
   function handleMatchHistoryNavigation() {
     router.push("/match");
   }
+
+  const todayDateStr = formatLocalDateInput(new Date());
+
+  const recordDateBounds = useMemo(() => {
+    if (matchHistory.length === 0) return null;
+    let minTime = Infinity;
+    let maxTime = -Infinity;
+    for (const match of matchHistory) {
+      const ts = new Date(match.date).getTime();
+      if (ts < minTime) minTime = ts;
+      if (ts > maxTime) maxTime = ts;
+    }
+    return {
+      min: formatLocalDateInput(new Date(minTime)),
+      max: formatLocalDateInput(new Date(maxTime)),
+    };
+  }, [matchHistory]);
+
+  const earliestRecordDate = recordDateBounds?.min ?? todayDateStr;
+  const fromDateMax = toDate && toDate <= todayDateStr ? toDate : todayDateStr;
+  const toDateMin = fromDate && fromDate >= earliestRecordDate ? fromDate : earliestRecordDate;
+
+  const setQuickRange = (days: number) => {
+    const now = new Date();
+    const start = new Date();
+    start.setDate(now.getDate() - (days - 1));
+    let from = formatLocalDateInput(start);
+    const to = formatLocalDateInput(now);
+    if (recordDateBounds && from < recordDateBounds.min) from = recordDateBounds.min;
+    if (from > to) from = to;
+    setFromDate(from);
+    setToDate(to);
+  };
+
+  const handleFromDateChange = (value: string) => {
+    if (!value) {
+      setFromDate("");
+      return;
+    }
+    let next = value;
+    if (recordDateBounds && next < recordDateBounds.min) next = recordDateBounds.min;
+    const maxFrom = toDate && toDate <= todayDateStr ? toDate : todayDateStr;
+    if (next > maxFrom) next = maxFrom;
+    setFromDate(next);
+    if (toDate && toDate < next) setToDate(next);
+  };
+
+  const handleToDateChange = (value: string) => {
+    if (!value) {
+      setToDate("");
+      return;
+    }
+    let next = value;
+    const minTo = fromDate && fromDate >= earliestRecordDate ? fromDate : earliestRecordDate;
+    if (next < minTo) next = minTo;
+    if (next > todayDateStr) next = todayDateStr;
+    setToDate(next);
+    if (fromDate && fromDate > next) setFromDate(next);
+  };
+
+  useEffect(() => {
+    if (recentMatchesLoading || !recordDateBounds) return;
+
+    const { min } = recordDateBounds;
+
+    if (fromDate) {
+      let nextFrom = fromDate;
+      if (nextFrom < min) nextFrom = min;
+      const maxFrom = toDate && toDate <= todayDateStr ? toDate : todayDateStr;
+      if (nextFrom > maxFrom) nextFrom = maxFrom;
+      if (nextFrom !== fromDate) setFromDate(nextFrom);
+    }
+
+    if (toDate) {
+      let nextTo = toDate;
+      if (nextTo > todayDateStr) nextTo = todayDateStr;
+      const minTo = fromDate && fromDate >= min ? fromDate : min;
+      if (nextTo < minTo) nextTo = minTo;
+      if (nextTo !== toDate) setToDate(nextTo);
+    }
+
+    if (fromDate && toDate && fromDate > toDate) {
+      setToDate(fromDate);
+    }
+  }, [recentMatchesLoading, recordDateBounds?.min, todayDateStr, fromDate, toDate]);
 
   const filteredMatchHistory = matchHistory.filter((match) => {
     const matchDate = new Date(match.date);
@@ -333,48 +418,58 @@ export default function DashboardPage() {
 
   const activityBars = (() => {
     const now = new Date();
+    const dateOpts = { month: "short" as const, day: "numeric" as const };
 
     if (activityView === "day") {
-      // Last 7 days
       return Array.from({ length: 7 }, (_, i) => {
         const d = new Date(now);
         d.setDate(now.getDate() - (6 - i));
-        const label = d.toLocaleDateString(undefined, { weekday: 'short' });
+        const label = d.toLocaleDateString(undefined, { weekday: "short" });
         const count = filteredMatchHistory.filter((m) => {
           const md = new Date(m.date);
           return md.toDateString() === d.toDateString();
         }).length;
-        return { label, count };
+        const title = d.toLocaleDateString(undefined, dateOpts);
+        return { label, count, title };
       });
     }
 
     if (activityView === "week") {
-      // Last 8 weeks
-      return Array.from({ length: 8 }, (_, i) => {
+      return Array.from({ length: 4 }, (_, i) => {
         const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - now.getDay() - (7 - i) * 7);
+        weekStart.setHours(0, 0, 0, 0);
+        weekStart.setDate(now.getDate() - now.getDay() - (3 - i) * 7);
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 6);
-        const label = weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        weekEnd.setHours(23, 59, 59, 999);
+        const label = String(i + 1);
+        const title = `${weekStart.toLocaleDateString(undefined, dateOpts)} – ${weekEnd.toLocaleDateString(undefined, dateOpts)}`;
         const count = filteredMatchHistory.filter((m) => {
           const md = new Date(m.date);
           return md >= weekStart && md <= weekEnd;
         }).length;
-        return { label, count };
+        return { label, count, title };
       });
     }
 
-    // month - last 6 months
     return Array.from({ length: 6 }, (_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-      const label = d.toLocaleDateString(undefined, { month: 'short' });
+      const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+      const label = d.toLocaleDateString(undefined, { month: "short" });
+      const title = d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
       const count = filteredMatchHistory.filter((m) => {
         const md = new Date(m.date);
-        return md.getFullYear() === d.getFullYear() && md.getMonth() === d.getMonth();
+        return md >= d && md <= monthEnd;
       }).length;
-      return { label, count };
+      return { label, count, title };
     });
   })();
+
+  const activityPeriodOptions = [
+    { value: "day" as const, label: t.Dashboard["7 Days"] },
+    { value: "week" as const, label: t.Dashboard["4 Wks"] },
+    { value: "month" as const, label: t.Dashboard["6 Mo"] },
+  ];
 
   const maxActivityCount = Math.max(...activityBars.map((b) => b.count), 1);
 
@@ -385,6 +480,18 @@ export default function DashboardPage() {
   const losses = filteredMatchHistory.filter((match) => match.result === "loss").length;
   const draws = filteredMatchHistory.filter((match) => match.result === "draw").length;
   const totalGames = filteredMatchHistory.length;
+
+  /**
+   * Total minutes (Activity card footer) — in-game play time, not screen/app time.
+   *
+   * Data: `filteredMatchHistory` = matches from `/api/game/match-history` after dashboard
+   * filters (date range, mode, win/loss). Each row has `durationSeconds` saved when the
+   * match ends (backend: elapsed in-game timer at game over, in seconds).
+   *
+   * Formula:
+   *   totalTrackedSeconds = Σ match.durationSeconds   (missing/null → 0)
+   *   totalTrackedMinutes = round(totalTrackedSeconds / 60)
+   */
   const totalTrackedSeconds = filteredMatchHistory.reduce(
     (sum, match) => sum + (match.durationSeconds ?? 0),
     0,
@@ -475,8 +582,11 @@ export default function DashboardPage() {
                       <input
                         type="date"
                         value={fromDate}
-                        onChange={(e) => setFromDate(e.target.value)}
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                        min={recordDateBounds?.min}
+                        max={fromDateMax}
+                        disabled={recentMatchesLoading || !recordDateBounds}
+                        onChange={(e) => handleFromDateChange(e.target.value)}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     </div>
                     <div className="space-y-1">
@@ -484,8 +594,11 @@ export default function DashboardPage() {
                       <input
                         type="date"
                         value={toDate}
-                        onChange={(e) => setToDate(e.target.value)}
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                        min={toDateMin}
+                        max={todayDateStr}
+                        disabled={recentMatchesLoading || !recordDateBounds}
+                        onChange={(e) => handleToDateChange(e.target.value)}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     </div>
                     <div className="space-y-1">
@@ -624,9 +737,9 @@ export default function DashboardPage() {
 
           {/* Activity & Win-Loss Charts */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
               {/* Activity Bar Chart */}
-              <div className="group relative">
+              <div className="group relative w-full">
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
                 <Card className="relative border-0 bg-card backdrop-blur-sm overflow-hidden transition-all">
                   <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -640,54 +753,70 @@ export default function DashboardPage() {
                     <CardDescription>{t.Dashboard["Your Game Activity"]}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="flex justify-center gap-1 bg-muted rounded-lg p-1">
-                      {(["day", "week", "month"] as const).map((v) => (
-                        <button
-                          key={v}
-                          onClick={() => setActivityView(v)}
-                          className={`flex-1 rounded-md px-2 py-1 text-xs font-semibold transition-all capitalize ${
-                            activityView === v
-                              ? "bg-card shadow text-foreground"
-                              : "text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          {v === "day" ? t.Dashboard["7 Days"] : v === "week" ? t.Dashboard["8 Wks"] : t.Dashboard["6 Mo"]}
-                        </button>
-                      ))}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground block text-center">
+                        {t.Dashboard["Activity period"]}
+                      </label>
+                      <select
+                        value={activityView}
+                        onChange={(e) => setActivityView(e.target.value as "day" | "week" | "month")}
+                        className="w-full max-w-[220px] mx-auto block rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                      >
+                        {activityPeriodOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     {recentMatchesLoading ? (
                       <p className="text-muted-foreground text-center text-xs py-4">{t.Dashboard["Loading..."]}</p>
                     ) : (
-                      <div className="px-2 space-y-0.5">
-                        {/* Count labels row */}
-                        <div className="flex justify-between gap-1 h-4">
+                      <div className="px-1 space-y-1">
+                        <p className="text-[10px] font-medium text-muted-foreground text-center uppercase tracking-wide">
+                          {t.Dashboard["Games played per period"]}
+                        </p>
+                        <div className="flex justify-between gap-1.5 min-h-[1.25rem]">
                           {activityBars.map((bar, i) => (
-                            <span key={i} className="flex-1 text-[10px] font-semibold text-muted-foreground text-center">
-                              {bar.count > 0 ? bar.count : ''}
+                            <span
+                              key={i}
+                              className="flex-1 text-xs font-bold text-foreground text-center tabular-nums"
+                              title={bar.count > 0 ? bar.title : t.Dashboard["No games in this period"]}
+                            >
+                              {bar.count > 0 ? bar.count : "·"}
                             </span>
                           ))}
                         </div>
-                        {/* Bar area */}
-                        <div className="flex items-end justify-between gap-1 h-20">
+                        <div className="flex items-end justify-between gap-1.5 h-24">
                           {activityBars.map((bar, i) => {
                             const pct = (bar.count / maxActivityCount) * 100;
                             return (
                               <div
                                 key={i}
-                                className="flex-1 rounded-t-sm bg-purple-500 transition-all duration-500"
-                                style={{
-                                  height: bar.count > 0 ? `${pct}%` : '2px',
-                                  opacity: bar.count === 0 ? 0.2 : 0.7,
-                                }}
-                              />
+                                className="flex-1 flex flex-col items-center justify-end h-full min-w-0"
+                                title={`${bar.title} — ${bar.count}`}
+                              >
+                                <div
+                                  className="w-full max-w-[2rem] mx-auto rounded-t-md bg-purple-500 transition-all duration-500"
+                                  style={{
+                                    height: bar.count > 0 ? `${Math.max(pct, 8)}%` : "3px",
+                                    opacity: bar.count === 0 ? 0.25 : 0.85,
+                                  }}
+                                />
+                              </div>
                             );
                           })}
                         </div>
-                        {/* Date labels row */}
-                        <div className="flex justify-between gap-1 mt-0.5">
+                        <div className="flex justify-between gap-1.5 min-h-[1.25rem] items-center">
                           {activityBars.map((bar, i) => (
-                            <span key={i} className="flex-1 text-[9px] text-muted-foreground truncate text-center">{bar.label}</span>
+                            <span
+                              key={i}
+                              className="flex-1 min-w-0 text-center text-muted-foreground text-sm font-medium tabular-nums"
+                              title={bar.title}
+                            >
+                              {bar.label}
+                            </span>
                           ))}
                         </div>
                       </div>
@@ -701,7 +830,10 @@ export default function DashboardPage() {
                           ? lastPlayed.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
                           : t.Dashboard["Never"]}
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div
+                        className="flex items-center gap-2 text-xs text-muted-foreground"
+                        title={t.Dashboard["Total minutes help"]}
+                      >
                         <Clock className="h-3.5 w-3.5 shrink-0" />
                         <span className="font-medium text-foreground">{t.Dashboard["Total minutes:"]}</span>
                         {totalTrackedMinutes} min
@@ -711,54 +843,55 @@ export default function DashboardPage() {
                 </Card>
               </div>
 
-              {/* Win-Loss Pie Chart */}
-              <div className="group relative">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl blur opacity-10 group-hover:opacity-30 transition duration-500"></div>
+              {/* Win-Loss Pie Chart — self-start so neon glow matches card height, not the Activity row */}
+              <div className="group relative w-full self-start">
+                <div className="pointer-events-none absolute -inset-0.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500" aria-hidden />
                 <Card className="relative cursor-pointer border-0 bg-card backdrop-blur-sm overflow-hidden transition-all">
                   <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                     <PieChart className="h-32 w-32 -mr-8 -mt-8" />
                   </div>
-                  <CardHeader className="text-center">
+                  <CardHeader className="text-center pb-2">
                     <div className="mx-auto p-3 rounded-xl bg-green-500/10 mb-3">
                       <PieChart className="h-8 w-8 text-green-500" />
                     </div>
                     <CardTitle className="text-2xl">{t.Dashboard["Win-Loss"]}</CardTitle>
                     <CardDescription>{t.Dashboard["Performance Stats"]}</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="h-48 flex items-center justify-center rounded-lg bg-muted border border-border p-4">
-                      {recentMatchesLoading ? (
-                        <p className="text-muted-foreground text-sm">{t.Dashboard["Loading stats..."]}</p>
-                      ) : totalGames === 0 ? (
-                        <p className="text-muted-foreground text-sm text-center px-4">{t.Dashboard["No matches yet."]}</p>
-                      ) : (
-                        <div className="w-full flex items-center justify-center gap-6">
-                          <div className="relative h-28 w-28 shrink-0 rounded-full" style={{background: pieBackground }}>
-                            <div className="absolute inset-4 rounded-full bg-card flex items-center justify-center border border-border">
-                              <div className="text-center leading-tight">
-                                <p className="text-xs text-muted-foreground">{t.Dashboard["Total"]}</p>
-                                <p className="text-base font-bold">{totalGames}</p>
-                              </div>
+                  <CardContent className="space-y-3">
+                    {recentMatchesLoading ? (
+                      <p className="text-muted-foreground text-center text-xs py-4">{t.Dashboard["Loading stats..."]}</p>
+                    ) : totalGames === 0 ? (
+                      <p className="text-muted-foreground text-sm text-center py-4 px-4">{t.Dashboard["No matches yet."]}</p>
+                    ) : (
+                      <div className="flex items-center justify-center gap-5 py-2">
+                        <div
+                          className="relative h-32 w-32 shrink-0 rounded-full p-1.5"
+                          style={{ background: pieBackground }}
+                        >
+                          <div className="flex h-full w-full items-center justify-center rounded-full bg-card">
+                            <div className="text-center leading-tight">
+                              <p className="text-xs text-muted-foreground">{t.Dashboard["Total"]}</p>
+                              <p className="text-xl font-bold tabular-nums">{totalGames}</p>
                             </div>
                           </div>
-
-                          <div className="space-y-2 text-sm">
-                            <p className="font-medium flex items-center gap-2">
-                              <span className="h-2.5 w-2.5 rounded-full bg-green-500"></span>
-                              {t.Dashboard["Win:"]} {wins} ({winPercentage.toFixed(1)}%)
-                            </p>
-                            <p className="font-medium flex items-center gap-2">
-                              <span className="h-2.5 w-2.5 rounded-full bg-red-500"></span>
-                              {t.Dashboard["Loss:"]} {losses} ({lossPercentage.toFixed(1)}%)
-                            </p>
-                            <p className="font-medium flex items-center gap-2">
-                              <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
-                              {t.Dashboard["Draw:"]} {draws} ({drawPercentage.toFixed(1)}%)
-                            </p>
-                          </div>
                         </div>
-                      )}
-                    </div>
+
+                        <div className="space-y-2 text-sm min-w-0">
+                          <p className="font-medium flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-green-500" />
+                            {t.Dashboard["Win:"]} {wins} ({winPercentage.toFixed(1)}%)
+                          </p>
+                          <p className="font-medium flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500" />
+                            {t.Dashboard["Loss:"]} {losses} ({lossPercentage.toFixed(1)}%)
+                          </p>
+                          <p className="font-medium flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500" />
+                            {t.Dashboard["Draw:"]} {draws} ({drawPercentage.toFixed(1)}%)
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
