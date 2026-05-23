@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { KeyBindings } from "@/hooks/usePongGame";
 import { BackgroundId } from "@/utils/gameRenderer";
 import { GameSettingsPanel } from "@/components/game/GameSettingsPanel";
+import { useLanguage } from "@/context/languageContext";
 
 interface ReadyOverlayProps {
 	isOpen: boolean;
@@ -44,6 +45,7 @@ export function ReadyOverlay({
 	onBackgroundChange,
 	unlockedAchievements = [],
 }: ReadyOverlayProps) {
+	const { t } = useLanguage();
 	const [optimisticReady, setOptimisticReady] = useState<boolean | null>(null);
 
 	useEffect(() => {
@@ -62,6 +64,22 @@ export function ReadyOverlay({
 		onReady?.();
 	};
 
+	const renderKeyboardHint = (template: string) => {
+		const [before, after] = template.split("{key}");
+		return (
+			<p className="text-xs text-muted-foreground flex items-center gap-2 justify-center">
+				<Keyboard className="h-3 w-3 shrink-0" />
+				<span>
+					{before}
+					<kbd className="px-2 py-1 bg-black/40 rounded border border-white/20 font-mono text-[10px]">
+						Enter
+					</kbd>
+					{after}
+				</span>
+			</p>
+		);
+	};
+
 	return (
 		<div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm">
 			<Card className="border-blue-500/50 bg-linear-to-br from-blue-500/20 to-purple-500/20 shadow-2xl w-full max-w-md mx-4">
@@ -77,14 +95,18 @@ export function ReadyOverlay({
 
 						<div className="space-y-1">
 							<h2 className="text-2xl font-black bg-clip-text text-transparent bg-linear-to-r from-blue-400 to-purple-400">
-								{mode === "local" ? "Game Setup" : allPlayersReady ? "Ready to Play!" : "Waiting for Players..."}
+								{mode === "local"
+									? t.Game["Game Setup"]
+									: allPlayersReady
+										? t.Game["Ready to Play!"]
+										: t.Game["Waiting for players..."]}
 							</h2>
 							<p className="text-muted-foreground text-sm">
 								{mode === "local"
-									? "Configure your game before starting"
+									? t.Game["Configure your game before starting"]
 									: allPlayersReady
-									? "All players are ready to start"
-									: "Waiting for all players to ready up"}
+										? t.Game["All players are ready to start"]
+										: t.Game["Waiting for all players to ready up"]}
 							</p>
 						</div>
 
@@ -101,12 +123,12 @@ export function ReadyOverlay({
 									{player1Ready ? (
 										<div className="flex items-center gap-1 text-green-400">
 											<Check className="h-4 w-4" />
-											<span className="text-xs font-bold">READY</span>
+											<span className="text-xs font-bold">{t.Game["READY"]}</span>
 										</div>
 									) : (
 										<div className="flex items-center gap-1 text-muted-foreground">
 											<Clock className="h-4 w-4 animate-pulse" />
-											<span className="text-xs">Waiting...</span>
+											<span className="text-xs">{t.Game["Waiting..."]}</span>
 										</div>
 									)}
 								</div>
@@ -120,12 +142,12 @@ export function ReadyOverlay({
 									{player2Ready ? (
 										<div className="flex items-center gap-1 text-green-400">
 											<Check className="h-4 w-4" />
-											<span className="text-xs font-bold">READY</span>
+											<span className="text-xs font-bold">{t.Game["READY"]}</span>
 										</div>
 									) : (
 										<div className="flex items-center gap-1 text-muted-foreground">
 											<Clock className="h-4 w-4 animate-pulse" />
-											<span className="text-xs">Waiting...</span>
+											<span className="text-xs">{t.Game["Waiting..."]}</span>
 										</div>
 									)}
 								</div>
@@ -155,12 +177,9 @@ export function ReadyOverlay({
 									className="w-full bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-6 text-lg shadow-lg hover:shadow-xl transition-all duration-200 group"
 								>
 									<Play className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
-									Start Game
+									{t.Game["Start Game"]}
 								</Button>
-								<p className="text-xs text-muted-foreground flex items-center gap-2">
-									<Keyboard className="h-3 w-3" />
-									Or press <kbd className="px-2 py-1 bg-black/40 rounded border border-white/20 font-mono text-[10px]">Enter</kbd> to start
-								</p>
+								{renderKeyboardHint(t.Game["Or press {key} to start"])}
 							</>
 						) : (
 							<>
@@ -172,12 +191,9 @@ export function ReadyOverlay({
 											className="w-full bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-6 text-lg shadow-lg hover:shadow-xl transition-all duration-200 group"
 										>
 											<Check className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
-											I AM READY
+											{t.Game["I AM READY"]}
 										</Button>
-										<p className="text-xs text-muted-foreground flex items-center gap-2">
-											<Keyboard className="h-3 w-3" />
-											Or press <kbd className="px-2 py-1 bg-black/40 rounded border border-white/20 font-mono text-[10px]">Enter</kbd> to ready up
-										</p>
+										{renderKeyboardHint(t.Game["Or press {key} to ready up"])}
 									</>
 								) : allPlayersReady ? (
 									<>
@@ -187,12 +203,9 @@ export function ReadyOverlay({
 											className="w-full bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-6 text-lg shadow-lg hover:shadow-xl transition-all duration-200 group"
 										>
 											<Play className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
-											Start Game
+											{t.Game["Start Game"]}
 										</Button>
-										<p className="text-xs text-muted-foreground flex items-center gap-2">
-											<Keyboard className="h-3 w-3" />
-											Or press <kbd className="px-2 py-1 bg-black/40 rounded border border-white/20 font-mono text-[10px]">Enter</kbd> to start
-										</p>
+										{renderKeyboardHint(t.Game["Or press {key} to start"])}
 									</>
 								) : (
 									<>
@@ -202,11 +215,11 @@ export function ReadyOverlay({
 											variant="outline"
 											className="w-full border-white/20 text-white/70 hover:bg-white/10 font-bold py-6 text-lg"
 										>
-											Not Ready? Click to cancel
+											{t.Game["Not Ready? Click to cancel"]}
 										</Button>
 										<p className="text-xs text-yellow-500 flex items-center gap-2 animate-pulse">
 											<Clock className="h-3 w-3" />
-											Waiting for opponent...
+											{t.Game["Waiting for opponent..."]}
 										</p>
 									</>
 								)}
