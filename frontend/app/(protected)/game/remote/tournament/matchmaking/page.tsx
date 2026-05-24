@@ -12,6 +12,13 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Trophy, Loader2, X, Crown, User, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/languageContext";
+import {
+	buildRemoteTournamentId,
+	validateRemoteMatchmakingMode,
+	validateRemotePlayerCount,
+	validateRemoteRoomCode,
+	validateRemoteTournamentId,
+} from "@/lib/remote-play-validation";
 
 interface TournamentRoom {
 	roomId: string;
@@ -50,12 +57,14 @@ export default function TournamentMatchmakingPage() {
 
 	const sendJoinMatchmaking = useCallback(() => {
 		if (!user || !isReady) return;
+		const mode = validateRemoteMatchmakingMode("tournament");
+		if (!mode.ok) return;
 		sendSocketMessage({
 			event: "JOIN_MATCHMAKING",
 			payload: {
 				userId: user.id,
 				username: user.username,
-				mode: "tournament",
+				mode: mode.value,
 			},
 		});
 	}, [user, isReady, sendSocketMessage]);
@@ -91,9 +100,22 @@ export default function TournamentMatchmakingPage() {
 	useEffect(() => {
 		const handleTournamentFound = (event: CustomEvent) => {
 			const payload = event.detail;
+			const roomCodeResult = validateRemoteRoomCode(payload?.roomId, "Tournament code");
+			const tournamentIdResult = roomCodeResult.ok
+				? validateRemoteTournamentId(payload?.tournamentId, roomCodeResult.value)
+				: roomCodeResult;
+			const hasValidLobbyPlayers =
+				Array.isArray(payload?.players) &&
+				payload.players.length >= 1 &&
+				payload.players.length <= 8;
+			if (!roomCodeResult.ok || !tournamentIdResult.ok || !hasValidLobbyPlayers) {
+				console.error("Ignoring invalid tournament matchmaking payload:", payload);
+				setSearching(false);
+				return;
+			}
 			setTournamentRoom({
-				roomId: payload.roomId,
-				tournamentId: payload.tournamentId,
+				roomId: roomCodeResult.value,
+				tournamentId: tournamentIdResult.value,
 				players: payload.players,
 				isHost: payload.isHost,
 			});
@@ -163,10 +185,15 @@ export default function TournamentMatchmakingPage() {
 		setGameRoom(null);
 		if (user && isReady) {
 			if (activeTournamentRoom) {
+				const roomCodeResult = validateRemoteRoomCode(
+					activeTournamentRoom.roomId,
+					"Tournament code"
+				);
+				if (!roomCodeResult.ok) return;
 				// Leave the room
 				sendSocketMessage({
 					event: "LEAVE_ROOM",
-					payload: { roomId: activeTournamentRoom.roomId, userId: user.id },
+					payload: { roomId: roomCodeResult.value, userId: user.id },
 				});
 			} else {
 				// Leave matchmaking queue
@@ -180,8 +207,12 @@ export default function TournamentMatchmakingPage() {
 	};
 
 	const handleCopyCode = () => {
-		if (activeTournamentRoom?.roomId) {
-			navigator.clipboard.writeText(activeTournamentRoom.roomId);
+		const roomCodeResult = validateRemoteRoomCode(
+			activeTournamentRoom?.roomId,
+			"Tournament code"
+		);
+		if (roomCodeResult.ok) {
+			navigator.clipboard.writeText(roomCodeResult.value);
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
 		}
@@ -189,11 +220,22 @@ export default function TournamentMatchmakingPage() {
 
 	const handleStartTournament = () => {
 		const roomId = activeTournamentRoom?.roomId || gameRoom?.roomId;
-		const tournamentId = activeTournamentRoom?.tournamentId || (roomId ? `RT-${roomId}` : "");
+		const roomCodeResult = validateRemoteRoomCode(roomId, "Tournament code");
+		const tournamentIdResult = roomCodeResult.ok
+			? validateRemoteTournamentId(
+					activeTournamentRoom?.tournamentId ||
+						buildRemoteTournamentId(roomCodeResult.value),
+					roomCodeResult.value
+			  )
+			: roomCodeResult;
+		const playerCountResult = validateRemotePlayerCount(
+			gameRoom?.joinedPlayers.length || activeTournamentRoom?.players.length,
+			"tournament"
+		);
 
 		console.log("[Tournament] Start requested", {
 			roomId,
-			tournamentId,
+			tournamentId: tournamentIdResult.ok ? tournamentIdResult.value : "",
 			isReady,
 			hasTournamentRoom: !!activeTournamentRoom,
 			hasGameRoom: !!gameRoom,
@@ -202,9 +244,17 @@ export default function TournamentMatchmakingPage() {
 			playerCount: gameRoom?.joinedPlayers.length || activeTournamentRoom?.players.length
 		});
 
-		if (!roomId || !isReady) {
+		if (!roomCodeResult.ok || !tournamentIdResult.ok || !playerCountResult.ok || !isReady) {
 			console.warn("[Tournament] Cannot start: missing roomId or socket not ready");
-			toast.error(t.Game["Cannot start tournament: Socket not ready or Room ID missing"]);
+			toast.error(
+				!roomCodeResult.ok
+					? roomCodeResult.error
+					: !tournamentIdResult.ok
+						? tournamentIdResult.error
+						: !playerCountResult.ok
+							? playerCountResult.error
+							: "Cannot start tournament: socket not ready"
+			);
 			return;
 		}
 
@@ -213,8 +263,8 @@ export default function TournamentMatchmakingPage() {
 		sendSocketMessage({
 			event: "START_TOURNAMENT",
 			payload: {
-				roomId,
-				tournamentId,
+				roomId: roomCodeResult.value,
+				tournamentId: tournamentIdResult.value,
 			},
 		});
 
@@ -232,7 +282,7 @@ export default function TournamentMatchmakingPage() {
 
 	const playerCount = gameRoom?.joinedPlayers.length || activeTournamentRoom?.players.length || 1;
 	const isHost = gameRoom ? gameRoom.hostId === Number(user?.id) : activeTournamentRoom?.isHost;
-	const canStart = playerCount >= 3;
+	const canStart = validateRemotePlayerCount(playerCount, "tournament").ok;
 
 	// Show lobby if we have a tournament room
 	if (activeTournamentRoom) {

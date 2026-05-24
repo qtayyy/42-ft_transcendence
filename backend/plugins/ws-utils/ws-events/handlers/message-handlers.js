@@ -13,6 +13,13 @@ import {
   isRoomHost,
   isTournamentParticipant,
 } from "../ws-auth-guards.js";
+import {
+  normalizeJoinMatchmakingPayload,
+  normalizeJoinRoomByCodePayload,
+  normalizeLeaveRoomPayload,
+  normalizeStartRoomGamePayload,
+  normalizeStartTournamentPayload,
+} from "../../../../lib/remote-play-validation.js";
 
 export function createWsEventHandlers({
   fastify,
@@ -125,23 +132,41 @@ export function createWsEventHandlers({
     JOIN_ROOM_BY_CODE: (payload) => {
       (async () => {
         try {
+          const { roomId } = normalizeJoinRoomByCodePayload(payload);
           const username = await getProfileUsername(prisma, userId);
-          fastify.joinRoomByCode(payload.roomId, userId, username);
+          fastify.joinRoomByCode(roomId, userId, username);
         } catch (err) {
           console.error("[WS] JOIN_ROOM_BY_CODE failed:", err.message);
+          safeSend(
+            connection,
+            {
+              event: "JOIN_ROOM_ERROR",
+              payload: { message: err.message || "Failed to join room" },
+            },
+            userId,
+          );
         }
       })();
     },
 
     START_TOURNAMENT: (payload) => {
       try {
+        const { roomId, tournamentId } = normalizeStartTournamentPayload(payload);
         fastify.startTournament(
-          payload.roomId,
-          payload.tournamentId,
+          roomId,
+          tournamentId,
           userId,
         );
       } catch (err) {
         console.error("[WS] START_TOURNAMENT failed:", err.message);
+        safeSend(
+          connection,
+          {
+            event: "JOIN_ROOM_ERROR",
+            payload: { message: err.message || "Failed to start tournament" },
+          },
+          userId,
+        );
       }
     },
 
@@ -265,7 +290,20 @@ export function createWsEventHandlers({
     },
 
     LEAVE_ROOM: (payload) => {
-      fastify.leaveRoom(payload.roomId, userId);
+      try {
+        const { roomId } = normalizeLeaveRoomPayload(payload);
+        fastify.leaveRoom(roomId, userId);
+      } catch (err) {
+        console.error("[WS] LEAVE_ROOM failed:", err.message);
+        safeSend(
+          connection,
+          {
+            event: "JOIN_ROOM_ERROR",
+            payload: { message: err.message || "Failed to leave room" },
+          },
+          userId,
+        );
+      }
     },
 
     FORCE_CLEANUP: () => {
@@ -682,8 +720,21 @@ export function createWsEventHandlers({
 
     JOIN_MATCHMAKING: (payload) => {
       (async () => {
-        const username = await getProfileUsername(prisma, userId);
-        fastify.joinMatchmaking(userId, username, payload.mode);
+        try {
+          const { mode } = normalizeJoinMatchmakingPayload(payload);
+          const username = await getProfileUsername(prisma, userId);
+          fastify.joinMatchmaking(userId, username, mode);
+        } catch (err) {
+          console.error("[WS] JOIN_MATCHMAKING failed:", err.message);
+          safeSend(
+            connection,
+            {
+              event: "JOIN_ROOM_ERROR",
+              payload: { message: err.message || "Failed to join matchmaking" },
+            },
+            userId,
+          );
+        }
       })();
     },
 
@@ -693,9 +744,18 @@ export function createWsEventHandlers({
 
     START_ROOM_GAME: (payload) => {
       try {
-        fastify.startRoomGame(payload.roomId, userId);
+        const { roomId } = normalizeStartRoomGamePayload(payload);
+        fastify.startRoomGame(roomId, userId);
       } catch (err) {
         console.error("[WS] START_ROOM_GAME failed:", err.message);
+        safeSend(
+          connection,
+          {
+            event: "JOIN_ROOM_ERROR",
+            payload: { message: err.message || "Failed to start game" },
+          },
+          userId,
+        );
       }
     },
 

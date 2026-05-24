@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowLeft, Zap, Loader2, Users, X } from "lucide-react";
 import { useLanguage } from "@/context/languageContext";
+import { validateRemoteMatchmakingMode } from "@/lib/remote-play-validation";
 
 export default function MatchmakingPage() {
 	const router = useRouter();
@@ -25,12 +26,14 @@ export default function MatchmakingPage() {
 	const sendJoinMatchmaking = useCallback(() => {
 		if (isLeavingRef.current) return;
 		if (!user || !isReady) return;
+		const mode = validateRemoteMatchmakingMode("single");
+		if (!mode.ok) return;
 		sendSocketMessage({
 			event: "JOIN_MATCHMAKING",
 			payload: {
 				userId: user.id,
 				username: user.username,
-				mode: "single",
+				mode: mode.value,
 			},
 		});
 	}, [user, isReady, sendSocketMessage]);

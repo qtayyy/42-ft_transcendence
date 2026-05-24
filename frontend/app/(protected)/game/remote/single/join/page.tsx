@@ -12,6 +12,11 @@ import { useRef } from "react";
 import { ArrowLeft, LogIn, Loader2, AlertCircle, Users, Crown, User, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/languageContext";
+import {
+	REMOTE_ROOM_CODE_MAX_LENGTH,
+	validateRemotePlayerCount,
+	validateRemoteRoomCode,
+} from "@/lib/remote-play-validation";
 
 export default function JoinRoomPage() {
 	const router = useRouter();
@@ -40,8 +45,12 @@ export default function JoinRoomPage() {
 
 	const attemptJoin = useCallback(
 		(targetRoomCode: string) => {
-			const trimmedCode = targetRoomCode.trim();
-			if (!trimmedCode || !user || !isReady) return;
+			const roomCodeResult = validateRemoteRoomCode(targetRoomCode);
+			if (!roomCodeResult.ok || !user || !isReady) {
+				if (!roomCodeResult.ok) setError(roomCodeResult.error);
+				return;
+			}
+			const normalizedCode = roomCodeResult.value;
 
 			setJoining(true);
 			setPendingJoin(false);
@@ -50,7 +59,7 @@ export default function JoinRoomPage() {
 			sendSocketMessage({
 				event: "JOIN_ROOM_BY_CODE",
 				payload: {
-					roomId: trimmedCode,
+					roomId: normalizedCode,
 					userId: user.id,
 					username: user.username,
 				},
@@ -66,19 +75,32 @@ export default function JoinRoomPage() {
 		const isInviteFlow = searchParams.get("invite") === "true";
 		const shouldAutoJoin = Boolean(roomIdParam) && (isMatchmaking || isInviteFlow);
 
-		if (shouldAutoJoin && roomIdParam && user && !joined && !joining && !hasAttemptedAutoJoin.current) {
+		if (!shouldAutoJoin || !roomIdParam || !user || joined || joining || hasAttemptedAutoJoin.current) {
+			return;
+		}
+
+		const autoJoinId = window.setTimeout(() => {
+			const roomCodeResult = validateRemoteRoomCode(roomIdParam);
+			if (!roomCodeResult.ok) {
+				setError(roomCodeResult.error);
+				hasAttemptedAutoJoin.current = true;
+				return;
+			}
+
 			if (!isReady) {
-				setRoomCode(roomIdParam);
+				setRoomCode(roomCodeResult.value);
 				setPendingJoin(true);
 				reconnectSocket();
 				return;
 			}
 
-			console.log("[JoinRoom] Auto-joining room:", roomIdParam);
+			console.log("[JoinRoom] Auto-joining room:", roomCodeResult.value);
 			hasAttemptedAutoJoin.current = true;
-			setRoomCode(roomIdParam);
-			attemptJoin(roomIdParam);
-		}
+			setRoomCode(roomCodeResult.value);
+			attemptJoin(roomCodeResult.value);
+		}, 0);
+
+		return () => window.clearTimeout(autoJoinId);
 	}, [searchParams, isReady, user, joined, joining, reconnectSocket, attemptJoin]);
 
 	// Poll for room updates after joining
@@ -104,18 +126,21 @@ export default function JoinRoomPage() {
 
 	// Stop joining spinner when room data received
 	useEffect(() => {
-		if (gameRoom && joined) {
+		if (!gameRoom || !joined) return;
+
+		const spinnerId = window.setTimeout(() => {
 			setJoining(false);
-		}
+		}, 0);
+
+		return () => window.clearTimeout(spinnerId);
 	}, [gameRoom, joined]);
 
 	const handleJoin = () => {
 		if (!roomCode.trim() || !user) return;
 
-		// Issue #26: Basic UUID validation for room code
-		const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-		if (!uuidRegex.test(roomCode.trim())) {
-			setError(t.Game["Invalid room code format (must be a valid UUID)"]);
+		const roomCodeResult = validateRemoteRoomCode(roomCode);
+		if (!roomCodeResult.ok) {
+			setError(roomCodeResult.error);
 			return;
 		}
 
@@ -126,7 +151,8 @@ export default function JoinRoomPage() {
 			return;
 		}
 
-		attemptJoin(roomCode);
+		setRoomCode(roomCodeResult.value);
+		attemptJoin(roomCodeResult.value);
 	};
 
 	useEffect(() => {
@@ -148,7 +174,7 @@ export default function JoinRoomPage() {
 			window.removeEventListener("JOIN_ROOM", handleJoinSuccess);
 			window.removeEventListener("JOIN_ROOM_ERROR", handleJoinError as EventListener);
 		};
-	}, []);
+	}, [t.Game]);
 
 	useEffect(() => {
 		if (!pendingJoin || !isReady || joining || joined || !roomCode.trim()) return;
@@ -159,15 +185,28 @@ export default function JoinRoomPage() {
 	}, [pendingJoin, isReady, joining, joined, roomCode, attemptJoin]);
 
 	const handleStartGame = () => {
-		if (!gameRoom || gameRoom.joinedPlayers.length < 2) return;
-		router.push(`/game/RS-${roomCode.trim()}`);
+		const playerCountResult = validateRemotePlayerCount(
+			gameRoom?.joinedPlayers.length,
+			"single"
+		);
+		if (!gameRoom || !playerCountResult.ok) {
+			if (!playerCountResult.ok) setError(playerCountResult.error);
+			return;
+		}
+		const roomCodeResult = validateRemoteRoomCode(roomCode);
+		if (!roomCodeResult.ok) {
+			setError(roomCodeResult.error);
+			return;
+		}
+		router.push(`/game/RS-${roomCodeResult.value}`);
 	};
 
 	const handleLeave = () => {
-		if (joined && user && isReady && roomCode) {
+		const roomCodeResult = validateRemoteRoomCode(roomCode);
+		if (joined && user && isReady && roomCodeResult.ok) {
 			sendSocketMessage({
 				event: "LEAVE_ROOM",
-				payload: { roomId: roomCode.trim(), userId: user.id },
+				payload: { roomId: roomCodeResult.value, userId: user.id },
 			});
 		}
 		setJoined(false);
@@ -176,7 +215,9 @@ export default function JoinRoomPage() {
 	};
 
 	const isHost = gameRoom?.hostId === Number(user?.id);
-	const canStart = gameRoom && gameRoom.joinedPlayers.length >= 2;
+	const canStart =
+		gameRoom &&
+		validateRemotePlayerCount(gameRoom.joinedPlayers.length, "single").ok;
 
 	// Show lobby view after joining
 	if (joined && gameRoom) {
@@ -327,10 +368,14 @@ export default function JoinRoomPage() {
 								</label>
 								<Input
 									value={roomCode}
-									onChange={(e) => setRoomCode(e.target.value)}
+									maxLength={REMOTE_ROOM_CODE_MAX_LENGTH}
+									onChange={(e) => {
+										setRoomCode(e.target.value);
+										setError(null);
+									}}
 									placeholder={t.Game["Enter room code..."]}
 									className="font-mono text-lg text-center tracking-widest h-14"
-									onKeyPress={(e) => e.key === "Enter" && handleJoin()}
+									onKeyDown={(e) => e.key === "Enter" && handleJoin()}
 									disabled={joining}
 								/>
 							</div>
