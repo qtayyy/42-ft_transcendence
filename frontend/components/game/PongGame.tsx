@@ -267,8 +267,8 @@ export default function PongGame({
 		gameState?.status === "finished"
 			? {
 				winner: gameState.winner === 1 ? "LEFT" : gameState.winner === 2 ? "RIGHT" : undefined,
-				leftPlayer: { username: "Player 1", score: gameState.score.p1 },
-				rightPlayer: { username: "Player 2", score: gameState.score.p2 },
+				leftPlayer: { username: player1Name, score: gameState.score.p1 },
+				rightPlayer: { username: player2Name, score: gameState.score.p2 },
 			}
 			: null;
 
