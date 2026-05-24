@@ -112,9 +112,13 @@ lan-help:
 #   make ngrok
 # The target updates backend/.env automatically and restarts the backend so
 # OAuth redirects use the current tunnel URL.
+ngrok-install:
+	@NGROK_BIN="$$(./scripts/ensure-ngrok.sh)"; \
+	echo "ngrok ready at $$NGROK_BIN"
+
 ngrok:
-	@command -v ngrok >/dev/null 2>&1 || (echo "ngrok is not installed. Install it first, then run 'ngrok config add-authtoken <token>'."; exit 1)
-	@TMP_LOG="$$(mktemp -t ft_transcendence_ngrok.XXXXXX)"; \
+	@NGROK_BIN="$$(./scripts/ensure-ngrok.sh)"; \
+	TMP_LOG="$$(mktemp -t ft_transcendence_ngrok.XXXXXX)"; \
 	cleanup() { \
 		if [ -n "$$NGROK_PID" ] && kill -0 "$$NGROK_PID" 2>/dev/null; then \
 			kill "$$NGROK_PID" 2>/dev/null || true; \
@@ -123,7 +127,7 @@ ngrok:
 		rm -f "$$TMP_LOG"; \
 	}; \
 	trap cleanup EXIT INT TERM; \
-	ngrok http https://localhost:8443 --upstream-tls-verify=false >"$$TMP_LOG" 2>&1 & \
+	"$$NGROK_BIN" http https://localhost:8443 --upstream-tls-verify=false >"$$TMP_LOG" 2>&1 & \
 	NGROK_PID=$$!; \
 	node ./scripts/public-app-url.mjs ngrok "$(GOOGLE_CONSOLE_URL)" 20 1000; \
 	docker compose -f ./compose.yaml up -d --force-recreate backend; \
@@ -141,4 +145,4 @@ ngrok-restart-backend:
 gameplay-test:
 	@node ./scripts/chrome-devtools-gameplay-smoke.mjs
 
-.PHONY: all build start dev stop down logs clean prune re lan-ip lan-url lan-expose lan-help ngrok ngrok-sync ngrok-restart-backend gameplay-test
+.PHONY: all build start dev stop down logs clean prune re lan-ip lan-url lan-expose lan-help ngrok-install ngrok ngrok-sync ngrok-restart-backend gameplay-test
