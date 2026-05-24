@@ -72,7 +72,7 @@ export default function LocalSingleMatchPage() {
 						className="gap-2 text-muted-foreground hover:text-foreground pl-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
-						Back to Local Selection
+						{t.Game["Back to Local Selection"]}
 					</Button>
 				</div>
 
