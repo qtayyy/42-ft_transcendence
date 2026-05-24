@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Timer } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/languageContext";
 
 interface ReconnectionModalProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export function ReconnectionModal({
   onContinue,
   onLeave,
 }: ReconnectionModalProps) {
+  const { t } = useLanguage();
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
 
   // Reset countdown when modal opens
@@ -79,13 +81,13 @@ export function ReconnectionModal({
         <DialogHeader>
           <div className="flex items-center gap-2 text-destructive">
              <AlertCircle className="h-6 w-6" />
-             <DialogTitle>Active Match Detected</DialogTitle>
+             <DialogTitle>{t.Game["Active Match Detected"]}</DialogTitle>
           </div>
           <DialogDescription className="pt-2 text-base">
-            You have an active remote game in progress.
+            {t.Game["You have an active remote game in progress."]}
           </DialogDescription>
           <DialogDescription className="text-sm font-medium text-foreground py-2">
-            Do you want to reconnect? Leaving will result in a forfeit.
+            {t.Game["Do you want to reconnect? Leaving will result in a forfeit."]}
           </DialogDescription>
         </DialogHeader>
 
@@ -93,7 +95,7 @@ export function ReconnectionModal({
         <div className="flex flex-col items-center py-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-2">
             <Timer className="h-4 w-4" />
-            <span className="text-sm">Auto-forfeit in</span>
+            <span className="text-sm">{t.Game["Auto-forfeit in"]}</span>
           </div>
           <div className={cn(
             "text-4xl font-mono font-bold tabular-nums",
@@ -102,16 +104,16 @@ export function ReconnectionModal({
             {countdown}s
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Choose an option or auto-forfeit when timer expires
+            {t.Game["Choose an option or auto-forfeit when timer expires"]}
           </p>
         </div>
 
         <DialogFooter className="mr-auto w-full sm:justify-between gap-2 flex-col sm:flex-row">
           <Button variant="destructive" onClick={onLeave} className="w-full sm:w-auto">
-            Leave Game (Forfeit)
+            {t.Game["Leave Game (Forfeit)"]}
           </Button>
           <Button onClick={onContinue} className="w-full sm:w-auto bg-green-600 hover:bg-green-700">
-            Continue Game
+            {t.Game["Continue Game"]}
           </Button>
         </DialogFooter>
       </DialogContent>
