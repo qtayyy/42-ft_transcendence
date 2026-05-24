@@ -3,11 +3,18 @@
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+    LOCAL_TOURNAMENT_MAX_PLAYERS,
+    LOCAL_TOURNAMENT_MIN_PLAYERS,
+} from "@/lib/local-play-validation";
 
 export default function LocalTournamentMatchmakingPage() {
     const router = useRouter();
 
     const handleQuickStart = (players: number) => {
+        if (players < LOCAL_TOURNAMENT_MIN_PLAYERS || players > LOCAL_TOURNAMENT_MAX_PLAYERS) {
+            return;
+        }
         const tournamentId = `local-tournament-quick-${players}p-${Date.now()}`;
         router.push(`/game/local/tournament/${tournamentId}`);
     };
@@ -39,12 +46,9 @@ export default function LocalTournamentMatchmakingPage() {
                         8 Players
                     </Button>
                     
-                    <Button
-                        onClick={() => handleQuickStart(12)}
-                        className="w-full bg-orange-600 hover:bg-orange-700 text-white text-lg py-6"
-                    >
-                        12 Players
-                    </Button>
+                    <p className="text-center text-xs uppercase tracking-widest text-gray-400">
+                        Supports {LOCAL_TOURNAMENT_MIN_PLAYERS}-{LOCAL_TOURNAMENT_MAX_PLAYERS} players
+                    </p>
                 </CardContent>
             </Card>
         </div>

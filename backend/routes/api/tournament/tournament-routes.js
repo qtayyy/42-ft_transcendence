@@ -2,6 +2,12 @@ import TournamentManager, {
   activeTournaments,
 } from "../../../game/TournamentManager.js";
 import { finalizeMatchResult } from "../../../services/match-finalization.js";
+import {
+  normalizeRuntimeId,
+  normalizeTournamentCreatePayload,
+  normalizeTournamentId,
+  normalizeTournamentMatchResultPayload,
+} from "../../../lib/local-play-validation.js";
 
 // Keep the route base as /api/tournament even though this file no longer uses
 // the generic "index.js" name.
@@ -10,6 +16,10 @@ export const autoPrefix = "/";
 export default async function (fastify, opts) {
   const isLocalTournamentId = (id) =>
     typeof id === "string" && id.startsWith("local-tournament-");
+  const isRegisteredPlayerId = (id) => {
+    const normalized = Number(id);
+    return Number.isInteger(normalized) && normalized > 0;
+  };
 
   /**
    * Local tournaments are device-scoped and should not be blocked by auth expiry.
@@ -73,29 +83,11 @@ export default async function (fastify, opts) {
       preHandler: [authenticateTournamentRequest],
     },
     async (request, reply) => {
-      console.log(
-        `[POST /create] Tournament creation request. Body: ${JSON.stringify(request.body)}`,
-      );
       try {
-        const { players, tournamentId: customTournamentId } = request.body; // Array of {id, name, isTemp}
-
-        if (!players || players.length < 3 || players.length > 8) {
-          return reply.code(400).send({
-            error: "Tournament must have 3-8 players",
-          });
-        }
-
-        if (
-          customTournamentId &&
-          (customTournamentId.length < 3 || customTournamentId.length > 64)
-        ) {
-          return reply.code(400).send({
-            error: "Tournament name/ID must be between 3 and 64 characters",
-          });
-        }
-
-        // Use custom tournamentId if provided, otherwise generate one
-        const tournamentId = customTournamentId || `RT-${Date.now()}`;
+        const {
+          players,
+          tournamentId,
+        } = normalizeTournamentCreatePayload(request.body, `RT-${Date.now()}`);
 
         // Check if tournament already exists
         if (activeTournaments.has(tournamentId)) {
@@ -134,6 +126,9 @@ export default async function (fastify, opts) {
           leaderboard: tournament.getLeaderboard(),
         });
       } catch (error) {
+        if (error.statusCode === 400) {
+          return reply.code(400).send({ error: error.message });
+        }
         console.error("Error creating tournament:", error);
         return reply.code(500).send({ error: "Failed to create tournament" });
       }
@@ -151,7 +146,7 @@ export default async function (fastify, opts) {
     },
     async (request, reply) => {
       try {
-        const { id } = request.params;
+        const id = normalizeTournamentId(request.params.id);
         const tournament = activeTournaments.get(id);
 
         if (!tournament) {
@@ -160,6 +155,9 @@ export default async function (fastify, opts) {
 
         return reply.code(200).send(tournament.getSummary());
       } catch (error) {
+        if (error.statusCode === 400) {
+          return reply.code(400).send({ error: error.message });
+        }
         console.error("Error fetching tournament:", error);
         return reply.code(500).send({ error: "Failed to fetch tournament" });
       }
@@ -177,17 +175,7 @@ export default async function (fastify, opts) {
     },
     async (request, reply) => {
       try {
-        const { id } = request.params;
-        const {
-          matchId,
-          player1Id,
-          player2Id,
-          score,
-          outcome,
-          winnerId,
-          durationSeconds,
-        } =
-          request.body;
+        const id = normalizeTournamentId(request.params.id);
 
         const tournament = activeTournaments.get(id);
 
@@ -196,10 +184,25 @@ export default async function (fastify, opts) {
         }
 
         // Find and update the match
-        const match = tournament.matches.find((m) => m.matchId === matchId);
+        const submittedMatchId = normalizeRuntimeId(
+          request.body && typeof request.body === "object"
+            ? request.body.matchId
+            : null,
+          "Match ID",
+        );
+        const match = tournament.matches.find((m) => m.matchId === submittedMatchId);
         if (!match) {
           return reply.code(404).send({ error: "Match not found" });
         }
+        const {
+          matchId,
+          player1Id,
+          player2Id,
+          score,
+          outcome,
+          winnerId,
+          durationSeconds,
+        } = normalizeTournamentMatchResultPayload(request.body, match);
 
         // Idempotency: duplicate submissions can happen after reconnect/retry.
         // Let TournamentManager handle status transitions + round advancement safely.
@@ -215,12 +218,12 @@ export default async function (fastify, opts) {
         }
 
         // Persist match to database (only when at least player1 is a registered user)
-        if (!wasAlreadyCompleted && player1Id) {
+        if (!wasAlreadyCompleted && isRegisteredPlayerId(player1Id)) {
           try {
             await finalizeMatchResult({
               externalMatchId: matchId,
               player1Id,
-              player2Id: player2Id || null,
+              player2Id: isRegisteredPlayerId(player2Id) ? player2Id : null,
               score1: score.p1,
               score2: score.p2,
               durationSeconds,
@@ -240,6 +243,9 @@ export default async function (fastify, opts) {
           nextMatches: tournament.matches.filter((m) => m.status === "pending"),
         });
       } catch (error) {
+        if (error.statusCode === 400) {
+          return reply.code(400).send({ error: error.message });
+        }
         console.error("Error updating match result:", error);
         return reply.code(500).send({ error: "Failed to update match result" });
       }
@@ -257,7 +263,7 @@ export default async function (fastify, opts) {
     },
     async (request, reply) => {
       try {
-        const { id } = request.params;
+        const id = normalizeTournamentId(request.params.id);
         const tournament = activeTournaments.get(id);
 
         if (!tournament) {
@@ -271,6 +277,9 @@ export default async function (fastify, opts) {
           totalRounds: tournament.totalRounds,
         });
       } catch (error) {
+        if (error.statusCode === 400) {
+          return reply.code(400).send({ error: error.message });
+        }
         console.error("Error fetching leaderboard:", error);
         return reply.code(500).send({ error: "Failed to fetch leaderboard" });
       }
@@ -288,7 +297,7 @@ export default async function (fastify, opts) {
     },
     async (request, reply) => {
       try {
-        const { id } = request.params;
+        const id = normalizeTournamentId(request.params.id);
         const tournament = activeTournaments.get(id);
 
         if (!tournament) {
@@ -303,6 +312,9 @@ export default async function (fastify, opts) {
           currentRound: tournament.currentRound,
         });
       } catch (error) {
+        if (error.statusCode === 400) {
+          return reply.code(400).send({ error: error.message });
+        }
         console.error("Error fetching next match:", error);
         return reply.code(500).send({ error: "Failed to fetch next match" });
       }

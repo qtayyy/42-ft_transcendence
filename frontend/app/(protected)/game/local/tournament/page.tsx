@@ -12,6 +12,12 @@ import { User, UserPlus, X, ArrowLeft, Trophy, Crown } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
 import { useLanguage } from "@/context/languageContext";
+import {
+	LOCAL_GUEST_NAME_MAX_LENGTH,
+	LOCAL_TOURNAMENT_MAX_PLAYERS,
+	LOCAL_TOURNAMENT_MIN_PLAYERS,
+	validateLocalPlayerName,
+} from "@/lib/local-play-validation";
 
 export default function LocalTournamentPage() {
 	const router = useRouter();
@@ -19,24 +25,47 @@ export default function LocalTournamentPage() {
 	const { t } = useLanguage();
 	const [tempPlayerName, setTempPlayerName] = useState("");
 	const [tempPlayers, setTempPlayers] = useState<Array<{name: string}>>([]);
+	const [validationError, setValidationError] = useState("");
 
 	const totalPlayers = 1 + tempPlayers.length; // Account user + temp players
 
 	const handleAddTempPlayer = () => {
-		if (tempPlayerName.trim()) {
-			setTempPlayers([...tempPlayers, { name: tempPlayerName.trim() }]);
-			setTempPlayerName("");
+		if (totalPlayers >= LOCAL_TOURNAMENT_MAX_PLAYERS) {
+			setValidationError(`Local tournaments support up to ${LOCAL_TOURNAMENT_MAX_PLAYERS} players.`);
+			return;
 		}
+
+		const result = validateLocalPlayerName(
+			tempPlayerName,
+			[user?.username || "You", ...tempPlayers.map((player) => player.name)],
+			"Guest name"
+		);
+
+		if (!result.ok) {
+			setValidationError(result.error);
+			return;
+		}
+
+		setTempPlayers([...tempPlayers, { name: result.value }]);
+		setTempPlayerName("");
+		setValidationError("");
 	};
 
 	const handleRemoveTempPlayer = (index: number) => {
 		setTempPlayers(tempPlayers.filter((_, i) => i !== index));
+		setValidationError("");
 	};
 
-	const canStartTournament = totalPlayers >= 3 && totalPlayers <= 8;
+	const canStartTournament =
+		totalPlayers >= LOCAL_TOURNAMENT_MIN_PLAYERS &&
+		totalPlayers <= LOCAL_TOURNAMENT_MAX_PLAYERS;
 
 	const handleStartTournament = async () => {
 		if (!canStartTournament) return;
+		if (!user?.id) {
+			setValidationError("You must be signed in to host a local tournament.");
+			return;
+		}
 
 		try {
 			// Local tournaments must use a local-prefixed ID.
@@ -46,7 +75,7 @@ export default function LocalTournamentPage() {
 
 			// Build full player list
 			const allPlayers = [
-				{ id: user?.id || 'user', name: user?.username || "You", isTemp: false },
+				{ id: user.id, name: user.username || "You", isTemp: false },
 				...tempPlayers.map((p, i) => ({ id: `temp-${Date.now()}-${i}`, name: p.name, isTemp: true }))
 			];
 
@@ -110,22 +139,31 @@ export default function LocalTournamentPage() {
 									<Input
 									placeholder={t.Game["Add Guest Player Name..."]}
 									value={tempPlayerName}
-									onChange={(e) => setTempPlayerName(e.target.value)}
-									onKeyPress={(e) => e.key === "Enter" && handleAddTempPlayer()}
+									maxLength={LOCAL_GUEST_NAME_MAX_LENGTH}
+									onChange={(e) => {
+										setTempPlayerName(e.target.value);
+										setValidationError("");
+									}}
+									onKeyDown={(e) => e.key === "Enter" && handleAddTempPlayer()}
 									className="h-12 bg-background/50 text-lg border-muted-foreground/20"
-									disabled={totalPlayers >= 8}
+									disabled={totalPlayers >= LOCAL_TOURNAMENT_MAX_PLAYERS}
 								/>
 								<Button
 									onClick={handleAddTempPlayer}
-									disabled={!tempPlayerName.trim() || totalPlayers >= 8}
+									disabled={!tempPlayerName.trim() || totalPlayers >= LOCAL_TOURNAMENT_MAX_PLAYERS}
 									className="h-12 px-8 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-black font-semibold shadow-lg shadow-yellow-500/20"
 								>
 									<UserPlus className="h-5 w-5 mr-2" />
 									{t.Game["Add Player"]}
 									</Button>
 								</div>
+								{validationError && (
+									<p className="text-xs font-medium text-destructive text-center">
+										{validationError}
+									</p>
+								)}
 								<p className="text-xs text-muted-foreground text-center uppercase tracking-widest font-semibold">
-									{t.Game["MAX 8 PLAYERS"]} • {8 - totalPlayers} {t.Game["SPOTS REMAINING"]}
+									{t.Game["MAX 8 PLAYERS"]} • {LOCAL_TOURNAMENT_MAX_PLAYERS - totalPlayers} {t.Game["SPOTS REMAINING"]}
 								</p>
 							</div>
 
@@ -179,10 +217,10 @@ export default function LocalTournamentPage() {
 												{canStartTournament ? "Tournament Ready!" : t.Game["More Players Needed"]}
 											</AlertTitle>
 											<AlertDescription className="text-xs text-muted-foreground">
-												{totalPlayers < 3 ? (
-													t.Game["Recruit 2 more contenders to begin (Min 3)."].replace("2", String(3 - totalPlayers))
-												) : totalPlayers > 8 ? (
-													`Too many players! Remove ${totalPlayers - 8} to proceed.`
+												{totalPlayers < LOCAL_TOURNAMENT_MIN_PLAYERS ? (
+													t.Game["Recruit 2 more contenders to begin (Min 3)."].replace("2", String(LOCAL_TOURNAMENT_MIN_PLAYERS - totalPlayers))
+												) : totalPlayers > LOCAL_TOURNAMENT_MAX_PLAYERS ? (
+													`Too many players! Remove ${totalPlayers - LOCAL_TOURNAMENT_MAX_PLAYERS} to proceed.`
 												) : (
 													`Format: ${totalPlayers <= 4 ? 'Round Robin Series' : 'Swiss Elimination System'}`
 												)}

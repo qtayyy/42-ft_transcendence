@@ -29,6 +29,10 @@ import {
 } from "@/features/game/runtime/runtime-helpers";
 import { NavigationGuard } from "@/components/game/navigation-guard";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
+import {
+	normalizeLocalAIDifficulty,
+	normalizeLocalTournamentResultPayload,
+} from "@/lib/local-play-validation";
 
 const DEFAULT_PADDLE_HEIGHT = 80;
 const DEFAULT_CANVAS_HEIGHT = 350;
@@ -40,6 +44,41 @@ const REMOTE_INPUT_PULSE_MS = Math.round(1000 / 30);
 interface OptimisticRemotePaddlePreview {
 	previewY: number;
 	direction: MovementDirection;
+}
+
+/**
+ * Reads the local runtime payload defensively because localStorage can be edited
+ * by users or stale data from older builds.
+ */
+function parseStoredLocalMatchData(raw: string | null, expectedMatchId: string): LocalMatchData | null {
+	if (!raw) return null;
+
+	try {
+		const parsed = JSON.parse(raw) as LocalMatchData & { runtimeMatchId?: unknown };
+		if (!parsed || typeof parsed !== "object") return null;
+
+		const storedMatchId = parsed.matchId === undefined ? "" : String(parsed.matchId);
+		const runtimeMatchId =
+			parsed.runtimeMatchId === undefined ? "" : String(parsed.runtimeMatchId);
+
+		if (storedMatchId !== expectedMatchId && runtimeMatchId !== expectedMatchId) {
+			return null;
+		}
+
+		return {
+			...parsed,
+			matchId: storedMatchId,
+			tournamentId:
+				parsed.tournamentId === null || parsed.tournamentId === undefined
+					? null
+					: String(parsed.tournamentId),
+			isAI: Boolean(parsed.isAI),
+			aiDifficulty: normalizeLocalAIDifficulty(parsed.aiDifficulty),
+			isTournamentMatch: Boolean(parsed.isTournamentMatch),
+		};
+	} catch {
+		return null;
+	}
 }
 
 function getNextRemotePaddleY(
@@ -78,7 +117,11 @@ export default function GameRuntimePage() {
 		if (typeof window === "undefined") return null;
 
 		const storedMatchData = localStorage.getItem("current-match");
-		return storedMatchData ? JSON.parse(storedMatchData) : null;
+		const parsedMatchData = parseStoredLocalMatchData(storedMatchData, matchId);
+		if (storedMatchData && !parsedMatchData) {
+			localStorage.removeItem("current-match");
+		}
+		return parsedMatchData;
 	});
 	const [gameOverResult, setGameOverResult] = useState<RuntimeGameOverResult | null>(null);
 	const [disconnectInfo, setDisconnectInfo] = useState<DisconnectInfo | null>(null);
@@ -768,14 +811,19 @@ export default function GameRuntimePage() {
 			try {
 				if (matchData.isTournamentMatch && matchData.tournamentId) {
 					const outcome = result === "draw" || winner === null ? "draw" : "win";
-					const resultPayload = {
+					const resultPayload = normalizeLocalTournamentResultPayload({
 						matchId: matchData.matchId,
 						player1Id: matchData.player1?.id,
 						player2Id: matchData.player2?.id || null,
 						score,
 						outcome,
 						durationSeconds,
-					};
+					});
+					if (!resultPayload.ok) {
+						console.error("Invalid local tournament result:", resultPayload.error);
+						toast.error("Invalid tournament result. Please retry the match.");
+						return;
+					}
 					const pendingKey = `${LOCAL_TOURNAMENT_PENDING_RESULT_PREFIX}${matchData.tournamentId}:${matchData.matchId}`;
 					// Write-through outbox: store first, then attempt network submit.
 					// This keeps tournament progression recoverable if tab closes/disconnects mid-request.
@@ -783,14 +831,14 @@ export default function GameRuntimePage() {
 						pendingKey,
 						JSON.stringify({
 							tournamentId: matchData.tournamentId,
-							...resultPayload,
+							...resultPayload.value,
 							recordedAt: Date.now(),
 						})
 					);
 					try {
 						await axios.post(
 							`/api/tournament/${matchData.tournamentId}/match-result`,
-							resultPayload
+							resultPayload.value
 						);
 						localStorage.removeItem(pendingKey);
 					} catch (submitError: unknown) {

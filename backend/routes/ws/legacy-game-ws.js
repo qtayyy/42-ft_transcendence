@@ -1,22 +1,12 @@
 import { gameManager } from "../../game/GameManager.js";
+import {
+	normalizeAIDifficulty,
+	normalizeBooleanFlag,
+	normalizePaddleMoveMessage,
+	normalizeRuntimeId,
+} from "../../lib/local-play-validation.js";
 
 // Legacy direct-game WebSocket route used by the shared local game runtime.
-
-function toAIDifficulty(value) {
-	if (typeof value !== "string") return "medium";
-	const normalized = value.trim().toLowerCase();
-	if (normalized === "easy" || normalized === "medium" || normalized === "hard") {
-		return normalized;
-	}
-	return "medium";
-}
-
-function toAIEnabled(value) {
-	if (typeof value === "boolean") return value;
-	if (typeof value !== "string") return false;
-	const normalized = value.trim().toLowerCase();
-	return normalized === "1" || normalized === "true" || normalized === "yes";
-}
 
 export default async function (fastify, opts) {
 	fastify.get(
@@ -26,19 +16,21 @@ export default async function (fastify, opts) {
 			websocket: true,
 		},
 		(connection, request) => {
-			const matchId = request.query.matchId;
-			const isAI = toAIEnabled(request.query.isAI);
-			const aiDifficulty = toAIDifficulty(request.query.aiDifficulty);
-			const userId = Number(request.user?.userId);
-
-			console.log(`[GAME WS] Client connected - matchId: ${matchId}, userId: ${userId}, isAI: ${isAI}, aiDifficulty: ${aiDifficulty}`);
-
-			if (!matchId) {
-				console.log("[GAME WS] Error: No matchId");
-				connection.send(JSON.stringify({ error: "matchId required" }));
+			let matchId;
+			try {
+				matchId = normalizeRuntimeId(request.query.matchId, "matchId");
+			} catch (error) {
+				console.log(`[GAME WS] Error: ${error.message}`);
+				connection.send(JSON.stringify({ error: error.message }));
 				connection.close();
 				return;
 			}
+
+			const isAI = normalizeBooleanFlag(request.query.isAI);
+			const aiDifficulty = normalizeAIDifficulty(request.query.aiDifficulty);
+			const userId = Number(request.user?.userId);
+
+			console.log(`[GAME WS] Client connected - matchId: ${matchId}, userId: ${userId}, isAI: ${isAI}, aiDifficulty: ${aiDifficulty}`);
 
 			if (!Number.isInteger(userId) || userId <= 0) {
 				console.log("[GAME WS] Error: Invalid authenticated user");
@@ -79,7 +71,10 @@ export default async function (fastify, opts) {
 					console.log(`[GAME WS] 📩 Received message:`, { type: message.type, role, matchId });
 
 					if (message.type === "PADDLE_MOVE") {
-						game.handleInput(role, message);
+						const paddleMove = normalizePaddleMoveMessage(message);
+						if (paddleMove) {
+							game.handleInput(role, paddleMove);
+						}
 					}
 
 					if (message.type === "START") {
