@@ -16,6 +16,11 @@ import {
   PADDLE_WIDTH,
   WIN_SCORE,
 } from "../constants.js";
+import {
+  assertRemoteRoomCanStartSingle,
+  normalizeRemoteRoomId,
+  normalizeRemoteUserId,
+} from "../../../../lib/remote-play-validation.js";
 
 export function createStartRoomGameHandler({
   fastify,
@@ -29,56 +34,68 @@ export function createStartRoomGameHandler({
    * @param {number} actingUserId — must be the room host (JWT user)
    */
   return (roomId, actingUserId) => {
-    console.log(`🎮 [START_ROOM_GAME] Received request to start room: ${roomId}`);
+    const normalizedRoomId = normalizeRemoteRoomId(roomId);
+    const normalizedActorId = normalizeRemoteUserId(
+      actingUserId,
+      "Acting user ID",
+    );
+    console.log(`🎮 [START_ROOM_GAME] Received request to start room: ${normalizedRoomId}`);
 
-    const room = fastify.gameRooms.get(roomId);
+    const room = fastify.gameRooms.get(normalizedRoomId);
     if (!room) {
-      console.error(`❌ [START_ROOM_GAME] Room ${roomId} not found!`);
+      console.error(`❌ [START_ROOM_GAME] Room ${normalizedRoomId} not found!`);
       console.error(`❌ [START_ROOM_GAME] Available rooms:`, Array.from(fastify.gameRooms.keys()));
       throw new Error("Room not found");
     }
 
-    if (Number(room.hostId) !== Number(actingUserId)) {
+    if (Number(room.hostId) !== normalizedActorId) {
       console.warn(
-        `[START_ROOM_GAME] Rejected: user ${actingUserId} is not host of ${roomId} (host=${room.hostId})`,
+        `[START_ROOM_GAME] Rejected: user ${normalizedActorId} is not host of ${normalizedRoomId} (host=${room.hostId})`,
       );
       throw new Error("Only the room host can start the game");
     }
 
     console.log(`✅ [START_ROOM_GAME] Room found:`, {
-      roomId: room.roomId,
+      roomId: normalizedRoomId,
       hostId: room.hostId,
       maxPlayers: room.maxPlayers,
-      joinedPlayers: room.joinedPlayers.map(p => ({ id: p.id, username: p.username }))
+      joinedPlayers: room.joinedPlayers.map((p) => ({
+        id: p.id,
+        username: p.username,
+      })),
     });
 
-    if (room.joinedPlayers.length < 2) {
-      console.error(`❌ [START_ROOM_GAME] Not enough players! Only ${room.joinedPlayers.length} player(s) in room`);
+    try {
+      assertRemoteRoomCanStartSingle(room);
+    } catch (err) {
+      if (!room.isTournament && Array.isArray(room.joinedPlayers) && room.joinedPlayers.length < 2) {
+        console.error(`❌ [START_ROOM_GAME] Not enough players! Only ${room.joinedPlayers.length} player(s) in room`);
 
-      // Release stale pre-game room binding so players can receive/send new invites.
-      const affectedUserIds = new Set([
-        Number(room.hostId),
-        ...room.joinedPlayers.map((p) => Number(p.id)),
-        ...room.invitedPlayers.map((p) => Number(p.id)),
-      ]);
+        // Release stale pre-game room binding so players can receive/send new invites.
+        const affectedUserIds = new Set([
+          Number(room.hostId),
+          ...room.joinedPlayers.map((p) => Number(p.id)),
+          ...room.invitedPlayers.map((p) => Number(p.id)),
+        ]);
 
-      affectedUserIds.forEach((uid) => {
-        fastify.currentRoom.delete(uid);
-        const socket = fastify.onlineUsers.get(uid);
-        safeSend(socket, { event: "LEAVE_ROOM" }, uid);
-      });
+        affectedUserIds.forEach((uid) => {
+          fastify.currentRoom.delete(uid);
+          const socket = fastify.onlineUsers.get(uid);
+          safeSend(socket, { event: "LEAVE_ROOM" }, uid);
+        });
 
-      fastify.gameRooms.delete(roomId);
-      throw new Error("Need at least 2 players");
+        fastify.gameRooms.delete(normalizedRoomId);
+      }
+      throw err;
     }
 
     const player1 = room.joinedPlayers[0];
     const player2 = room.joinedPlayers[1];
-    const matchId = `RS-${roomId}`;
+    const matchId = `RS-${normalizedRoomId}`;
 
     const initialGameState = {
       matchId: matchId,
-      roomId: roomId,
+      roomId: normalizedRoomId,
       isRemote: true,
       ball: { posX: CANVAS_WIDTH / 2, posY: CANVAS_HEIGHT / 2, dx: 4, dy: 3 },
       leftPlayer: {
