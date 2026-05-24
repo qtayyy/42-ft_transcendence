@@ -7,10 +7,9 @@ import { ReadyOverlay } from "@/components/game/ReadyOverlay";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
 import { GameControlsTray } from "@/components/game/GameControlsTray";
 import { MatchPlayerBanner } from "@/components/game/MatchPlayerBanner";
-import { formatTime } from "@/utils/gameHelpers";
-import { Badge } from "@/components/ui/badge";
+import { LiveStatusBadge, MatchGameHeader } from "@/components/game/MatchGameHeader";
 import { Card } from "@/components/ui/card";
-import { Timer, Hash, Zap } from "lucide-react";
+import { Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/languageContext";
 
@@ -440,7 +439,7 @@ export default function PongGame({
 	}
 
 	return (
-		<div className="h-dvh pt-32 pb-4 flex flex-col overflow-hidden bg-linear-to-b from-background to-muted/20 relative">
+		<div className="h-dvh pt-24 sm:pt-32 pb-4 flex flex-col overflow-hidden bg-linear-to-b from-background to-muted/20 relative">
 
 			{/* Decorative Background Elements */}
 			<div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -457,57 +456,13 @@ export default function PongGame({
 				</div>
 			)}
 
-			{/* Header (Fixed Height) */}
-			<div className="shrink-0 h-24 w-full max-w-7xl mx-auto grid grid-cols-3 items-center px-8 border-b border-white/5 bg-background/40 backdrop-blur-md z-10 transition-all duration-300">
-
-				{/* Left: Match Info */}
-				<div className="flex flex-col items-start gap-1.5">
-					<h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-linear-to-r from-blue-400 via-purple-400 to-pink-400 drop-shadow-sm">
-						{mode === "local" ? "LOCAL MATCH" : "REMOTE MATCH"}
-					</h1>
-					<div className="flex items-center gap-2">
-						<Badge variant="outline" className="inline-flex items-center justify-center gap-1 font-mono text-[10px] tracking-widest text-muted-foreground border-white/10 bg-black/20 px-3 py-1 rounded-full leading-normal">
-							<Hash className="h-3 w-3 opacity-50" />
-							{displayMatchId}
-						</Badge>
-						{matchSuffix && (
-							<Badge variant="secondary" className="text-[10px] font-bold px-2 py-0.5 bg-white/10 text-white/80 border-white/10">
-								{matchSuffix.toUpperCase()}
-							</Badge>
-						)}
-					</div>
-				</div>
-
-				{/* Center: Timer */}
-				<div className="flex justify-center">
-					{gameState?.timer && (
-						<div className="relative group">
-							<div className="absolute -inset-1 bg-linear-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-500"></div>
-							<div className="relative px-8 py-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg flex flex-col items-center shadow-2xl">
-								<div className={cn(
-									"text-4xl font-mono font-bold tabular-nums tracking-widest leading-none drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]",
-									gameState.timer.timeRemaining < 30000
-										? 'text-red-500 animate-pulse drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]'
-										: 'bg-clip-text text-transparent bg-linear-to-b from-white to-white/70'
-								)}>
-									{formatTime(gameState.timer.timeRemaining)}
-								</div>
-								<div className="flex items-center gap-1.5 text-[9px] uppercase font-bold text-muted-foreground/80 tracking-[0.2em] mt-1">
-									<Timer className="h-2.5 w-2.5" /> {t.Game["Time Remaining"]}
-								</div>
-							</div>
-						</div>
-					)}
-				</div>
-
-				{/* Right: Status Indicators */}
-				<div className="flex items-center justify-end gap-3">
-					<div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/5 border border-green-500/20 rounded-full">
-						<div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-						<span className="text-xs font-bold text-green-500 tracking-wider">LIVE</span>
-					</div>
-				</div>
-			</div>
+			<MatchGameHeader
+				title={mode === "local" ? "LOCAL MATCH" : "REMOTE MATCH"}
+				displayMatchId={displayMatchId}
+				matchSuffix={matchSuffix || undefined}
+				timeRemaining={gameState?.timer?.timeRemaining}
+				rightSlot={<LiveStatusBadge />}
+			/>
 
 			{/* Main Game Area (Flexible) */}
 			<div ref={containerRef} className="flex-1 w-full relative flex items-center justify-center p-4 overflow-hidden z-0">
