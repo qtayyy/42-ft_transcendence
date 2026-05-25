@@ -8,8 +8,7 @@ import { useGame } from "@/hooks/use-game";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { ArrowLeft, Trophy, Loader2, X, Crown, User, Copy, Check } from "lucide-react";
+import { ArrowLeft, Trophy, Loader2, X, Crown, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/languageContext";
 import {
@@ -36,7 +35,6 @@ export default function TournamentMatchmakingPage() {
 	const [searching, setSearching] = useState(true);
 	const [searchTime, setSearchTime] = useState(0);
 	const [tournamentRoom, setTournamentRoom] = useState<TournamentRoom | null>(null);
-	const [copied, setCopied] = useState(false);
 	const hasSentJoinRef = useRef(false);
 	const recoveredTournamentRoom = useMemo(() => {
 		if (!user || !gameRoom?.isTournament) return null;
@@ -206,18 +204,6 @@ export default function TournamentMatchmakingPage() {
 		router.push("/game/remote/tournament");
 	};
 
-	const handleCopyCode = () => {
-		const roomCodeResult = validateRemoteRoomCode(
-			activeTournamentRoom?.roomId,
-			"Tournament code"
-		);
-		if (roomCodeResult.ok) {
-			navigator.clipboard.writeText(roomCodeResult.value);
-			setCopied(true);
-			setTimeout(() => setCopied(false), 2000);
-		}
-	};
-
 	const handleStartTournament = () => {
 		const roomId = activeTournamentRoom?.roomId || gameRoom?.roomId;
 		const roomCodeResult = validateRemoteRoomCode(roomId, "Tournament code");
@@ -309,9 +295,7 @@ export default function TournamentMatchmakingPage() {
 								</div>
 								<CardTitle className="text-2xl font-bold">{t.Game["Tournament Lobby"]}</CardTitle>
 								<CardDescription>
-									{isHost
-										? t.Game["You are the host - share the code or wait for players"]
-										: t.Game["Waiting for host to start"]}
+									{isHost ? "You are the host - share the code or wait for players" : "Waiting for host to start"}
 								</CardDescription>
 							</CardHeader>
 
@@ -319,7 +303,7 @@ export default function TournamentMatchmakingPage() {
 								{/* Room Code */}
 								<div className="space-y-2">
 									<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-										{t.Game["Tournament Code"]}
+										Tournament Code
 									</label>
 									<div className="flex gap-2">
 										<Input

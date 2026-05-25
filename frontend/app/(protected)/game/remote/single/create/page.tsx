@@ -107,7 +107,7 @@ export default function CreateRoomPage() {
 		}
 		setRoomId(roomCodeResult.value);
 		if (Number(gameRoom.hostId) !== me) {
-			router.push(`/game/remote/single/join?roomId=${roomCodeResult.value}&matchmaking=true`);
+			router.push("/game/remote/single/join?matchmaking=true");
 		}
 	}, [isMatchmakingMode, gameRoom, user, router]);
 
@@ -305,29 +305,36 @@ export default function CreateRoomPage() {
 								</div>
 							) : roomId && (
 								<>
-									<div className="space-y-2">
-										<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-											{t.Game["ROOM CODE"]}
-										</label>
-										<div className="flex gap-2">
-											<Input
-												value={roomId}
-												readOnly
-												className="font-mono text-lg text-center bg-muted/50 tracking-widest"
-											/>
-											<Button
-												variant="outline"
-												size="icon"
-												onClick={handleCopyCode}
-												className={cn(
-													"shrink-0 transition-colors",
-													copied && "bg-green-500/10 border-green-500/30 text-green-500"
-												)}
-											>
-												{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-											</Button>
+									{isMatchmakingMode ? (
+										<div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-center">
+											<p className="text-sm font-medium text-blue-500">Public Match Lobby</p>
+
 										</div>
-									</div>
+									) : (
+										<div className="space-y-2">
+											<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+												{t.Game["ROOM CODE"]}
+											</label>
+											<div className="flex gap-2">
+												<Input
+													value={roomId}
+													readOnly
+													className="font-mono text-lg text-center bg-muted/50 tracking-widest"
+												/>
+												<Button
+													variant="outline"
+													size="icon"
+													onClick={handleCopyCode}
+													className={cn(
+														"shrink-0 transition-colors",
+														copied && "bg-green-500/10 border-green-500/30 text-green-500"
+													)}
+												>
+													{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+												</Button>
+											</div>
+										</div>
+									)}
 
 									{/* Players */}
 									<div className="space-y-3">
