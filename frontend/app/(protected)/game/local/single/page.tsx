@@ -9,6 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, UserPlus, X, Play, ArrowLeft, Gamepad2 } from "lucide-react";
 import { useLanguage } from "@/context/languageContext";
+import {
+	LOCAL_GUEST_NAME_MAX_LENGTH,
+	normalizeLocalAIDifficulty,
+	validateLocalPlayerName,
+} from "@/lib/local-play-validation";
 
 type AIDifficulty = "easy" | "medium" | "hard";
 
@@ -20,15 +25,26 @@ export default function LocalSingleMatchPage() {
 	const [player2, setPlayer2] = useState<{ name: string; isTemp: boolean } | null>(null);
 	const [isAIOpponent, setIsAIOpponent] = useState(false);
 	const [aiDifficulty, setAIDifficulty] = useState<AIDifficulty>("medium");
+	const [nameError, setNameError] = useState("");
 
 	const handleAddTempPlayer = () => {
-		if (tempPlayerName.trim()) {
-			setPlayer2({
-				name: tempPlayerName.trim(),
-				isTemp: true
-			});
-			setTempPlayerName("");
+		const result = validateLocalPlayerName(
+			tempPlayerName,
+			[user?.username || "You"],
+			"Guest name"
+		);
+
+		if (!result.ok) {
+			setNameError(result.error);
+			return;
 		}
+
+		setPlayer2({
+			name: result.value,
+			isTemp: true
+		});
+		setTempPlayerName("");
+		setNameError("");
 	};
 
 	const handleRemovePlayer2 = () => {
@@ -37,20 +53,21 @@ export default function LocalSingleMatchPage() {
 
 	const handleStartMatch = () => {
 		if (!isAIOpponent && !player2) return;
+		const safeAIDifficulty = normalizeLocalAIDifficulty(aiDifficulty);
 
 		// Create match data
 		const matchData = {
 			matchId: `local-${Date.now()}`,
 			mode: "local",
 			isAI: isAIOpponent,
-			aiDifficulty,
+			aiDifficulty: safeAIDifficulty,
 			player1: {
 				id: user?.id,
 				name: user?.username || "You",
 				isTemp: false
 			},
 			player2: isAIOpponent
-				? { name: `AI (${aiDifficulty})`, isTemp: true, isAI: true }
+				? { name: `AI (${safeAIDifficulty})`, isTemp: true, isAI: true }
 				: player2
 		};
 
@@ -192,8 +209,12 @@ export default function LocalSingleMatchPage() {
 											<Input
 												placeholder={t.Game["Player Name ..."]}
 													value={tempPlayerName}
-													onChange={(e) => setTempPlayerName(e.target.value)}
-													onKeyPress={(e) => e.key === "Enter" && handleAddTempPlayer()}
+													maxLength={LOCAL_GUEST_NAME_MAX_LENGTH}
+													onChange={(e) => {
+														setTempPlayerName(e.target.value);
+														setNameError("");
+													}}
+													onKeyDown={(e) => e.key === "Enter" && handleAddTempPlayer()}
 													className="bg-background/50 h-11"
 												/>
 												<Button
@@ -204,6 +225,9 @@ export default function LocalSingleMatchPage() {
 													<UserPlus className="h-4 w-4" />
 												</Button>
 											</div>
+											{nameError && (
+												<p className="text-xs font-medium text-destructive">{nameError}</p>
+											)}
 										</div>
 									) : (
 										<div className="relative group/card-p2">

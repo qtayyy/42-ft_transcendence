@@ -14,7 +14,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import {
 	GameStateValue,
+	RemoteActiveEffect,
 	RemoteGameplayTickPayload,
+	RemotePowerUp,
 	SocketContextValue,
 } from "@/types/types";
 import type { GameState } from "@/types/game";
@@ -26,7 +28,7 @@ import { useLanguage } from "@/context/languageContext";
 
 const SocketContext = createContext<SocketContextValue | null>(null);
 
-function hasSamePowerUps(prevPowerUps: any[] = [], nextPowerUps: any[] = []) {
+function hasSamePowerUps(prevPowerUps: RemotePowerUp[] = [], nextPowerUps: RemotePowerUp[] = []) {
 	if (prevPowerUps.length !== nextPowerUps.length) return false;
 
 	return prevPowerUps.every((powerUp, index) => {
@@ -40,7 +42,10 @@ function hasSamePowerUps(prevPowerUps: any[] = [], nextPowerUps: any[] = []) {
 	});
 }
 
-function hasSameActiveEffect(prevEffect: any, nextEffect: any) {
+function hasSameActiveEffect(
+	prevEffect?: RemoteActiveEffect | null,
+	nextEffect?: RemoteActiveEffect | null
+) {
 	return (
 		prevEffect?.type === nextEffect?.type &&
 		prevEffect?.expiresAt === nextEffect?.expiresAt
@@ -300,9 +305,27 @@ export const SocketProvider = ({ children }) => {
 								break;
 
 							case "JOIN_ROOM":
-								// Room joined successfully - pages handle their own state
-								// No redirect needed as new pages stay in place
+								// Room joined successfully. If this came from a global invite dialog,
+								// move the invitee onto the lobby page that can render the room state.
 								toast.success("Joined room successfully!");
+								if (payload?.roomId) {
+									const roomId = encodeURIComponent(String(payload.roomId));
+									const isTournamentRoom = payload?.isTournament === true;
+									const currentPath = window.location.pathname;
+									const targetPath = isTournamentRoom
+										? `/game/remote/tournament/join?roomId=${roomId}&invite=true`
+										: `/game/remote/single/join?roomId=${roomId}&invite=true`;
+									const alreadyOnTargetLobby = isTournamentRoom
+										? currentPath.includes("/game/remote/tournament/join")
+										: currentPath.includes("/game/remote/single/join");
+									const alreadyOnCreateLobby = isTournamentRoom
+										? currentPath.includes("/game/remote/tournament/create")
+										: currentPath.includes("/game/remote/single/create");
+
+									if (!alreadyOnTargetLobby && !alreadyOnCreateLobby) {
+										stableDeps.current.router.push(targetPath);
+									}
+								}
 								window.dispatchEvent(
 									new CustomEvent("JOIN_ROOM", { detail: payload })
 								);
@@ -352,13 +375,13 @@ export const SocketProvider = ({ children }) => {
 												stableDeps.current.router.push("/game/remote/single/create?matchmaking=true");
 											}
 										} else {
-											stableDeps.current.router.push(`/game/remote/single/join?roomId=${payload.roomId}&matchmaking=true`);
+											stableDeps.current.router.push("/game/remote/single/join?matchmaking=true");
 										}
 									} else {
 										// Backward-compatible fallback for older payloads.
 										const isHostPage = window.location.pathname.includes("/game/remote/single/create");
 										if (!isHostPage) {
-											stableDeps.current.router.push(`/game/remote/single/join?roomId=${payload.roomId}&matchmaking=true`);
+											stableDeps.current.router.push("/game/remote/single/join?matchmaking=true");
 										}
 									}
 
@@ -487,7 +510,7 @@ export const SocketProvider = ({ children }) => {
 
 								// Only update if something actually changed to avoid excessive re-render loops
 								startTransition(() => {
-									stableDeps.current.setGameState((prev: any) => {
+									stableDeps.current.setGameState((prev: GameStateValue | null) => {
 										if (!prev) return { ...payload };
 
 										// Remote matches are server-authoritative, so dedupe must still
@@ -837,7 +860,7 @@ export const SocketProvider = ({ children }) => {
 		};
 	}, [user?.id]);
 
-	const sendSocketMessage = useCallback((payload: any) => {
+	const sendSocketMessage = useCallback((payload: Record<string, unknown>) => {
 		const socket = wsRef.current;
 		if (payload?.event === "LEAVE_MATCHMAKING" || payload?.event === "LEAVE_ROOM") {
 			suppressMatchmakingRedirectsUntil.current = Date.now() + 3000;
@@ -908,7 +931,7 @@ export const SocketProvider = ({ children }) => {
 				}
 
 				// Only leave if they are not in an active game state, otherwise wait for game over / disconnect handler
-				const isSpectating = (gameState as any)?.spectatorMode;
+				const isSpectating = gameState?.spectatorMode;
 
 				// FIX: Add proper checks for active game state
 				const isInActiveMatch = gameState &&

@@ -13,6 +13,7 @@ import { Tournament, TournamentMatch } from "@/lib/tournament";
 import { Play, Trophy, ArrowLeft, Crown, History, Medal, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
+import { normalizeLocalTournamentResultPayload } from "@/lib/local-play-validation";
 import { useLanguage } from "@/context/languageContext";
 
 const LOCAL_TOURNAMENT_PENDING_RESULT_PREFIX = "pending-local-tournament-result:";
@@ -22,6 +23,7 @@ type PendingTournamentResult = {
 	player2Id: number | string | null;
 	score: { p1: number; p2: number };
 	outcome: string;
+	durationSeconds?: number;
 	recordedAt?: number;
 };
 
@@ -68,25 +70,32 @@ export default function TournamentPage() {
 
 		pendingEntries.sort((a, b) => a.recordedAt - b.recordedAt);
 
-			for (const entry of pendingEntries) {
-				try {
-					const payload = entry.payload;
-					await axios.post(`/api/tournament/${tournamentId}/match-result`, {
+		for (const entry of pendingEntries) {
+			try {
+				const payload = entry.payload;
+				const resultPayload = normalizeLocalTournamentResultPayload({
 					matchId: payload.matchId,
 					player1Id: payload.player1Id,
 					player2Id: payload.player2Id,
 					score: payload.score,
 					outcome: payload.outcome,
+					durationSeconds: payload.durationSeconds,
 				});
+				if (!resultPayload.ok) {
+					console.error("Discarding invalid pending tournament result:", resultPayload.error);
 					localStorage.removeItem(entry.key);
-				} catch (error) {
-					if (handleSessionExpiredRedirect(error, router, `/game/local/tournament/${tournamentId}`)) {
-						return;
-					}
-					console.error("Failed to replay pending tournament result:", error);
+					continue;
 				}
+				await axios.post(`/api/tournament/${tournamentId}/match-result`, resultPayload.value);
+				localStorage.removeItem(entry.key);
+			} catch (error) {
+				if (handleSessionExpiredRedirect(error, router, `/game/local/tournament/${tournamentId}`)) {
+					return;
+				}
+				console.error("Failed to replay pending tournament result:", error);
 			}
-		}, [tournamentId, router]);
+		}
+	}, [tournamentId, router]);
 
 	const fetchTournament = useCallback(async () => {
 		try {
@@ -111,7 +120,11 @@ export default function TournamentPage() {
 
 	// Load tournament from backend
 	useEffect(() => {
-		fetchTournament();
+		const loadTournament = window.setTimeout(() => {
+			void fetchTournament();
+		}, 0);
+
+		return () => window.clearTimeout(loadTournament);
 	}, [fetchTournament]);
 
 	const shouldGuardNavigation = !!tournament && !tournament.isComplete;
@@ -177,18 +190,28 @@ export default function TournamentPage() {
 	// Listen for match results from game page
 	useEffect(() => {
 		const handleMessage = async (event: MessageEvent) => {
-			if (event.data.type === "TOURNAMENT_MATCH_RESULT") {
+			if (
+				event.data &&
+				typeof event.data === "object" &&
+				event.data.type === "TOURNAMENT_MATCH_RESULT"
+			) {
 				const { matchId, player1Id, player2Id, score, outcome } = event.data;
+				const resultPayload = normalizeLocalTournamentResultPayload({
+					matchId,
+					player1Id,
+					player2Id,
+					score,
+					outcome,
+				});
+
+				if (!resultPayload.ok) {
+					console.error("Ignoring invalid tournament result message:", resultPayload.error);
+					return;
+				}
 
 				try {
 					// Send result to backend
-					await axios.post(`/api/tournament/${tournamentId}/match-result`, {
-						matchId,
-						player1Id,
-						player2Id,
-						score,
-						outcome
-					});
+					await axios.post(`/api/tournament/${tournamentId}/match-result`, resultPayload.value);
 
 					// Refresh tournament data
 					await fetchTournament();
@@ -256,13 +279,15 @@ export default function TournamentPage() {
 
 						<CardContent className="relative z-10 space-y-12 p-8">
 							{/* Winner Spotlight */}
-							<div className="relative max-w-lg mx-auto transform transition-all hover:scale-105 duration-500">
+							<div className="relative mx-auto w-full max-w-lg transform transition-all hover:scale-105 duration-500">
 								<div className="absolute -inset-1 bg-gradient-to-r from-yellow-400 to-orange-600 rounded-2xl blur opacity-75"></div>
-								<div className="relative bg-black/80 p-8 rounded-2xl border border-yellow-500/50 flex flex-col items-center text-center space-y-4">
+								<div className="relative min-w-0 bg-black/80 p-6 sm:p-8 rounded-2xl border border-yellow-500/50 flex flex-col items-center text-center space-y-4 overflow-hidden">
 									<Crown className="h-12 w-12 text-yellow-500" />
-									<div className="space-y-1">
+									<div className="w-full min-w-0 space-y-1">
 										<p className="text-yellow-500 font-bold tracking-widest uppercase text-sm">{t.Game["Grand Champion"]}</p>
-										<p className="text-4xl font-bold text-white">{winner.playerName}</p>
+										<p className="mx-auto max-w-full overflow-hidden wrap-break-word text-2xl font-bold leading-tight text-white sm:text-4xl">
+											{winner.playerName}
+										</p>
 										<Badge variant="outline" className="border-yellow-500/50 text-yellow-400 bg-yellow-500/10 mt-2">
 											{winner.matchPoints} {t.Game["Match Points"]}
 										</Badge>
@@ -401,13 +426,18 @@ export default function TournamentPage() {
 												<Button
 													onClick={async () => {
 														try {
-															await axios.post(`/api/tournament/${tournamentId}/match-result`, {
+															const resultPayload = normalizeLocalTournamentResultPayload({
 																matchId: currentMatch.matchId,
 																player1Id: currentMatch.player1.id,
 																player2Id: null,
 																score: { p1: 0, p2: 0 },
 																outcome: 'bye'
 															});
+															if (!resultPayload.ok) {
+																console.error("Failed to process bye result:", resultPayload.error);
+																return;
+															}
+															await axios.post(`/api/tournament/${tournamentId}/match-result`, resultPayload.value);
 															await fetchTournament();
 														} catch (error) {
 															if (handleSessionExpiredRedirect(error, router, `/game/local/tournament/${tournamentId}`)) {

@@ -29,6 +29,13 @@ import {
 } from "@/features/game/runtime/runtime-helpers";
 import { NavigationGuard } from "@/components/game/navigation-guard";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
+import {
+	normalizeLocalAIDifficulty,
+	LOCAL_GUEST_NAME_MAX_LENGTH,
+	LOCAL_PLAYER_NAME_MAX_LENGTH,
+	normalizeLocalTournamentResultPayload,
+	validateLocalPlayerName,
+} from "@/lib/local-play-validation";
 
 const DEFAULT_PADDLE_HEIGHT = 80;
 const DEFAULT_CANVAS_HEIGHT = 350;
@@ -40,6 +47,78 @@ const REMOTE_INPUT_PULSE_MS = Math.round(1000 / 30);
 interface OptimisticRemotePaddlePreview {
 	previewY: number;
 	direction: MovementDirection;
+}
+
+function normalizeStoredLocalPlayer(
+	player: LocalMatchData["player1"],
+	existingNames: string[],
+	label: string
+) {
+	if (!player || typeof player !== "object" || Array.isArray(player)) {
+		return null;
+	}
+
+	const isTemp = Boolean(player.isTemp);
+	const result = validateLocalPlayerName(
+		player.name,
+		existingNames,
+		`${label} name`,
+		isTemp ? LOCAL_GUEST_NAME_MAX_LENGTH : LOCAL_PLAYER_NAME_MAX_LENGTH
+	);
+
+	if (!result.ok) {
+		return null;
+	}
+
+	return {
+		...player,
+		name: result.value,
+		isTemp,
+		isAI: Boolean(player.isAI),
+	};
+}
+
+/**
+ * Reads the local runtime payload defensively because localStorage can be edited
+ * by users or stale data from older builds.
+ */
+function parseStoredLocalMatchData(raw: string | null, expectedMatchId: string): LocalMatchData | null {
+	if (!raw) return null;
+
+	try {
+		const parsed = JSON.parse(raw) as LocalMatchData & { runtimeMatchId?: unknown };
+		if (!parsed || typeof parsed !== "object") return null;
+
+		const storedMatchId = parsed.matchId === undefined ? "" : String(parsed.matchId);
+		const runtimeMatchId =
+			parsed.runtimeMatchId === undefined ? "" : String(parsed.runtimeMatchId);
+
+		if (storedMatchId !== expectedMatchId && runtimeMatchId !== expectedMatchId) {
+			return null;
+		}
+
+		const player1 = normalizeStoredLocalPlayer(parsed.player1, [], "Player 1");
+		if (!player1) return null;
+
+		const player2 = normalizeStoredLocalPlayer(parsed.player2, [player1.name], "Player 2");
+		if (!player2) return null;
+
+		return {
+			...parsed,
+			matchId: storedMatchId,
+			tournamentId:
+				parsed.tournamentId === null || parsed.tournamentId === undefined
+					? null
+					: String(parsed.tournamentId),
+			isAI: Boolean(parsed.isAI),
+			aiDifficulty: normalizeLocalAIDifficulty(parsed.aiDifficulty),
+			isTournamentMatch: Boolean(parsed.isTournamentMatch),
+			player1,
+			player2,
+		};
+	} catch {
+		return null;
+	}
 }
 
 function getNextRemotePaddleY(
@@ -78,7 +157,11 @@ export default function GameRuntimePage() {
 		if (typeof window === "undefined") return null;
 
 		const storedMatchData = localStorage.getItem("current-match");
-		return storedMatchData ? JSON.parse(storedMatchData) : null;
+		const parsedMatchData = parseStoredLocalMatchData(storedMatchData, matchId);
+		if (storedMatchData && !parsedMatchData) {
+			localStorage.removeItem("current-match");
+		}
+		return parsedMatchData;
 	});
 	const [gameOverResult, setGameOverResult] = useState<RuntimeGameOverResult | null>(null);
 	const [disconnectInfo, setDisconnectInfo] = useState<DisconnectInfo | null>(null);
@@ -303,9 +386,6 @@ export default function GameRuntimePage() {
 		};
 	}, [isSpectator, setGameState, matchId]);
 
-	// Listen for opponent disconnect/reconnect events
-	const [opponentConnected, setOpponentConnected] = useState(true);
-
 	// Memoized event handlers for game state events
 	const handleDisconnect = useCallback((event: CustomEvent) => {
 		const { disconnectedPlayer, gracePeriodEndsAt } = event.detail;
@@ -313,18 +393,11 @@ export default function GameRuntimePage() {
 		setPauseInfo(null);
 		setDisconnectInfo({ disconnectedPlayer, gracePeriodEndsAt, countdown });
 		toast.warning("Opponent disconnected! Waiting for reconnection...");
-		setOpponentConnected(false);
 	}, []);
 
 	const handleReconnect = useCallback(() => {
 		setDisconnectInfo(null);
 		toast.success("Opponent reconnected!");
-		setOpponentConnected(true);
-	}, []);
-
-	const handleOpponentLeft = useCallback(() => {
-		setOpponentConnected(false);
-		// We don't need to toast here as SocketContext already does, or we can add specific UI feedback
 	}, []);
 
 	// Pause/Resume events
@@ -353,7 +426,6 @@ export default function GameRuntimePage() {
 	useEffect(() => {
 		window.addEventListener("opponentDisconnected", handleDisconnect as EventListener);
 		window.addEventListener("opponentReconnected", handleReconnect as EventListener);
-		window.addEventListener("opponentLeft", handleOpponentLeft as EventListener);
 		window.addEventListener("gamePaused", handleGamePaused as EventListener);
 		window.addEventListener("gameResumed", handleGameResumed as EventListener);
 		window.addEventListener("opponentReadyToResume", handleOpponentReadyToResume as EventListener);
@@ -362,13 +434,12 @@ export default function GameRuntimePage() {
 		return () => {
 			window.removeEventListener("opponentDisconnected", handleDisconnect as EventListener);
 			window.removeEventListener("opponentReconnected", handleReconnect as EventListener);
-			window.removeEventListener("opponentLeft", handleOpponentLeft as EventListener);
 			window.removeEventListener("gamePaused", handleGamePaused as EventListener);
 			window.removeEventListener("gameResumed", handleGameResumed as EventListener);
 			window.removeEventListener("opponentReadyToResume", handleOpponentReadyToResume as EventListener);
 			window.removeEventListener("waitingForResume", handleWaitingForResume as EventListener);
 		};
-	}, [matchId, handleDisconnect, handleReconnect, handleOpponentLeft, handleGamePaused, handleGameResumed, handleOpponentReadyToResume, handleWaitingForResume]);
+	}, [matchId, handleDisconnect, handleReconnect, handleGamePaused, handleGameResumed, handleOpponentReadyToResume, handleWaitingForResume]);
 
 	// Sync disconnect info from game state (for reconnection scenarios or late state updates).
 	// We keep the overlay state local so event-driven updates remain immediate, while this
@@ -381,13 +452,11 @@ export default function GameRuntimePage() {
 		if (nextDisconnectInfo && !hasSameDisconnectInfo(disconnectInfo, nextDisconnectInfo)) {
 			setPauseInfo(null);
 			setDisconnectInfo(nextDisconnectInfo);
-			setOpponentConnected(false);
 			return;
 		}
 
 		if (!nextDisconnectInfo && disconnectInfo) {
 			setDisconnectInfo(null);
-			setOpponentConnected(true);
 		}
 	}, [gameState, disconnectInfo]);
 
@@ -768,14 +837,19 @@ export default function GameRuntimePage() {
 			try {
 				if (matchData.isTournamentMatch && matchData.tournamentId) {
 					const outcome = result === "draw" || winner === null ? "draw" : "win";
-					const resultPayload = {
+					const resultPayload = normalizeLocalTournamentResultPayload({
 						matchId: matchData.matchId,
 						player1Id: matchData.player1?.id,
 						player2Id: matchData.player2?.id || null,
 						score,
 						outcome,
 						durationSeconds,
-					};
+					});
+					if (!resultPayload.ok) {
+						console.error("Invalid local tournament result:", resultPayload.error);
+						toast.error("Invalid tournament result. Please retry the match.");
+						return;
+					}
 					const pendingKey = `${LOCAL_TOURNAMENT_PENDING_RESULT_PREFIX}${matchData.tournamentId}:${matchData.matchId}`;
 					// Write-through outbox: store first, then attempt network submit.
 					// This keeps tournament progression recoverable if tab closes/disconnects mid-request.
@@ -783,14 +857,14 @@ export default function GameRuntimePage() {
 						pendingKey,
 						JSON.stringify({
 							tournamentId: matchData.tournamentId,
-							...resultPayload,
+							...resultPayload.value,
 							recordedAt: Date.now(),
 						})
 					);
 					try {
 						await axios.post(
 							`/api/tournament/${matchData.tournamentId}/match-result`,
-							resultPayload
+							resultPayload.value
 						);
 						localStorage.removeItem(pendingKey);
 					} catch (submitError: unknown) {
@@ -894,8 +968,6 @@ export default function GameRuntimePage() {
 					returnToLobby={returnToLobby}
 					sendSocketMessage={sendSocketMessage}
 					user={user}
-					setGameOverResult={setGameOverResult}
-					opponentConnected={opponentConnected}
 					router={router}
 					gameStart={gameStart}
 					disconnectInfo={disconnectInfo}

@@ -6,11 +6,12 @@ import {
 	useMemo,
 	useContext,
 	useEffect,
+	useLayoutEffect,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import axios from "axios";
-import { toast } from "sonner";
 import { AuthContextValue, UserProfile } from "@/types/types";
+import { redirectToLoginAfterSessionExpired } from "@/lib/session-expired";
 
 const NON_AUTHENTICATED_ROUTES = [
 	"/",
@@ -33,6 +34,60 @@ export const AuthProvider = ({ children }) => {
 		return NON_AUTHENTICATED_ROUTES.includes(pathname);
 	}, [pathname]);
 
+	useLayoutEffect(() => {
+		if (typeof window === "undefined") return;
+
+		const isAuthEndpoint = (url: unknown) => {
+			const value = typeof url === "string" ? url : "";
+			return (
+				value.includes("/api/auth/login") ||
+				value.includes("/api/auth/2fa/verify")
+			);
+		};
+
+		const getFetchUrl = (input: RequestInfo | URL) => {
+			if (typeof input === "string") return input;
+			if (input instanceof URL) return input.toString();
+			return input.url;
+		};
+
+		const redirectExpiredSession = (url: unknown) => {
+			if (isNonAuthenticatedPage || isAuthEndpoint(url)) return false;
+
+			setUser(null);
+			redirectToLoginAfterSessionExpired(router, pathname || "/dashboard");
+			return true;
+		};
+
+		const interceptorId = axios.interceptors.response.use(
+			(response) => response,
+			(error) => {
+				if (error?.response?.status === 401) {
+					redirectExpiredSession(error?.config?.url);
+				}
+				return Promise.reject(error);
+			}
+		);
+
+		const originalFetch = window.fetch.bind(window);
+		const guardedFetch: typeof window.fetch = async (input, init) => {
+			const response = await originalFetch(input, init);
+			if (response.status === 401) {
+				redirectExpiredSession(getFetchUrl(input));
+			}
+			return response;
+		};
+
+		window.fetch = guardedFetch;
+
+		return () => {
+			axios.interceptors.response.eject(interceptorId);
+			if (window.fetch === guardedFetch) {
+				window.fetch = originalFetch;
+			}
+		};
+	}, [isNonAuthenticatedPage, pathname, router]);
+
 	const refreshUser = useCallback(async () => {
 		try {
 			if (isNonAuthenticatedPage)
@@ -41,10 +96,11 @@ export const AuthProvider = ({ children }) => {
 			const profileData = response.data;
 			setUser(profileData);
 			return (profileData);
-		} catch (error: any) {
+		} catch (error: unknown) {
 			// Only clear user if it's an authentication error (401/403)
 			// Otherwise, preserve existing user data to avoid UI disappearing
-			if (error?.response?.status === 401 || error?.response?.status === 403) {
+			const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+			if (status === 401 || status === 403) {
 				setUser(null);
 			}
 			// For other errors, keep the existing user data
@@ -89,35 +145,10 @@ export const AuthProvider = ({ children }) => {
 
 		fetchUser();
 
-		// Global Axios Interceptor for 401 Unauthorized (Session Management)
-		const interceptorId = axios.interceptors.response.use(
-			(response) => response,
-			(error) => {
-				if (error.response && error.response.status === 401) {
-					// Ignore 401s on non-authenticated routes (like login/signup failures)
-					// or 2fa verification endpoints
-					const url = error.config.url;
-					const isAuthEndpoint = url.includes('/api/auth/login') || url.includes('/api/auth/2fa/verify');
-
-					if (!isNonAuthenticatedPage && !isAuthEndpoint) {
-						setUser(null);
-						toast.error("Your session has expired. Please log in again.");
-						router.push(`/login?next=${encodeURIComponent(pathname)}`);
-						// Return an unresolved Promise to swallow the error globally.
-						// This prevents downstream components (like tournament fetchers) 
-						// from throwing unhandled Promise rejections while the redirect is happening.
-						return new Promise(() => { });
-					}
-				}
-				return Promise.reject(error);
-			}
-		);
-
 		return () => {
 			isMounted = false;
-			axios.interceptors.response.eject(interceptorId);
 		};
-	}, [isNonAuthenticatedPage, router, pathname]);
+	}, [isNonAuthenticatedPage, loadingAuth, user]);
 
 	const login = useCallback(
 		async (email: string, password: string) => {

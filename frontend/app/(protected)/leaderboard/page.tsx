@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import axios from "axios";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Trophy, Crown, Medal } from "lucide-react";
 import { useLanguage } from '@/context/languageContext';
+import { handleSessionExpiredRedirect } from "@/lib/session-expired";
 
 interface Player {
   rank: number;
@@ -23,6 +25,7 @@ interface Player {
 
 export default function LeaderboardPage() {
   const { t } = useLanguage();
+  const router = useRouter();
   const [leaderboard, setLeaderboard] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [offset, setOffset] = useState(0);
@@ -36,13 +39,14 @@ export default function LeaderboardPage() {
         const res = await axios.get(`/api/leaderboard?limit=${LIMIT}&offset=${offset}`);
         setLeaderboard(res.data.leaderboard);
       } catch (error) {
+        if (handleSessionExpiredRedirect(error, router, "/leaderboard")) return;
         console.error("Failed to load leaderboard", error);
       } finally {
         setLoading(false);
       }
     }
     fetch();
-  }, [offset]);
+  }, [offset, router]);
 
   if (loading) {
     return (

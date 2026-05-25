@@ -8,10 +8,16 @@ import { useGame } from "@/hooks/use-game";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { ArrowLeft, Trophy, Loader2, X, Crown, User, Copy, Check } from "lucide-react";
+import { ArrowLeft, Trophy, Loader2, X, Crown, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/languageContext";
+import {
+	buildRemoteTournamentId,
+	validateRemoteMatchmakingMode,
+	validateRemotePlayerCount,
+	validateRemoteRoomCode,
+	validateRemoteTournamentId,
+} from "@/lib/remote-play-validation";
 
 interface TournamentRoom {
 	roomId: string;
@@ -29,7 +35,6 @@ export default function TournamentMatchmakingPage() {
 	const [searching, setSearching] = useState(true);
 	const [searchTime, setSearchTime] = useState(0);
 	const [tournamentRoom, setTournamentRoom] = useState<TournamentRoom | null>(null);
-	const [copied, setCopied] = useState(false);
 	const hasSentJoinRef = useRef(false);
 	const recoveredTournamentRoom = useMemo(() => {
 		if (!user || !gameRoom?.isTournament) return null;
@@ -50,12 +55,14 @@ export default function TournamentMatchmakingPage() {
 
 	const sendJoinMatchmaking = useCallback(() => {
 		if (!user || !isReady) return;
+		const mode = validateRemoteMatchmakingMode("tournament");
+		if (!mode.ok) return;
 		sendSocketMessage({
 			event: "JOIN_MATCHMAKING",
 			payload: {
 				userId: user.id,
 				username: user.username,
-				mode: "tournament",
+				mode: mode.value,
 			},
 		});
 	}, [user, isReady, sendSocketMessage]);
@@ -91,9 +98,22 @@ export default function TournamentMatchmakingPage() {
 	useEffect(() => {
 		const handleTournamentFound = (event: CustomEvent) => {
 			const payload = event.detail;
+			const roomCodeResult = validateRemoteRoomCode(payload?.roomId, "Tournament code");
+			const tournamentIdResult = roomCodeResult.ok
+				? validateRemoteTournamentId(payload?.tournamentId, roomCodeResult.value)
+				: roomCodeResult;
+			const hasValidLobbyPlayers =
+				Array.isArray(payload?.players) &&
+				payload.players.length >= 1 &&
+				payload.players.length <= 8;
+			if (!roomCodeResult.ok || !tournamentIdResult.ok || !hasValidLobbyPlayers) {
+				console.error("Ignoring invalid tournament matchmaking payload:", payload);
+				setSearching(false);
+				return;
+			}
 			setTournamentRoom({
-				roomId: payload.roomId,
-				tournamentId: payload.tournamentId,
+				roomId: roomCodeResult.value,
+				tournamentId: tournamentIdResult.value,
 				players: payload.players,
 				isHost: payload.isHost,
 			});
@@ -163,10 +183,15 @@ export default function TournamentMatchmakingPage() {
 		setGameRoom(null);
 		if (user && isReady) {
 			if (activeTournamentRoom) {
+				const roomCodeResult = validateRemoteRoomCode(
+					activeTournamentRoom.roomId,
+					"Tournament code"
+				);
+				if (!roomCodeResult.ok) return;
 				// Leave the room
 				sendSocketMessage({
 					event: "LEAVE_ROOM",
-					payload: { roomId: activeTournamentRoom.roomId, userId: user.id },
+					payload: { roomId: roomCodeResult.value, userId: user.id },
 				});
 			} else {
 				// Leave matchmaking queue
@@ -179,21 +204,24 @@ export default function TournamentMatchmakingPage() {
 		router.push("/game/remote/tournament");
 	};
 
-	const handleCopyCode = () => {
-		if (activeTournamentRoom?.roomId) {
-			navigator.clipboard.writeText(activeTournamentRoom.roomId);
-			setCopied(true);
-			setTimeout(() => setCopied(false), 2000);
-		}
-	};
-
 	const handleStartTournament = () => {
 		const roomId = activeTournamentRoom?.roomId || gameRoom?.roomId;
-		const tournamentId = activeTournamentRoom?.tournamentId || (roomId ? `RT-${roomId}` : "");
+		const roomCodeResult = validateRemoteRoomCode(roomId, "Tournament code");
+		const tournamentIdResult = roomCodeResult.ok
+			? validateRemoteTournamentId(
+					activeTournamentRoom?.tournamentId ||
+						buildRemoteTournamentId(roomCodeResult.value),
+					roomCodeResult.value
+			  )
+			: roomCodeResult;
+		const playerCountResult = validateRemotePlayerCount(
+			gameRoom?.joinedPlayers.length || activeTournamentRoom?.players.length,
+			"tournament"
+		);
 
 		console.log("[Tournament] Start requested", {
 			roomId,
-			tournamentId,
+			tournamentId: tournamentIdResult.ok ? tournamentIdResult.value : "",
 			isReady,
 			hasTournamentRoom: !!activeTournamentRoom,
 			hasGameRoom: !!gameRoom,
@@ -202,9 +230,17 @@ export default function TournamentMatchmakingPage() {
 			playerCount: gameRoom?.joinedPlayers.length || activeTournamentRoom?.players.length
 		});
 
-		if (!roomId || !isReady) {
+		if (!roomCodeResult.ok || !tournamentIdResult.ok || !playerCountResult.ok || !isReady) {
 			console.warn("[Tournament] Cannot start: missing roomId or socket not ready");
-			toast.error(t.Game["Cannot start tournament: Socket not ready or Room ID missing"]);
+			toast.error(
+				!roomCodeResult.ok
+					? roomCodeResult.error
+					: !tournamentIdResult.ok
+						? tournamentIdResult.error
+						: !playerCountResult.ok
+							? playerCountResult.error
+							: "Cannot start tournament: socket not ready"
+			);
 			return;
 		}
 
@@ -213,8 +249,8 @@ export default function TournamentMatchmakingPage() {
 		sendSocketMessage({
 			event: "START_TOURNAMENT",
 			payload: {
-				roomId,
-				tournamentId,
+				roomId: roomCodeResult.value,
+				tournamentId: tournamentIdResult.value,
 			},
 		});
 
@@ -232,7 +268,7 @@ export default function TournamentMatchmakingPage() {
 
 	const playerCount = gameRoom?.joinedPlayers.length || activeTournamentRoom?.players.length || 1;
 	const isHost = gameRoom ? gameRoom.hostId === Number(user?.id) : activeTournamentRoom?.isHost;
-	const canStart = playerCount >= 3;
+	const canStart = validateRemotePlayerCount(playerCount, "tournament").ok;
 
 	// Show lobby if we have a tournament room
 	if (activeTournamentRoom) {
@@ -259,38 +295,11 @@ export default function TournamentMatchmakingPage() {
 								</div>
 								<CardTitle className="text-2xl font-bold">{t.Game["Tournament Lobby"]}</CardTitle>
 								<CardDescription>
-									{isHost
-										? t.Game["You are the host - share the code or wait for players"]
-										: t.Game["Waiting for host to start"]}
+									{isHost ? "You are the host - wait for players to join" : "Waiting for host to start"}
 								</CardDescription>
 							</CardHeader>
 
 							<CardContent className="space-y-6">
-								{/* Room Code */}
-								<div className="space-y-2">
-									<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-										{t.Game["Tournament Code"]}
-									</label>
-									<div className="flex gap-2">
-										<Input
-											value={activeTournamentRoom.roomId}
-											readOnly
-											className="font-mono text-lg text-center bg-muted/50 tracking-widest"
-										/>
-										<Button
-											variant="outline"
-											size="icon"
-											onClick={handleCopyCode}
-											className={cn(
-												"shrink-0 transition-colors",
-												copied && "bg-green-500/10 border-green-500/30 text-green-500"
-											)}
-										>
-											{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-										</Button>
-									</div>
-								</div>
-
 								{/* Players */}
 								<div className="space-y-3">
 									<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">

@@ -170,6 +170,7 @@ export interface GameStateValue {
 	pausedBy?: string;
 	pausedByName?: string;
 	pausedAt?: number;
+	disconnectedPlayer?: string | null;
 	resumeReady?: { LEFT: boolean; RIGHT: boolean } | null;
 	disconnectCountdown?: {
 		disconnectedPlayer: string;
