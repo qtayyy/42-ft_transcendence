@@ -114,7 +114,7 @@ export default function MatchmakingPage() {
 			return;
 		}
 
-		router.push(`/game/remote/single/join?roomId=${gameRoom.roomId}&matchmaking=true`);
+		router.push("/game/remote/single/join?matchmaking=true");
 	}, [searching, user, gameRoom, router]);
 
 	// Watchdog: retry join request if still searching with no room assignment.

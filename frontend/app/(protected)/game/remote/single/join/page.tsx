@@ -25,6 +25,7 @@ export default function JoinRoomPage() {
 	const { sendSocketMessage, isReady, reconnectSocket } = useSocket();
 	const { gameRoom } = useGame();
 	const { t } = useLanguage();
+	const isMatchmaking = searchParams.get("matchmaking") === "true";
 	const [roomCode, setRoomCode] = useState("");
 	const [joining, setJoining] = useState(false);
 	const [joined, setJoined] = useState(false);
@@ -60,6 +61,7 @@ export default function JoinRoomPage() {
 				event: "JOIN_ROOM_BY_CODE",
 				payload: {
 					roomId: normalizedCode,
+					mode: "single",
 					userId: user.id,
 					username: user.username,
 				},
@@ -71,9 +73,8 @@ export default function JoinRoomPage() {
 	// Support auto-join from matchmaking redirect
 	useEffect(() => {
 		const roomIdParam = searchParams.get("roomId");
-		const isMatchmaking = searchParams.get("matchmaking") === "true";
 		const isInviteFlow = searchParams.get("invite") === "true";
-		const shouldAutoJoin = Boolean(roomIdParam) && (isMatchmaking || isInviteFlow);
+		const shouldAutoJoin = Boolean(roomIdParam) && isInviteFlow;
 
 		if (!shouldAutoJoin || !roomIdParam || !user || joined || joining || hasAttemptedAutoJoin.current) {
 			return;
@@ -102,6 +103,21 @@ export default function JoinRoomPage() {
 
 		return () => window.clearTimeout(autoJoinId);
 	}, [searchParams, isReady, user, joined, joining, reconnectSocket, attemptJoin]);
+
+	useEffect(() => {
+		if (!isMatchmaking || !user || !isReady || gameRoom) return;
+		sendSocketMessage({
+			event: "GET_GAME_ROOM",
+			payload: { userId: user.id },
+		});
+		const interval = window.setInterval(() => {
+			sendSocketMessage({
+				event: "GET_GAME_ROOM",
+				payload: { userId: user.id },
+			});
+		}, 2000);
+		return () => window.clearInterval(interval);
+	}, [isMatchmaking, user, isReady, gameRoom, sendSocketMessage]);
 
 	// Poll for room updates after joining
 	useEffect(() => {
@@ -202,11 +218,17 @@ export default function JoinRoomPage() {
 	};
 
 	const handleLeave = () => {
-		const roomCodeResult = validateRemoteRoomCode(roomCode);
-		if (joined && user && isReady && roomCodeResult.ok) {
+		const currentRoomId = gameRoom?.roomId || roomCode;
+		const roomCodeResult = validateRemoteRoomCode(currentRoomId);
+		if ((joined || isMatchmaking) && user && isReady && roomCodeResult.ok) {
 			sendSocketMessage({
 				event: "LEAVE_ROOM",
 				payload: { roomId: roomCodeResult.value, userId: user.id },
+			});
+		} else if (isMatchmaking && user && isReady) {
+			sendSocketMessage({
+				event: "LEAVE_MATCHMAKING",
+				payload: { userId: user.id },
 			});
 		}
 		setJoined(false);
@@ -218,9 +240,15 @@ export default function JoinRoomPage() {
 	const canStart =
 		gameRoom &&
 		validateRemotePlayerCount(gameRoom.joinedPlayers.length, "single").ok;
+	const isMatchmakingMember = Boolean(
+		isMatchmaking &&
+		user &&
+		!gameRoom?.isTournament &&
+		gameRoom?.joinedPlayers?.some((player) => Number(player.id) === Number(user.id))
+	);
 
 	// Show lobby view after joining
-	if (joined && gameRoom) {
+	if ((joined || isMatchmakingMember) && gameRoom) {
 		return (
 			<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
 				<div className="w-full max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
@@ -326,6 +354,47 @@ export default function JoinRoomPage() {
 										Start Game
 									</Button>
 								)}
+							</CardContent>
+						</Card>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	if (isMatchmaking) {
+		return (
+			<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-gradient-to-b from-background to-muted/20">
+				<div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
+					<div className="flex items-center justify-between">
+						<Button
+							variant="ghost"
+							onClick={handleLeave}
+							className="gap-2 text-muted-foreground hover:text-foreground pl-0"
+						>
+							<ArrowLeft className="h-4 w-4" />
+							{t.Game["Back"]}
+						</Button>
+					</div>
+
+					<div className="relative group">
+						<div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-30 animate-pulse"></div>
+						<Card className="relative border-0 bg-card/95 backdrop-blur-sm shadow-2xl">
+							<CardHeader className="text-center pb-4">
+								<div className="mx-auto p-4 rounded-full bg-purple-500/10 mb-4 ring-1 ring-purple-500/20">
+									<Loader2 className="h-8 w-8 text-purple-500 animate-spin" />
+								</div>
+								<CardTitle className="text-2xl font-bold">{t.Game["Finding Opponent"]}</CardTitle>
+								<CardDescription>{t.Game["Searching public queue and preparing your lobby..."]}</CardDescription>
+							</CardHeader>
+
+							<CardContent>
+								<div className="rounded-xl border border-purple-500/20 bg-purple-500/10 p-4 text-center">
+									<p className="text-sm font-medium text-purple-500">Public Match Lobby</p>
+									<p className="text-xs text-muted-foreground mt-1">
+										Room codes are hidden for public matchmaking.
+									</p>
+								</div>
 							</CardContent>
 						</Card>
 					</div>

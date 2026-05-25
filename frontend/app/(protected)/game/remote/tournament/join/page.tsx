@@ -88,6 +88,7 @@ export default function JoinTournamentPage() {
 			event: "JOIN_ROOM_BY_CODE",
 			payload: {
 				roomId: normalizedCode,
+				mode: "tournament",
 				userId: user.id,
 				username: user.username,
 			},
