@@ -13,6 +13,11 @@ import { cn } from "@/lib/utils";
 import axios from "axios";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
 import { useLanguage } from "@/context/languageContext";
+import {
+	validateRemoteMatchmakingMode,
+	validateRemotePlayerCount,
+	validateRemoteRoomCode,
+} from "@/lib/remote-play-validation";
 
 export default function CreateRoomPage() {
 	const router = useRouter();
@@ -22,10 +27,17 @@ export default function CreateRoomPage() {
 	const { gameRoom, setGameRoom, setGameRoomLoaded } = useGame();
 	const { t } = useLanguage();
 	const requestedRoomId = searchParams.get("roomId");
-	const [roomId, setRoomId] = useState<string | null>(requestedRoomId);
+	const requestedRoomCode = requestedRoomId
+		? validateRemoteRoomCode(requestedRoomId)
+		: null;
+	const [roomId, setRoomId] = useState<string | null>(
+		requestedRoomCode?.ok ? requestedRoomCode.value : null
+	);
 	const [copied, setCopied] = useState(false);
 	const [creating, setCreating] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<string | null>(
+		requestedRoomCode && !requestedRoomCode.ok ? requestedRoomCode.error : null
+	);
 	const hasSentMatchmakingJoinRef = useRef(false);
 	const isLeavingRef = useRef(false);
 	const isMatchmakingMode = searchParams.get("matchmaking") === "true";
@@ -48,12 +60,14 @@ export default function CreateRoomPage() {
 			reconnectSocket();
 			return;
 		}
+		const mode = validateRemoteMatchmakingMode("single");
+		if (!mode.ok) return;
 		sendSocketMessage({
 			event: "JOIN_MATCHMAKING",
 			payload: {
 				userId: user.id,
 				username: user.username,
-				mode: "single",
+				mode: mode.value,
 			},
 		});
 	}, [user, isReady, sendSocketMessage, reconnectSocket]);
@@ -86,9 +100,14 @@ export default function CreateRoomPage() {
 		const isMember = gameRoom.joinedPlayers?.some((p) => Number(p.id) === me);
 		if (!isMember) return;
 
-		setRoomId(gameRoom.roomId);
+		const roomCodeResult = validateRemoteRoomCode(gameRoom.roomId);
+		if (!roomCodeResult.ok) {
+			setError(roomCodeResult.error);
+			return;
+		}
+		setRoomId(roomCodeResult.value);
 		if (Number(gameRoom.hostId) !== me) {
-			router.push(`/game/remote/single/join?roomId=${gameRoom.roomId}&matchmaking=true`);
+			router.push("/game/remote/single/join?matchmaking=true");
 		}
 	}, [isMatchmakingMode, gameRoom, user, router]);
 
@@ -116,7 +135,14 @@ export default function CreateRoomPage() {
 
 			// If we already have a gameRoom (e.g. from matchmaking host redirect), uses that
 			if (gameRoom && gameRoom.hostId === Number(user?.id)) {
-				if (gameRoom.roomId) setRoomId(gameRoom.roomId);
+				if (gameRoom.roomId) {
+					const roomCodeResult = validateRemoteRoomCode(gameRoom.roomId);
+					if (!roomCodeResult.ok) {
+						setError(roomCodeResult.error);
+						return;
+					}
+					setRoomId(roomCodeResult.value);
+				}
 				return;
 			}
 
@@ -162,8 +188,9 @@ export default function CreateRoomPage() {
 	}, [user, isReady, roomId, sendSocketMessage]);
 
 	const handleCopyCode = () => {
-		if (roomId) {
-			navigator.clipboard.writeText(roomId);
+		const roomCodeResult = validateRemoteRoomCode(roomId);
+		if (roomCodeResult.ok) {
+			navigator.clipboard.writeText(roomCodeResult.value);
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
 		}
@@ -178,13 +205,20 @@ export default function CreateRoomPage() {
 			isReady: isReady
 		});
 
-		if (!gameRoom || gameRoom.joinedPlayers.length < 2 || !roomId || !isReady) {
+		const roomCodeResult = validateRemoteRoomCode(roomId);
+		const playerCountResult = validateRemotePlayerCount(
+			gameRoom?.joinedPlayers.length,
+			"single"
+		);
+
+		if (!gameRoom || !roomCodeResult.ok || !playerCountResult.ok || !isReady) {
 			console.error('❌ [Start Match] Cannot start game - conditions not met:', {
 				gameRoom: !!gameRoom,
 				players: gameRoom?.joinedPlayers.length || 0,
 				roomId: roomId,
 				socketReady: isReady
 			});
+			setError(!roomCodeResult.ok ? roomCodeResult.error : playerCountResult.ok ? null : playerCountResult.error);
 			return;
 		}
 
@@ -192,7 +226,7 @@ export default function CreateRoomPage() {
 		// Send start game event - both players will receive GAME_MATCH_START
 		sendSocketMessage({
 			event: "START_ROOM_GAME",
-			payload: { roomId },
+			payload: { roomId: roomCodeResult.value },
 		});
 		console.log('📤 [Start Match] Event sent successfully');
 	};
@@ -210,16 +244,19 @@ export default function CreateRoomPage() {
 				payload: { userId: user.id },
 			});
 		}
-		if (currentRoomId && user && isReady) {
+		const roomCodeResult = validateRemoteRoomCode(currentRoomId);
+		if (roomCodeResult.ok && user && isReady) {
 			sendSocketMessage({
 				event: "LEAVE_ROOM",
-				payload: { roomId: currentRoomId, userId: user.id },
+				payload: { roomId: roomCodeResult.value, userId: user.id },
 			});
 		}
 		router.replace("/game/remote/single");
 	};
 
-	const canStart = gameRoom && gameRoom.joinedPlayers.length >= 2;
+	const canStart =
+		gameRoom &&
+		validateRemotePlayerCount(gameRoom.joinedPlayers.length, "single").ok;
 
 	return (
 		<div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-linear-to-b from-background to-muted/20">
@@ -268,29 +305,36 @@ export default function CreateRoomPage() {
 								</div>
 							) : roomId && (
 								<>
-									<div className="space-y-2">
-										<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-											{t.Game["ROOM CODE"]}
-										</label>
-										<div className="flex gap-2">
-											<Input
-												value={roomId}
-												readOnly
-												className="font-mono text-lg text-center bg-muted/50 tracking-widest"
-											/>
-											<Button
-												variant="outline"
-												size="icon"
-												onClick={handleCopyCode}
-												className={cn(
-													"shrink-0 transition-colors",
-													copied && "bg-green-500/10 border-green-500/30 text-green-500"
-												)}
-											>
-												{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-											</Button>
+									{isMatchmakingMode ? (
+										<div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-center">
+											<p className="text-sm font-medium text-blue-500">Public Match Lobby</p>
+
 										</div>
-									</div>
+									) : (
+										<div className="space-y-2">
+											<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+												{t.Game["ROOM CODE"]}
+											</label>
+											<div className="flex gap-2">
+												<Input
+													value={roomId}
+													readOnly
+													className="font-mono text-lg text-center bg-muted/50 tracking-widest"
+												/>
+												<Button
+													variant="outline"
+													size="icon"
+													onClick={handleCopyCode}
+													className={cn(
+														"shrink-0 transition-colors",
+														copied && "bg-green-500/10 border-green-500/30 text-green-500"
+													)}
+												>
+													{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+												</Button>
+											</div>
+										</div>
+									)}
 
 									{/* Players */}
 									<div className="space-y-3">

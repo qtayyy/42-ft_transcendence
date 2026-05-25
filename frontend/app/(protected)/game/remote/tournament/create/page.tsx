@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useSocket } from "@/hooks/use-socket";
@@ -8,10 +8,17 @@ import { useGame } from "@/hooks/use-game";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Copy, Check, Users, Loader2, Play, Crown, User, Trophy } from "lucide-react";
+import { ArrowLeft, Copy, Check, Loader2, Crown, User, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
+import {
+	REMOTE_TOURNAMENT_MAX_PLAYERS,
+	buildRemoteTournamentId,
+	validateRemotePlayerCount,
+	validateRemoteRoomCode,
+	validateRemoteTournamentId,
+} from "@/lib/remote-play-validation";
 import { useLanguage } from "@/context/languageContext";
 
 export default function CreateTournamentRoomPage() {
@@ -24,7 +31,8 @@ export default function CreateTournamentRoomPage() {
 	const [copied, setCopied] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const maxPlayers = 8;
+	const maxPlayers = REMOTE_TOURNAMENT_MAX_PLAYERS;
+	const hasRequestedRoom = useRef(false);
 	const syncRoomState = useCallback(() => {
 		if (!user || !isReady) return;
 		sendSocketMessage({
@@ -36,7 +44,8 @@ export default function CreateTournamentRoomPage() {
 	// Create room on mount
 	useEffect(() => {
 		const createRoom = async () => {
-			if (!user || creating || roomId) return;
+			if (!user || hasRequestedRoom.current) return;
+			hasRequestedRoom.current = true;
 			setCreating(true);
 			try {
 				const res = await axios.get(`/api/game/room/create?maxPlayers=${maxPlayers}&tournament=true`);
@@ -49,12 +58,13 @@ export default function CreateTournamentRoomPage() {
 						? String(err.response.data.error)
 						: "Failed to create tournament room";
 				setError(errorMessage);
+				hasRequestedRoom.current = false;
 			} finally {
 				setCreating(false);
 			}
 		};
 		createRoom();
-	}, [user, maxPlayers]);
+	}, [user, maxPlayers, router]);
 
 	// Keep the host lobby warm so missed socket pushes self-heal quickly.
 	useEffect(() => {
@@ -81,24 +91,52 @@ export default function CreateTournamentRoomPage() {
 	}, [syncRoomState, user, isReady, roomId]);
 
 	const handleCopyCode = () => {
-		if (roomId) {
-			navigator.clipboard.writeText(roomId);
+		const roomCodeResult = validateRemoteRoomCode(roomId, "Tournament code");
+		if (roomCodeResult.ok) {
+			navigator.clipboard.writeText(roomCodeResult.value);
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
 		}
 	};
 
 	const handleStartTournament = () => {
-		if (!gameRoom || gameRoom.joinedPlayers.length < 3 || !isReady || !roomId) return;
-		
-		const tournamentId = `RT-${roomId}`;
-		
+		const roomCodeResult = validateRemoteRoomCode(roomId, "Tournament code");
+		const playerCountResult = validateRemotePlayerCount(
+			gameRoom?.joinedPlayers.length,
+			"tournament"
+		);
+		const tournamentIdResult = roomCodeResult.ok
+			? validateRemoteTournamentId(
+					buildRemoteTournamentId(roomCodeResult.value),
+					roomCodeResult.value
+			  )
+			: roomCodeResult;
+
+		if (
+			!gameRoom ||
+			!roomCodeResult.ok ||
+			!playerCountResult.ok ||
+			!tournamentIdResult.ok ||
+			!isReady
+		) {
+			setError(
+				!roomCodeResult.ok
+					? roomCodeResult.error
+					: !playerCountResult.ok
+						? playerCountResult.error
+						: !tournamentIdResult.ok
+							? tournamentIdResult.error
+							: "Socket is not ready."
+			);
+			return;
+		}
+
 		// Send WebSocket event to notify all players
 		sendSocketMessage({
 			event: "START_TOURNAMENT",
 			payload: {
-				roomId,
-				tournamentId,
+				roomId: roomCodeResult.value,
+				tournamentId: tournamentIdResult.value,
 			},
 		});
 		
@@ -106,25 +144,36 @@ export default function CreateTournamentRoomPage() {
 	};
 
 	const handleLeave = () => {
-		if (roomId && user && isReady) {
+		const roomCodeResult = validateRemoteRoomCode(roomId, "Tournament code");
+		if (roomCodeResult.ok && user && isReady) {
 			sendSocketMessage({
 				event: "LEAVE_ROOM",
-				payload: { roomId, userId: user.id },
+				payload: { roomId: roomCodeResult.value, userId: user.id },
 			});
 		}
 		router.push("/game/remote/tournament");
 	};
 
-	const canStart = gameRoom && gameRoom.joinedPlayers.length >= 3;
+	const canStart =
+		gameRoom &&
+		validateRemotePlayerCount(gameRoom.joinedPlayers.length, "tournament").ok;
 	const playerCount = gameRoom?.joinedPlayers.length || 1;
 
 	// Auto-redirect if tournament has already started
 	useEffect(() => {
 		// Ensure gameRoom exists before accessing properties
 		if (gameRoom?.tournamentStarted && roomId) {
-			const tournamentId = `RT-${roomId}`;
-			console.log("Tournament already started, redirecting to:", tournamentId);
-			router.push(`/game/remote/tournament/${tournamentId}`);
+			const roomCodeResult = validateRemoteRoomCode(roomId, "Tournament code");
+			const tournamentIdResult = roomCodeResult.ok
+				? validateRemoteTournamentId(
+						buildRemoteTournamentId(roomCodeResult.value),
+						roomCodeResult.value
+				  )
+				: roomCodeResult;
+			if (tournamentIdResult.ok) {
+				console.log("Tournament already started, redirecting to:", tournamentIdResult.value);
+				router.push(`/game/remote/tournament/${tournamentIdResult.value}`);
+			}
 		}
 	}, [gameRoom, roomId, router]);
 

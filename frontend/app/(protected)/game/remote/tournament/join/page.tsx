@@ -10,6 +10,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, LogIn, Loader2, AlertCircle, Trophy, Crown, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+	REMOTE_ROOM_CODE_MAX_LENGTH,
+	buildRemoteTournamentId,
+	validateRemotePlayerCount,
+	validateRemoteRoomCode,
+	validateRemoteTournamentId,
+} from "@/lib/remote-play-validation";
 import { useLanguage } from "@/context/languageContext";
 
 export default function JoinTournamentPage() {
@@ -35,9 +42,13 @@ export default function JoinTournamentPage() {
 		return () => window.clearInterval(interval);
 	}, [user, isReady, joined, reconnectSocket]);
 
-	const attemptJoin = useCallback(() => {
-		const trimmedCode = roomCode.trim();
-		if (!trimmedCode || !user || !isReady) return;
+	const attemptJoin = useCallback((targetRoomCode = roomCode) => {
+		const roomCodeResult = validateRemoteRoomCode(targetRoomCode, "Tournament code");
+		if (!roomCodeResult.ok || !user || !isReady) {
+			if (!roomCodeResult.ok) setError(roomCodeResult.error);
+			return;
+		}
+		const normalizedCode = roomCodeResult.value;
 
 		setJoining(true);
 		setPendingJoin(false);
@@ -55,11 +66,11 @@ export default function JoinTournamentPage() {
 		const onJoinSuccess = (e: CustomEvent) => {
 			const data = e.detail;
 			console.log("[JOIN_ROOM_SUCCESS] detail:", data);
-			if (data.roomId === trimmedCode) {
+			if (data.roomId === normalizedCode) {
 				cleanupJoinListener();
 				setJoined(true);
 			} else {
-				console.warn(`[JOIN_ROOM_MISMATCH] Joined ${data.roomId} but wanted ${trimmedCode}`);
+				console.warn(`[JOIN_ROOM_MISMATCH] Joined ${data.roomId} but wanted ${normalizedCode}`);
 			}
 		};
 
@@ -76,7 +87,8 @@ export default function JoinTournamentPage() {
 		sendSocketMessage({
 			event: "JOIN_ROOM_BY_CODE",
 			payload: {
-				roomId: trimmedCode,
+				roomId: normalizedCode,
+				mode: "tournament",
 				userId: user.id,
 				username: user.username,
 			},
@@ -118,13 +130,20 @@ export default function JoinTournamentPage() {
 
 	const handleJoin = () => {
 		if (!roomCode.trim() || !user) return;
+		const roomCodeResult = validateRemoteRoomCode(roomCode, "Tournament code");
+		if (!roomCodeResult.ok) {
+			setError(roomCodeResult.error);
+			return;
+		}
+
 		if (!isReady) {
-			setError(t.Game["Connecting to realtime server... joining as soon as it reconnects."] || "Connecting to realtime server... joining as soon as it reconnects.");
+			setError("Connecting to realtime server... joining as soon as it reconnects.");
 			setPendingJoin(true);
 			reconnectSocket();
 			return;
 		}
-		attemptJoin();
+		setRoomCode(roomCodeResult.value);
+		attemptJoin(roomCodeResult.value);
 	};
 
 	useEffect(() => {
@@ -136,16 +155,34 @@ export default function JoinTournamentPage() {
 	}, [pendingJoin, isReady, joining, joined, attemptJoin]);
 
 	const handleStartTournament = () => {
-		if (!gameRoom || gameRoom.joinedPlayers.length < 3 || !isReady) return;
-		
-		const tournamentId = `RT-${roomCode.trim()}`;
-		
+		const playerCountResult = validateRemotePlayerCount(
+			gameRoom?.joinedPlayers.length,
+			"tournament"
+		);
+		if (!gameRoom || !playerCountResult.ok || !isReady) {
+			if (!playerCountResult.ok) setError(playerCountResult.error);
+			return;
+		}
+		const roomCodeResult = validateRemoteRoomCode(roomCode, "Tournament code");
+		if (!roomCodeResult.ok) {
+			setError(roomCodeResult.error);
+			return;
+		}
+		const tournamentIdResult = validateRemoteTournamentId(
+			buildRemoteTournamentId(roomCodeResult.value),
+			roomCodeResult.value
+		);
+		if (!tournamentIdResult.ok) {
+			setError(tournamentIdResult.error);
+			return;
+		}
+
 		// Send WebSocket event to notify all players
 		sendSocketMessage({
 			event: "START_TOURNAMENT",
 			payload: {
-				roomId: roomCode.trim(),
-				tournamentId,
+				roomId: roomCodeResult.value,
+				tournamentId: tournamentIdResult.value,
 			},
 		});
 		
@@ -153,10 +190,11 @@ export default function JoinTournamentPage() {
 	};
 
 	const handleLeave = () => {
-		if (joined && user && isReady && roomCode) {
+		const roomCodeResult = validateRemoteRoomCode(roomCode, "Tournament code");
+		if (joined && user && isReady && roomCodeResult.ok) {
 			sendSocketMessage({
 				event: "LEAVE_ROOM",
-				payload: { roomId: roomCode.trim(), userId: user.id },
+				payload: { roomId: roomCodeResult.value, userId: user.id },
 			});
 		}
 		setJoined(false);
@@ -165,7 +203,9 @@ export default function JoinTournamentPage() {
 	};
 
 	const isHost = gameRoom?.hostId === Number(user?.id);
-	const canStart = gameRoom && gameRoom.joinedPlayers.length >= 3;
+	const canStart =
+		gameRoom &&
+		validateRemotePlayerCount(gameRoom.joinedPlayers.length, "tournament").ok;
 	const playerCount = gameRoom?.joinedPlayers.length || 0;
 
 	// Show lobby view after joining
@@ -314,9 +354,9 @@ export default function JoinTournamentPage() {
 								<Input
 									value={roomCode}
 									onChange={(e) => setRoomCode(e.target.value)}
-									placeholder={t.Game["Enter tournament code..."] || "Enter tournament code..."}
+									placeholder="Enter tournament code..."
 									className="font-mono text-lg text-center tracking-widest h-14"
-									onKeyPress={(e) => e.key === "Enter" && handleJoin()}
+									onKeyDown={(e) => e.key === "Enter" && handleJoin()}
 									disabled={joining}
 								/>
 							</div>
