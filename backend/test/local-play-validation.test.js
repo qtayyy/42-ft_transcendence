@@ -87,6 +87,22 @@ test("rejects duplicate or unsafe tournament player names", () => {
       ),
     /unsupported characters/,
   );
+
+  assert.throws(
+    () =>
+      normalizeTournamentCreatePayload(
+        {
+          tournamentId: "local-tournament-123",
+          players: [
+            { id: 1, name: "Host", isTemp: false },
+            { id: "temp-123-0", name: "Guest name that is much too long", isTemp: true },
+            { id: "temp-123-1", name: "Guest", isTemp: true },
+          ],
+        },
+        "RT-fallback",
+      ),
+    /24 characters or less/,
+  );
 });
 
 test("validates tournament match results against the scheduled players", () => {
