@@ -295,36 +295,11 @@ export default function TournamentMatchmakingPage() {
 								</div>
 								<CardTitle className="text-2xl font-bold">{t.Game["Tournament Lobby"]}</CardTitle>
 								<CardDescription>
-									{isHost ? "You are the host - share the code or wait for players" : "Waiting for host to start"}
+									{isHost ? "You are the host - wait for players to join" : "Waiting for host to start"}
 								</CardDescription>
 							</CardHeader>
 
 							<CardContent className="space-y-6">
-								{/* Room Code */}
-								<div className="space-y-2">
-									<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-										Tournament Code
-									</label>
-									<div className="flex gap-2">
-										<Input
-											value={activeTournamentRoom.roomId}
-											readOnly
-											className="font-mono text-lg text-center bg-muted/50 tracking-widest"
-										/>
-										<Button
-											variant="outline"
-											size="icon"
-											onClick={handleCopyCode}
-											className={cn(
-												"shrink-0 transition-colors",
-												copied && "bg-green-500/10 border-green-500/30 text-green-500"
-											)}
-										>
-											{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-										</Button>
-									</div>
-								</div>
-
 								{/* Players */}
 								<div className="space-y-3">
 									<label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
