@@ -132,9 +132,9 @@ export function createWsEventHandlers({
     JOIN_ROOM_BY_CODE: (payload) => {
       (async () => {
         try {
-          const { roomId } = normalizeJoinRoomByCodePayload(payload);
+          const { roomId, mode } = normalizeJoinRoomByCodePayload(payload);
           const username = await getProfileUsername(prisma, userId);
-          fastify.joinRoomByCode(roomId, userId, username);
+          fastify.joinRoomByCode(roomId, userId, username, mode);
         } catch (err) {
           console.error("[WS] JOIN_ROOM_BY_CODE failed:", err.message);
           safeSend(
