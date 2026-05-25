@@ -31,7 +31,10 @@ import { NavigationGuard } from "@/components/game/navigation-guard";
 import { handleSessionExpiredRedirect } from "@/lib/session-expired";
 import {
 	normalizeLocalAIDifficulty,
+	LOCAL_GUEST_NAME_MAX_LENGTH,
+	LOCAL_PLAYER_NAME_MAX_LENGTH,
 	normalizeLocalTournamentResultPayload,
+	validateLocalPlayerName,
 } from "@/lib/local-play-validation";
 
 const DEFAULT_PADDLE_HEIGHT = 80;
@@ -44,6 +47,35 @@ const REMOTE_INPUT_PULSE_MS = Math.round(1000 / 30);
 interface OptimisticRemotePaddlePreview {
 	previewY: number;
 	direction: MovementDirection;
+}
+
+function normalizeStoredLocalPlayer(
+	player: LocalMatchData["player1"],
+	existingNames: string[],
+	label: string
+) {
+	if (!player || typeof player !== "object" || Array.isArray(player)) {
+		return null;
+	}
+
+	const isTemp = Boolean(player.isTemp);
+	const result = validateLocalPlayerName(
+		player.name,
+		existingNames,
+		`${label} name`,
+		isTemp ? LOCAL_GUEST_NAME_MAX_LENGTH : LOCAL_PLAYER_NAME_MAX_LENGTH
+	);
+
+	if (!result.ok) {
+		return null;
+	}
+
+	return {
+		...player,
+		name: result.value,
+		isTemp,
+		isAI: Boolean(player.isAI),
+	};
 }
 
 /**
@@ -65,6 +97,12 @@ function parseStoredLocalMatchData(raw: string | null, expectedMatchId: string):
 			return null;
 		}
 
+		const player1 = normalizeStoredLocalPlayer(parsed.player1, [], "Player 1");
+		if (!player1) return null;
+
+		const player2 = normalizeStoredLocalPlayer(parsed.player2, [player1.name], "Player 2");
+		if (!player2) return null;
+
 		return {
 			...parsed,
 			matchId: storedMatchId,
@@ -75,6 +113,8 @@ function parseStoredLocalMatchData(raw: string | null, expectedMatchId: string):
 			isAI: Boolean(parsed.isAI),
 			aiDifficulty: normalizeLocalAIDifficulty(parsed.aiDifficulty),
 			isTournamentMatch: Boolean(parsed.isTournamentMatch),
+			player1,
+			player2,
 		};
 	} catch {
 		return null;

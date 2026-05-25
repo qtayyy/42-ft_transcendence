@@ -1,6 +1,7 @@
 "use client";
 
 export const LOCAL_GUEST_NAME_MAX_LENGTH = 24;
+export const LOCAL_PLAYER_NAME_MAX_LENGTH = 64;
 export const LOCAL_TOURNAMENT_MIN_PLAYERS = 3;
 export const LOCAL_TOURNAMENT_MAX_PLAYERS = 8;
 export const LOCAL_SCORE_MIN = 0;
@@ -54,7 +55,8 @@ export function normalizeLocalPlayerName(value: unknown) {
 export function validateLocalPlayerName(
 	value: unknown,
 	existingNames: string[] = [],
-	label = "Player name"
+	label = "Player name",
+	maxLength = LOCAL_GUEST_NAME_MAX_LENGTH
 ): ValidationResult<string> {
 	const name = normalizeLocalPlayerName(value);
 
@@ -62,10 +64,10 @@ export function validateLocalPlayerName(
 		return { ok: false, error: `${label} is required.` };
 	}
 
-	if (name.length > LOCAL_GUEST_NAME_MAX_LENGTH) {
+	if (name.length > maxLength) {
 		return {
 			ok: false,
-			error: `${label} must be ${LOCAL_GUEST_NAME_MAX_LENGTH} characters or less.`,
+			error: `${label} must be ${maxLength} characters or less.`,
 		};
 	}
 

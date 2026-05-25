@@ -1,5 +1,6 @@
 export const LOCAL_TOURNAMENT_MIN_PLAYERS = 3;
 export const LOCAL_TOURNAMENT_MAX_PLAYERS = 8;
+export const TEMP_PLAYER_NAME_MAX_LENGTH = 24;
 export const PLAYER_NAME_MAX_LENGTH = 64;
 export const MATCH_SCORE_MIN = 0;
 export const MATCH_SCORE_MAX = 1000;
@@ -91,16 +92,17 @@ function normalizePlayerId(value, isTemp, index) {
   return normalizePositiveInt(value, `Player ${index + 1} ID`);
 }
 
-function normalizePlayerName(value, index) {
+function normalizePlayerName(value, index, isTemp) {
   const name = normalizeDisplayName(value);
+  const maxLength = isTemp ? TEMP_PLAYER_NAME_MAX_LENGTH : PLAYER_NAME_MAX_LENGTH;
 
   if (!name) {
     throw createValidationError(`Player ${index + 1} name is required.`);
   }
 
-  if (name.length > PLAYER_NAME_MAX_LENGTH) {
+  if (name.length > maxLength) {
     throw createValidationError(
-      `Player ${index + 1} name must be ${PLAYER_NAME_MAX_LENGTH} characters or less.`,
+      `Player ${index + 1} name must be ${maxLength} characters or less.`,
     );
   }
 
@@ -140,7 +142,7 @@ export function normalizeTournamentPlayers(players) {
 
     const isTemp = Boolean(player.isTemp);
     const id = normalizePlayerId(player.id, isTemp, index);
-    const name = normalizePlayerName(player.name, index);
+    const name = normalizePlayerName(player.name, index, isTemp);
     const idKey = String(id);
     const nameKey = name.toLocaleLowerCase();
 
