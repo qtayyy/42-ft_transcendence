@@ -1,5 +1,5 @@
 import { PlayerStanding } from "@/lib/tournament";
-import { Trophy, TrendingUp, Target, Medal, Crown } from "lucide-react";
+import { Medal, Crown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/languageContext";
@@ -21,13 +21,13 @@ export default function Leaderboard({ standings, currentUserId }: LeaderboardPro
 				const isThird = index === 2;
 
 				return (
-					<div 
-						key={standing.playerId}
-						className={cn(
-							"relative flex items-center gap-4 p-3 rounded-xl border transition-all duration-300",
-							isCurrentUser ? "bg-primary/5 border-primary/20 ring-1 ring-primary/10" : "bg-card/50 border-border/50 hover:bg-card/80",
-							isFirst && "bg-gradient-to-r from-yellow-500/10 to-transparent border-yellow-500/30"
-						)}
+						<div 
+							key={standing.playerId}
+							className={cn(
+								"relative flex min-w-0 items-center gap-3 p-3 rounded-xl border transition-all duration-300 sm:gap-4",
+								isCurrentUser ? "bg-primary/5 border-primary/20 ring-1 ring-primary/10" : "bg-card/50 border-border/50 hover:bg-card/80",
+								isFirst && "bg-gradient-to-r from-yellow-500/10 to-transparent border-yellow-500/30"
+							)}
 					>
 						{/* Rank Badge */}
 						<div className="flex-shrink-0 w-8 flex justify-center">
@@ -42,15 +42,15 @@ export default function Leaderboard({ standings, currentUserId }: LeaderboardPro
 							)}
 						</div>
 
-						{/* Player Info */}
-						<div className="flex-1 min-w-0">
-							<div className="flex items-center gap-2">
-								<span className={cn(
-									"font-bold truncate",
-									isFirst ? "text-lg text-yellow-500" : "text-sm",
-									isCurrentUser && !isFirst && "text-primary"
-								)}>
-									{standing.playerName}
+							{/* Player Info */}
+							<div className="flex-1 min-w-0">
+								<div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+									<span className={cn(
+										"min-w-0 max-w-full overflow-hidden break-words font-bold leading-tight",
+										isFirst ? "text-lg text-yellow-500" : "text-sm",
+										isCurrentUser && !isFirst && "text-primary"
+									)}>
+										{standing.playerName}
 								</span>
 								{isCurrentUser && (
 									<Badge variant="secondary" className="text-[10px] h-4 px-1">{t.Game["You"]}</Badge>
