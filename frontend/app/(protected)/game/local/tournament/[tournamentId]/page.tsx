@@ -279,13 +279,15 @@ export default function TournamentPage() {
 
 						<CardContent className="relative z-10 space-y-12 p-8">
 							{/* Winner Spotlight */}
-							<div className="relative max-w-lg mx-auto transform transition-all hover:scale-105 duration-500">
+							<div className="relative mx-auto w-full max-w-lg transform transition-all hover:scale-105 duration-500">
 								<div className="absolute -inset-1 bg-gradient-to-r from-yellow-400 to-orange-600 rounded-2xl blur opacity-75"></div>
-								<div className="relative bg-black/80 p-8 rounded-2xl border border-yellow-500/50 flex flex-col items-center text-center space-y-4">
+								<div className="relative min-w-0 bg-black/80 p-6 sm:p-8 rounded-2xl border border-yellow-500/50 flex flex-col items-center text-center space-y-4 overflow-hidden">
 									<Crown className="h-12 w-12 text-yellow-500" />
-									<div className="space-y-1">
+									<div className="w-full min-w-0 space-y-1">
 										<p className="text-yellow-500 font-bold tracking-widest uppercase text-sm">{t.Game["Grand Champion"]}</p>
-										<p className="text-4xl font-bold text-white">{winner.playerName}</p>
+										<p className="mx-auto max-w-full overflow-hidden wrap-break-word text-2xl font-bold leading-tight text-white sm:text-4xl">
+											{winner.playerName}
+										</p>
 										<Badge variant="outline" className="border-yellow-500/50 text-yellow-400 bg-yellow-500/10 mt-2">
 											{winner.matchPoints} {t.Game["Match Points"]}
 										</Badge>
