@@ -175,6 +175,7 @@ export function normalizeJoinRoomByCodePayload(payload) {
 
   return {
     roomId: normalizeRemoteRoomId(payload.roomId),
+    mode: normalizeRemoteMatchmakingMode(payload.mode),
   };
 }
 
@@ -286,4 +287,17 @@ export function assertRemoteRoomCanStartTournament(room) {
 
   normalizeRemotePlayerCount(room.maxPlayers, "tournament");
   normalizeRemotePlayerCount(room.joinedPlayers.length, "tournament");
+}
+
+/**
+ * Converts a validated remote tournament room into TournamentManager players.
+ */
+export function normalizeRemoteTournamentPlayers(room) {
+  assertRemoteRoomCanStartTournament(room);
+
+  return room.joinedPlayers.map((player, index) => ({
+    id: normalizeRemoteUserId(player.id, `Player ${index + 1} ID`),
+    name: normalizeRemoteUsername(player.username, `Player ${index + 1} username`),
+    isTemp: false,
+  }));
 }

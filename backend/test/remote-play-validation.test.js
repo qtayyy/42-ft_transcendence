@@ -5,8 +5,10 @@ import {
   assertRemoteRoomCanStartSingle,
   assertRemoteRoomCanStartTournament,
   normalizeJoinMatchmakingPayload,
+  normalizeJoinRoomByCodePayload,
   normalizeRemoteRoomCreateQuery,
   normalizeRemoteRoomId,
+  normalizeRemoteTournamentPlayers,
   normalizeRemoteUsername,
   normalizeStartTournamentPayload,
 } from "../lib/remote-play-validation.js";
@@ -63,6 +65,16 @@ test("normalizes remote room creation query options", () => {
 
 test("normalizes remote room and tournament identifiers", () => {
   assert.equal(normalizeRemoteRoomId(` ${ROOM_ID.toUpperCase()} `), ROOM_ID);
+  assert.deepEqual(
+    normalizeJoinRoomByCodePayload({
+      roomId: ROOM_ID,
+      mode: " Single ",
+    }),
+    {
+      roomId: ROOM_ID,
+      mode: "single",
+    },
+  );
 
   assert.deepEqual(
     normalizeStartTournamentPayload({
@@ -78,6 +90,10 @@ test("normalizes remote room and tournament identifiers", () => {
   assert.throws(
     () => normalizeRemoteRoomId("../not-a-room"),
     /valid room code/,
+  );
+  assert.throws(
+    () => normalizeJoinRoomByCodePayload({ roomId: ROOM_ID }),
+    /mode is invalid/,
   );
 
   assert.throws(
@@ -165,4 +181,22 @@ test("validates remote tournament start room shape", () => {
       ),
     /3-8 players/,
   );
+});
+
+test("normalizes remote tournament room players for bracket creation", () => {
+  const tournamentRoom = createRemoteRoom({
+    joinedPlayers: [
+      { id: "1", username: " Host Player " },
+      { id: 2, username: "Guest One" },
+      { id: 3, username: "Guest Two" },
+    ],
+    maxPlayers: 8,
+    isTournament: true,
+  });
+
+  assert.deepEqual(normalizeRemoteTournamentPlayers(tournamentRoom), [
+    { id: 1, name: "Host Player", isTemp: false },
+    { id: 2, name: "Guest One", isTemp: false },
+    { id: 3, name: "Guest Two", isTemp: false },
+  ]);
 });

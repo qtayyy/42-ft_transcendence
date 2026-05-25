@@ -1,6 +1,9 @@
 import { PrismaClient } from "../../generated/prisma/index.js";
 import fp from "fastify-plugin";
 import crypto from "crypto";
+import TournamentManager, {
+  activeTournaments,
+} from "../../game/TournamentManager.js";
 import { safeSend } from "../../utils/ws-utils.js";
 import {
   REMOTE_SINGLE_PLAYER_COUNT,
@@ -11,6 +14,7 @@ import {
   normalizeRemotePlayerCount,
   normalizeRemoteRoomId,
   normalizeRemoteRoomOptions,
+  normalizeRemoteTournamentPlayers,
   normalizeRemoteTournamentId,
   normalizeRemoteUserId,
   normalizeRemoteUsername,
@@ -56,6 +60,20 @@ export default fp((fastify) => {
     }
 
     return mappedRoomId;
+  };
+
+  const hasOnlineJoinedPlayer = (room) =>
+    room?.joinedPlayers?.some((player) => {
+      const sockets = fastify.onlineUsers.get(Number(player.id));
+      return sockets instanceof Set ? sockets.size > 0 : Boolean(sockets);
+    }) || false;
+
+  const removeRoomMembershipMappings = (roomId, room) => {
+    room?.joinedPlayers?.forEach((player) => {
+      if (fastify.currentRoom.get(Number(player.id)) === roomId) {
+        fastify.currentRoom.delete(Number(player.id));
+      }
+    });
   };
 
   fastify.decorate(
@@ -357,7 +375,14 @@ export default fp((fastify) => {
       if (normalizedResponse === "accepted") {
         safeSend(
           inviteeSocket,
-          { event: "JOIN_ROOM", payload: { roomId: normalizedRoomId } },
+          {
+            event: "JOIN_ROOM",
+            payload: {
+              roomId: normalizedRoomId,
+              success: true,
+              isTournament: Boolean(room.isTournament),
+            },
+          },
           numericInviteeId,
         );
         safeSend(
@@ -640,16 +665,30 @@ export default fp((fastify) => {
     }
   });
 
-  fastify.decorate("joinRoomByCode", (roomIdInput, userId, username) => {
+  fastify.decorate("joinRoomByCode", (roomIdInput, userId, username, mode) => {
     const roomId = normalizeRemoteRoomId(roomIdInput);
     const numericUserId = normalizeRemoteUserId(userId);
     const safeUsername = normalizeRemoteUsername(username);
+    const safeMode = normalizeRemoteMatchmakingMode(mode);
     console.log(`[JOIN_CODE_START] user: ${numericUserId}, code: [${roomId}]`);
 
     const room = fastify.gameRooms.get(roomId);
     if (!room) {
       console.error(`[JOIN_CODE_FAIL] Room not found: ${roomId}`);
       throw new Error("Room not found");
+    }
+
+    if (room.isPublic || room.isMatchmade) {
+      throw new Error("Room code join is only available for private rooms");
+    }
+
+    const expectedTournamentRoom = safeMode === "tournament";
+    if (Boolean(room.isTournament) !== expectedTournamentRoom) {
+      throw new Error(
+        expectedTournamentRoom
+          ? "Tournament join can only join tournament rooms"
+          : "Single join can only join single rooms",
+      );
     }
 
     if (room.tournamentStarted) {
@@ -690,7 +729,14 @@ export default fp((fastify) => {
       fastify.currentRoom.set(numericUserId, roomId); // Re-ensure map entry
       safeSend(
         fastify.onlineUsers.get(numericUserId),
-        { event: "JOIN_ROOM", payload: { roomId, success: true } },
+        {
+          event: "JOIN_ROOM",
+          payload: {
+            roomId,
+            success: true,
+            isTournament: Boolean(room.isTournament),
+          },
+        },
         numericUserId,
       );
       fastify.sendGameRoom(numericUserId);
@@ -709,7 +755,11 @@ export default fp((fastify) => {
     );
 
     // Notify ALL players in the room
-    const joinPayload = { roomId, success: true };
+    const joinPayload = {
+      roomId,
+      success: true,
+      isTournament: Boolean(room.isTournament),
+    };
     const roomSyncPayload = {
       event: "GAME_ROOM",
       payload: {
@@ -986,12 +1036,31 @@ export default fp((fastify) => {
         console.log(
           `[Matchmaking] Checking room ${roomId}: isTournament=${room.isTournament}, isMatchmade=${room.isMatchmade}, isPublic=${room.isPublic}, maxPlayers=${room.maxPlayers}, joined=${room.joinedPlayers.length}`,
         );
+
         if (
           !room.isTournament &&
+          room.isMatchmade &&
+          room.isPublic &&
+          Number(room.maxPlayers) === REMOTE_SINGLE_PLAYER_COUNT &&
+          !hasOnlineJoinedPlayer(room)
+        ) {
+          console.log(`[Matchmaking] Removing orphaned public 1v1 room: ${roomId}`);
+          removeRoomMembershipMappings(roomId, room);
+          fastify.gameRooms.delete(roomId);
+          continue;
+        }
+
+        if (
+          !room.isTournament &&
+          room.isMatchmade &&
           room.isPublic &&
           Number(room.maxPlayers) === REMOTE_SINGLE_PLAYER_COUNT &&
           room.joinedPlayers.length < room.maxPlayers
         ) {
+          if (room.joinedPlayers.some((p) => Number(p.id) === numericUserId)) {
+            fastify.currentRoom.set(numericUserId, roomId);
+            continue;
+          }
           availableRoom = room;
           availableRoomId = roomId;
           console.log(`[Matchmaking] Found available public 1v1 room: ${roomId}`);
@@ -1234,6 +1303,30 @@ export default fp((fastify) => {
   });
 
   /**
+   * Creates the bracket before clients navigate so every participant can load it
+   * immediately, even if the host page is slow or refreshes mid-transition.
+   */
+  const ensureRemoteTournament = (tournamentId, room) => {
+    const tournamentStore = fastify.activeTournaments || activeTournaments;
+
+    if (tournamentStore.has(tournamentId)) {
+      return tournamentStore.get(tournamentId);
+    }
+
+    const players = normalizeRemoteTournamentPlayers(room);
+    const tournament = new TournamentManager(tournamentId, players);
+
+    if (tournament.format === "round-robin") {
+      tournament.matches = tournament.generateRoundRobinPairings();
+    } else if (tournament.format === "swiss") {
+      tournament.matches = tournament.generateSwissPairings(1);
+    }
+
+    tournamentStore.set(tournamentId, tournament);
+    return tournament;
+  };
+
+  /**
    * Start a tournament for all players in the room
    * Notifies all players to navigate to the tournament game page
    */
@@ -1263,6 +1356,7 @@ export default fp((fastify) => {
     console.log(`[Tournament] Room ${normalizedRoomId} found. Players: ${room.joinedPlayers.length}. tournamentStarted=${room.tournamentStarted}`);
     
     assertRemoteRoomCanStartTournament(room);
+    ensureRemoteTournament(normalizedTournamentId, room);
 
     // Mark tournament as started so new players can't join via matchmaking
     room.tournamentStarted = true;
