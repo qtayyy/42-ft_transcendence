@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/languageContext";
 
 interface GameOverPlayer {
@@ -28,10 +27,8 @@ interface RouterLike {
 interface GameOverOverlayProps {
 	gameOverResult: GameOverResult;
 	mode?: "remote" | "local";
-	opponentConnected?: boolean;
 	userId?: number | string;
 	sendSocketMessage?: (payload: Record<string, unknown>) => void;
-	setGameOverResult?: (value: GameOverResult | null) => void;
 	router?: RouterLike;
 	onExit?: () => void;
 	localActionLabel?: string;
@@ -41,10 +38,8 @@ interface GameOverOverlayProps {
 export function GameOverOverlay({
 	gameOverResult,
 	mode = "remote",
-	opponentConnected,
 	userId,
 	sendSocketMessage,
-	setGameOverResult,
 	router,
 	onExit,
 	localActionLabel = "Continue to Menu",
@@ -52,7 +47,6 @@ export function GameOverOverlay({
 }: GameOverOverlayProps) {
 	const isRemote = mode === "remote";
 	const isTournament = !!gameOverResult.tournamentId;
-	const canRematch = opponentConnected !== false;
 	const isLocalAutoExitEnabled =
 		!isRemote &&
 		typeof localAutoExitSeconds === "number" &&
@@ -133,30 +127,6 @@ export function GameOverOverlay({
 						</div>
 					) : isRemote ? (
 						<>
-							<Button
-								onClick={() => {
-									if (!sendSocketMessage) return;
-									sendSocketMessage({
-										event: "REMATCH",
-										payload: {
-											matchId: gameOverResult.matchId,
-											player1Id: gameOverResult.leftPlayer?.id,
-											player1Username: gameOverResult.leftPlayer?.username,
-											player2Id: gameOverResult.rightPlayer?.id,
-											player2Username: gameOverResult.rightPlayer?.username,
-										},
-									});
-									setGameOverResult?.(null);
-								}}
-								disabled={!canRematch}
-								size="lg"
-								className={cn(
-									"bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg h-14 px-8 shadow-lg shadow-green-500/20",
-									!canRematch && "opacity-50 cursor-not-allowed grayscale"
-								)}
-							>
-								{!canRematch ? t.Game["Opponent Left"] : t.Game["Rematch"]}
-							</Button>
 							<Button
 								onClick={() => {
 									if (!sendSocketMessage) return;

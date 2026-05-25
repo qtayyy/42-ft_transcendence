@@ -1,6 +1,5 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
 import type { GameState } from "@/types/game";
 import type { GameStateValue, UserProfile } from "@/types/types";
 import { Button } from "@/components/ui/button";
@@ -40,8 +39,6 @@ interface RemoteGameRuntimeViewProps {
 	returnToLobby: () => void;
 	sendSocketMessage: (payload: Record<string, unknown>) => void;
 	user: UserProfile | null;
-	setGameOverResult: Dispatch<SetStateAction<RuntimeGameOverResult | null>>;
-	opponentConnected: boolean;
 	router: RouterLike;
 	gameStart: boolean;
 	disconnectInfo: DisconnectInfo | null;
@@ -60,8 +57,6 @@ export default function RemoteGameRuntimeView({
 	returnToLobby,
 	sendSocketMessage,
 	user,
-	setGameOverResult,
-	opponentConnected,
 	router,
 	gameStart,
 	disconnectInfo,
@@ -238,10 +233,8 @@ export default function RemoteGameRuntimeView({
 			{gameOverResult && (
 				<GameOverOverlay
 					gameOverResult={gameOverResult}
-					opponentConnected={opponentConnected}
 					userId={user?.id}
 					sendSocketMessage={sendSocketMessage}
-					setGameOverResult={setGameOverResult}
 					router={router}
 				/>
 			)}
