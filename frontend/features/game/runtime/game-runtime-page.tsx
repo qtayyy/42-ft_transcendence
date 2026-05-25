@@ -346,9 +346,6 @@ export default function GameRuntimePage() {
 		};
 	}, [isSpectator, setGameState, matchId]);
 
-	// Listen for opponent disconnect/reconnect events
-	const [opponentConnected, setOpponentConnected] = useState(true);
-
 	// Memoized event handlers for game state events
 	const handleDisconnect = useCallback((event: CustomEvent) => {
 		const { disconnectedPlayer, gracePeriodEndsAt } = event.detail;
@@ -356,18 +353,11 @@ export default function GameRuntimePage() {
 		setPauseInfo(null);
 		setDisconnectInfo({ disconnectedPlayer, gracePeriodEndsAt, countdown });
 		toast.warning("Opponent disconnected! Waiting for reconnection...");
-		setOpponentConnected(false);
 	}, []);
 
 	const handleReconnect = useCallback(() => {
 		setDisconnectInfo(null);
 		toast.success("Opponent reconnected!");
-		setOpponentConnected(true);
-	}, []);
-
-	const handleOpponentLeft = useCallback(() => {
-		setOpponentConnected(false);
-		// We don't need to toast here as SocketContext already does, or we can add specific UI feedback
 	}, []);
 
 	// Pause/Resume events
@@ -396,7 +386,6 @@ export default function GameRuntimePage() {
 	useEffect(() => {
 		window.addEventListener("opponentDisconnected", handleDisconnect as EventListener);
 		window.addEventListener("opponentReconnected", handleReconnect as EventListener);
-		window.addEventListener("opponentLeft", handleOpponentLeft as EventListener);
 		window.addEventListener("gamePaused", handleGamePaused as EventListener);
 		window.addEventListener("gameResumed", handleGameResumed as EventListener);
 		window.addEventListener("opponentReadyToResume", handleOpponentReadyToResume as EventListener);
@@ -405,13 +394,12 @@ export default function GameRuntimePage() {
 		return () => {
 			window.removeEventListener("opponentDisconnected", handleDisconnect as EventListener);
 			window.removeEventListener("opponentReconnected", handleReconnect as EventListener);
-			window.removeEventListener("opponentLeft", handleOpponentLeft as EventListener);
 			window.removeEventListener("gamePaused", handleGamePaused as EventListener);
 			window.removeEventListener("gameResumed", handleGameResumed as EventListener);
 			window.removeEventListener("opponentReadyToResume", handleOpponentReadyToResume as EventListener);
 			window.removeEventListener("waitingForResume", handleWaitingForResume as EventListener);
 		};
-	}, [matchId, handleDisconnect, handleReconnect, handleOpponentLeft, handleGamePaused, handleGameResumed, handleOpponentReadyToResume, handleWaitingForResume]);
+	}, [matchId, handleDisconnect, handleReconnect, handleGamePaused, handleGameResumed, handleOpponentReadyToResume, handleWaitingForResume]);
 
 	// Sync disconnect info from game state (for reconnection scenarios or late state updates).
 	// We keep the overlay state local so event-driven updates remain immediate, while this
@@ -424,13 +412,11 @@ export default function GameRuntimePage() {
 		if (nextDisconnectInfo && !hasSameDisconnectInfo(disconnectInfo, nextDisconnectInfo)) {
 			setPauseInfo(null);
 			setDisconnectInfo(nextDisconnectInfo);
-			setOpponentConnected(false);
 			return;
 		}
 
 		if (!nextDisconnectInfo && disconnectInfo) {
 			setDisconnectInfo(null);
-			setOpponentConnected(true);
 		}
 	}, [gameState, disconnectInfo]);
 
@@ -942,8 +928,6 @@ export default function GameRuntimePage() {
 					returnToLobby={returnToLobby}
 					sendSocketMessage={sendSocketMessage}
 					user={user}
-					setGameOverResult={setGameOverResult}
-					opponentConnected={opponentConnected}
 					router={router}
 					gameStart={gameStart}
 					disconnectInfo={disconnectInfo}
