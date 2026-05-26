@@ -762,13 +762,15 @@ export default function RemoteTournamentPage() {
 										{tournament.matches
 											.filter(m => m.status === 'inprogress')
 											.map(match => (
-											<div 
-												key={match.matchId} 
-												className="flex items-center justify-between p-4 bg-background/60 border rounded-xl hover:bg-background/80 transition-colors"
+											<div
+												key={match.matchId}
+												className="flex min-w-0 flex-col gap-3 p-4 bg-background/60 border rounded-xl hover:bg-background/80 transition-colors sm:flex-row sm:items-center sm:justify-between"
 											>
-												<div>
-													<div className="font-semibold">
-														{match.player1.name} <span className="text-muted-foreground">{t.Game["vs"]}</span> {match.player2?.name}
+												<div className="min-w-0">
+													<div className="break-words text-sm font-semibold leading-snug sm:text-base">
+														<span className="break-all">{match.player1.name}</span>{" "}
+														<span className="text-muted-foreground">{t.Game["vs"]}</span>{" "}
+														<span className="break-all">{match.player2?.name}</span>
 													</div>
 													<div className="text-xs text-muted-foreground">
 														{formatLabel(t.Game["Round {round}"], { round: match.round })}
@@ -779,6 +781,7 @@ export default function RemoteTournamentPage() {
 														disabled={hasLockedReadyForNextMatch}
 														size="sm"
 														className={cn(
+															"w-full shrink-0 sm:w-auto",
 															hasLockedReadyForNextMatch
 																? "bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted"
 																: "bg-red-500 hover:bg-red-600"
