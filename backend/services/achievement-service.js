@@ -130,7 +130,7 @@ async function checkAndAwardAchievements(profileId, prismaClient = null) {
             },
           });
           newAchievements.push(key);
-          console.log(`🏆 Achievement unlocked for user ${profileId}: ${key}`);
+//           console.log(`🏆 Achievement unlocked for user ${profileId}: ${key}`);
         } catch (error) {
           // Ignore duplicate achievement errors (race condition)
           if (!error.message?.includes("Unique constraint")) {

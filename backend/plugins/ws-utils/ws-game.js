@@ -83,13 +83,13 @@ export default fp((fastify) => {
       const safeHostUsername = normalizeRemoteUsername(hostUsername);
       const roomOptions = normalizeRemoteRoomOptions(maxPlayers, isTournament);
 
-      console.log(`[CREATE_ROOM_START] hostId: ${numericHostId} (${safeHostUsername})`);
+//       console.log(`[CREATE_ROOM_START] hostId: ${numericHostId} (${safeHostUsername})`);
       const roomId = crypto.randomUUID();
 
       fastify.currentRoom.set(numericHostId, roomId);
-      console.log(
-        `[CREATE_ROOM_MAP] currentRoom.set(${numericHostId}, ${roomId})`,
-      );
+//       console.log(
+//         `[CREATE_ROOM_MAP] currentRoom.set(${numericHostId}, ${roomId})`,
+//       );
 
       const roomState = {
         hostId: numericHostId,
@@ -102,9 +102,9 @@ export default fp((fastify) => {
         createdAt: Date.now(),
       };
       fastify.gameRooms.set(roomId, roomState);
-      console.log(
-        `[CREATE_ROOM_MAP] gameRooms.set(${roomId}, ${JSON.stringify(roomState)})`,
-      );
+//       console.log(
+//         `[CREATE_ROOM_MAP] gameRooms.set(${roomId}, ${JSON.stringify(roomState)})`,
+//       );
 
       return roomId;
     },
@@ -112,17 +112,17 @@ export default fp((fastify) => {
 
   fastify.decorate("sendGameRoom", (userId) => {
     const numericUserId = Number(userId);
-    console.log(`[SEND_ROOM_START] userId: ${numericUserId}`);
+//     console.log(`[SEND_ROOM_START] userId: ${numericUserId}`);
 
     let roomId = fastify.currentRoom.get(numericUserId);
-    console.log(
-      `[SEND_ROOM_GET] currentRoom.get(${numericUserId}) -> ${roomId}`,
-    );
+//     console.log(
+//       `[SEND_ROOM_GET] currentRoom.get(${numericUserId}) -> ${roomId}`,
+//     );
 
     if (!roomId) {
-      console.log(
-        `[SEND_ROOM_FALLBACK] Searching all rooms for player ${numericUserId}...`,
-      );
+//       console.log(
+//         `[SEND_ROOM_FALLBACK] Searching all rooms for player ${numericUserId}...`,
+//       );
       for (const [id, room] of fastify.gameRooms.entries()) {
         const isJoined = room.joinedPlayers.some(
           (p) => Number(p.id) === numericUserId,
@@ -130,18 +130,18 @@ export default fp((fastify) => {
         if (isJoined) {
           roomId = id;
           fastify.currentRoom.set(numericUserId, roomId);
-          console.log(
-            `[SEND_ROOM_RECOVERED] Found in room ${roomId}. Fixed map.`,
-          );
+//           console.log(
+//             `[SEND_ROOM_RECOVERED] Found in room ${roomId}. Fixed map.`,
+//           );
           break;
         }
       }
     }
 
     if (!roomId) {
-      console.log(
-        `[SEND_ROOM_NOT_FOUND] User ${numericUserId} has no active room.`,
-      );
+//       console.log(
+//         `[SEND_ROOM_NOT_FOUND] User ${numericUserId} has no active room.`,
+//       );
       return;
     }
 
@@ -164,9 +164,9 @@ export default fp((fastify) => {
       tournamentStarted: room.tournamentStarted || false,
     };
 
-    console.log(
-      `[SEND_ROOM_PAYLOAD] Sending to ${numericUserId}: ${JSON.stringify(payload)}`,
-    );
+//     console.log(
+//       `[SEND_ROOM_PAYLOAD] Sending to ${numericUserId}: ${JSON.stringify(payload)}`,
+//     );
     const sockets = fastify.onlineUsers.get(numericUserId);
     safeSend(sockets, { event: "GAME_ROOM", payload }, numericUserId);
   });
@@ -495,9 +495,9 @@ export default fp((fastify) => {
     if (fastify.activeTournaments) {
       const tournament = fastify.activeTournaments.get(tournamentId);
       if (tournament) {
-        console.log(
-          `[Tournament] User ${numericUserId} explicitly leaving tournament ${tournamentId}`,
-        );
+//         console.log(
+//           `[Tournament] User ${numericUserId} explicitly leaving tournament ${tournamentId}`,
+//         );
 
         // Mark player as withdrawn - this will auto-resolve all their future matches
         const wasWithdrawn = tournament.markPlayerWithdrawn(numericUserId);
@@ -569,7 +569,7 @@ export default fp((fastify) => {
         const currentRoom = fastify.gameRooms.get(normalizedRoomId);
         if (currentRoom && currentRoom.joinedPlayers.length === 0) {
           fastify.gameRooms.delete(normalizedRoomId);
-          console.log(`[Room] Deleted empty room ${normalizedRoomId} after grace period`);
+//           console.log(`[Room] Deleted empty room ${normalizedRoomId} after grace period`);
         }
       }, 5000); // 5 seconds grace period
     }
@@ -670,7 +670,7 @@ export default fp((fastify) => {
     const numericUserId = normalizeRemoteUserId(userId);
     const safeUsername = normalizeRemoteUsername(username);
     const safeMode = normalizeRemoteMatchmakingMode(mode);
-    console.log(`[JOIN_CODE_START] user: ${numericUserId}, code: [${roomId}]`);
+//     console.log(`[JOIN_CODE_START] user: ${numericUserId}, code: [${roomId}]`);
 
     const room = fastify.gameRooms.get(roomId);
     if (!room) {
@@ -703,17 +703,17 @@ export default fp((fastify) => {
     // Auto-leave ANY existing room logic
     const existingRoom = fastify.currentRoom.get(numericUserId);
     if (existingRoom && existingRoom !== roomId) {
-      console.log(
-        `[JOIN_CODE_MOVE] Player ${numericUserId} leaving room ${existingRoom} to join ${roomId}`,
-      );
+//       console.log(
+//         `[JOIN_CODE_MOVE] Player ${numericUserId} leaving room ${existingRoom} to join ${roomId}`,
+//       );
       const staleRoom = fastify.gameRooms.get(existingRoom);
       if (staleRoom) {
         staleRoom.joinedPlayers = staleRoom.joinedPlayers.filter(
           (p) => Number(p.id) !== numericUserId,
         );
-        console.log(
-          `[JOIN_CODE_MOVE] Removed from stale. New count: ${staleRoom.joinedPlayers.length}`,
-        );
+//         console.log(
+//           `[JOIN_CODE_MOVE] Removed from stale. New count: ${staleRoom.joinedPlayers.length}`,
+//         );
       }
       fastify.currentRoom.delete(numericUserId);
     }
@@ -723,9 +723,9 @@ export default fp((fastify) => {
       (p) => Number(p.id) === numericUserId,
     );
     if (alreadyMember) {
-      console.log(
-        `[JOIN_CODE_EXISTING] Player ${numericUserId} already in room ${roomId}. Syncing.`,
-      );
+//       console.log(
+//         `[JOIN_CODE_EXISTING] Player ${numericUserId} already in room ${roomId}. Syncing.`,
+//       );
       fastify.currentRoom.set(numericUserId, roomId); // Re-ensure map entry
       safeSend(
         fastify.onlineUsers.get(numericUserId),
@@ -750,9 +750,9 @@ export default fp((fastify) => {
     // Perform JOIN
     fastify.currentRoom.set(numericUserId, roomId);
     room.joinedPlayers.push({ id: numericUserId, username: safeUsername });
-    console.log(
-      `[JOIN_CODE_SUCCESS] User ${numericUserId} added to room ${roomId}. List: ${JSON.stringify(room.joinedPlayers)}`,
-    );
+//     console.log(
+//       `[JOIN_CODE_SUCCESS] User ${numericUserId} added to room ${roomId}. List: ${JSON.stringify(room.joinedPlayers)}`,
+//     );
 
     // Notify ALL players in the room
     const joinPayload = {
@@ -780,7 +780,7 @@ export default fp((fastify) => {
         safeSend(s, { event: "JOIN_ROOM", payload: joinPayload }, pid);
       }
       safeSend(s, roomSyncPayload, pid);
-      console.log(`[JOIN_CODE_NOTIFY] Sent sync to member ${pid}`);
+//       console.log(`[JOIN_CODE_NOTIFY] Sent sync to member ${pid}`);
     });
   });
 
@@ -803,9 +803,9 @@ export default fp((fastify) => {
       (p) => p.userId === numericUserId,
     );
     if (existingQueueIndex !== -1) {
-      console.log(
-        `[Matchmaking] Removing stale queue entry for user ${numericUserId} (mode=${safeMode})`,
-      );
+//       console.log(
+//         `[Matchmaking] Removing stale queue entry for user ${numericUserId} (mode=${safeMode})`,
+//       );
       queue.splice(existingQueueIndex, 1);
     }
 
@@ -829,9 +829,9 @@ export default fp((fastify) => {
           (safeMode === "single" && !room.isTournament) ||
           (safeMode === "tournament" && room.isTournament);
         if (sameModeRoom) {
-          console.log(
-            `[Matchmaking] Duplicate join rehydrated for user ${numericUserId} in room ${staleRoomId}`,
-          );
+//           console.log(
+//             `[Matchmaking] Duplicate join rehydrated for user ${numericUserId} in room ${staleRoomId}`,
+//           );
 
           // Re-send latest room snapshot so client can recover from stale UI state.
           safeSend(
@@ -897,17 +897,17 @@ export default fp((fastify) => {
           return;
         }
 
-        console.log(
-          `[Matchmaking] Duplicate join mode mismatch for user ${numericUserId} in room ${staleRoomId}, leaving stale room`,
-        );
+//         console.log(
+//           `[Matchmaking] Duplicate join mode mismatch for user ${numericUserId} in room ${staleRoomId}, leaving stale room`,
+//         );
       }
 
       if (room && !room.tournamentStarted) {
         // If user starts quick matchmaking while still bound to any pre-game room
         // (manual code room or previous matchmade lobby), auto-leave it.
-        console.log(
-          `[Matchmaking] Auto-leaving User ${numericUserId} from room ${staleRoomId} before queueing`,
-        );
+//         console.log(
+//           `[Matchmaking] Auto-leaving User ${numericUserId} from room ${staleRoomId} before queueing`,
+//         );
         fastify.leaveRoom(staleRoomId, numericUserId);
       } else if (!room) {
         // Room mapping is stale (map points to a deleted room). Clear it and continue.
@@ -947,9 +947,9 @@ export default fp((fastify) => {
           username: safeUsername,
         });
 
-        console.log(
-          `[Matchmaking] User ${numericUserId} joined existing tournament room ${availableRoomId}`,
-        );
+//         console.log(
+//           `[Matchmaking] User ${numericUserId} joined existing tournament room ${availableRoomId}`,
+//         );
 
         // Send TOURNAMENT_FOUND to the new player
         safeSend(
@@ -1003,9 +1003,9 @@ export default fp((fastify) => {
         tournamentStarted: false,
       });
 
-      console.log(
-        `[Matchmaking] User ${numericUserId} created new tournament room ${roomId}`,
-      );
+//       console.log(
+//         `[Matchmaking] User ${numericUserId} created new tournament room ${roomId}`,
+//       );
 
       // Send TOURNAMENT_FOUND to the host
       safeSend(
@@ -1031,11 +1031,11 @@ export default fp((fastify) => {
       let availableRoom = null;
       let availableRoomId = null;
 
-      console.log(`[Matchmaking] Searching for 1v1 room. Total rooms: ${fastify.gameRooms.size}`);
+//       console.log(`[Matchmaking] Searching for 1v1 room. Total rooms: ${fastify.gameRooms.size}`);
       for (const [roomId, room] of fastify.gameRooms.entries()) {
-        console.log(
-          `[Matchmaking] Checking room ${roomId}: isTournament=${room.isTournament}, isMatchmade=${room.isMatchmade}, isPublic=${room.isPublic}, maxPlayers=${room.maxPlayers}, joined=${room.joinedPlayers.length}`,
-        );
+//         console.log(
+//           `[Matchmaking] Checking room ${roomId}: isTournament=${room.isTournament}, isMatchmade=${room.isMatchmade}, isPublic=${room.isPublic}, maxPlayers=${room.maxPlayers}, joined=${room.joinedPlayers.length}`,
+//         );
 
         if (
           !room.isTournament &&
@@ -1044,7 +1044,7 @@ export default fp((fastify) => {
           Number(room.maxPlayers) === REMOTE_SINGLE_PLAYER_COUNT &&
           !hasOnlineJoinedPlayer(room)
         ) {
-          console.log(`[Matchmaking] Removing orphaned public 1v1 room: ${roomId}`);
+//           console.log(`[Matchmaking] Removing orphaned public 1v1 room: ${roomId}`);
           removeRoomMembershipMappings(roomId, room);
           fastify.gameRooms.delete(roomId);
           continue;
@@ -1063,7 +1063,7 @@ export default fp((fastify) => {
           }
           availableRoom = room;
           availableRoomId = roomId;
-          console.log(`[Matchmaking] Found available public 1v1 room: ${roomId}`);
+//           console.log(`[Matchmaking] Found available public 1v1 room: ${roomId}`);
           break;
         }
       }
@@ -1077,9 +1077,9 @@ export default fp((fastify) => {
         });
         availableRoom.isMatchmade = true; // Mark as matchmade room for grace period logic
 
-        console.log(
-          `[Matchmaking] User ${numericUserId} matched into room ${availableRoomId}`,
-        );
+//         console.log(
+//           `[Matchmaking] User ${numericUserId} matched into room ${availableRoomId}`,
+//         );
 
         const roomSyncPayload = {
           event: "GAME_ROOM",
@@ -1129,9 +1129,9 @@ export default fp((fastify) => {
         isTournament: false,
       });
 
-      console.log(
-        `[Matchmaking] User ${numericUserId} created single room ${roomId}`,
-      );
+//       console.log(
+//         `[Matchmaking] User ${numericUserId} created single room ${roomId}`,
+//       );
 
       // Send GAME_ROOM so their context updates
       const roomPayload = {
@@ -1188,7 +1188,7 @@ export default fp((fastify) => {
 
   fastify.decorate("leaveMatchmaking", (userId, immediate = true) => {
     const numericUserId = normalizeRemoteUserId(userId);
-    console.log(`[leaveMatchmaking] user: ${numericUserId}, immediate: ${immediate}`);
+//     console.log(`[leaveMatchmaking] user: ${numericUserId}, immediate: ${immediate}`);
 
     // Remove from both queues
     matchmakingQueue.single = matchmakingQueue.single.filter(
@@ -1199,7 +1199,7 @@ export default fp((fastify) => {
     );
 
     if (!immediate) {
-      console.log(`[leaveMatchmaking] Skipping room removal for ${numericUserId} (delegating to grace period)`);
+//       console.log(`[leaveMatchmaking] Skipping room removal for ${numericUserId} (delegating to grace period)`);
       return;
     }
 
@@ -1338,11 +1338,11 @@ export default fp((fastify) => {
     );
     const numericActorId = normalizeRemoteUserId(actingUserId, "Acting user ID");
 
-    console.log(`[Tournament] START_TOURNAMENT received: roomId=${normalizedRoomId}, tournamentId=${normalizedTournamentId}`);
+//     console.log(`[Tournament] START_TOURNAMENT received: roomId=${normalizedRoomId}, tournamentId=${normalizedTournamentId}`);
     const room = fastify.gameRooms.get(normalizedRoomId);
     if (!room) {
       console.error(`[Tournament] Room NOT FOUND: ${normalizedRoomId}`);
-      console.log(`[Tournament] Available rooms: ${[...fastify.gameRooms.keys()].join(", ")}`);
+//       console.log(`[Tournament] Available rooms: ${[...fastify.gameRooms.keys()].join(", ")}`);
       throw new Error("Room not found");
     }
 
@@ -1353,7 +1353,7 @@ export default fp((fastify) => {
       throw new Error("Only the room host can start the tournament");
     }
     
-    console.log(`[Tournament] Room ${normalizedRoomId} found. Players: ${room.joinedPlayers.length}. tournamentStarted=${room.tournamentStarted}`);
+//     console.log(`[Tournament] Room ${normalizedRoomId} found. Players: ${room.joinedPlayers.length}. tournamentStarted=${room.tournamentStarted}`);
     
     assertRemoteRoomCanStartTournament(room);
     ensureRemoteTournament(normalizedTournamentId, room);
@@ -1376,8 +1376,8 @@ export default fp((fastify) => {
       safeSend(socket, payload, Number(player.id));
     });
 
-    console.log(
-      `Tournament ${normalizedTournamentId} started with ${room.joinedPlayers.length} players`,
-    );
+//     console.log(
+//       `Tournament ${normalizedTournamentId} started with ${room.joinedPlayers.length} players`,
+//     );
   });
 });

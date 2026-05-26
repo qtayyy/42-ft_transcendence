@@ -360,9 +360,9 @@ class TournamentManager {
         p2Standing.opponents.push(player1Id);
       }
 
-      console.log(
-        `Tournament ${this.tournamentId}: Double forfeit - both players lose`,
-      );
+//       console.log(
+//         `Tournament ${this.tournamentId}: Double forfeit - both players lose`,
+//       );
 
       // Auto-resolve future matches for both withdrawn players
       if (p1Standing) this.resolveFutureMatchesForWithdrawn(player1Id);
@@ -494,9 +494,9 @@ class TournamentManager {
         }
 
         if (winnerId) {
-          console.log(
-            `Tournament ${this.tournamentId}: Auto-resolving Match ${match.matchId} - Player ${withdrawnPlayerId} surrendered, ${winnerId} wins by walkover`,
-          );
+//           console.log(
+//             `Tournament ${this.tournamentId}: Auto-resolving Match ${match.matchId} - Player ${withdrawnPlayerId} surrendered, ${winnerId} wins by walkover`,
+//           );
           // Use 'walkover' outcome - the remaining player wins with 3 points
           this.updateMatchResult(
             match.matchId,
@@ -506,9 +506,9 @@ class TournamentManager {
           );
         } else if (match.player2 === null) {
           // Withdrawn player vs Bye - just complete the bye
-          console.log(
-            `Tournament ${this.tournamentId}: Auto-resolving bye match ${match.matchId} for withdrawn player ${withdrawnPlayerId}`,
-          );
+//           console.log(
+//             `Tournament ${this.tournamentId}: Auto-resolving bye match ${match.matchId} for withdrawn player ${withdrawnPlayerId}`,
+//           );
           this.updateMatchResult(match.matchId, { p1: 0, p2: 0 }, "bye");
         }
       }
@@ -565,7 +565,7 @@ class TournamentManager {
       winnerId: explicitWinnerId, // Pass it down
     });
 
-    console.log(`Tournament ${this.tournamentId}: Match ${matchId} completed.`);
+//     console.log(`Tournament ${this.tournamentId}: Match ${matchId} completed.`);
 
     // Check for Survivor (early win)
     if (this.checkForSurvivor()) {
@@ -621,9 +621,9 @@ class TournamentManager {
       );
 
       if (byeMatch) {
-        console.log(
-          `Tournament ${this.tournamentId}: All matches in round ${round} complete. Auto-processing bye for ${byeMatch.player1.name}`,
-        );
+//         console.log(
+//           `Tournament ${this.tournamentId}: All matches in round ${round} complete. Auto-processing bye for ${byeMatch.player1.name}`,
+//         );
         this.updateMatchResult(byeMatch.matchId, { p1: 0, p2: 0 }, "bye");
       }
     }
@@ -636,15 +636,15 @@ class TournamentManager {
     if (roundComplete && round === this.currentRound) {
       this.currentRound++;
       roundChanged = true;
-      console.log(
-        `Tournament ${this.tournamentId}: Round ${round} complete. Advancing to Round ${this.currentRound}`,
-      );
+//       console.log(
+//         `Tournament ${this.tournamentId}: Round ${round} complete. Advancing to Round ${this.currentRound}`,
+//       );
 
       // If tournament is now complete (currentRound > totalRounds), seal it
       if (this.currentRound > this.totalRounds) {
-        console.log(
-          `Tournament ${this.tournamentId}: All rounds complete. Tournament finished.`,
-        );
+//         console.log(
+//           `Tournament ${this.tournamentId}: All rounds complete. Tournament finished.`,
+//         );
         this.completedAt = Date.now();
       }
       // Otherwise generate next round pairings (Swiss only)
@@ -654,14 +654,14 @@ class TournamentManager {
           (m) => m.round === this.currentRound,
         );
         if (existingMatches.length > 0) {
-          console.log(
-            `Tournament ${this.tournamentId}: Matches for Round ${this.currentRound} already exist. Skipping generation.`,
-          );
+//           console.log(
+//             `Tournament ${this.tournamentId}: Matches for Round ${this.currentRound} already exist. Skipping generation.`,
+//           );
         } else {
           try {
-            console.log(
-              `Tournament ${this.tournamentId}: Generating Swiss pairings for Round ${this.currentRound}`,
-            );
+//             console.log(
+//               `Tournament ${this.tournamentId}: Generating Swiss pairings for Round ${this.currentRound}`,
+//             );
             const newMatches = this.generateSwissPairings(this.currentRound);
             this.matches.push(...newMatches);
           } catch (err) {
@@ -699,34 +699,34 @@ class TournamentManager {
    */
   markPlayerWithdrawn(playerId) {
     const targetId = Number(playerId);
-    console.log(
-      `[TournamentManager] Attempting to withdraw player ID: ${targetId} (original: ${playerId})`,
-    );
+//     console.log(
+//       `[TournamentManager] Attempting to withdraw player ID: ${targetId} (original: ${playerId})`,
+//     );
 
     const standing = this.standings.find(
       (s) => Number(s.playerId) === targetId,
     );
     if (standing) {
-      console.log(
-        `[TournamentManager] Found standing for player ${targetId}. isWithdrawn: ${standing.isWithdrawn}`,
-      );
+//       console.log(
+//         `[TournamentManager] Found standing for player ${targetId}. isWithdrawn: ${standing.isWithdrawn}`,
+//       );
       if (!standing.isWithdrawn) {
         standing.isWithdrawn = true;
-        console.log(
-          `Tournament ${this.tournamentId}: Player ${playerId} marked as withdrawn`,
-        );
+//         console.log(
+//           `Tournament ${this.tournamentId}: Player ${playerId} marked as withdrawn`,
+//         );
         // Auto-resolve all future matches for this player
         this.resolveFutureMatchesForWithdrawn(targetId);
         return true;
       } else {
-        console.log(
-          `[TournamentManager] Player ${targetId} already withdrawn.`,
-        );
+//         console.log(
+//           `[TournamentManager] Player ${targetId} already withdrawn.`,
+//         );
       }
     } else {
-      console.log(
-        `[TournamentManager] Player ${targetId} NOT found in standings. Available: ${this.standings.map((s) => s.playerId).join(", ")}`,
-      );
+//       console.log(
+//         `[TournamentManager] Player ${targetId} NOT found in standings. Available: ${this.standings.map((s) => s.playerId).join(", ")}`,
+//       );
     }
     return false;
   }

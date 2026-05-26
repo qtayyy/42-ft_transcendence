@@ -130,9 +130,9 @@ export function createStartRematchHandler({
       player2Id,
     );
 
-    console.log(
-      `Rematch started: ${matchId} with ${player1Username} vs ${player2Username}`,
-    );
+//     console.log(
+//       `Rematch started: ${matchId} with ${player1Username} vs ${player2Username}`,
+//     );
     return matchId;
   };
 }

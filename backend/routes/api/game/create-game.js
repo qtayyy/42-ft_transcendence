@@ -48,7 +48,7 @@ export default async function (fastify, opts) {
 			// 	},
 		}
 		catch (error) {
-			console.log(error);
+// 			console.log(error);
 			return reply.code(500).send({
 				Error: "Failed to create game"
 			});

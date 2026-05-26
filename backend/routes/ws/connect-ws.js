@@ -28,15 +28,15 @@ export default async function (fastify, opts) {
       // And we use req.user which is populated by fastify.authenticate.
 
       const userId = Number(req.user.userId);
-      console.log(
-        `[WS Connect] User connected: ${userId} (type: ${typeof userId})`,
-      );
+//       console.log(
+//         `[WS Connect] User connected: ${userId} (type: ${typeof userId})`,
+//       );
 
       // Clear any pending lobby disconnect timeout
       if (fastify.lobbyDisconnectTimeouts?.has(userId)) {
-        console.log(
-          `[WS Connect] User ${userId} reconnected, clearing lobby grace period.`,
-        );
+//         console.log(
+//           `[WS Connect] User ${userId} reconnected, clearing lobby grace period.`,
+//         );
         clearTimeout(fastify.lobbyDisconnectTimeouts.get(userId));
         fastify.lobbyDisconnectTimeouts.delete(userId);
       }
@@ -111,7 +111,7 @@ export default async function (fastify, opts) {
       });
 
       connection.on("close", () => {
-        console.log(`[WS Close] User ${userId} connection closed`);
+//         console.log(`[WS Close] User ${userId} connection closed`);
 
         const sockets = fastify.onlineUsers.get(Number(userId));
         if (sockets) {
@@ -159,9 +159,9 @@ export default async function (fastify, opts) {
                   !gs.gameOver
                 ) {
                   hasPendingMatch = true;
-                  console.log(
-                    `[WS Close] User ${userId} has pending match ${mid}, NOT leaving room/tournament.`,
-                  );
+//                   console.log(
+//                     `[WS Close] User ${userId} has pending match ${mid}, NOT leaving room/tournament.`,
+//                   );
                   break;
                 }
               }
@@ -186,9 +186,9 @@ export default async function (fastify, opts) {
                     const isStillActive = !tournament.isPlayerWithdrawn(userId);
                     if (isStillActive) {
                       hasPendingMatch = true;
-                      console.log(
-                        `[WS Close] User ${userId} is in ongoing tournament ${tournamentId}, NOT leaving room.`,
-                      );
+//                       console.log(
+//                         `[WS Close] User ${userId} is in ongoing tournament ${tournamentId}, NOT leaving room.`,
+//                       );
                     }
                   }
                 }
@@ -200,14 +200,14 @@ export default async function (fastify, opts) {
                   // LOBBY GRACE PERIOD:
                   // If we are in a lobby (not active game/tournament match),
                   // don't kick immediately. Wait 5s for possible refresh/reconnect.
-                  console.log(
-                    `[WS Close] User ${userId} left lobby room ${currentRoomId}. Starting 5s grace period...`,
-                  );
+//                   console.log(
+//                     `[WS Close] User ${userId} left lobby room ${currentRoomId}. Starting 5s grace period...`,
+//                   );
 
                   const timeout = setTimeout(() => {
-                    console.log(
-                      `[WS Grace] Grace period expired for user ${userId} in room ${currentRoomId}. Removing...`,
-                    );
+//                     console.log(
+//                       `[WS Grace] Grace period expired for user ${userId} in room ${currentRoomId}. Removing...`,
+//                     );
                     fastify.lobbyDisconnectTimeouts.delete(userId);
                     fastify.leaveRoom(currentRoomId, userId);
                   }, 5000); // 5 seconds is plenty for HMR / page refresh
