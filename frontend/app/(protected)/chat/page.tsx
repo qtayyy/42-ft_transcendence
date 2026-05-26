@@ -1050,7 +1050,7 @@ export default function ChatPage() {
           <Card className="relative h-full border-0 bg-card/95 backdrop-blur-sm overflow-hidden shadow-2xl">
             <div className="h-full flex">
               {/* Sidebar */}
-              <div className="w-80 border-r border-border/50 flex flex-col shrink-0 overflow-hidden h-full bg-gradient-to-b from-card/50 to-transparent">
+              <div className={`w-full md:w-80 border-r border-border/50 flex-col shrink-0 overflow-hidden h-full bg-gradient-to-b from-card/50 to-transparent ${selectedFriend ? "hidden md:flex" : "flex"}`}>
                 {/* Sidebar Header */}
                 <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 to-transparent">
                   <div className="flex items-center gap-3 mb-3">
@@ -1199,7 +1199,7 @@ export default function ChatPage() {
               </div>
 
               {/* Main Chat Area */}
-              <div className="flex-1 flex flex-col min-w-0 overflow-hidden" style={{ height: '100%' }}>
+              <div className={`flex-1 flex-col min-w-0 overflow-hidden ${selectedFriend ? "flex" : "hidden md:flex"}`} style={{ height: '100%' }}>
                 {selectedFriend ? (
                   <>
                     {/* Chat Header */}
@@ -1257,16 +1257,16 @@ export default function ChatPage() {
                             <p className="text-xs text-muted-foreground">{t.chat["Connecting to chat..."]}</p>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 shrink-0">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={handleGameInvite}
                             disabled={isInviteButtonDisabled}
-                            className="gap-2"
+                            className="hidden sm:flex gap-2"
                           >
                             <Gamepad2 className="w-4 h-4" />
-                            <span className="hidden sm:inline">
+                            <span>
                               {isSelectedFriendInvitePending ? t.chat["Invitation Pending"] : t.chat["Invite to Game"]}
                             </span>
                           </Button>
@@ -1277,6 +1277,15 @@ export default function ChatPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="sm:hidden"
+                                onClick={handleGameInvite}
+                                disabled={isInviteButtonDisabled}
+                              >
+                                <Gamepad2 className="w-4 h-4 mr-2" />
+                                {isSelectedFriendInvitePending ? t.chat["Invitation Pending"] : t.chat["Invite to Game"]}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="sm:hidden" />
                               <DropdownMenuItem onClick={handleViewProfile}>
                                 <UserCircle className="w-4 h-4 mr-2" />
                                 {t.chat["View Profile"]}
