@@ -197,13 +197,13 @@ export default function CreateRoomPage() {
 	};
 
 	const handleStartGame = () => {
-		console.log('🎮 [Start Match] Button clicked!');
-		console.log('🎮 [Start Match] Checking conditions:', {
-			hasGameRoom: !!gameRoom,
-			playerCount: gameRoom?.joinedPlayers.length,
-			roomId: roomId,
-			isReady: isReady
-		});
+// 		console.log('🎮 [Start Match] Button clicked!');
+// 		console.log('🎮 [Start Match] Checking conditions:', {
+// 			hasGameRoom: !!gameRoom,
+// 			playerCount: gameRoom?.joinedPlayers.length,
+// 			roomId: roomId,
+// 			isReady: isReady
+// 		});
 
 		const roomCodeResult = validateRemoteRoomCode(roomId);
 		const playerCountResult = validateRemotePlayerCount(
@@ -222,13 +222,13 @@ export default function CreateRoomPage() {
 			return;
 		}
 
-		console.log('✅ [Start Match] All conditions met! Sending START_ROOM_GAME event');
+// 		console.log('✅ [Start Match] All conditions met! Sending START_ROOM_GAME event');
 		// Send start game event - both players will receive GAME_MATCH_START
 		sendSocketMessage({
 			event: "START_ROOM_GAME",
 			payload: { roomId: roomCodeResult.value },
 		});
-		console.log('📤 [Start Match] Event sent successfully');
+// 		console.log('📤 [Start Match] Event sent successfully');
 	};
 
 	const handleLeave = () => {

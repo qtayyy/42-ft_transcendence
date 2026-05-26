@@ -39,7 +39,7 @@ export function createStartRoomGameHandler({
       actingUserId,
       "Acting user ID",
     );
-    console.log(`🎮 [START_ROOM_GAME] Received request to start room: ${normalizedRoomId}`);
+//     console.log(`🎮 [START_ROOM_GAME] Received request to start room: ${normalizedRoomId}`);
 
     const room = fastify.gameRooms.get(normalizedRoomId);
     if (!room) {
@@ -55,15 +55,15 @@ export function createStartRoomGameHandler({
       throw new Error("Only the room host can start the game");
     }
 
-    console.log(`✅ [START_ROOM_GAME] Room found:`, {
-      roomId: normalizedRoomId,
-      hostId: room.hostId,
-      maxPlayers: room.maxPlayers,
-      joinedPlayers: room.joinedPlayers.map((p) => ({
-        id: p.id,
-        username: p.username,
-      })),
-    });
+//     console.log(`✅ [START_ROOM_GAME] Room found:`, {
+//       roomId: normalizedRoomId,
+//       hostId: room.hostId,
+//       maxPlayers: room.maxPlayers,
+//       joinedPlayers: room.joinedPlayers.map((p) => ({
+//         id: p.id,
+//         username: p.username,
+//       })),
+//     });
 
     try {
       assertRemoteRoomCanStartSingle(room);
@@ -167,9 +167,9 @@ export function createStartRoomGameHandler({
       player2.id,
     );
 
-    console.log(
-      `Remote game started: ${matchId} with ${player1.username} vs ${player2.username}`,
-    );
+//     console.log(
+//       `Remote game started: ${matchId} with ${player1.username} vs ${player2.username}`,
+//     );
     return matchId;
   };
 }

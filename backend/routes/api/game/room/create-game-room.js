@@ -26,9 +26,9 @@ export default async function (fastify, opts) {
           return reply.code(404).send({ error: "Profile not found" });
         }
 
-        console.log(
-          `[createGameRoom API] hostId: ${hostId} (type: ${typeof hostId}), maxPlayers: ${maxPlayers}, isTournament: ${isTournament}`,
-        );
+//         console.log(
+//           `[createGameRoom API] hostId: ${hostId} (type: ${typeof hostId}), maxPlayers: ${maxPlayers}, isTournament: ${isTournament}`,
+//         );
 
         const existing = fastify.currentRoom.get(hostId);
         if (existing) {

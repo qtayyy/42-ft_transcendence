@@ -55,9 +55,9 @@ export function createHandleLobbyReadyHandler({ fastify, safeSend }) {
 
     if (opponentId && tournament.isPlayerWithdrawn(opponentId)) {
       // Opponent has withdrawn - auto-win for the ready player
-      console.log(
-        `[handleLobbyReady] Opponent ${opponentId} is withdrawn, auto-winning match ${matchId} for ${userId}`,
-      );
+//       console.log(
+//         `[handleLobbyReady] Opponent ${opponentId} is withdrawn, auto-winning match ${matchId} for ${userId}`,
+//       );
 
       tournament.updateMatchResult(matchId, { p1: 0, p2: 0 }, "walkover", uid);
 
@@ -104,9 +104,9 @@ export function createHandleLobbyReadyHandler({ fastify, safeSend }) {
       return;
     }
 
-    console.log(
-      `[LobbyReady] Player ${userId} ready for match ${matchId}. AllReady: ${result.allReady}`,
-    );
+//     console.log(
+//       `[LobbyReady] Player ${userId} ready for match ${matchId}. AllReady: ${result.allReady}`,
+//     );
 
     if (result.allReady) {
       // Both players ready - Start the match
@@ -115,7 +115,7 @@ export function createHandleLobbyReadyHandler({ fastify, safeSend }) {
         // Auto-process bye? Usually byes are processed by TournamentManager immediately or end-round.
         // But if a bye player clicks ready... actually bye matches should be auto-processed or just wait.
         // My TournamentManager logic sets p1Ready=true for Bye.
-        console.log("Bye match ready? Should verify logic.");
+//         console.log("Bye match ready? Should verify logic.");
         return;
       }
 

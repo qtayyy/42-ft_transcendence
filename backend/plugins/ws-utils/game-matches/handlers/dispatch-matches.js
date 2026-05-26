@@ -82,9 +82,9 @@ export function createDispatchMatchesHandler({
       };
       fastify.gameStates.set(match.id, initialGameState);
 
-      console.log(
-        `[dispatchMatches] Dispatching match ${match.id}: p1=${p1Id} vs p2=${p2Id}`,
-      );
+//       console.log(
+//         `[dispatchMatches] Dispatching match ${match.id}: p1=${p1Id} vs p2=${p2Id}`,
+//       );
 
       const player1Socket = fastify.onlineUsers.get(p1Id);
       if (!player1Socket) {

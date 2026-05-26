@@ -151,7 +151,7 @@ export default async function (fastify, opts) {
 									? gameState.pausedAt + 30000
 									: null;
 
-							console.log(`[Status] Found active game for ${userId}: ${matchId}`);
+// 							console.log(`[Status] Found active game for ${userId}: ${matchId}`);
 							return reply.code(200).send({
 								active: true,
 								type: 'game',
@@ -180,7 +180,7 @@ export default async function (fastify, opts) {
 							const opponent = isP1 ? p2 : p1;
 							const opponentName = opponent.socket ? "Opponent" : "Waiting for Opponent";
 
-							console.log(`[Status] Found active legacy game for ${userId}: ${matchId}`);
+// 							console.log(`[Status] Found active legacy game for ${userId}: ${matchId}`);
 							return reply.code(200).send({
 								active: true,
 								type: 'game',

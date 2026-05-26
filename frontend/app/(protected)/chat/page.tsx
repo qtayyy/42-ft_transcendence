@@ -139,7 +139,7 @@ export default function ChatPage() {
   // Refresh online friends when chat page loads
   useEffect(() => {
     if (refetchOnlineFriends) {
-      console.log("Chat page: Refreshing online friends list");
+//       console.log("Chat page: Refreshing online friends list");
       refetchOnlineFriends();
     }
   }, [refetchOnlineFriends]);
@@ -147,15 +147,15 @@ export default function ChatPage() {
   // Refresh online friends when friends list changes
   useEffect(() => {
     if (refetchOnlineFriends && friends.length > 0) {
-      console.log("Chat page: Friends list changed, refreshing online status");
+//       console.log("Chat page: Friends list changed, refreshing online status");
       refetchOnlineFriends();
     }
   }, [friends.length, refetchOnlineFriends]);
 
   // Listen for real-time friend requests
   useEffect(() => {
-    const handleFriendRequest = (event: CustomEvent) => {
-      console.log("New friend request received:", event.detail);
+    const handleFriendRequest = () => {
+//       console.log("New friend request received:", event.detail);
       // Refetch friends and pending lists to show the new request
       refetch();
     };
@@ -168,8 +168,8 @@ export default function ChatPage() {
 
   // Listen for friend status changes (online/offline)
   useEffect(() => {
-    const handleFriendStatusChange = (event: CustomEvent) => {
-      console.log("Friend status changed:", event.detail);
+    const handleFriendStatusChange = () => {
+//       console.log("Friend status changed:", event.detail);
       // Refresh online friends list to get latest status
       if (refetchOnlineFriends) {
         refetchOnlineFriends();
@@ -206,7 +206,7 @@ export default function ChatPage() {
   useEffect(() => {
     const handleReadReceipt = (event: CustomEvent) => {
       const data = event.detail;
-      console.log("Chat page received MESSAGE_READ event:", data);
+//       console.log("Chat page received MESSAGE_READ event:", data);
       
       // Update the message as read if it exists in current messages
       // This works regardless of which friend is currently selected
@@ -216,7 +216,7 @@ export default function ChatPage() {
             ? { ...msg, read: true, readAt: data.readAt }
             : msg
         );
-        console.log("Updated messages after read receipt:", updated.find(m => m.id === data.messageId));
+//         console.log("Updated messages after read receipt:", updated.find(m => m.id === data.messageId));
         return updated;
       });
     };
@@ -560,7 +560,7 @@ export default function ChatPage() {
       setLoadingHistory(true);
       try {
         const friendId = selectedFriend.id.toString();
-        console.log("Loading chat history for friend:", friendId);
+//         console.log("Loading chat history for friend:", friendId);
         const response = await fetch(`/api/chat/${friendId}`);
         if (!response.ok) {
           let errorMessage = "Failed to load chat history";
@@ -594,7 +594,7 @@ export default function ChatPage() {
   useEffect(() => {
     const handleNewMessage = (event: CustomEvent) => {
       const data: Message = event.detail;
-      console.log("Chat page received message event:", data, "selectedFriend:", selectedFriend?.id);
+//       console.log("Chat page received message event:", data, "selectedFriend:", selectedFriend?.id);
       
       // Must have senderId to process
       if (data.senderId === undefined) return;
@@ -758,13 +758,13 @@ export default function ChatPage() {
       );
 
       if (unreadMessages.length > 0) {
-        console.log(`Marking ${unreadMessages.length} messages as read for friend ${selectedFriend.id}`);
+//         console.log(`Marking ${unreadMessages.length} messages as read for friend ${selectedFriend.id}`);
         clearUnreadForFriend(selectedFriend.id);
       }
 
       unreadMessages.forEach((msg) => {
         if (msg.id) {
-          console.log(`Sending MESSAGE_READ for message ${msg.id}`);
+//           console.log(`Sending MESSAGE_READ for message ${msg.id}`);
           // Mark as read via WebSocket
           sendSocketMessage({
             event: "MESSAGE_READ",
@@ -1022,17 +1022,17 @@ export default function ChatPage() {
     );
 
   // Debug: Log online friends status
-  useEffect(() => {
-    console.log("=== Online Friends Status ===");
-    console.log("Online friends from context:", onlineFriends);
-    console.log("All friends:", friends);
-    console.log("Filtered friends:", filteredFriends);
-    
-    filteredFriends.forEach(friend => {
-      const isOnline = onlineFriends.some(f => String(f.id) === String(friend.id));
-      console.log(`Friend ${friend.username} (ID: ${friend.id}): ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
-    });
-  }, [onlineFriends, friends, filteredFriends]);
+  // useEffect(() => {
+  //   console.log("=== Online Friends Status ===");
+  //   console.log("Online friends from context:", onlineFriends);
+  //   console.log("All friends:", friends);
+  //   console.log("Filtered friends:", filteredFriends);
+  //
+  //   filteredFriends.forEach(friend => {
+  //     const isOnline = onlineFriends.some(f => String(f.id) === String(friend.id));
+  //     console.log(`Friend ${friend.username} (ID: ${friend.id}): ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+  //   });
+  // }, [onlineFriends, friends, filteredFriends]);
 
   const isSelectedFriendInvitePending = selectedFriend
     ? !!pendingInviteByFriend[String(selectedFriend.id)]

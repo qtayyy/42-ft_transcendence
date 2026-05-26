@@ -44,9 +44,9 @@ export function createForfeitMatchHandler({ fastify, safeSend, endGame }) {
       );
     }
 
-    console.log(
-      `[forfeitMatch] Match ${matchId} forfeited by ${userId}. Winner: ${winner}`,
-    );
+//     console.log(
+//       `[forfeitMatch] Match ${matchId} forfeited by ${userId}. Winner: ${winner}`,
+//     );
     endGame(gameState);
   };
 }

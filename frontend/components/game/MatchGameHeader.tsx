@@ -75,8 +75,8 @@ export function MatchGameHeader({
 				"border-b border-white/5 bg-background/40 backdrop-blur-md",
 				"px-3 py-2 gap-x-2 gap-y-1.5",
 				"grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto]",
-				"sm:px-8 sm:py-0 sm:h-24 sm:gap-0",
-				"sm:grid-cols-3 sm:grid-rows-1 sm:items-center"
+				"sm:px-8 sm:py-0 sm:h-24 sm:gap-3",
+				"sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:grid-rows-1 sm:items-center"
 			)}
 		>
 			<div className="col-start-1 row-start-1 flex min-w-0 flex-col items-start gap-1 sm:gap-1.5">
@@ -103,7 +103,7 @@ export function MatchGameHeader({
 				</div>
 			</div>
 
-			<div className="col-start-2 row-start-1 flex shrink-0 items-center justify-end sm:col-start-3">
+			<div className="col-start-2 row-start-1 flex min-w-0 shrink-0 items-center justify-end sm:col-start-3">
 				{rightSlot}
 			</div>
 

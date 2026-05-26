@@ -29,7 +29,7 @@ export const GameProvider = ({ children }) => {
 				...friend,
 				id: String(friend.id)
 			}));
-			console.log("Fetched online friends:", friends);
+// 			console.log("Fetched online friends:", friends);
 			setOnlineFriends(friends);
 		} catch (err) {
 			console.error("Error loading online friends:", err);

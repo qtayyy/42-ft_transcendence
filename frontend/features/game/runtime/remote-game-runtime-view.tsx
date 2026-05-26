@@ -5,7 +5,6 @@ import type { GameStateValue, UserProfile } from "@/types/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, ArrowLeft, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import PongGame from "@/components/game/PongGame";
 import { LiveStatusBadge, MatchGameHeader } from "@/components/game/MatchGameHeader";
 import { GameControlsTray } from "@/components/game/GameControlsTray";
@@ -126,22 +125,24 @@ export default function RemoteGameRuntimeView({
 				timeRemaining={gameState?.timer?.timeRemaining}
 				rightSlot={
 					isSpectator ? (
-						<div className="flex items-center gap-1.5 sm:gap-3">
+						<div className="flex min-w-0 items-center gap-1 sm:gap-2">
 							<Badge
 								aria-label="Spectating live"
-								className="bg-red-500/90 backdrop-blur-sm text-white px-2 py-1 sm:px-4 sm:py-1.5 text-xs sm:text-sm font-bold animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.6)] flex items-center gap-1.5 sm:gap-2 border-0"
+								title="SPECTATING LIVE"
+								className="h-7 min-w-7 bg-red-500/90 backdrop-blur-sm text-white px-1.5 py-0 text-[10px] font-bold animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.6)] flex shrink-0 items-center justify-center gap-1 border-0 sm:h-8 sm:min-w-8 sm:px-2 md:px-2.5 xl:px-3"
 							>
 								<Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-								<span className="hidden sm:inline">SPECTATING LIVE</span>
+								<span className="hidden md:inline xl:hidden">LIVE</span>
+								<span className="hidden xl:inline">SPECTATING LIVE</span>
 							</Badge>
 							<Button
 								onClick={returnToLobby}
 								variant="outline"
 								size="sm"
-								className="h-8 px-2 sm:h-9 sm:px-3 bg-black/40 border-white/10 text-white hover:bg-white/10 hover:text-white transition-colors"
+								className="h-7 px-2 text-xs sm:h-8 sm:px-2.5 sm:text-sm bg-black/40 border-white/10 text-white hover:bg-white/10 hover:text-white transition-colors"
 							>
-								<ArrowLeft className="h-4 w-4 sm:mr-2" />
-								<span className="hidden sm:inline">Lobby</span>
+								<ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 lg:mr-2" />
+								<span className="hidden lg:inline">Lobby</span>
 							</Button>
 						</div>
 					) : (

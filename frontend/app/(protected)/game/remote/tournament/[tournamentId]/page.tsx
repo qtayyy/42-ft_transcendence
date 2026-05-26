@@ -112,7 +112,7 @@ export default function RemoteTournamentPage() {
 		creationLock.current = true;
 		setIsCreatingTournament(true);
 		
-		console.log("[RemoteTournament] create: Sending POST /api/tournament/create");
+// 		console.log("[RemoteTournament] create: Sending POST /api/tournament/create");
 		try {
 			const players = roomData.joinedPlayers.map((p) => ({
 				id: String(p.id),
@@ -127,7 +127,7 @@ export default function RemoteTournamentPage() {
 				withCredentials: true,
 			});
 
-			console.log("[RemoteTournament] create: Success!", response.data);
+// 			console.log("[RemoteTournament] create: Success!", response.data);
 			setTournament({
 				tournamentId: tournamentId,
 				format: response.data.format,
@@ -183,7 +183,7 @@ export default function RemoteTournamentPage() {
 				const response = await axios.get(`/api/tournament/${tournamentId}`, {
 					withCredentials: true,
 				});
-				console.log("[RemoteTournament] init: Found existing tournament on backend");
+// 				console.log("[RemoteTournament] init: Found existing tournament on backend");
 				setTournament({
 					tournamentId: response.data.tournamentId || tournamentId,
 					format: response.data.format,
@@ -247,7 +247,7 @@ export default function RemoteTournamentPage() {
 			// If we are navigating away and the tournament is finished, ensure we leave the room
 			// This prevents "Zombie" players in the lobby view for others
 			if (tournament?.isComplete && user && roomId) {
-				console.log("Leaving tournament room on unmount (tournament complete)");
+// 				console.log("Leaving tournament room on unmount (tournament complete)");
 				// Attempt to send LEAVE_ROOM to backend to clean up server state
 				try {
 					if (sendSocketMessage) {
@@ -294,7 +294,7 @@ export default function RemoteTournamentPage() {
     // Listen for real-time tournament updates
     useEffect(() => {
         const handleTournamentUpdate = (event: CustomEvent) => {
-            console.log("Received TOURNAMENT_UPDATE:", event.detail);
+//             console.log("Received TOURNAMENT_UPDATE:", event.detail);
             const data = event.detail;
             setTournament({
                 tournamentId: data.tournamentId,
@@ -314,9 +314,9 @@ export default function RemoteTournamentPage() {
             }
         };
 
-        const handleTournamentPlayerLeft = (event: CustomEvent) => {
-            console.log("Received TOURNAMENT_PLAYER_LEFT:", event.detail);
-            toast.info(t.Game["A player has left the tournament."]);
+	        const handleTournamentPlayerLeft = () => {
+//             console.log("Received TOURNAMENT_PLAYER_LEFT:", event.detail);
+	            toast.info(t.Game["A player has left the tournament."]);
             
             // Re-fetch the entire tournament to get the latest updated matches/brackets (walkovers)
             fetchTournament();
@@ -506,7 +506,7 @@ export default function RemoteTournamentPage() {
 							<div className="grid grid-cols-2 gap-4 max-w-lg mx-auto pt-4">
 								<Button
 									onClick={() => {
-										console.log("Navigating to new game list");
+// 										console.log("Navigating to new game list");
 										leaveRoom();
 										router.push("/game/remote/tournament"); // Redirect to remote tournament list
 									}}
@@ -762,13 +762,15 @@ export default function RemoteTournamentPage() {
 										{tournament.matches
 											.filter(m => m.status === 'inprogress')
 											.map(match => (
-											<div 
-												key={match.matchId} 
-												className="flex items-center justify-between p-4 bg-background/60 border rounded-xl hover:bg-background/80 transition-colors"
+											<div
+												key={match.matchId}
+												className="flex min-w-0 flex-col gap-3 p-4 bg-background/60 border rounded-xl hover:bg-background/80 transition-colors sm:flex-row sm:items-center sm:justify-between"
 											>
-												<div>
-													<div className="font-semibold">
-														{match.player1.name} <span className="text-muted-foreground">{t.Game["vs"]}</span> {match.player2?.name}
+												<div className="min-w-0">
+													<div className="break-words text-sm font-semibold leading-snug sm:text-base">
+														<span className="break-all">{match.player1.name}</span>{" "}
+														<span className="text-muted-foreground">{t.Game["vs"]}</span>{" "}
+														<span className="break-all">{match.player2?.name}</span>
 													</div>
 													<div className="text-xs text-muted-foreground">
 														{formatLabel(t.Game["Round {round}"], { round: match.round })}
@@ -779,6 +781,7 @@ export default function RemoteTournamentPage() {
 														disabled={hasLockedReadyForNextMatch}
 														size="sm"
 														className={cn(
+															"w-full shrink-0 sm:w-auto",
 															hasLockedReadyForNextMatch
 																? "bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted"
 																: "bg-red-500 hover:bg-red-600"
