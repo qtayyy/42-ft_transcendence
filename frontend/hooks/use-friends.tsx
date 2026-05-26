@@ -51,5 +51,12 @@ export function useFriends() {
     fetchAll();
   }, [fetchAll]);
 
+  // Refresh friends list when a sent request is accepted by the other user
+  useEffect(() => {
+    const handleFriendAccepted = () => fetchAll();
+    window.addEventListener("friendAccepted", handleFriendAccepted);
+    return () => window.removeEventListener("friendAccepted", handleFriendAccepted);
+  }, [fetchAll]);
+
   return { friends, pending, loading, error, refetch };
 }

@@ -24,6 +24,22 @@ export default async function (fastify, opts) {
           data: { status: "ACCEPTED" },
         });
 
+        // Notify the original requester in real-time that their request was accepted
+        const accepter = await prisma.profile.findUnique({
+          where: { id: request.user.userId },
+          select: { id: true, username: true, avatar: true },
+        });
+        if (accepter) {
+          fastify.notifyFriendReq(friendRequest.requesterId, {
+            event: "FRIEND_ACCEPTED",
+            payload: {
+              accepterId: accepter.id,
+              accepterUsername: accepter.username,
+              accepterAvatar: accepter.avatar ?? null,
+            },
+          });
+        }
+
         return reply.code(200).send("Friend request accepted");
       } catch (error) {}
     }
