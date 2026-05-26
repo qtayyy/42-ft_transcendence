@@ -673,6 +673,7 @@
     "10 title": "10. Contact",
     "10 body": "For privacy-related questions, open an issue on the project repository or contact the team via 42 intra.",
     "Back to Login": "Back to Login",
+    "Back to Sign Up": "Back to Sign Up",
     "Terms of Service link": "Terms of Service"
   },
   "Terms of Service": {
@@ -704,6 +705,7 @@
     "11 title": "11. Contact",
     "11 body": "For questions about these Terms, open an issue on the project repository or contact the team via 42 intra.",
     "Back to Login": "Back to Login",
+    "Back to Sign Up": "Back to Sign Up",
     "Privacy Policy link": "Privacy Policy"
   },
   "Footer": {

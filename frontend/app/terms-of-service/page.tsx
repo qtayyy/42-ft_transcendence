@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/context/languageContext";
@@ -8,6 +9,7 @@ import { useLanguage } from "@/context/languageContext";
 export default function TermsOfServicePage() {
   const { t } = useLanguage();
   const s = t["Terms of Service"];
+  const router = useRouter();
 
   return (
     <div className="min-h-screen w-full px-4 py-16 flex flex-col items-center">
@@ -85,9 +87,7 @@ export default function TermsOfServicePage() {
             </section>
 
             <div className="flex flex-wrap gap-3 pt-4">
-              <Link href="/login">
-                <Button variant="outline">{s["Back to Login"]}</Button>
-              </Link>
+              <Button variant="outline" onClick={() => router.back()}>{s["Back to Sign Up"]}</Button>
               <Link href="/privacy-policy">
                 <Button variant="ghost">{s["Privacy Policy link"]}</Button>
               </Link>

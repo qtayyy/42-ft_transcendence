@@ -21,6 +21,30 @@ export default function SignUpPage() {
   const router = useRouter();
   const { t } = useLanguage();
 
+  const [savedDraft] = useState<{ fullName?: string; email?: string }>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = sessionStorage.getItem("signup_draft");
+        return raw ? JSON.parse(raw) : {};
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  });
+
+  const saveSignupDraft = () => {
+    const fullNameInput = document.getElementById("fullName") as HTMLInputElement | null;
+    const emailInput = document.getElementById("email") as HTMLInputElement | null;
+    sessionStorage.setItem(
+      "signup_draft",
+      JSON.stringify({
+        fullName: fullNameInput?.value ?? "",
+        email: emailInput?.value ?? "",
+      }),
+    );
+  };
+
   const bothAgreed = agreedToTerms && agreedToPrivacy;
 
   const fields = [
@@ -30,8 +54,9 @@ export default function SignUpPage() {
       type: "text",
       minLength: 3,
       maxLength: 20,
+      defaultValue: savedDraft.fullName || "",
     },
-    { name: "email", label: t?.["Login & Sign up"]?.Email || "Email", type: "email" },
+    { name: "email", label: t?.["Login & Sign up"]?.Email || "Email", type: "email", defaultValue: savedDraft.email || "" },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -77,6 +102,7 @@ export default function SignUpPage() {
       });
 
       if (response.status === 200) {
+        sessionStorage.removeItem("signup_draft");
         setSuccessMessage("Sign up successful!");
         setTimeout(() => {
           setSuccessMessage("");
@@ -153,7 +179,7 @@ export default function SignUpPage() {
             />
             <span className="text-xs text-muted-foreground leading-snug">
               {t?.["Login & Sign up"]?.["agree prefix"] || "I agree to the "}
-              <Link href="/terms-of-service" target="_blank" className="underline hover:text-foreground">
+              <Link href="/terms-of-service" onClick={saveSignupDraft} className="underline hover:text-foreground">
                 {t?.["Login & Sign up"]?.["Terms of Service"] || "Terms of Service"}
               </Link>
               {t?.["Login & Sign up"]?.["agree suffix"] || "."}
@@ -168,7 +194,7 @@ export default function SignUpPage() {
             />
             <span className="text-xs text-muted-foreground leading-snug">
               {t?.["Login & Sign up"]?.["agree prefix"] || "I agree to the "}
-              <Link href="/privacy-policy" target="_blank" className="underline hover:text-foreground">
+              <Link href="/privacy-policy" onClick={saveSignupDraft} className="underline hover:text-foreground">
                 {t?.["Login & Sign up"]?.["Privacy Policy"] || "Privacy Policy"}
               </Link>
               {t?.["Login & Sign up"]?.["agree suffix"] || "."}

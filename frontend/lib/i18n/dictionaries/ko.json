@@ -673,6 +673,7 @@
     "10 title": "10. 문의",
     "10 body": "개인정보 관련 질문은 프로젝트 저장소에 이슈를 열거나 42 intra를 통해 팀에 문의하세요.",
     "Back to Login": "로그인으로 돌아가기",
+    "Back to Sign Up": "회원가입으로 돌아가기",
     "Terms of Service link": "서비스 이용약관"
   },
   "Terms of Service": {
@@ -704,6 +705,7 @@
     "11 title": "11. 문의",
     "11 body": "본 약관에 관한 질문은 프로젝트 저장소에 이슈를 열거나 42 intra를 통해 팀에 문의하세요.",
     "Back to Login": "로그인으로 돌아가기",
+    "Back to Sign Up": "회원가입으로 돌아가기",
     "Privacy Policy link": "개인정보 처리방침"
   },
   "Footer": {
