@@ -382,6 +382,7 @@ export default function ProfilePage() {
                     value={profile.dob}
                     onChange={handleInputChange}
                     disabled={!isEditMode}
+                    max={new Date().toISOString().split("T")[0]}
                     className={cn(!isEditMode && "bg-muted/30")}
                   />
                 </div>

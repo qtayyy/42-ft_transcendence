@@ -231,6 +231,16 @@ export const SocketProvider = ({ children }) => {
 							);
 							break;
 
+						case "FRIEND_ACCEPTED":
+							toast.success(
+								`${payload.accepterUsername} accepted your friend request!`
+							);
+							// Dispatch event so friends lists can refresh in real time
+							window.dispatchEvent(
+								new CustomEvent("friendAccepted", { detail: payload })
+							);
+							break;
+
 						case "FRIEND_STATUS":
 							const { id, username, status } = msg.payload;
 

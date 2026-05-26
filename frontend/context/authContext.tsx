@@ -20,6 +20,8 @@ const NON_AUTHENTICATED_ROUTES = [
 	"/reset-password",
 	"/reset-pwd",
 	"/2fa/verify",
+	"/terms-of-service",
+	"/privacy-policy",
 ];
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);

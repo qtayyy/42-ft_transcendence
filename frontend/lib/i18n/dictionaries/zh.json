@@ -673,6 +673,7 @@
     "10 title": "10. 联系方式",
     "10 body": "如有隐私相关问题，请在项目仓库开issue或通过42 intra联系团队。",
     "Back to Login": "返回登录",
+    "Back to Sign Up": "返回注册",
     "Terms of Service link": "服务条款"
   },
   "Terms of Service": {
@@ -704,6 +705,7 @@
     "11 title": "11. 联系方式",
     "11 body": "如有关于本条款的问题，请在项目仓库开issue或通过42 intra联系团队。",
     "Back to Login": "返回登录",
+    "Back to Sign Up": "返回注册",
     "Privacy Policy link": "隐私政策"
   },
   "Footer": {
