@@ -219,16 +219,16 @@ export default function TournamentMatchmakingPage() {
 			"tournament"
 		);
 
-		console.log("[Tournament] Start requested", {
-			roomId,
-			tournamentId: tournamentIdResult.ok ? tournamentIdResult.value : "",
-			isReady,
-			hasTournamentRoom: !!activeTournamentRoom,
-			hasGameRoom: !!gameRoom,
-			gameRoomId: gameRoom?.roomId,
-			tournamentRoomId: activeTournamentRoom?.roomId,
-			playerCount: gameRoom?.joinedPlayers.length || activeTournamentRoom?.players.length
-		});
+// 		console.log("[Tournament] Start requested", {
+// 			roomId,
+// 			tournamentId: tournamentIdResult.ok ? tournamentIdResult.value : "",
+// 			isReady,
+// 			hasTournamentRoom: !!activeTournamentRoom,
+// 			hasGameRoom: !!gameRoom,
+// 			gameRoomId: gameRoom?.roomId,
+// 			tournamentRoomId: activeTournamentRoom?.roomId,
+// 			playerCount: gameRoom?.joinedPlayers.length || activeTournamentRoom?.players.length
+// 		});
 
 		if (!roomCodeResult.ok || !tournamentIdResult.ok || !playerCountResult.ok || !isReady) {
 			console.warn("[Tournament] Cannot start: missing roomId or socket not ready");

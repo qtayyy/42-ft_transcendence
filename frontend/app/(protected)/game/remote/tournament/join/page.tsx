@@ -65,7 +65,7 @@ export default function JoinTournamentPage() {
 
 		const onJoinSuccess = (e: CustomEvent) => {
 			const data = e.detail;
-			console.log("[JOIN_ROOM_SUCCESS] detail:", data);
+// 			console.log("[JOIN_ROOM_SUCCESS] detail:", data);
 			if (data.roomId === normalizedCode) {
 				cleanupJoinListener();
 				setJoined(true);

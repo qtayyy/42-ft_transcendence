@@ -95,7 +95,7 @@ export default function JoinRoomPage() {
 				return;
 			}
 
-			console.log("[JoinRoom] Auto-joining room:", roomCodeResult.value);
+// 			console.log("[JoinRoom] Auto-joining room:", roomCodeResult.value);
 			hasAttemptedAutoJoin.current = true;
 			setRoomCode(roomCodeResult.value);
 			attemptJoin(roomCodeResult.value);

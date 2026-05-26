@@ -55,13 +55,13 @@ export function PauseOverlay({
 	if (!isOpen) return null;
 
 	const handleResume = () => {
-		console.log("[PauseOverlay] Resume button clicked", {
-			mode,
-			currentPlayerReady,
-			player1Ready,
-			player2Ready,
-			hasOnResume: !!onResume
-		});
+// 		console.log("[PauseOverlay] Resume button clicked", {
+// 			mode,
+// 			currentPlayerReady,
+// 			player1Ready,
+// 			player2Ready,
+// 			hasOnResume: !!onResume
+// 		});
 		if (onResume) {
 			onResume();
 		} else {
