@@ -1,6 +1,11 @@
+import bcrypt from "bcrypt";
 import { PrismaClient } from "../../../generated/prisma/index.js";
 import fs from "fs";
 import path from "path";
+import {
+  replyIfValidationError,
+  validatePasswordForLogin,
+} from "../../../lib/auth-validation.js";
 
 const prisma = new PrismaClient();
 
@@ -13,15 +18,23 @@ export default async function (fastify, opts) {
     async (request, reply) => {
       try {
         const userId = request.user.userId;
+        const password = validatePasswordForLogin(request.body?.password);
+        const pepper = process.env.SECURITY_PEPPER;
 
         // Get user and profile to find avatar file
-        const user = await prisma.user.findUnique({ 
+        const user = await prisma.user.findUnique({
           where: { id: userId },
-          include: { profile: true }
+          include: { profile: true },
         });
 
         if (!user) {
           return reply.code(404).send({ error: "User not found" });
+        }
+
+        const passwordWithPepper = password + pepper;
+        const match = await bcrypt.compare(passwordWithPepper, user.password);
+        if (!match) {
+          return reply.code(400).send({ error: "Incorrect password" });
         }
 
         // Delete avatar file if it exists
@@ -116,11 +129,15 @@ export default async function (fastify, opts) {
           });
         });
 
-        return reply.code(200).send({ 
-          message: "Account deleted successfully",
-          success: true 
-        });
+        return reply
+          .clearCookie("token", { path: "/" })
+          .code(200)
+          .send({
+            message: "Account deleted successfully",
+            success: true,
+          });
       } catch (error) {
+        if (replyIfValidationError(error, reply)) return;
         console.error("Error deleting account:", error);
         return reply.code(500).send({ error: "Internal server error" });
       }
