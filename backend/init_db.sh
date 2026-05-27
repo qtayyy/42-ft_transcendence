@@ -32,4 +32,8 @@ npx prisma db push --accept-data-loss
 # Seed/migration bootstrapping can be added back here if the project later
 # moves from db push to an explicit Prisma migration workflow.
 
-npm run dev
+if [ "${APP_ENV:-production}" = "development" ]; then
+	exec npm run dev
+else
+	exec npm run start
+fi
