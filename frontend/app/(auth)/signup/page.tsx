@@ -179,7 +179,7 @@ export default function SignUpPage() {
             />
             <span className="text-xs text-muted-foreground leading-snug">
               {t?.["Login & Sign up"]?.["agree prefix"] || "I agree to the "}
-              <Link href="/terms-of-service" onClick={saveSignupDraft} className="underline hover:text-foreground">
+              <Link href="/terms-of-service?from=signup" onClick={saveSignupDraft} className="underline hover:text-foreground">
                 {t?.["Login & Sign up"]?.["Terms of Service"] || "Terms of Service"}
               </Link>
               {t?.["Login & Sign up"]?.["agree suffix"] || "."}
@@ -194,7 +194,7 @@ export default function SignUpPage() {
             />
             <span className="text-xs text-muted-foreground leading-snug">
               {t?.["Login & Sign up"]?.["agree prefix"] || "I agree to the "}
-              <Link href="/privacy-policy" onClick={saveSignupDraft} className="underline hover:text-foreground">
+              <Link href="/privacy-policy?from=signup" onClick={saveSignupDraft} className="underline hover:text-foreground">
                 {t?.["Login & Sign up"]?.["Privacy Policy"] || "Privacy Policy"}
               </Link>
               {t?.["Login & Sign up"]?.["agree suffix"] || "."}
