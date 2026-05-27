@@ -24,6 +24,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/context/languageContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  OTP_LENGTH,
   PASSWORD_MIN_LENGTH,
   validateOtp,
   validatePasswordForLogin,
@@ -451,9 +452,15 @@ export default function SettingsPage() {
                           id="code"
                           name="code"
                           required
-                          maxLength={6}
+                          maxLength={OTP_LENGTH}
                           inputMode="numeric"
                           autoComplete="one-time-code"
+                          pattern={`[0-9]{${OTP_LENGTH}}`}
+                          onInput={(e) => {
+                            e.currentTarget.value = e.currentTarget.value
+                              .replace(/\D/g, "")
+                              .slice(0, OTP_LENGTH);
+                          }}
                         ></Input>
                       </DialogHeader>
 
@@ -566,9 +573,16 @@ export default function SettingsPage() {
                             type="text"
                             id="otp"
                             value={otp}
-                            onChange={(e) => setOtp(e.target.value)}
+                            onChange={(e) =>
+                              setOtp(
+                                e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH),
+                              )
+                            }
                             placeholder={t?.Setting?.["Enter 6-digit OTP"] || "Enter 6-digit OTP"}
-                            maxLength={6}
+                            maxLength={OTP_LENGTH}
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            pattern={`[0-9]{${OTP_LENGTH}}`}
                             className="text-center text-2xl tracking-widest bg-muted/30 border-border/50"
                           />
                         </div>
