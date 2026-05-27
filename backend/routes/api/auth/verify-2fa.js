@@ -29,13 +29,14 @@ export default async function (fastify, opts) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
       });
-      if (!user) return reply.code(401).send({ error: "Invalid user" });
+      if (!user) return reply.code(404).send({ error: "Invalid user" });
 
       // Finally, we check if the OTP given is correct
       const isValid = otplib.authenticator.check(code, user.twoFASecret);
       // WIP: Add method using backup code
-      if (!isValid)
-        return reply.status(401).send({ error: "Invalid 2FA code" });
+      if (!isValid) {
+        return reply.code(400).send({ error: "Invalid 2FA code" });
+      }
       const fullToken = fastify.jwt.sign(
         { userId: user.id },
         { expiresIn: "1h" },
@@ -81,11 +82,12 @@ export default async function (fastify, opts) {
         const user = await prisma.user.findUnique({
           where: { id: userId },
         });
-        if (!user) return reply.code(401).send({ error: "Invalid user" });
+        if (!user) return reply.code(404).send({ error: "Invalid user" });
 
         const isValid = otplib.authenticator.check(code, user.twoFASecret);
-        if (!isValid)
-          return reply.status(401).send({ error: "Invalid 2FA code" });
+        if (!isValid) {
+          return reply.code(400).send({ error: "Invalid 2FA code" });
+        }
 
         return reply.code(200).send({
           message: "2FA enabled.",
