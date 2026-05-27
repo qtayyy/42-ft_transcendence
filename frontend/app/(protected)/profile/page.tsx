@@ -15,6 +15,15 @@ import { useLanguage } from "@/context/languageContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
+  BIO_MAX_LENGTH,
+  REGION_MAX_LENGTH,
+  validateAvatarFileSize,
+  validateBio,
+  validateDob,
+  validateRegion,
+  validateUsername,
+} from "@/lib/profile-validation";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -95,6 +104,17 @@ export default function ProfilePage() {
     if (!isEditMode) return;
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const sizeResult = validateAvatarFileSize(file.size);
+    if (!sizeResult.ok) {
+      setError(sizeResult.error);
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = "";
+      }
+      return;
+    }
+
+    setError("");
     setPreview((prev) => {
       revokePreviewIfBlob(prev);
       return URL.createObjectURL(file);
@@ -146,17 +166,36 @@ export default function ProfilePage() {
   }
 
   async function handleSave() {
-    const trimmedUsername = profile.username.trim();
-    if (!trimmedUsername) {
-      setError(t?.Profile?.UsernameRequired ?? "Username cannot be empty.");
+    const usernameResult = validateUsername(profile.username);
+    if (!usernameResult.ok) {
+      setError(usernameResult.error);
       return;
     }
-    if (trimmedUsername.length < 3 || trimmedUsername.length > 20) {
-      setError(
-        t?.Profile?.UsernameLength ??
-          "Username must be between 3 and 20 characters.",
-      );
+
+    const bioResult = validateBio(profile.bio);
+    if (!bioResult.ok) {
+      setError(bioResult.error);
       return;
+    }
+
+    const regionResult = validateRegion(profile.region);
+    if (!regionResult.ok) {
+      setError(regionResult.error);
+      return;
+    }
+
+    const dobResult = validateDob(profile.dob);
+    if (!dobResult.ok) {
+      setError(dobResult.error);
+      return;
+    }
+
+    if (selectedAvatar instanceof File) {
+      const sizeResult = validateAvatarFileSize(selectedAvatar.size);
+      if (!sizeResult.ok) {
+        setError(sizeResult.error);
+        return;
+      }
     }
 
     try {
@@ -167,15 +206,21 @@ export default function ProfilePage() {
         formData.append("deleteAvatar", "true");
       }
       // If new avatar was selected
-      else if (selectedAvatar) {
+      else if (selectedAvatar instanceof File) {
         formData.append("avatar", selectedAvatar);
       }
 
-      const profilePayload = { ...profile, username: trimmedUsername };
+      const profilePayload = {
+        username: usernameResult.value,
+        bio: bioResult.value,
+        region: regionResult.value,
+        dob: dobResult.value
+          ? dobResult.value.toISOString().split("T")[0]
+          : "",
+      };
 
-      // Append all profile fields
-      Object.keys(profilePayload).forEach((key) => {
-        formData.append(key, profilePayload[key]);
+      Object.entries(profilePayload).forEach(([key, value]) => {
+        formData.append(key, value);
       });
 
       setError("");
@@ -400,6 +445,7 @@ export default function ProfilePage() {
                     value={profile.region}
                     onChange={handleInputChange}
                     disabled={!isEditMode}
+                    maxLength={REGION_MAX_LENGTH}
                     className={cn(!isEditMode && "bg-muted/30")}
                   />
                 </div>
@@ -418,10 +464,10 @@ export default function ProfilePage() {
                     disabled={!isEditMode}
                     placeholder="Tell us about yourself..."
                     className={cn("min-h-[120px] resize-none", !isEditMode && "bg-muted/30")}
-                    maxLength={500}
+                    maxLength={BIO_MAX_LENGTH}
                   />
                   <p className="text-xs text-muted-foreground text-right">
-                    {profile.bio.length}/500 characters
+                    {profile.bio.length}/{BIO_MAX_LENGTH} characters
                   </p>
                 </div>
               </div>
