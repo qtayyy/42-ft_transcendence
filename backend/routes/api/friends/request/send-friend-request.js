@@ -1,4 +1,6 @@
 import { PrismaClient } from "../../../../generated/prisma/index.js";
+import { replyIfValidationError } from "../../../../lib/auth-validation.js";
+import { validateFriendRequestUsername } from "../../../../lib/friends-validation.js";
 
 const prisma = new PrismaClient();
 
@@ -11,14 +13,14 @@ export default async function (fastify, opts) {
     async (request, reply) => {
       try {
         const myId = request.user.userId;
-        const { username } = request.body;
+        const username = validateFriendRequestUsername(request.body?.username);
 
         const myProfile = await prisma.profile.findUnique({
           where: { id: myId },
         });
         if (!myProfile) return reply.code(400).send({ error: "Invalid user" });
         const addressee = await prisma.profile.findUnique({
-          where: { username: username },
+          where: { username },
         });
         if (!addressee)
           return reply.code(400).send({ error: "User not found" });
@@ -80,6 +82,7 @@ export default async function (fastify, opts) {
         }
         return reply.code(200).send({ message: "Friend request sent" });
       } catch (error) {
+        if (replyIfValidationError(error, reply)) return;
         console.error("Friend request error:", error);
         return reply.code(500).send({ error: "Internal server error" });
       }
