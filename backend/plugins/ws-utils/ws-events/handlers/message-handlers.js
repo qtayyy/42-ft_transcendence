@@ -307,16 +307,16 @@ export function createWsEventHandlers({
     },
 
     FORCE_CLEANUP: () => {
-      console.log(`[FORCE_CLEANUP] Requested for user ${userId}`);
+//       console.log(`[FORCE_CLEANUP] Requested for user ${userId}`);
       // 1. Leave any matchmaking queue
       fastify.leaveMatchmaking(userId, true);
 
       // 2. Leave any pre-game room
       const currentRoomId = fastify.currentRoom.get(userId);
       if (currentRoomId) {
-        console.log(
-          `[FORCE_CLEANUP] Leaving room ${currentRoomId} for user ${userId}`,
-        );
+//         console.log(
+//           `[FORCE_CLEANUP] Leaving room ${currentRoomId} for user ${userId}`,
+//         );
         fastify.leaveRoom(currentRoomId, userId);
       }
 
@@ -328,9 +328,9 @@ export function createWsEventHandlers({
             Number(state.leftPlayer.id) === userId ||
             Number(state.rightPlayer.id) === userId
           ) {
-            console.log(
-              `[FORCE_CLEANUP] Forfeiting match ${matchId} for user ${userId}`,
-            );
+//             console.log(
+//               `[FORCE_CLEANUP] Forfeiting match ${matchId} for user ${userId}`,
+//             );
             try {
               fastify.forfeitMatch(matchId, userId);
             } catch (e) {
@@ -351,16 +351,16 @@ export function createWsEventHandlers({
     },
 
     PLAYER_NAVIGATING_AWAY: (payload) => {
-      console.log(
-        `[Navigate Away] User ${userId} navigating away from match ${payload.matchId}`,
-      );
+//       console.log(
+//         `[Navigate Away] User ${userId} navigating away from match ${payload.matchId}`,
+//       );
       fastify.handlePlayerNavigatingAway(payload.matchId, userId);
     },
 
     PLAYER_RECONNECTING: (payload) => {
-      console.log(
-        `[Reconnect] User ${userId} reconnecting to match ${payload.matchId}`,
-      );
+//       console.log(
+//         `[Reconnect] User ${userId} reconnecting to match ${payload.matchId}`,
+//       );
       fastify.handlePlayerReconnecting(payload.matchId, userId);
     },
 
@@ -460,10 +460,10 @@ export function createWsEventHandlers({
           // Send message to recipient if online
           const recipientSocket = fastify.onlineUsers.get(Number(recipientId));
           if (recipientSocket) {
-            console.log(
-              `Sending CHAT_MESSAGE to recipient ${recipientId}:`,
-              messagePayload,
-            );
+//             console.log(
+//               `Sending CHAT_MESSAGE to recipient ${recipientId}:`,
+//               messagePayload,
+//             );
             safeSend(
               recipientSocket,
               {
@@ -473,16 +473,16 @@ export function createWsEventHandlers({
               recipientId,
             );
           } else {
-            console.log(
-              `Recipient ${recipientId} is not online. Message saved but not delivered.`,
-            );
+//             console.log(
+//               `Recipient ${recipientId} is not online. Message saved but not delivered.`,
+//             );
           }
 
           // Send saved message back to sender (so they can update optimistic message with real DB data)
-          console.log(
-            `Sending CHAT_MESSAGE confirmation back to sender ${userId}:`,
-            messagePayload,
-          );
+//           console.log(
+//             `Sending CHAT_MESSAGE confirmation back to sender ${userId}:`,
+//             messagePayload,
+//           );
           safeSend(
             connection,
             {
@@ -546,11 +546,11 @@ export function createWsEventHandlers({
       // Handle message read receipt
       (async () => {
         try {
-          console.log(`User ${userId} sending MESSAGE_READ for message ${payload.messageId}`);
+//           console.log(`User ${userId} sending MESSAGE_READ for message ${payload.messageId}`);
           const messageId = parseInt(payload.messageId);
 
           if (!messageId || isNaN(messageId)) {
-            console.log(`Invalid messageId: ${payload.messageId}`);
+//             console.log(`Invalid messageId: ${payload.messageId}`);
             return;
           }
 
@@ -566,7 +566,7 @@ export function createWsEventHandlers({
             },
           });
 
-          console.log(`Updated ${updatedMessage.count} message(s) as read`);
+//           console.log(`Updated ${updatedMessage.count} message(s) as read`);
 
           if (updatedMessage.count > 0) {
             // Notify sender that message was read
@@ -575,11 +575,11 @@ export function createWsEventHandlers({
             });
 
             if (message) {
-              console.log(`Message ${messageId} marked as read by user ${userId}, notifying sender ${message.senderId}`);
+//               console.log(`Message ${messageId} marked as read by user ${userId}, notifying sender ${message.senderId}`);
               const senderSocket = fastify.onlineUsers.get(Number(message.senderId));
-              console.log(`Sender socket found:`, !!senderSocket);
+//               console.log(`Sender socket found:`, !!senderSocket);
               if (senderSocket) {
-                console.log(`Sending MESSAGE_READ to sender ${message.senderId} for message ${messageId}`);
+//                 console.log(`Sending MESSAGE_READ to sender ${message.senderId} for message ${messageId}`);
                 safeSend(
                   senderSocket,
                   {
@@ -594,7 +594,7 @@ export function createWsEventHandlers({
                   message.senderId,
                 );
               } else {
-                console.log(`Sender ${message.senderId} is not online, cannot send read receipt`);
+//                 console.log(`Sender ${message.senderId} is not online, cannot send read receipt`);
               }
             }
           }
@@ -768,9 +768,9 @@ export function createWsEventHandlers({
       const tournament = fastify.activeTournaments.get(payload.tournamentId);
       if (tournament) {
         tournament.playerReadyStates.set(userId, payload.isReady);
-        console.log(
-          `[Tournament] Player ${userId} ready state: ${payload.isReady}`,
-        );
+//         console.log(
+//           `[Tournament] Player ${userId} ready state: ${payload.isReady}`,
+//         );
       }
     },
 
@@ -810,7 +810,7 @@ export function createWsEventHandlers({
           fastify.matchSpectators.set(matchId, new Set());
         }
         fastify.matchSpectators.get(matchId).add(userId);
-        console.log(`[Spectator] User ${userId} viewing match ${matchId}`);
+//         console.log(`[Spectator] User ${userId} viewing match ${matchId}`);
 
         const gameState = fastify.gameStates.get(matchId);
         if (gameState) {
@@ -840,7 +840,7 @@ export function createWsEventHandlers({
             fastify.matchSpectators.delete(payload.matchId);
           }
         }
-        console.log(`[Spectator] User ${userId} stopped viewing ${payload.matchId}`);
+//         console.log(`[Spectator] User ${userId} stopped viewing ${payload.matchId}`);
       }
     },
   };

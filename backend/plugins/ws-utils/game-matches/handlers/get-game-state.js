@@ -10,7 +10,7 @@ export function createGetGameStateHandler({ fastify, safeSend, serializeGameStat
   return (matchId, userId) => {
     const gameState = fastify.gameStates.get(matchId);
     if (!gameState) {
-      console.log(`[getGameState] No game state found for match ${matchId}`);
+//       console.log(`[getGameState] No game state found for match ${matchId}`);
       return;
     }
 

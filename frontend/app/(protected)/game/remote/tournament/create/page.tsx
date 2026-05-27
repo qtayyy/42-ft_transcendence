@@ -171,7 +171,7 @@ export default function CreateTournamentRoomPage() {
 				  )
 				: roomCodeResult;
 			if (tournamentIdResult.ok) {
-				console.log("Tournament already started, redirecting to:", tournamentIdResult.value);
+// 				console.log("Tournament already started, redirecting to:", tournamentIdResult.value);
 				router.push(`/game/remote/tournament/${tournamentIdResult.value}`);
 			}
 		}

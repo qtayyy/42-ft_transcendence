@@ -64,12 +64,12 @@ export default async function (fastify, opts) {
       if (shouldClean) {
         activeTournaments.delete(tournamentId);
         cleanedCount++;
-        console.log(`[Cleanup] Removed stale tournament: ${tournamentId}`);
+//         console.log(`[Cleanup] Removed stale tournament: ${tournamentId}`);
       }
     }
 
     if (cleanedCount > 0) {
-      console.log(`[Cleanup] Removed ${cleanedCount} stale tournament(s)`);
+//       console.log(`[Cleanup] Removed ${cleanedCount} stale tournament(s)`);
     }
   }, CLEANUP_INTERVAL);
 

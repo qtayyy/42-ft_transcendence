@@ -69,9 +69,9 @@ export function createPlayerPresenceHandlers({
     }
 
     gameState[timeoutKey] = setTimeout(() => {
-      console.log(
-        `[Disconnect] Grace period expired for ${disconnectedPlayer} in match ${matchId}`,
-      );
+//       console.log(
+//         `[Disconnect] Grace period expired for ${disconnectedPlayer} in match ${matchId}`,
+//       );
 
       const bothDisconnected = gameState.disconnectedPlayers?.size >= 2;
       if (bothDisconnected) {
@@ -105,7 +105,7 @@ export function createPlayerPresenceHandlers({
   const handlePlayerNavigatingAway = (matchId, userId) => {
     const gameState = fastify.gameStates.get(matchId);
     if (!gameState) {
-      console.log(`[Navigate Away] No game state found for match ${matchId}`);
+//       console.log(`[Navigate Away] No game state found for match ${matchId}`);
       return;
     }
 
@@ -117,21 +117,21 @@ export function createPlayerPresenceHandlers({
     } else if (uid === gameState.rightPlayer?.id) {
       disconnectedPlayer = "RIGHT";
     } else {
-      console.log(`[Navigate Away] User ${userId} not in match ${matchId}`);
+//       console.log(`[Navigate Away] User ${userId} not in match ${matchId}`);
       return;
     }
 
     // Don't pause if game is already over or hasn't started yet
     if (gameState.gameOver || !gameState.gameStarted) {
-      console.log(
-        `[Navigate Away] Game ${matchId} not in progress (gameOver=${gameState.gameOver}, gameStarted=${gameState.gameStarted}), ignoring`,
-      );
+//       console.log(
+//         `[Navigate Away] Game ${matchId} not in progress (gameOver=${gameState.gameOver}, gameStarted=${gameState.gameStarted}), ignoring`,
+//       );
       return;
     }
 
-    console.log(
-      `[Navigate Away] User ${userId} (${disconnectedPlayer}) left match ${matchId}`,
-    );
+//     console.log(
+//       `[Navigate Away] User ${userId} (${disconnectedPlayer}) left match ${matchId}`,
+//     );
 
     markPlayerDisconnected(gameState, disconnectedPlayer, matchId, userId);
 
@@ -140,7 +140,7 @@ export function createPlayerPresenceHandlers({
 
     // If it's a tournament match, update tournament state immediately for forfeit
     if (gameState.isTournamentMatch && gameState.tournamentId) {
-      console.log(`[Navigate Away] Processing tournament forfeit for ${matchId}`);
+//       console.log(`[Navigate Away] Processing tournament forfeit for ${matchId}`);
       if (fastify.handleTournamentMatchEnd) {
         // The remaining player is the winner
         const winnerId =
@@ -163,9 +163,9 @@ export function createPlayerPresenceHandlers({
             ? gameState.leftPlayer?.id
             : gameState.rightPlayer?.id;
         if (disconnectedId) {
-          console.log(
-            `[Navigate Away] Evicting disconnected user ${disconnectedId} from room ${gameState.roomId}`,
-          );
+//           console.log(
+//             `[Navigate Away] Evicting disconnected user ${disconnectedId} from room ${gameState.roomId}`,
+//           );
           fastify.leaveRoom(gameState.roomId, disconnectedId);
         }
       },
@@ -191,9 +191,9 @@ export function createPlayerPresenceHandlers({
       return;
     }
 
-    console.log(
-      `[Disconnect] Hard disconnect for user ${userId} (${disconnectedPlayer}) from match ${matchId}`,
-    );
+//     console.log(
+//       `[Disconnect] Hard disconnect for user ${userId} (${disconnectedPlayer}) from match ${matchId}`,
+//     );
 
     markPlayerDisconnected(gameState, disconnectedPlayer, matchId, userId);
 
@@ -224,15 +224,15 @@ export function createPlayerPresenceHandlers({
       !gameState.disconnectedPlayers ||
       !gameState.disconnectedPlayers.has(reconnectedPlayer)
     ) {
-      console.log(
-        `[Reconnect] User ${userId} (${reconnectedPlayer}) not in disconnected set, ignoring`,
-      );
+//       console.log(
+//         `[Reconnect] User ${userId} (${reconnectedPlayer}) not in disconnected set, ignoring`,
+//       );
       return;
     }
 
-    console.log(
-      `[Reconnect] User ${userId} (${reconnectedPlayer}) returned to match ${matchId}`,
-    );
+//     console.log(
+//       `[Reconnect] User ${userId} (${reconnectedPlayer}) returned to match ${matchId}`,
+//     );
 
     // Clear disconnect timeout
     const timeoutKey =
@@ -250,9 +250,9 @@ export function createPlayerPresenceHandlers({
     // If no more disconnected players, handle the transition to manual resume state
     if (gameState.disconnectedPlayers.size === 0) {
       gameState.disconnectedPlayer = null;
-      console.log(
-        `[Reconnect] All players back in ${matchId}, remaining PAUSED until manual resume`,
-      );
+//       console.log(
+//         `[Reconnect] All players back in ${matchId}, remaining PAUSED until manual resume`,
+//       );
     }
 
     // Always notify about the specific player who reconnected (for toasts/UI markers)

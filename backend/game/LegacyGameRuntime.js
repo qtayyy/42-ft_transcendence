@@ -175,7 +175,7 @@ class LegacyGameRuntime {
             socket: socket,
             id: this.players.p1.id ?? userId,
           };
-          console.log(`Local Game Hosted by (ID: ${userId})`);
+//           console.log(`Local Game Hosted by (ID: ${userId})`);
           // Send initial waiting state to the host
           socket.send(JSON.stringify(this.gameState));
           return `host`;
@@ -187,7 +187,7 @@ class LegacyGameRuntime {
           socket: socket,
           id: userId,
         };
-        console.log(`Remote P1 joined (ID: ${userId})`);
+//         console.log(`Remote P1 joined (ID: ${userId})`);
         // Send initial waiting state to P1
         socket.send(JSON.stringify(this.gameState));
         return "p1";
@@ -196,7 +196,7 @@ class LegacyGameRuntime {
           socket: socket,
           id: userId,
         };
-        console.log(`Remote P2 joined (ID: ${userId})`);
+//         console.log(`Remote P2 joined (ID: ${userId})`);
         this.startGameLoop();
         return "p2";
       }
@@ -207,7 +207,7 @@ class LegacyGameRuntime {
       socket: socket,
       id: userId,
     });
-    console.log(`Spectator joined (ID: ${userId})`);
+//     console.log(`Spectator joined (ID: ${userId})`);
 
     // If game is already running, send current state immediately
     if (this.running) {
@@ -248,7 +248,7 @@ class LegacyGameRuntime {
       }
     }
 
-    console.log(`Starting Game Loop for Match ${this.matchId}`);
+//     console.log(`Starting Game Loop for Match ${this.matchId}`);
     this.gameState.status = "playing";
 
     // Initialize timer (only on first start, not on resume)
@@ -625,9 +625,9 @@ class LegacyGameRuntime {
       // Local tournament progression persists through the tournament result API.
       // Skipping the legacy runtime write here avoids creating a second history row.
       if (isLocalTournamentMatch) {
-        console.log(
-          `Skipping legacy match save for local tournament match ${this.matchId}`,
-        );
+//         console.log(
+//           `Skipping legacy match save for local tournament match ${this.matchId}`,
+//         );
         return;
       }
 
@@ -647,9 +647,9 @@ class LegacyGameRuntime {
                 : "REMOTE",
           tournamentId: this.tournamentId || null,
         });
-      console.log(
-        `Match ${this.matchId} ${reusedExisting ? "updated" : "saved"} as row ${match.id}; progression ${progressionApplied ? "applied" : "skipped"}`,
-      );
+//       console.log(
+//         `Match ${this.matchId} ${reusedExisting ? "updated" : "saved"} as row ${match.id}; progression ${progressionApplied ? "applied" : "skipped"}`,
+//       );
     } catch (error) {
       console.error("Failed to save match:", error);
     }
@@ -719,7 +719,7 @@ class LegacyGameRuntime {
       tournamentId: this.tournamentId,
     });
 
-    console.log(`Game ${this.matchId} forfeited by Player ${isP1 ? 1 : 2}`);
+//     console.log(`Game ${this.matchId} forfeited by Player ${isP1 ? 1 : 2}`);
   }
 
   _stopGame() {
@@ -773,13 +773,14 @@ class LegacyGameRuntime {
       tournamentId: this.tournamentId, // Trigger auto-redirect on frontend
     });
 
-    if (winner)
-      console.log(`Game ${this.matchId} ended. Winner: Player ${winner}`);
-    else console.log(`Game ${this.matchId} ended in a DRAW`);
+    if (winner) {
+//       console.log(`Game ${this.matchId} ended. Winner: Player ${winner}`);
+    }
+//     else console.log(`Game ${this.matchId} ended in a DRAW`);
   }
   pause() {
     if (!this.running) return;
-    console.log(`Pausing Game Match ${this.matchId}`);
+//     console.log(`Pausing Game Match ${this.matchId}`);
     this.running = false;
     this.pausedAt = Date.now();
     if (this.loopHandle) {
@@ -792,7 +793,7 @@ class LegacyGameRuntime {
 
   resume() {
     if (this.running) return;
-    console.log(`Resuming Game Match ${this.matchId}`);
+//     console.log(`Resuming Game Match ${this.matchId}`);
     // Adjust startTime to exclude the time spent paused
     if (this.pausedAt && this.startTime) {
       const pauseDuration = Date.now() - this.pausedAt;

@@ -20,7 +20,7 @@ export default async function (fastify, opts) {
 			try {
 				matchId = normalizeRuntimeId(request.query.matchId, "matchId");
 			} catch (error) {
-				console.log(`[GAME WS] Error: ${error.message}`);
+// 				console.log(`[GAME WS] Error: ${error.message}`);
 				connection.send(JSON.stringify({ error: error.message }));
 				connection.close();
 				return;
@@ -30,10 +30,10 @@ export default async function (fastify, opts) {
 			const aiDifficulty = normalizeAIDifficulty(request.query.aiDifficulty);
 			const userId = Number(request.user?.userId);
 
-			console.log(`[GAME WS] Client connected - matchId: ${matchId}, userId: ${userId}, isAI: ${isAI}, aiDifficulty: ${aiDifficulty}`);
+// 			console.log(`[GAME WS] Client connected - matchId: ${matchId}, userId: ${userId}, isAI: ${isAI}, aiDifficulty: ${aiDifficulty}`);
 
 			if (!Number.isInteger(userId) || userId <= 0) {
-				console.log("[GAME WS] Error: Invalid authenticated user");
+// 				console.log("[GAME WS] Error: Invalid authenticated user");
 				connection.send(JSON.stringify({ error: "authenticated user required" }));
 				connection.close();
 				return;
@@ -55,7 +55,7 @@ export default async function (fastify, opts) {
 					}
 				}
 
-				console.log(`[GAME WS] Creating game: ${matchId} (Mode: ${mode}, Tournament: ${tournamentId}, AI: ${isAI}, Difficulty: ${aiDifficulty})`);
+// 				console.log(`[GAME WS] Creating game: ${matchId} (Mode: ${mode}, Tournament: ${tournamentId}, AI: ${isAI}, Difficulty: ${aiDifficulty})`);
 				game = gameManager.createGame(matchId, mode, tournamentId, {
 					isAI,
 					aiDifficulty,
@@ -63,12 +63,12 @@ export default async function (fastify, opts) {
 			}
 
 			const role = game.join(connection, userId);
-			console.log(`[GAME WS] Joined as: ${role}`);
+// 			console.log(`[GAME WS] Joined as: ${role}`);
 
 			connection.on("message", (raw) => {
 				try {
 					const message = JSON.parse(raw);
-					console.log(`[GAME WS] 📩 Received message:`, { type: message.type, role, matchId });
+// 					console.log(`[GAME WS] 📩 Received message:`, { type: message.type, role, matchId });
 
 					if (message.type === "PADDLE_MOVE") {
 						const paddleMove = normalizePaddleMoveMessage(message);
@@ -78,9 +78,9 @@ export default async function (fastify, opts) {
 					}
 
 					if (message.type === "START") {
-						console.log(`[GAME WS] 🎯 START command received! Role: ${role}, Expected: 'host'`);
+// 						console.log(`[GAME WS] 🎯 START command received! Role: ${role}, Expected: 'host'`);
 						if (role == 'host') {
-							console.log("[GAME WS] ✅ Role matches! Starting game loop...");
+// 							console.log("[GAME WS] ✅ Role matches! Starting game loop...");
 							game.startGameLoop();
 						} else {
 							console.error(`[GAME WS] ❌ Role mismatch! Cannot start. Role: '${role}' (type: ${typeof role})`);
@@ -101,7 +101,7 @@ export default async function (fastify, opts) {
 			});
 
 			connection.on("close", () => {
-				console.log(`[GAME WS] ${userId} disconnected`);
+// 				console.log(`[GAME WS] ${userId} disconnected`);
 
 				// Local games should freeze immediately when the host tab disappears.
 				// Browser unload messages are best-effort, so the server backs that up here.
@@ -109,10 +109,10 @@ export default async function (fastify, opts) {
 				if (game.mode === 'local') {
 					if (game.players.p1.socket === connection) {
 						if (game.running && game.gameState.status === "playing") {
-							console.log(`[GAME WS] Pausing local game ${matchId} on host disconnect`);
+// 							console.log(`[GAME WS] Pausing local game ${matchId} on host disconnect`);
 							game.pause();
 						}
-						console.log(`[GAME WS] Clearing local host slot for reconnection`);
+// 						console.log(`[GAME WS] Clearing local host slot for reconnection`);
 						game.players.p1.socket = null;
 						// Don't clear the id to allow same user to reconnect
 					}

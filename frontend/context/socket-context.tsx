@@ -204,7 +204,7 @@ export const SocketProvider = ({ children }) => {
 			);
 
 			websocket.onopen = () => {
-				console.log("WebSocket connected");
+// 				console.log("WebSocket connected");
 				setIsReady(true);
 			};
 
@@ -272,7 +272,7 @@ export const SocketProvider = ({ children }) => {
 
 						case "GAME_ROOM":
 							if (Date.now() < suppressMatchmakingRedirectsUntil.current) {
-								console.log("[SocketContext] Ignoring late GAME_ROOM after room exit");
+// 								console.log("[SocketContext] Ignoring late GAME_ROOM after room exit");
 								break;
 							}
 							stableDeps.current.setGameRoom({
@@ -293,7 +293,7 @@ export const SocketProvider = ({ children }) => {
 								break;
 
 							case "GAME_INVITE":
-								console.log("Received GAME_INVITE via WebSocket:", payload);
+// 								console.log("Received GAME_INVITE via WebSocket:", payload);
 								if (payload?.roomId && payload?.hostId) {
 									// Room-based invite flow used by private lobby invites.
 									stableDeps.current.setInvitesReceived((prev) => [
@@ -369,7 +369,7 @@ export const SocketProvider = ({ children }) => {
 
 								case "MATCH_FOUND":
 									if (Date.now() < suppressMatchmakingRedirectsUntil.current) {
-										console.log("[SocketContext] Ignoring late MATCH_FOUND after room exit");
+// 										console.log("[SocketContext] Ignoring late MATCH_FOUND after room exit");
 										break;
 									}
 									// Navigate to lobby based on actual host identity (more reliable than pathname checks).
@@ -417,7 +417,7 @@ export const SocketProvider = ({ children }) => {
 
 							case "MATCHMAKING_JOINED":
 								// Optionally show queue position
-								console.log("Joined matchmaking queue, position:", payload.position);
+// 								console.log("Joined matchmaking queue, position:", payload.position);
 								window.dispatchEvent(
 									new CustomEvent("MATCHMAKING_JOINED", { detail: payload })
 								);
@@ -425,7 +425,7 @@ export const SocketProvider = ({ children }) => {
 
 								case "MATCHMAKING_HOST":
 									if (Date.now() < suppressMatchmakingRedirectsUntil.current) {
-										console.log("[SocketContext] Ignoring late MATCHMAKING_HOST after room exit");
+// 										console.log("[SocketContext] Ignoring late MATCHMAKING_HOST after room exit");
 										break;
 									}
 									// User has been designated as host for a new matchmade room
@@ -442,7 +442,7 @@ export const SocketProvider = ({ children }) => {
 									break;
 
 							case "TOURNAMENT_UPDATE":
-								console.log("Socket Context: Dispatching TOURNAMENT_UPDATE", payload);
+// 								console.log("Socket Context: Dispatching TOURNAMENT_UPDATE", payload);
 								window.dispatchEvent(
 									new CustomEvent("tournamentUpdate", { detail: payload })
 								);
@@ -510,7 +510,7 @@ export const SocketProvider = ({ children }) => {
 									const matchId = String(payload.matchId);
 									const currentPath = window.location.pathname;
 									if (!currentPath.includes(`/game/${matchId}`)) {
-										console.log(`[SocketContext] Redirecting to active match ${matchId}`);
+// 										console.log(`[SocketContext] Redirecting to active match ${matchId}`);
 										const targetPath = payload.spectatorMode
 											? `/game/${matchId}?spectator=true`
 											: `/game/${matchId}`;
@@ -575,7 +575,7 @@ export const SocketProvider = ({ children }) => {
 									const matchId = String(payload.matchId);
 									const currentPath = window.location.pathname;
 									if (!currentPath.includes(`/game/${matchId}`)) {
-										console.log(`[SocketContext] Redirecting to active match ${matchId}`);
+// 										console.log(`[SocketContext] Redirecting to active match ${matchId}`);
 										const latestGameState = stableDeps.current.getLatestGameState();
 										const shouldOpenAsSpectator =
 											latestGameState?.spectatorMode === true ||
@@ -725,28 +725,28 @@ export const SocketProvider = ({ children }) => {
 								break;
 
 							case "CHAT_MESSAGE":
-								console.log("Received CHAT_MESSAGE via WebSocket:", payload);
+// 								console.log("Received CHAT_MESSAGE via WebSocket:", payload);
 								window.dispatchEvent(
 									new CustomEvent("chatMessage", { detail: payload })
 								);
 								break;
 
 							case "TYPING_INDICATOR":
-								console.log("Received TYPING_INDICATOR via WebSocket:", payload);
+// 								console.log("Received TYPING_INDICATOR via WebSocket:", payload);
 								window.dispatchEvent(
 									new CustomEvent("typingIndicator", { detail: payload })
 								);
 								break;
 
 							case "MESSAGE_READ":
-								console.log("Received MESSAGE_READ via WebSocket:", payload);
+// 								console.log("Received MESSAGE_READ via WebSocket:", payload);
 								window.dispatchEvent(
 									new CustomEvent("messageRead", { detail: payload })
 								);
 								break;
 
 							case "GAME_INVITE_SENT":
-								console.log("Game invite sent successfully:", payload);
+// 								console.log("Game invite sent successfully:", payload);
 								window.dispatchEvent(
 									new CustomEvent("gameInviteSent", { detail: payload })
 								);
@@ -809,7 +809,7 @@ export const SocketProvider = ({ children }) => {
 							toast.info("The game invite was cancelled by the host.");
 							break;
 							default:
-								console.log("Unknown event:", msg.event);
+// 								console.log("Unknown event:", msg.event);
 								break;
 						}
 					} catch (err) {
@@ -825,14 +825,14 @@ export const SocketProvider = ({ children }) => {
 
 			websocket.onclose = (event) => {
 				setIsReady(false);
-				console.log("WebSocket closed", event.code, event.reason);
+// 				console.log("WebSocket closed", event.code, event.reason);
 				clearInterval(interval);
 				if (wsRef.current === websocket) wsRef.current = null;
 
 				// Attempt reconnection with exponential backoff if not closed intentionally
 				if (isMounted && event.code !== 1000 && event.code !== 1005) {
 					setTimeout(() => {
-						console.log("Attempting to reconnect...");
+// 						console.log("Attempting to reconnect...");
 						connect();
 					}, 3000);
 				}
@@ -935,7 +935,7 @@ export const SocketProvider = ({ children }) => {
 			if (pathChanged && (isMenuPage || !pathname.startsWith('/game')) && !isLobbyPage) {
 				const isTournamentRoom = gameRoom?.isTournament === true;
 				if (isTournamentRoom) {
-					console.log(`[SocketContext] Skipping auto-leave for ongoing tournament room ${gameRoom.roomId}`);
+// 					console.log(`[SocketContext] Skipping auto-leave for ongoing tournament room ${gameRoom.roomId}`);
 					prevPathname.current = pathname;
 					return;
 				}
@@ -951,14 +951,14 @@ export const SocketProvider = ({ children }) => {
 
 				// FIX: Only leave if definitively NOT in active match
 				if (!isInActiveMatch) {
-					console.log(`[SocketContext] Auto-leaving room ${gameRoom.roomId} due to navigation to ${pathname}`);
+// 					console.log(`[SocketContext] Auto-leaving room ${gameRoom.roomId} due to navigation to ${pathname}`);
 					sendSocketMessage({
 						event: "LEAVE_ROOM",
 						payload: { roomId: gameRoom.roomId, userId: user.id }
 					});
 					stableDeps.current.setGameRoom(null);
 				} else {
-					console.log(`[SocketContext] Skipping auto-leave: player in active match`);
+// 					console.log(`[SocketContext] Skipping auto-leave: player in active match`);
 				}
 			}
 		}

@@ -33,9 +33,9 @@ const POST_GAME_REMATCH_SESSION_TTL_MS = 10 * 60 * 1000;
 // Periodic diagnostic to monitor for memory leaks
 setInterval(() => {
   if (gameLoops.size > 0) {
-    console.log(
-      `[Game Loop Monitor] Active game loops: ${gameLoops.size} | Matches: [${Array.from(gameLoops.keys()).join(", ")}]`,
-    );
+//     console.log(
+//       `[Game Loop Monitor] Active game loops: ${gameLoops.size} | Matches: [${Array.from(gameLoops.keys()).join(", ")}]`,
+//     );
   }
 }, 30000); // Log every 30 seconds if there are active loops
 

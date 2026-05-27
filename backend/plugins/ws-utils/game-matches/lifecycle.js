@@ -135,9 +135,9 @@ export function createGameLifecycle({
     if (loopHandle) {
       clearInterval(loopHandle);
       gameLoops.delete(matchId);
-      console.log(
-        `[endGame] Successfully cleared game loop for match ${matchId}. Remaining loops: ${gameLoops.size}`,
-      );
+//       console.log(
+//         `[endGame] Successfully cleared game loop for match ${matchId}. Remaining loops: ${gameLoops.size}`,
+//       );
     } else {
       console.warn(
         `[endGame] No game loop found for match ${matchId} - may have already been cleared`,
@@ -185,9 +185,9 @@ export function createGameLifecycle({
         mode: gameState.tournamentId ? "REMOTE_TOURNAMENT" : "REMOTE",
         tournamentId: gameState.tournamentId ?? null,
       });
-      console.log(
-        `Match ${matchId} ${reusedExisting ? "updated" : "saved"}; progression ${progressionApplied ? "applied" : "skipped"}`,
-      );
+//       console.log(
+//         `Match ${matchId} ${reusedExisting ? "updated" : "saved"}; progression ${progressionApplied ? "applied" : "skipped"}`,
+//       );
     } catch (error) {
       console.error("Failed to save match:", error);
     }
@@ -203,9 +203,9 @@ export function createGameLifecycle({
           else if (result.result === "win") outcome = "win";
         }
 
-        console.log(
-          `Updating result for tournament match ${matchId} (Winner: ${result?.winner}, Outcome: ${outcome})`,
-        );
+//         console.log(
+//           `Updating result for tournament match ${matchId} (Winner: ${result?.winner}, Outcome: ${outcome})`,
+//         );
         const updateResult = tournament.updateMatchResult(
           matchId,
           { p1: left.score, p2: right.score },
@@ -230,24 +230,24 @@ export function createGameLifecycle({
               );
             }
           });
-          console.log(
-            `Broadcasted TOURNAMENT_UPDATE for tournament ${gameState.tournamentId}`,
-          );
+//           console.log(
+//             `Broadcasted TOURNAMENT_UPDATE for tournament ${gameState.tournamentId}`,
+//           );
 
           // Check if tournament is complete and clean up the associated room
           if (tournament.isComplete()) {
-            console.log(
-              `Tournament ${gameState.tournamentId} is complete. Cleaning up room and tournament.`,
-            );
+//             console.log(
+//               `Tournament ${gameState.tournamentId} is complete. Cleaning up room and tournament.`,
+//             );
 
             // Extract room ID from tournament ID (format: "RT-<roomId>")
             const roomId = gameState.tournamentId.replace(/^RT-/, "");
             const room = fastify.gameRooms.get(roomId);
 
             if (room) {
-              console.log(
-                `Deleting room ${roomId} for completed tournament ${gameState.tournamentId}`,
-              );
+//               console.log(
+//                 `Deleting room ${roomId} for completed tournament ${gameState.tournamentId}`,
+//               );
 
               // Remove all players from currentRoom mapping
               tournament.players.forEach((player) => {
@@ -257,20 +257,20 @@ export function createGameLifecycle({
               // Delete the room
               fastify.gameRooms.delete(roomId);
 
-              console.log(`Successfully cleaned up room ${roomId}`);
+//               console.log(`Successfully cleaned up room ${roomId}`);
             } else {
-              console.log(
-                `Room ${roomId} not found for tournament ${gameState.tournamentId} (may have been cleaned up already)`,
-              );
+//               console.log(
+//                 `Room ${roomId} not found for tournament ${gameState.tournamentId} (may have been cleaned up already)`,
+//               );
             }
 
             // Clean up the tournament from activeTournaments after an hour
             // (give clients time to receive final TOURNAMENT_UPDATE and view the leaderboard)
             setTimeout(() => {
               activeTournaments.delete(gameState.tournamentId);
-              console.log(
-                `Removed completed tournament ${gameState.tournamentId} from activeTournaments`,
-              );
+//               console.log(
+//                 `Removed completed tournament ${gameState.tournamentId} from activeTournaments`,
+//               );
             }, 3600000); // 1 hour delay
           }
         }
@@ -331,7 +331,7 @@ export function createGameLifecycle({
     // Remove game state
     fastify.gameStates.delete(matchId);
 
-    console.log(`Game ${matchId} ended. Winner: ${result?.winner || "DRAW"}`);
+//     console.log(`Game ${matchId} ended. Winner: ${result?.winner || "DRAW"}`);
   }
 
   function startGameLoop(gameState) {
@@ -345,9 +345,9 @@ export function createGameLifecycle({
       return;
     }
 
-    console.log(
-      `[Game Loop] Starting game loop for match ${matchId}. Total active loops: ${gameLoops.size + 1}`,
-    );
+//     console.log(
+//       `[Game Loop] Starting game loop for match ${matchId}. Total active loops: ${gameLoops.size + 1}`,
+//     );
 
     // Initialize timer when game starts
     const now = Date.now();

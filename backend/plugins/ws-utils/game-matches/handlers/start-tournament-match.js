@@ -38,9 +38,9 @@ export function createStartTournamentMatchHandler({
     const p1Id = Number(player1Id);
     const p2Id = Number(player2Id);
 
-    console.log(
-      `[startTournamentMatch] Attempting to start match ${matchId} (${player1Name} vs ${player2Name})`,
-    );
+//     console.log(
+//       `[startTournamentMatch] Attempting to start match ${matchId} (${player1Name} vs ${player2Name})`,
+//     );
 
     const player1Socket = fastify.onlineUsers.get(p1Id);
     const player2Socket = fastify.onlineUsers.get(p2Id);
@@ -76,9 +76,9 @@ export function createStartTournamentMatchHandler({
       const tournament = fastify.activeTournaments.get(tournamentId);
       if (tournament) {
         const marked = tournament.markMatchInProgress(matchId);
-        console.log(
-          `[startTournamentMatch] Marked match ${matchId} in progress: ${marked}`,
-        );
+//         console.log(
+//           `[startTournamentMatch] Marked match ${matchId} in progress: ${marked}`,
+//         );
       } else {
         console.error(
           `[startTournamentMatch] Tournament ${tournamentId} not found!`,
@@ -159,9 +159,9 @@ export function createStartTournamentMatchHandler({
       p2Id,
     );
 
-    console.log(
-      `Tournament match started: ${matchId} (${tournamentId}) - ${player1Name} vs ${player2Name}`,
-    );
+//     console.log(
+//       `Tournament match started: ${matchId} (${tournamentId}) - ${player1Name} vs ${player2Name}`,
+//     );
     return matchId;
   };
 }

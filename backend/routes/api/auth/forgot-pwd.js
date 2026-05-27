@@ -34,7 +34,7 @@ export default async function (fastify, opts) {
       const { email } = request.body;
           
       if (!email) {
-        console.log("❌ No email provided");
+//         console.log("❌ No email provided");
         return reply.code(400).send({ error: "Email is required" });
       }
 
@@ -88,7 +88,7 @@ export default async function (fastify, opts) {
           `,
         });
 
-        console.log(`✅ OTP EMAIL SENT to: ${email} | OTP: ${otp}`);
+//         console.log(`✅ OTP EMAIL SENT to: ${email} | OTP: ${otp}`);
       } catch (emailError) {
         console.error("❌ Failed to send email:", emailError.message);
         return reply.code(500).send({ error: "Internal server error" });

@@ -93,13 +93,13 @@ export function ReconnectionManager() {
 
     const checkStatus = async () => {
       try {
-        console.log("ReconnectionManager: Checking status...");
+//         console.log("ReconnectionManager: Checking status...");
         const localCandidate = getLocalRecoveryCandidate();
         const res = await axios.get("/api/game/status", {
           withCredentials: true,
           params: localCandidate ?? undefined,
         });
-        console.log("ReconnectionManager: Status response:", res.data);
+//         console.log("ReconnectionManager: Status response:", res.data);
 
         if (res.data.active) {
             const match = res.data;
@@ -108,7 +108,7 @@ export function ReconnectionManager() {
               continuePath && pathname && pathname.includes(continuePath),
             );
 
-            console.log(`ReconnectionManager: Active match found. Type: ${match.type}, MatchId: ${match.matchId}. Current Path: ${pathname}. On Correct Page: ${isOnCorrectPage}`);
+//             console.log(`ReconnectionManager: Active match found. Type: ${match.type}, MatchId: ${match.matchId}. Current Path: ${pathname}. On Correct Page: ${isOnCorrectPage}`);
 
             if (!isOnCorrectPage) {
                 setActiveMatch(match);
@@ -117,7 +117,7 @@ export function ReconnectionManager() {
                 setShowModal(false);
             }
         } else {
-            console.log("ReconnectionManager: No active match.");
+//             console.log("ReconnectionManager: No active match.");
             setShowModal(false);
             setActiveMatch(null);
         }
