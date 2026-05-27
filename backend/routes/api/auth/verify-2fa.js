@@ -1,5 +1,9 @@
 import otplib from "otplib";
 import { PrismaClient } from "../../../generated/prisma/index.js";
+import {
+  replyIfValidationError,
+  validateOtp,
+} from "../../../lib/auth-validation.js";
 import { authRateLimit } from "../../../utils/auth-rate-limit.js";
 
 const prisma = new PrismaClient();
@@ -10,13 +14,12 @@ export default async function (fastify, opts) {
     { config: { rateLimit: authRateLimit.verify2fa } },
     async (request, reply) => {
     try {
-      const { code } = request.body;
+      const code = validateOtp(request.body?.code);
       const token = request.cookies.token;
       if (!token)
         return reply
           .code(401)
           .send({ error: "Token expired. Please re-login." });
-      if (!code) return reply.code(401).send({ error: "Missing 2FA code." });
 
       // Verify temporary JWT to ensure users have passed the initial login stage.
       // The decoded token is then used to get the user ID.
@@ -57,6 +60,7 @@ export default async function (fastify, opts) {
           profile: profile,
         });
     } catch (error) {
+      if (replyIfValidationError(error, reply)) return;
       console.error("2FA verification error:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
@@ -71,9 +75,8 @@ export default async function (fastify, opts) {
     },
     async (request, reply) => {
       try {
-        const { code } = request.body;
+        const code = validateOtp(request.body?.code);
         const userId = request.user.userId;
-        if (!code) return reply.code(401).send({ error: "Missing 2FA code." });
 
         const user = await prisma.user.findUnique({
           where: { id: userId },
@@ -88,6 +91,7 @@ export default async function (fastify, opts) {
           message: "2FA enabled.",
         });
       } catch (error) {
+        if (replyIfValidationError(error, reply)) return;
         console.error("2FA verification error:", error);
         return reply.code(500).send({ error: "Internal server error" });
       }
