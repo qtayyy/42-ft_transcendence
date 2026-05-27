@@ -19,7 +19,7 @@ export default function Footer() {
           |
         </span>
         <Link
-          href="/terms-of-service"
+          href="/terms-of-service?from=dashboard"
           className="hover:text-gray-100 transition-colors"
         >
           {t.Footer["Terms of Service"]}
@@ -28,7 +28,7 @@ export default function Footer() {
           |
         </span>
         <Link
-          href="/privacy-policy"
+          href="/privacy-policy?from=dashboard"
           className="hover:text-gray-100 transition-colors"
         >
           {t.Footer["Privacy Policy"]}

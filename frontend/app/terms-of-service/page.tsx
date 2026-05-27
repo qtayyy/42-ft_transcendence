@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/context/languageContext";
@@ -10,6 +10,9 @@ export default function TermsOfServicePage() {
   const { t } = useLanguage();
   const s = t["Terms of Service"];
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from");
+  const backHref = from === "signup" ? "/signup" : "/dashboard";
 
   return (
     <div className="min-h-screen w-full px-4 py-16 flex flex-col items-center">
@@ -87,8 +90,8 @@ export default function TermsOfServicePage() {
             </section>
 
             <div className="flex flex-wrap gap-3 pt-4">
-              <Button variant="outline" onClick={() => router.back()}>{s["Back to Sign Up"]}</Button>
-              <Link href="/privacy-policy">
+              <Button variant="outline" onClick={() => router.push(backHref)}>Back</Button>
+              <Link href={`/privacy-policy?from=${from ?? "dashboard"}`}>
                 <Button variant="ghost">{s["Privacy Policy link"]}</Button>
               </Link>
             </div>

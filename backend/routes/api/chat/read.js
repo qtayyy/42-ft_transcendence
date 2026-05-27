@@ -1,4 +1,5 @@
 import { PrismaClient } from "../../../generated/prisma/index.js";
+import { safeSend } from "../../../utils/ws-utils.js";
 
 const prisma = new PrismaClient();
 
@@ -16,6 +17,22 @@ export default async function (fastify, opts) {
           return reply.code(400).send({ error: "Invalid friend ID" });
         }
 
+        // Find unread messages first so we can notify the sender via WebSocket
+        const unreadMessages = await prisma.message.findMany({
+          where: {
+            senderId: friendId,
+            recipientId: myId,
+            read: false,
+          },
+          select: { id: true },
+        });
+
+        if (unreadMessages.length === 0) {
+          return reply.code(200).send({ message: "Messages marked as read", count: 0 });
+        }
+
+        const readAt = new Date();
+
         // Mark all unread messages from this friend as read
         const updated = await prisma.message.updateMany({
           where: {
@@ -25,9 +42,30 @@ export default async function (fastify, opts) {
           },
           data: {
             read: true,
-            readAt: new Date(),
+            readAt,
           },
         });
+
+        // Notify the sender in real-time so their tick updates to double-tick
+        const senderSockets = fastify.onlineUsers.get(friendId);
+        if (senderSockets) {
+          const readAtIso = readAt.toISOString();
+          for (const { id: messageId } of unreadMessages) {
+            safeSend(
+              senderSockets,
+              {
+                event: "MESSAGE_READ",
+                payload: {
+                  messageId,
+                  readAt: readAtIso,
+                  senderId: friendId,
+                  recipientId: myId,
+                },
+              },
+              friendId,
+            );
+          }
+        }
 
         return reply.code(200).send({ 
           message: "Messages marked as read",
