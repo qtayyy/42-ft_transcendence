@@ -361,17 +361,13 @@ To enable Google Sign-In, you need to register the app in [Google Cloud Console]
 | Fastify OAuth2 (`@fastify/oauth2`) | https://github.com/fastify/fastify-oauth2 |
 | WebSocket API (MDN) | https://developer.mozilla.org/en-US/docs/Web/API/WebSocket |
 | JSON Web Tokens | https://jwt.io/introduction |
-| TOTP / RFC 6238 | https://datatracker.ietf.org/doc/html/rfc6238 |
 | Google OAuth 2.0 | https://developers.google.com/identity/protocols/oauth2 |
-| Sharp image processing | https://sharp.pixelplumbing.com/ |
 | jsPDF | https://artskydj.github.io/jsPDF/docs/ |
 | Tailwind CSS | https://tailwindcss.com/docs |
 | shadcn/ui | https://ui.shadcn.com/ |
 | Docker Compose | https://docs.docker.com/compose/ |
 | Nginx reverse proxy | https://nginx.org/en/docs/ |
 | SQLite | https://www.sqlite.org/docs.html |
-| Canvas API (MDN) | https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API |
-| OWASP Top 10 | https://owasp.org/www-project-top-ten/ |
 
 ### AI Usage
 
