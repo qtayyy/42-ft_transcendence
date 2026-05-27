@@ -14,6 +14,10 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import SearchBar from "@/components/search-bar";
 import {
+	validateFriendRequestUsername,
+	validateFriendSearchQuery,
+} from "@/lib/friends-validation";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -119,9 +123,17 @@ export default function FriendRequestsPage() {
   };
 
   const handleSearchUser = async (query: string) => {
+    const searchResult = validateFriendSearchQuery(query);
+    if (!searchResult.ok) {
+      toast.error(searchResult.error);
+      return;
+    }
+
     try {
       setUserFound("");
-      const res = await axios.get(`/api/friends/search?user=${query}`);
+      const res = await axios.get(
+        `/api/friends/search?user=${encodeURIComponent(searchResult.value)}`,
+      );
       setUserFound(res.data);
       setDialogOpen(true);
     } catch (error: any) {
@@ -131,9 +143,15 @@ export default function FriendRequestsPage() {
   };
 
   const sendFriendRequest = async () => {
+    const usernameResult = validateFriendRequestUsername(userFound);
+    if (!usernameResult.ok) {
+      toast.error(usernameResult.error);
+      return;
+    }
+
     try {
       const res = await axios.post("/api/friends/request", {
-        username: userFound,
+        username: usernameResult.value,
       });
       setDialogOpen(false);
       toast.success(res.data.message ?? "Friend request sent.");

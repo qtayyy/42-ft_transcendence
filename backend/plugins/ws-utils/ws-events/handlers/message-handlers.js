@@ -14,6 +14,10 @@ import {
   isTournamentParticipant,
 } from "../ws-auth-guards.js";
 import {
+  validateChatMessage,
+  validateRecipientId,
+} from "../../../../lib/chat-validation.js";
+import {
   normalizeJoinMatchmakingPayload,
   normalizeJoinRoomByCodePayload,
   normalizeLeaveRoomPayload,
@@ -368,20 +372,8 @@ export function createWsEventHandlers({
       // Handle chat message with specific recipient
       (async () => {
         try {
-          const recipientId = parseInt(payload.recipientId);
-          const messageContent = payload.message;
-
-          if (!recipientId || isNaN(recipientId)) {
-            safeSend(
-              connection,
-              {
-                event: "CHAT_MESSAGE",
-                error: "Invalid recipient ID",
-              },
-              userId,
-            );
-            return;
-          }
+          const recipientId = validateRecipientId(payload.recipientId);
+          const messageContent = validateChatMessage(payload.message);
 
           // Check if either user has blocked the other
           const blockExists = await prisma.block.findFirst({
@@ -492,6 +484,17 @@ export function createWsEventHandlers({
             userId,
           );
         } catch (err) {
+          if (err?.statusCode === 400) {
+            safeSend(
+              connection,
+              {
+                event: "CHAT_MESSAGE",
+                error: err.message,
+              },
+              userId,
+            );
+            return;
+          }
           console.error("Error handling chat message:", err);
           safeSend(
             connection,

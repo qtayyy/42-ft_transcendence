@@ -1,5 +1,10 @@
 import bcrypt from "bcrypt";
 import { PrismaClient } from "../../../generated/prisma/index.js";
+import {
+  replyIfValidationError,
+  validatePasswordForLogin,
+  validatePasswordForSet,
+} from "../../../lib/auth-validation.js";
 import { authRateLimit } from "../../../utils/auth-rate-limit.js";
 
 const prisma = new PrismaClient();
@@ -13,12 +18,12 @@ export default async function (fastify, opts) {
     },
     async (request, reply) => {
     try {
-      const { oldPassword, newPassword } = request.body;
+      const { oldPassword: rawOldPassword, newPassword: rawNewPassword } =
+        request.body;
+      const oldPassword = validatePasswordForLogin(rawOldPassword);
+      const newPassword = validatePasswordForSet(rawNewPassword);
       const pepper = process.env.SECURITY_PEPPER;
       const saltRounds = parseInt(process.env.SALT_ROUNDS);
-
-      if (!oldPassword || !newPassword)
-        return reply.code(400).send({ error: "Missing fields" });
 
       const userId = request.user.userId;
       const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -37,6 +42,7 @@ export default async function (fastify, opts) {
       });
       return reply.code(200).send({ message: "Password updated" });
     } catch (error) {
+      if (replyIfValidationError(error, reply)) return;
       console.error("Error occurred during password change:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }

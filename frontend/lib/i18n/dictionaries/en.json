@@ -7,6 +7,7 @@
     "Back to login": "Back to login",
     "Email": "Email",
     "Password": "Password",
+    "PasswordRequirements": "At least 8 characters with a letter and a digit.",
     "Confirm Password": "Confirm Password",
     "Email and Password OR Login with Google": "Email and Password OR Login with Google",
     "OR Login with": "OR Login with",
@@ -169,8 +170,8 @@
   },
   "Setting": {
     "Two-factor authentication (2FA)": "Two-factor authentication (2FA)",
-    "2FAEnable": "2FA Enable",
-    "2FADisable": "2FA Disable",
+    "2FAEnable": "2FA Enabled",
+    "2FADisable": "2FA Disabled",
     "ChangePassword": "Change Password",
     "CurrentPassword": "Current Password",
     "NewPassword": "New Password",

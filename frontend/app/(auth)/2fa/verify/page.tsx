@@ -7,12 +7,20 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/context/languageContext";
+import { validateOtp } from "@/lib/auth-validation";
 
 export default function Verify2FAPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const { verify2fa } = useAuth();
   const { t } = useLanguage();
-  const fields = [{ name: "code", label: t?.TwoFA?.["2FA Code"] || "2FA Code", type: "number" }];
+  const fields = [
+    {
+      name: "code",
+      label: t?.TwoFA?.["2FA Code"] || "2FA Code",
+      type: "text",
+      maxLength: 6,
+    },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,14 +29,18 @@ export default function Verify2FAPage() {
 
     setErrorMessage("");
 
-    const code = (data.code || "").toString().trim();
-    if (!code || code.length < 6) {
-      setErrorMessage(t?.TwoFA?.["Please provide a 6-digit verification code."] || "Please provide a 6-digit verification code.");
+    const codeResult = validateOtp(data.code);
+    if (!codeResult.ok) {
+      setErrorMessage(
+        codeResult.error ||
+          (t?.TwoFA?.["Please provide a 6-digit verification code."] ||
+            "Please provide a 6-digit verification code."),
+      );
       return;
     }
 
     try {
-      await verify2fa(code);
+      await verify2fa(codeResult.value);
     } catch (error: any) {
       const backendError = error.response?.data?.error;
       setErrorMessage(

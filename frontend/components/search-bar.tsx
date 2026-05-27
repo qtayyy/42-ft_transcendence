@@ -3,32 +3,51 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/context/languageContext";
+import { toast } from "sonner";
+import {
+	FRIEND_SEARCH_MAX_LENGTH,
+	validateFriendSearchQuery,
+} from "@/lib/friends-validation";
 
-export default function SearchBar({ searchUser }) {
-  const [query, setQuery] = useState("");
-  const { t } = useLanguage();
+type SearchBarProps = {
+	searchUser: (query: string) => void;
+};
 
-  const handleInputChange = (event) => {
-    setQuery(event.target.value);
-  };
+export default function SearchBar({ searchUser }: SearchBarProps) {
+	const [query, setQuery] = useState("");
+	const { t } = useLanguage();
+	const canSearch = validateFriendSearchQuery(query).ok;
 
-  const handleSearchClick = () => {
-    searchUser(query);
-  };
+	const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+		setQuery(event.target.value);
+	};
 
-  return (
-    <div className="flex items-center space-x-2">
-      {/* Bind the input field to the query state */}
-      <Input
-        type="text"
-        className="px-3 py-2"
-        placeholder={t.Dashboard.Search}
-        value={query}
-        onChange={handleInputChange}
-      />
-      <Button className="px-3 py-2" onClick={handleSearchClick}>
-        {t.Dashboard.Search}
-      </Button>
-    </div>
-  );
+	const handleSearchClick = () => {
+		const result = validateFriendSearchQuery(query);
+		if (!result.ok) {
+			toast.error(result.error);
+			return;
+		}
+		searchUser(result.value);
+	};
+
+	return (
+		<div className="flex items-center space-x-2">
+			<Input
+				type="text"
+				className="px-3 py-2"
+				placeholder={t.Dashboard.Search}
+				value={query}
+				onChange={handleInputChange}
+				maxLength={FRIEND_SEARCH_MAX_LENGTH}
+			/>
+			<Button
+				className="px-3 py-2"
+				onClick={handleSearchClick}
+				disabled={!canSearch}
+			>
+				{t.Dashboard.Search}
+			</Button>
+		</div>
+	);
 }

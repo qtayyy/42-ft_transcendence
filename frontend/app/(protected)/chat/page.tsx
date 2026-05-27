@@ -14,6 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Send, Users, UserPlus, Search, MessageSquare, Smile, ChevronLeft, Zap, Ban, UserCircle, Gamepad2, MoreVertical, Check, CheckCheck, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import {
+  CHAT_MESSAGE_MAX_LENGTH,
+  validateChatMessage,
+  validateRecipientId,
+} from "@/lib/chat-validation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -673,11 +679,29 @@ export default function ChatPage() {
     });
   };
 
+  const canSendMessage =
+    isReady &&
+    !!selectedFriend &&
+    validateChatMessage(inputValue).ok &&
+    validateRecipientId(selectedFriend.id).ok;
+
   // Send message
   const handleSend = () => {
-    if (!inputValue.trim() || !isReady || !selectedFriend) return;
+    if (!isReady || !selectedFriend) return;
 
-    const messageContent = inputValue.trim();
+    const messageResult = validateChatMessage(inputValue);
+    if (!messageResult.ok) {
+      toast.error(messageResult.error);
+      return;
+    }
+
+    const recipientResult = validateRecipientId(selectedFriend.id);
+    if (!recipientResult.ok) {
+      toast.error(recipientResult.error);
+      return;
+    }
+
+    const messageContent = messageResult.value;
     const tempMessage: Message = {
       username: user?.username || t.chat.You,
       senderId: user?.id ? parseInt(user.id) : undefined,
@@ -693,7 +717,7 @@ export default function ChatPage() {
       event: "CHAT_MESSAGE",
       payload: {
         message: messageContent,
-        recipientId: parseInt(selectedFriend.id),
+        recipientId: recipientResult.value,
       },
     });
 
@@ -1472,6 +1496,7 @@ export default function ChatPage() {
                             onChange={handleInputChange}
                             onKeyPress={handleKeyPress}
                             disabled={!isReady}
+                            maxLength={CHAT_MESSAGE_MAX_LENGTH}
                             className="relative h-12 bg-background/80 backdrop-blur-sm border-border/50 focus:border-primary/50 transition-all rounded-xl"
                           />
                         </div>
@@ -1479,7 +1504,7 @@ export default function ChatPage() {
                           <div className="absolute -inset-0.5 bg-gradient-to-r from-primary via-purple-500 to-primary rounded-xl blur opacity-50 group-hover:opacity-100 transition duration-300"></div>
                           <Button
                             onClick={handleSend}
-                            disabled={!inputValue.trim() || !isReady}
+                            disabled={!canSendMessage}
                             size="lg"
                             className="relative px-6 h-12 shadow-lg hover:shadow-xl transition-all font-bold"
                           >

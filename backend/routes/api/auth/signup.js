@@ -1,5 +1,11 @@
 import bcrypt from "bcrypt";
 import { PrismaClient } from "../../../generated/prisma/index.js";
+import {
+  normalizeEmail,
+  replyIfValidationError,
+  validateFullName,
+  validatePasswordForSet,
+} from "../../../lib/auth-validation.js";
 import { authRateLimit } from "../../../utils/auth-rate-limit.js";
 
 const prisma = new PrismaClient();
@@ -10,20 +16,15 @@ export default async function (fastify, opts) {
     { config: { rateLimit: authRateLimit.signup } },
     async (request, reply) => {
     try {
-      const { email, password, fullName: rawFullName } = request.body;
-      const fullName = String(rawFullName ?? "").trim();
+      const { email: rawEmail, password: rawPassword, fullName: rawFullName } =
+        request.body;
+
+      const email = normalizeEmail(rawEmail);
+      const password = validatePasswordForSet(rawPassword);
+      const fullName = validateFullName(rawFullName);
 
       const pepper = process.env.SECURITY_PEPPER;
       const saltRounds = parseInt(process.env.SALT_ROUNDS);
-
-      if (!email || !password || !fullName)
-        return reply.code(400).send({ error: "Missing fields" });
-
-      if (fullName.length < 3 || fullName.length > 20) {
-        return reply.code(400).send({
-          error: "Full name must be between 3 and 20 characters.",
-        });
-      }
 
       const existing = await prisma.profile.findUnique({ where: { email } });
       if (existing)
@@ -65,6 +66,7 @@ export default async function (fastify, opts) {
           message: "User registered",
         });
     } catch (error) {
+      if (replyIfValidationError(error, reply)) return;
       console.error("Error occurred during registration:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }

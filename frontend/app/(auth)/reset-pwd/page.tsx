@@ -7,6 +7,12 @@ import { AlertCircleIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/languageContext";
+import {
+  PASSWORD_MIN_LENGTH,
+  normalizeEmail,
+  validateOtp,
+  validatePasswordForSet,
+} from "@/lib/auth-validation";
 
 export default function ResetPasswordPage() {
   const [errorMessage, setErrorMessage] = useState("");
@@ -36,15 +42,15 @@ export default function ResetPasswordPage() {
     setSuccessMessage("");
 
     if (resetStep === "email") {
-      const email = (data.email || "").toString().trim();
-      if (!email) {
-        setErrorMessage(t?.ResetPassword?.["Please enter your email address."] || "Please enter your email address.");
+      const emailResult = normalizeEmail(data.email);
+      if (!emailResult.ok) {
+        setErrorMessage(emailResult.error);
         return;
       }
       try {
-        setResetEmail(email);
+        setResetEmail(emailResult.value);
         await axios.post("/api/auth/request-reset-otp", {
-          email,
+          email: emailResult.value,
         });
         setSuccessMessage(t?.ResetPassword?.["OTP has been sent to your email!"] || "OTP has been sent to your email!");
         setResetStep("otp");
@@ -56,16 +62,16 @@ export default function ResetPasswordPage() {
         );
       }
     } else if (resetStep === "otp") {
-      const otp = (data.otp || "").toString().trim();
-      if (!otp) {
-        setErrorMessage(t?.ResetPassword?.["Please enter the OTP."] || "Please enter the OTP.");
+      const otpResult = validateOtp(data.otp);
+      if (!otpResult.ok) {
+        setErrorMessage(otpResult.error);
         return;
       }
       try {
-        setOtp(otp);
+        setOtp(otpResult.value);
         await axios.post("/api/auth/verify-reset-otp", {
           email: resetEmail,
-          otp: otp,
+          otp: otpResult.value,
         });
         setSuccessMessage(t?.ResetPassword?.["OTP verified! Now enter your new password."] || "OTP verified! Now enter your new password.");
         setResetStep("password");
@@ -74,18 +80,19 @@ export default function ResetPasswordPage() {
         setErrorMessage(backendError || "Invalid or expired OTP.");
       }
     } else if (resetStep === "password") {
-      const newPassword = (data.newPassword || "").toString().trim();
       const confirmPassword = (data.confirmPassword || "").toString().trim();
-      if (!newPassword || !confirmPassword) {
+      if (!confirmPassword) {
         setErrorMessage(t?.ResetPassword?.["Please fill in all fields."] || "Please fill in all fields.");
         return;
       }
-      if (newPassword.length < 6 || confirmPassword.length < 6) {
-        setErrorMessage(t?.ResetPassword?.["Password must be at least 6 characters long."] || "Password must be at least 6 characters long.");
+
+      const newPasswordResult = validatePasswordForSet(data.newPassword);
+      if (!newPasswordResult.ok) {
+        setErrorMessage(newPasswordResult.error);
         return;
       }
 
-      if (newPassword !== confirmPassword) {
+      if (newPasswordResult.value !== confirmPassword) {
         setErrorMessage(t?.ResetPassword?.["Passwords do not match."] || "Passwords do not match.");
         return;
       }
@@ -94,7 +101,7 @@ export default function ResetPasswordPage() {
         await axios.post("/api/auth/reset-password-with-otp", {
           email: resetEmail,
           otp: otp,
-          newPassword: newPassword,
+          newPassword: newPasswordResult.value,
         });
         setSuccessMessage(t?.ResetPassword?.["Password reset successful! You can now sign in."] || "Password reset successful! You can now sign in.");
         setTimeout(() => {
@@ -154,7 +161,14 @@ export default function ResetPasswordPage() {
           title={t?.ResetPassword?.["Reset password"] || "Reset Password"}
           description={t?.ResetPassword?.["We've sent a 6-digit OTP to your email."] || "We've sent a 6-digit OTP to your email."}
           handleSubmit={handleSubmit}
-          fields={[{ name: "otp", label: t?.ResetPassword?.["OTP"] || "OTP", type: "text" }]}
+          fields={[
+            {
+              name: "otp",
+              label: t?.ResetPassword?.["OTP"] || "OTP",
+              type: "text",
+              maxLength: 6,
+            },
+          ]}
           link="/login"
           linkText={t?.ResetPassword?.["Back to Login"] || "Back to Login"}
           submitText={t?.ResetPassword?.["Submit OTP"] || "Submit OTP"}
@@ -199,6 +213,10 @@ export default function ResetPasswordPage() {
           linkText={t?.ResetPassword?.["Back to Login"] || "Back to Login"}
           submitText={t?.ResetPassword?.["Reset password"] || "Reset password"}
         >
+          <p className="text-xs text-muted-foreground">
+            {t?.["Login & Sign up"]?.PasswordRequirements ??
+              `At least ${PASSWORD_MIN_LENGTH} characters with a letter and a digit.`}
+          </p>
           {successMessage && (
             <Alert className="bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400">
               <AlertCircleIcon className="h-4 w-4" />

@@ -1,6 +1,12 @@
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import { PrismaClient } from "../../../generated/prisma/index.js";
+import {
+  normalizeEmail,
+  replyIfValidationError,
+  validateOtp,
+  validatePasswordForSet,
+} from "../../../lib/auth-validation.js";
 import { authRateLimit } from "../../../utils/auth-rate-limit.js";
 
 const prisma = new PrismaClient();
@@ -31,12 +37,7 @@ export default async function (fastify, opts) {
     async (request, reply) => {
     
     try {
-      const { email } = request.body;
-          
-      if (!email) {
-//         console.log("❌ No email provided");
-        return reply.code(400).send({ error: "Email is required" });
-      }
+      const email = normalizeEmail(request.body?.email);
 
       const profile = await prisma.profile.findUnique({ where: { email } });
       
@@ -98,6 +99,7 @@ export default async function (fastify, opts) {
         message: "OTP has been sent to your email"
       });
     } catch (error) {
+      if (replyIfValidationError(error, reply)) return;
       console.error("Error in request OTP:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
@@ -110,11 +112,8 @@ export default async function (fastify, opts) {
     { config: { rateLimit: authRateLimit.forgotVerifyOtp } },
     async (request, reply) => {
     try {
-      const { email, otp } = request.body;
-
-      if (!email || !otp) {
-        return reply.code(400).send({ error: "Email and OTP are required" });
-      }
+      const email = normalizeEmail(request.body?.email);
+      const otp = validateOtp(request.body?.otp);
 
       const profile = await prisma.profile.findUnique({ where: { email } });
       if (!profile) {
@@ -132,7 +131,7 @@ export default async function (fastify, opts) {
       }
 
       // Verify OTP
-      if (user.resetOTP !== otp.trim()) {
+      if (user.resetOTP !== otp) {
         return reply.code(400).send({ error: "Invalid OTP" });
       }
 
@@ -141,6 +140,7 @@ export default async function (fastify, opts) {
         verified: true 
       });
     } catch (error) {
+      if (replyIfValidationError(error, reply)) return;
       console.error("Error verifying OTP:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
@@ -153,15 +153,9 @@ export default async function (fastify, opts) {
     { config: { rateLimit: authRateLimit.forgotResetPassword } },
     async (request, reply) => {
     try {
-      const { email, otp, newPassword } = request.body;
-
-      if (!email || !otp || !newPassword) {
-        return reply.code(400).send({ error: "Email, OTP, and new password are required" });
-      }
-
-      if (newPassword.length < 6) {
-        return reply.code(400).send({ error: "Password must be at least 6 characters long" });
-      }
+      const email = normalizeEmail(request.body?.email);
+      const otp = validateOtp(request.body?.otp);
+      const newPassword = validatePasswordForSet(request.body?.newPassword);
 
       const profile = await prisma.profile.findUnique({ where: { email } });
       if (!profile) {
@@ -179,7 +173,7 @@ export default async function (fastify, opts) {
       }
 
       // Verify OTP one last time
-      if (user.resetOTP !== otp.trim()) {
+      if (user.resetOTP !== otp) {
         return reply.code(400).send({ error: "Invalid OTP" });
       }
 
@@ -204,6 +198,7 @@ export default async function (fastify, opts) {
 
       return reply.code(200).send({ message: "Password has been reset successfully" });
     } catch (error) {
+      if (replyIfValidationError(error, reply)) return;
       console.error("Error resetting password:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
