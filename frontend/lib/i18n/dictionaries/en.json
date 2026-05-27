@@ -7,6 +7,7 @@
     "Back to login": "Back to login",
     "Email": "Email",
     "Password": "Password",
+    "PasswordRequirements": "At least 8 characters with a letter and a digit.",
     "Confirm Password": "Confirm Password",
     "Email and Password OR Login with Google": "Email and Password OR Login with Google",
     "OR Login with": "OR Login with",

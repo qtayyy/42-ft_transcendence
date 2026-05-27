@@ -11,7 +11,10 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 import axios from "axios";
 import { AuthContextValue, UserProfile } from "@/types/types";
-import { redirectToLoginAfterSessionExpired } from "@/lib/session-expired";
+import {
+	redirectToLoginAfterSessionExpired,
+	shouldTreat401AsSessionExpired,
+} from "@/lib/session-expired";
 
 const NON_AUTHENTICATED_ROUTES = [
 	"/",
@@ -39,22 +42,16 @@ export const AuthProvider = ({ children }) => {
 	useLayoutEffect(() => {
 		if (typeof window === "undefined") return;
 
-		const isAuthEndpoint = (url: unknown) => {
-			const value = typeof url === "string" ? url : "";
-			return (
-				value.includes("/api/auth/login") ||
-				value.includes("/api/auth/2fa/verify")
-			);
-		};
-
 		const getFetchUrl = (input: RequestInfo | URL) => {
 			if (typeof input === "string") return input;
 			if (input instanceof URL) return input.toString();
 			return input.url;
 		};
 
-		const redirectExpiredSession = (url: unknown) => {
-			if (isNonAuthenticatedPage || isAuthEndpoint(url)) return false;
+		const redirectExpiredSession = (url: unknown, status: number) => {
+			if (status !== 401) return false;
+			if (isNonAuthenticatedPage) return false;
+			if (!shouldTreat401AsSessionExpired(url)) return false;
 
 			setUser(null);
 			redirectToLoginAfterSessionExpired(router, pathname || "/dashboard");
@@ -64,8 +61,9 @@ export const AuthProvider = ({ children }) => {
 		const interceptorId = axios.interceptors.response.use(
 			(response) => response,
 			(error) => {
-				if (error?.response?.status === 401) {
-					redirectExpiredSession(error?.config?.url);
+				const status = error?.response?.status;
+				if (status === 401) {
+					redirectExpiredSession(error?.config?.url, status);
 				}
 				return Promise.reject(error);
 			}
@@ -75,7 +73,7 @@ export const AuthProvider = ({ children }) => {
 		const guardedFetch: typeof window.fetch = async (input, init) => {
 			const response = await originalFetch(input, init);
 			if (response.status === 401) {
-				redirectExpiredSession(getFetchUrl(input));
+				redirectExpiredSession(getFetchUrl(input), response.status);
 			}
 			return response;
 		};
@@ -99,10 +97,9 @@ export const AuthProvider = ({ children }) => {
 			setUser(profileData);
 			return (profileData);
 		} catch (error: unknown) {
-			// Only clear user if it's an authentication error (401/403)
-			// Otherwise, preserve existing user data to avoid UI disappearing
+			// Only clear user when the session is actually invalid (401 on profile).
 			const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-			if (status === 401 || status === 403) {
+			if (status === 401) {
 				setUser(null);
 			}
 			// For other errors, keep the existing user data
@@ -138,8 +135,13 @@ export const AuthProvider = ({ children }) => {
 						return newData;
 					});
 				}
-			} catch {
-				if (isMounted) setUser(null);
+			} catch (error: unknown) {
+				if (isMounted) {
+					const status = axios.isAxiosError(error)
+						? error.response?.status
+						: undefined;
+					if (status === 401) setUser(null);
+				}
 			} finally {
 				if (isMounted) setLoadingAuth(false);
 			}

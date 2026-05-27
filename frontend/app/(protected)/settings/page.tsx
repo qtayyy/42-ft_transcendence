@@ -23,6 +23,12 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/context/languageContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  PASSWORD_MIN_LENGTH,
+  validateOtp,
+  validatePasswordForLogin,
+  validatePasswordForSet,
+} from "@/lib/auth-validation";
 
 export default function SettingsPage() {
   const [error, setError] = useState("");
@@ -143,14 +149,15 @@ export default function SettingsPage() {
     setError("");
 
     if (passwordChangeStep === "input") {
-      // Step 1: Validate passwords and send OTP
-      if (!oldPassword || !newPassword) {
-        setError("Please provide your current password and a new password.");
+      const oldPasswordResult = validatePasswordForLogin(oldPassword);
+      if (!oldPasswordResult.ok) {
+        setError(oldPasswordResult.error);
         return;
       }
 
-      if (newPassword.length < 6) {
-        setError("New password must be at least 6 characters long.");
+      const newPasswordResult = validatePasswordForSet(newPassword);
+      if (!newPasswordResult.ok) {
+        setError(newPasswordResult.error);
         return;
       }
 
@@ -165,9 +172,21 @@ export default function SettingsPage() {
         setError(backendError || "Failed to send OTP. Please try again.");
       }
     } else if (passwordChangeStep === "otp") {
-      // Step 2: Verify OTP and change password
-      if (!otp.trim()) {
-        setError("Please enter the OTP sent to your email.");
+      const otpResult = validateOtp(otp);
+      if (!otpResult.ok) {
+        setError(otpResult.error);
+        return;
+      }
+
+      const oldPasswordResult = validatePasswordForLogin(oldPassword);
+      if (!oldPasswordResult.ok) {
+        setError(oldPasswordResult.error);
+        return;
+      }
+
+      const newPasswordResult = validatePasswordForSet(newPassword);
+      if (!newPasswordResult.ok) {
+        setError(newPasswordResult.error);
         return;
       }
 
@@ -175,13 +194,13 @@ export default function SettingsPage() {
         // Verify OTP
         await axios.post("/api/auth/verify-reset-otp", {
           email: userEmail,
-          otp: otp,
+          otp: otpResult.value,
         });
 
         // Change password using the old password verification
         await axios.post("/api/auth/password", {
-          oldPassword: oldPassword,
-          newPassword: newPassword,
+          oldPassword: oldPasswordResult.value,
+          newPassword: newPasswordResult.value,
         });
 
         alert("Password changed successfully!");
@@ -256,7 +275,14 @@ export default function SettingsPage() {
       setSuccess("");
       const form = e.target as HTMLFormElement;
       const data = Object.fromEntries(new FormData(form).entries());
-      const response = await axios.post("/api/auth/2fa/enable/verify", data);
+      const codeResult = validateOtp(data.code);
+      if (!codeResult.ok) {
+        setError(codeResult.error);
+        return;
+      }
+      const response = await axios.post("/api/auth/2fa/enable/verify", {
+        code: codeResult.value,
+      });
       if (response.status === 200) {
         setTwoFADialogOpen(false);
         setSuccess("2FA successfully enabled!");
@@ -421,10 +447,13 @@ export default function SettingsPage() {
                         </Label>
                         <Input
                           className="mb-8"
-                          type="number"
+                          type="text"
                           id="code"
                           name="code"
                           required
+                          maxLength={6}
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
                         ></Input>
                       </DialogHeader>
 
@@ -517,6 +546,10 @@ export default function SettingsPage() {
                               )}
                             </button>
                           </div>
+                          <p className="text-xs text-muted-foreground">
+                            {t?.["Login & Sign up"]?.PasswordRequirements ??
+                              `At least ${PASSWORD_MIN_LENGTH} characters with a letter and a digit.`}
+                          </p>
                         </div>
                       </div>
                     )}

@@ -11,6 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/context/languageContext";
+import {
+	PASSWORD_MIN_LENGTH,
+	normalizeEmail,
+	validateFullName,
+	validatePasswordForSet,
+} from "@/lib/auth-validation";
 
 export default function SignUpPage() {
   const [errorMessage, setErrorMessage] = useState("");
@@ -67,32 +73,32 @@ export default function SignUpPage() {
     setErrorMessage("");
     setSuccessMessage("");
 
-    const email = (data.email || "").toString().trim();
-    const password = (data.password || "").toString().trim();
-    const fullName = (data.fullName || "").toString().trim();
-
-    if (!email || !password || !fullName) {
-      setErrorMessage("Please fill in all required fields.");
-      return;
-    }
-
     if (!agreedToTerms || !agreedToPrivacy) {
       setErrorMessage("You must agree to the Terms of Service and Privacy Policy.");
       return;
     }
 
-    if (password.length < 6) {
-      setErrorMessage("Password must be at least 6 characters long.");
+    const emailResult = normalizeEmail(data.email);
+    if (!emailResult.ok) {
+      setErrorMessage(emailResult.error);
       return;
     }
 
-    if (fullName.length < 3 || fullName.length > 20) {
-      setErrorMessage(
-        t?.["Login & Sign up"]?.FullNameLength ??
-          "Full name must be between 3 and 20 characters.",
-      );
+    const passwordResult = validatePasswordForSet(data.password);
+    if (!passwordResult.ok) {
+      setErrorMessage(passwordResult.error);
       return;
     }
+
+    const fullNameResult = validateFullName(data.fullName);
+    if (!fullNameResult.ok) {
+      setErrorMessage(fullNameResult.error);
+      return;
+    }
+
+    const email = emailResult.value;
+    const password = passwordResult.value;
+    const fullName = fullNameResult.value;
 
     try {
       const response = await axios.post("/api/auth/signup", {
@@ -166,6 +172,10 @@ export default function SignUpPage() {
               )}
             </button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            {t?.["Login & Sign up"]?.PasswordRequirements ??
+              `At least ${PASSWORD_MIN_LENGTH} characters with a letter and a digit.`}
+          </p>
         </div>
 
         {/* Terms & Privacy checkboxes */}

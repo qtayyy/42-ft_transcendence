@@ -11,12 +11,41 @@ const SESSION_EXPIRED_TOAST_WINDOW_MS = 1500;
 
 let lastSessionExpiredToastAt = 0;
 
-export function isSessionExpiredError(error: unknown): boolean {
-	return axios.isAxiosError(error) && error.response?.status === 401;
+/** 401 on these routes is an expected auth-flow failure, not a dead session. */
+const AUTH_FLOW_401_EXEMPT_PATHS = [
+	"/api/auth/login",
+	"/api/auth/2fa/verify",
+	"/api/auth/2fa/enable/verify",
+] as const;
+
+function normalizeRequestUrl(url: unknown): string {
+	return typeof url === "string" ? url : "";
 }
 
-export function isSessionExpiredResponse(response: Pick<Response, "status">): boolean {
-	return response.status === 401;
+export function isAuthFlowRequest(url: unknown): boolean {
+	const value = normalizeRequestUrl(url);
+	return AUTH_FLOW_401_EXEMPT_PATHS.some((path) => value.includes(path));
+}
+
+/** True when a 401 should clear the session and send the user to login. */
+export function shouldTreat401AsSessionExpired(url: unknown): boolean {
+	return !isAuthFlowRequest(url);
+}
+
+export function isSessionExpiredError(error: unknown): boolean {
+	if (!axios.isAxiosError(error) || error.response?.status !== 401) {
+		return false;
+	}
+	return shouldTreat401AsSessionExpired(error.config?.url);
+}
+
+export function isSessionExpiredResponse(
+	response: Pick<Response, "status">,
+	url?: unknown,
+): boolean {
+	if (response.status !== 401) return false;
+	if (url === undefined) return true;
+	return shouldTreat401AsSessionExpired(url);
 }
 
 export function redirectToLoginAfterSessionExpired(
@@ -53,8 +82,9 @@ export function handleSessionExpiredResponse(
 	response: Pick<Response, "status">,
 	router: RouterLike,
 	nextPath?: string,
+	url?: unknown,
 ): boolean {
-	if (!isSessionExpiredResponse(response)) return false;
+	if (!isSessionExpiredResponse(response, url)) return false;
 
 	redirectToLoginAfterSessionExpired(router, nextPath);
 	return true;
