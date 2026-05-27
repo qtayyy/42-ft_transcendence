@@ -168,7 +168,7 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 	const latestGameStateRef = useRef<GameState | null>(null);
 	const heldDirectionsRef = useRef<HeldDirectionState>({ ...EMPTY_HELD_DIRECTIONS });
 	const pendingControlInputRef = useRef<object | null>(null);
-	const reconnectLocalSocketRef = useRef<() => void>(() => {});
+	const reconnectLocalSocketRef = useRef<() => void>(() => { });
 
 	const [localGameState, setLocalGameState] = useState<GameState | null>(null);
 	const [optimisticPaddles, setOptimisticPaddles] =
@@ -237,6 +237,7 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 		let isDisposed = false;
 		let activeSocket: WebSocket | null = null;
 		let reconnectTimer: number | null = null;
+		let closeOnOpen = false;
 
 		const clearLocalInputState = () => {
 			heldDirectionsRef.current = { ...EMPTY_HELD_DIRECTIONS };
@@ -279,6 +280,10 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 			socketRef.current = ws;
 
 			ws.onopen = () => {
+				if (isDisposed || closeOnOpen) {
+					ws.close();
+					return;
+				}
 				sendPendingControlInput(ws);
 			};
 
@@ -326,12 +331,12 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 							setLocalGameState((prev) =>
 								prev
 									? {
-											...prev,
-											status: "finished",
-											winner: data.winner,
-											score: data.score,
-											result: data.result,
-									  }
+										...prev,
+										status: "finished",
+										winner: data.winner,
+										score: data.score,
+										result: data.result,
+									}
 									: null
 							);
 							return;
@@ -358,7 +363,7 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 
 		return () => {
 			isDisposed = true;
-			reconnectLocalSocketRef.current = () => {};
+			reconnectLocalSocketRef.current = () => { };
 			pendingControlInputRef.current = null;
 			clearReconnectTimer();
 			window.removeEventListener("focus", reconnectIfNeeded);
@@ -367,7 +372,13 @@ export function usePongGame({ matchId, wsUrl, externalGameState, onGameOver, isA
 				socketRef.current = null;
 			}
 			clearLocalInputState();
-			activeSocket?.close();
+			if (activeSocket?.readyState === WebSocket.CONNECTING) {
+				closeOnOpen = true;
+				return;
+			}
+			if (activeSocket?.readyState === WebSocket.OPEN) {
+				activeSocket.close();
+			}
 		};
 	}, [wsUrl, matchId]);
 
