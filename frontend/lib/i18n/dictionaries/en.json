@@ -170,8 +170,8 @@
   },
   "Setting": {
     "Two-factor authentication (2FA)": "Two-factor authentication (2FA)",
-    "2FAEnable": "2FA Enable",
-    "2FADisable": "2FA Disable",
+    "2FAEnable": "2FA Enabled",
+    "2FADisable": "2FA Disabled",
     "ChangePassword": "Change Password",
     "CurrentPassword": "Current Password",
     "NewPassword": "New Password",
