@@ -13,6 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/context/languageContext";
 import { getGoogleAuthUrl } from "@/lib/runtime-url";
+import {
+  normalizeEmail,
+  validatePasswordForLogin,
+} from "@/lib/auth-validation";
 
 export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
@@ -31,21 +35,20 @@ export default function LoginPage() {
 
     setErrorMessage("");
 
-    const email = (data.email || "").toString().trim();
-    const password = (data.password || "").toString().trim();
-
-    if (!email || !password) {
-      setErrorMessage("Please fill in all required fields.");
+    const emailResult = normalizeEmail(data.email);
+    if (!emailResult.ok) {
+      setErrorMessage(emailResult.error);
       return;
     }
 
-    if (password.length < 6) {
-      setErrorMessage("Password must be at least 6 characters long.");
+    const passwordResult = validatePasswordForLogin(data.password);
+    if (!passwordResult.ok) {
+      setErrorMessage(passwordResult.error);
       return;
     }
 
     try {
-      await login(email, password);
+      await login(emailResult.value, passwordResult.value);
     } catch (error: any) {
       const backendError = error.response?.data?.error;
       setErrorMessage(

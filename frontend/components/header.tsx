@@ -25,7 +25,6 @@ const NON_AUTHENTICATED_ROUTES = [
   "/",
   "/login",
   "/signup",
-  "/reset-password",
   "/reset-pwd",
   "/2fa/verify",
 ];

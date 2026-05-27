@@ -356,6 +356,7 @@ export default function JoinTournamentPage() {
 									onChange={(e) => setRoomCode(e.target.value)}
 									placeholder="Enter tournament code..."
 									className="font-mono text-lg text-center tracking-widest h-14"
+									maxLength={REMOTE_ROOM_CODE_MAX_LENGTH}
 									onKeyDown={(e) => e.key === "Enter" && handleJoin()}
 									disabled={joining}
 								/>

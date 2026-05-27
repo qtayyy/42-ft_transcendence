@@ -4,6 +4,14 @@ import path from "path";
 import { pipeline } from "stream/promises";
 import crypto from "crypto";
 import sharp from "sharp";
+import { replyIfValidationError } from "../../../lib/auth-validation.js";
+import {
+  stripDisallowedProfileUpdates,
+  validateBio,
+  validateDob,
+  validateRegion,
+  validateUsername,
+} from "../../../lib/profile-validation.js";
 
 const prisma = new PrismaClient();
 
@@ -101,29 +109,30 @@ export default async function (fastify, opts) {
           }
         }
 
-        updates.dob = updates.dob ? new Date(updates.dob) : null;
+        const profileUpdates = stripDisallowedProfileUpdates(updates);
 
-        if (Object.prototype.hasOwnProperty.call(updates, "username")) {
-          updates.username = String(updates.username ?? "").trim();
-          if (!updates.username) {
-            return reply
-              .code(400)
-              .send({ error: "Username cannot be empty." });
-          }
-          if (updates.username.length < 3 || updates.username.length > 20) {
-            return reply
-              .code(400)
-              .send({ error: "Username must be between 3 and 20 characters." });
-          }
+        if (Object.prototype.hasOwnProperty.call(profileUpdates, "username")) {
+          profileUpdates.username = validateUsername(profileUpdates.username);
+        }
+        if (Object.prototype.hasOwnProperty.call(profileUpdates, "bio")) {
+          profileUpdates.bio = validateBio(profileUpdates.bio);
+        }
+        if (Object.prototype.hasOwnProperty.call(profileUpdates, "region")) {
+          profileUpdates.region = validateRegion(profileUpdates.region);
+        }
+        if (Object.prototype.hasOwnProperty.call(profileUpdates, "dob")) {
+          profileUpdates.dob = validateDob(profileUpdates.dob);
         }
 
         // Check if username is being updated and if it already exists for another user
-        if (updates["username"]) {
-          const existingProfile = await prisma.profile.findFirst({ 
-            where: { username: updates["username"] } 
+        if (profileUpdates.username) {
+          const existingProfile = await prisma.profile.findFirst({
+            where: { username: profileUpdates.username },
           });
           if (existingProfile && userId !== existingProfile.id) {
-            return reply.code(400).send({ error: `Username: '${updates["username"]}' already exists.`});
+            return reply.code(400).send({
+              error: `Username: '${profileUpdates.username}' already exists.`,
+            });
           }
         }
 
@@ -159,22 +168,33 @@ export default async function (fastify, opts) {
 
         await prisma.profile.update({
           where: { id: userId },
-          data: { 
-            ...updates, 
-            ...(deleteAvatar ? { avatar: null } : avatarUrl ? { avatar: avatarUrl } : {})
+          data: {
+            ...profileUpdates,
+            ...(deleteAvatar
+              ? { avatar: null }
+              : avatarUrl
+                ? { avatar: avatarUrl }
+                : {}),
           },
         });
         return reply
           .code(200)
           .send({ message: "Profile updated", success: true, avatarUrl });
       } catch (error) {
+        if (replyIfValidationError(error, reply)) return;
         if (error.code === "FST_REQ_FILE_TOO_LARGE") {
           return reply
             .code(400)
             .send({ error: "Image too large. Max size is 5MB." });
         }
-        // To-do: throw generic error
-        throw error;
+        if (error.code === "P2025") {
+          return reply.code(404).send({ error: "Profile not found" });
+        }
+        if (error.code === "P2002") {
+          return reply.code(400).send({ error: "Username is already taken." });
+        }
+        console.error("Error updating profile:", error);
+        return reply.code(500).send({ error: "Internal server error" });
       }
     }
   );

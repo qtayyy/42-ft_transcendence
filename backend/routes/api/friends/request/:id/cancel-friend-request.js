@@ -16,16 +16,20 @@ export default async function (fastify, opts) {
         });
         if (!friendRequest) return reply.status(404).send({ error: "Not found" });
 
-        if (friendRequest.addresseeId !== req.user.id)
+        if (friendRequest.addresseeId !== request.user.userId) {
           return reply.status(403).send({ error: "Forbidden" });
+        }
 
         await prisma.friendship.update({
           where: { id: requestId },
           data: { status: "DECLINED" },
         });
 
-        return reply.code(200).send("Friend request declined");
-      } catch (error) {}
+        return reply.code(200).send({ message: "Friend request cancelled" });
+      } catch (error) {
+        console.error("Error cancelling friend request:", error);
+        return reply.code(500).send({ error: "Internal server error" });
+      }
     }
   );
 }

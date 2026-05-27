@@ -1,3 +1,8 @@
+import { replyIfValidationError } from "../../../lib/auth-validation.js";
+import {
+	normalizeRuntimeId,
+	normalizeTournamentId,
+} from "../../../lib/local-play-validation.js";
 import { gameManager } from "../../../game/GameManager.js";
 import { activeTournaments } from "../../../game/TournamentManager.js";
 
@@ -10,7 +15,17 @@ export default async function (fastify, opts) {
 		async (request, reply) => {
 			try {
 				const userId = request.user.userId;
-				const { matchId, tournamentId } = request.body;
+				const matchId = normalizeRuntimeId(
+					request.body?.matchId,
+					"Match ID",
+				);
+				const rawTournamentId = request.body?.tournamentId;
+				const tournamentId =
+					rawTournamentId !== undefined &&
+					rawTournamentId !== null &&
+					String(rawTournamentId).trim() !== ""
+						? normalizeTournamentId(rawTournamentId)
+						: null;
 
 // 				console.log(`User ${userId} requested to leave/forfeit match ${matchId} (Tournament: ${tournamentId || 'N/A'})`);
 
@@ -68,6 +83,7 @@ export default async function (fastify, opts) {
 
 				return reply.send({ success: false, message: "Match not found or already completed." });
 			} catch (error) {
+				if (replyIfValidationError(error, reply)) return;
 				console.error("Leave game error:", error);
 				return reply.code(500).send({ error: "Failed to leave game" });
 			}

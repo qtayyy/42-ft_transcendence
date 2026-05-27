@@ -1,4 +1,6 @@
 import { PrismaClient } from "../../../../generated/prisma/index.js";
+import { replyIfValidationError } from "../../../../lib/auth-validation.js";
+import { validateFriendSearchQuery } from "../../../../lib/friends-validation.js";
 
 const prisma = new PrismaClient();
 
@@ -10,14 +12,14 @@ export default async function (fastify, opts) {
     },
     async (request, reply) => {
       try {
-        const identifier = request.query.user;
+        const identifier = validateFriendSearchQuery(request.query.user);
 
         const user = await prisma.profile.findFirst({
           where: {
             OR: [
-                { username: { contains: identifier } },
-                { email: { contains: identifier } }
-              ]
+              { username: { contains: identifier } },
+              { email: { contains: identifier } },
+            ],
           },
         });
 
@@ -26,6 +28,7 @@ export default async function (fastify, opts) {
         }
         return reply.code(200).send(user.username);
       } catch (error) {
+        if (replyIfValidationError(error, reply)) return;
         console.error("Error fetching friends:", error);
         return reply.code(500).send({ error: "Internal server error" });
       }

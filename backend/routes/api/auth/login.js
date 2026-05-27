@@ -1,5 +1,10 @@
 import bcrypt from "bcrypt";
 import { PrismaClient } from "../../../generated/prisma/index.js";
+import {
+  normalizeEmail,
+  replyIfValidationError,
+  validatePasswordForLogin,
+} from "../../../lib/auth-validation.js";
 import { authRateLimit } from "../../../utils/auth-rate-limit.js";
 
 const prisma = new PrismaClient();
@@ -10,11 +15,10 @@ export default async function (fastify, opts) {
     { config: { rateLimit: authRateLimit.login } },
     async (request, reply) => {
     try {
-      const { email, password } = request.body;
+      const { email: rawEmail, password: rawPassword } = request.body;
+      const email = normalizeEmail(rawEmail);
+      const password = validatePasswordForLogin(rawPassword);
       const pepper = process.env.SECURITY_PEPPER;
-
-      if (!email || !password)
-        return reply.code(400).send({ error: "Missing fields" });
 
       const profile = await prisma.profile.findUnique({
         where: { email },
@@ -79,6 +83,7 @@ export default async function (fastify, opts) {
           });
       }
     } catch (error) {
+      if (replyIfValidationError(error, reply)) return;
       console.error("Error occurred during login:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }

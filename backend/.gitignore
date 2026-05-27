@@ -36,9 +36,8 @@ jspm_packages
 # Optional REPL history
 .node_repl_history
 
-# 0x
-profile-*
-!services/profile-progression.js
+# 0x profiler output (backend root only — not lib/profile-validation.js)
+/profile-*
 
 # mac files
 .DS_Store
