@@ -213,6 +213,23 @@ export const SocketProvider = ({ children }) => {
 						const msg = JSON.parse(event.data);
 						if (msg.error) {
 							toast.error(msg.error);
+							if (msg.event === "GAME_INVITE_ERROR") {
+								// Ensure the host cannot get stuck on a lobby page:
+								// this error can arrive before pages finish mounting.
+								stableDeps.current.setGameRoom(null);
+								stableDeps.current.setGameRoomLoaded(true);
+								try {
+									sessionStorage.removeItem("ft_chat_invite_room");
+								} catch {
+									/* noop */
+								}
+								stableDeps.current.router.push("/chat");
+								window.dispatchEvent(
+									new CustomEvent("gameInviteError", {
+										detail: { message: msg.error },
+									})
+								);
+							}
 							return;
 						}
 						const payload = msg.payload;

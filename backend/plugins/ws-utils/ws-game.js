@@ -184,15 +184,37 @@ export default fp((fastify) => {
         "Friend username",
       );
 
+      const cleanupInviteRoomIfPending = () => {
+        const room = fastify.gameRooms.get(normalizedRoomId);
+        const hostSocket = fastify.onlineUsers.get(numericHostId);
+        if (!room) {
+          fastify.currentRoom.delete(numericHostId);
+          safeSend(hostSocket, { event: "LEAVE_ROOM" }, numericHostId);
+          return;
+        }
+
+        const hasOnlyHost =
+          room.joinedPlayers.length <= 1 &&
+          Number(room.hostId) === numericHostId;
+        const hasNoPendingInvites = room.invitedPlayers.length === 0;
+        if (hasOnlyHost && hasNoPendingInvites) {
+          fastify.currentRoom.delete(numericHostId);
+          fastify.gameRooms.delete(normalizedRoomId);
+          safeSend(hostSocket, { event: "LEAVE_ROOM" }, numericHostId);
+        }
+      };
+
       const inviteeInRoom = resolveRoomMembership(numericFriendId);
-      if (inviteeInRoom) throw new Error("Player already in another room");
+      if (inviteeInRoom) {
+        cleanupInviteRoomIfPending();
+        throw new Error("Player already in another room");
+      }
 
       // Reject invite if friend is not online (no open WS connection)
       const inviteeSocket = fastify.onlineUsers.get(numericFriendId);
       if (!inviteeSocket || inviteeSocket.size === 0) {
-        // Clean up the room that was just created for this invite
-        fastify.currentRoom.delete(numericHostId);
-        fastify.gameRooms.delete(normalizedRoomId);
+        // Clean up the room if it was only created for this pending invite.
+        cleanupInviteRoomIfPending();
         throw new Error("Friend is not online");
       }
 

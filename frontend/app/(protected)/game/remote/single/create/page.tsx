@@ -128,6 +128,30 @@ export default function CreateRoomPage() {
 		return () => clearInterval(retry);
 	}, [isMatchmakingMode, user, isReady, roomId, gameRoom, sendJoinMatchmaking]);
 
+	// If chat invite creation fails (invitee already in another room/offline),
+	// exit this lobby immediately so host is not stuck waiting forever.
+	useEffect(() => {
+		const handleInviteError = (event: Event) => {
+			const customEvent = event as CustomEvent<{ message?: string }>;
+			const message = customEvent.detail?.message || t.Game["Failed to create room"];
+			setError(message);
+			setRoomId(null);
+			setGameRoom(null);
+			setGameRoomLoaded(true);
+			try {
+				sessionStorage.removeItem("ft_chat_invite_room");
+			} catch {
+				/* noop */
+			}
+			router.replace("/chat");
+		};
+
+		window.addEventListener("gameInviteError", handleInviteError as EventListener);
+		return () => {
+			window.removeEventListener("gameInviteError", handleInviteError as EventListener);
+		};
+	}, [router, setGameRoom, setGameRoomLoaded, t.Game]);
+
 	// Create room on mount
 	useEffect(() => {
 		const createRoom = async () => {
