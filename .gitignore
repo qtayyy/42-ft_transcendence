@@ -4,3 +4,4 @@ uploads/
 docs/
 docs/notes/
 .claudeignore
+*:Zone.Identifier
