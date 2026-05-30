@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
@@ -37,6 +37,16 @@ export default function Header() {
   const { gameRoom, gameState, setShowNavGuard, setPendingPath } = useGame();
   const { t } = useLanguage(); // change language to header
   const { enabled: isMusicEnabled, toggleMusic } = useMusic();
+  const [musicToggleHydrated, setMusicToggleHydrated] = useState(false);
+  const displayedMusicEnabled = musicToggleHydrated ? isMusicEnabled : true;
+
+  useEffect(() => {
+    const hydrationTimer = window.setTimeout(() => {
+      setMusicToggleHydrated(true);
+    }, 0);
+
+    return () => window.clearTimeout(hydrationTimer);
+  }, []);
 
   // Check if current route is a non-authenticated page
   const isNonAuthenticatedPage = useMemo(() => {
@@ -138,10 +148,10 @@ export default function Header() {
           type="button"
           onClick={toggleMusic}
           className="p-2 rounded-lg hover:bg-muted transition-colors"
-          aria-label={isMusicEnabled ? "Disable music" : "Enable music"}
-          title={isMusicEnabled ? "Disable music" : "Enable music"}
+          aria-label={displayedMusicEnabled ? "Disable music" : "Enable music"}
+          title={displayedMusicEnabled ? "Disable music" : "Enable music"}
         >
-          {isMusicEnabled ? (
+          {displayedMusicEnabled ? (
             <Volume2 className="w-6 h-6" />
           ) : (
             <VolumeX className="w-6 h-6" />

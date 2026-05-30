@@ -31,11 +31,10 @@ const IN_GAME_VOLUME = 0.45;
 const MusicContext = createContext<MusicContextValue | null>(null);
 
 /**
- * Reads the saved music preference, defaulting to enabled for first-time users.
+ * Reads the saved music preference after hydration, defaulting to enabled for
+ * first-time users.
  */
-function getInitialMusicEnabled() {
-	if (typeof window === "undefined") return true;
-
+function readSavedMusicEnabled() {
 	try {
 		return localStorage.getItem(MUSIC_ENABLED_STORAGE_KEY) !== "false";
 	} catch {
@@ -59,7 +58,8 @@ function isRuntimeMatchRoute(pathname: string) {
  */
 export function MusicProvider({ children }: { children: ReactNode }) {
 	const pathname = usePathname();
-	const [enabled, setEnabled] = useState(getInitialMusicEnabled);
+	const [enabled, setEnabled] = useState(true);
+	const [preferenceLoaded, setPreferenceLoaded] = useState(false);
 	const [gameplayMusicActive, setGameplayMusicActive] = useState(false);
 	const homepageAudioRef = useRef<HTMLAudioElement | null>(null);
 	const inGameAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -74,7 +74,18 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 			: runtimeMatchRoute
 				? null
 				: "homepage";
-	const activeTrack = enabled ? trackWhenEnabled : null;
+	const activeTrack = preferenceLoaded && enabled ? trackWhenEnabled : null;
+
+	useEffect(() => {
+		const preferenceLoadTimer = window.setTimeout(() => {
+			const savedEnabled = readSavedMusicEnabled();
+			enabledRef.current = savedEnabled;
+			setEnabled(savedEnabled);
+			setPreferenceLoaded(true);
+		}, 0);
+
+		return () => window.clearTimeout(preferenceLoadTimer);
+	}, []);
 
 	useEffect(() => {
 		const homepageAudio = new Audio(HOMEPAGE_TRACK_SRC);
@@ -141,6 +152,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 		(nextEnabled: boolean) => {
 			enabledRef.current = nextEnabled;
 			setEnabled(nextEnabled);
+			setPreferenceLoaded(true);
 
 			try {
 				localStorage.setItem(MUSIC_ENABLED_STORAGE_KEY, String(nextEnabled));
