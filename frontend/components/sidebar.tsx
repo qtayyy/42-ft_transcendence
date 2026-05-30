@@ -48,6 +48,8 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
   // Fetch unread chat count
   useEffect(() => {
+    if (!user?.id) return;
+
     let isMounted = true;
 
     const fetchUnreadCount = async () => {
@@ -80,10 +82,12 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       window.removeEventListener("messageRead", handleRealtimeUnreadRefresh as EventListener);
       window.removeEventListener("gameInvite", handleRealtimeUnreadRefresh as EventListener);
     };
-  }, []);
+  }, [user?.id]);
 
   // Fetch pending friend request count and update in real-time
   useEffect(() => {
+    if (!user?.id) return;
+
     let isMounted = true;
 
     const fetchPendingCount = async () => {
@@ -106,14 +110,10 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       isMounted = false;
       window.removeEventListener("friendRequest", handleFriendRequest as EventListener);
     };
-  }, []);
+  }, [user?.id]);
 
-  // Clear badge when user navigates to friend-request page
-  useEffect(() => {
-    if (pathname === "/friend-request") {
-      setPendingFriendCount(0);
-    }
-  }, [pathname]);
+  const visiblePendingFriendCount =
+    pathname === "/friend-request" ? 0 : pendingFriendCount;
 
   // Check if an active match is in progress (not over)
   const isRuntimeMatchRoute = pathname.match(/^\/game\/([^/]+)$/) && 
@@ -170,7 +170,7 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       icon: History,
     },
     {
-      label: (t?.DropDown as any)?.Chat || "Chat",
+      label: t?.DropDown?.Chat || "Chat",
       path: "/chat",
       icon: MessageSquare,
     },
@@ -246,9 +246,9 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                       {unreadCount}
                     </Badge>
                   )}
-                  {item.path === "/friend-request" && pendingFriendCount > 0 && (
+                  {item.path === "/friend-request" && visiblePendingFriendCount > 0 && (
                     <Badge variant="destructive" className="ml-auto">
-                      {pendingFriendCount}
+                      {visiblePendingFriendCount}
                     </Badge>
                   )}
                 </button>

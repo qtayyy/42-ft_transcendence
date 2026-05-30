@@ -26,7 +26,21 @@ const NON_AUTHENTICATED_ROUTES = [
 	"/privacy-policy",
 ];
 
+interface AuthSessionResponse {
+	authenticated: boolean;
+	profile: UserProfile | null;
+}
+
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+/**
+ * Checks the current cookie-backed session without treating logged-out users as
+ * a failed network request.
+ */
+async function getAuthSession() {
+	const response = await axios.get<AuthSessionResponse>("/api/auth/session");
+	return response.data;
+}
 
 export const AuthProvider = ({ children }) => {
 	const [user, setUser] = useState<UserProfile | null>(null);
@@ -91,12 +105,14 @@ export const AuthProvider = ({ children }) => {
 		try {
 			if (isNonAuthenticatedPage)
 				return;
-			const response = await axios.get("/api/profile");
-			const profileData = response.data;
-			setUser(profileData);
-			return (profileData);
+			const session = await getAuthSession();
+			if (!session.authenticated || !session.profile) {
+				setUser(null);
+				return;
+			}
+			setUser(session.profile);
+			return session.profile;
 		} catch (error: unknown) {
-			// Only clear user when the session is actually invalid (401 on profile).
 			const status = axios.isAxiosError(error) ? error.response?.status : undefined;
 			if (status === 401) {
 				setUser(null);
@@ -118,15 +134,20 @@ export const AuthProvider = ({ children }) => {
 
 				// Only fetch if we don't have a user yet or it's a critical route change
 				// This prevents re-fetching on every internal game redirect (which was causing socket loops)
-				if (user && !loadingAuth) {
+				if (user) {
 					// We already have a user, just ensure we celebrate it
 					setLoadingAuth(false);
 					return;
 				}
 
-				const response = await axios.get("/api/profile");
-				const newData = response.data;
+				const session = await getAuthSession();
 				if (isMounted) {
+					if (!session.authenticated || !session.profile) {
+						setUser(null);
+						return;
+					}
+
+					const newData = session.profile;
 					setUser((prev) => {
 						if (prev && prev.id === newData.id && prev.username === newData.username) {
 							return prev;
@@ -151,7 +172,7 @@ export const AuthProvider = ({ children }) => {
 		return () => {
 			isMounted = false;
 		};
-	}, [isNonAuthenticatedPage, loadingAuth, user]);
+	}, [isNonAuthenticatedPage, user]);
 
 	const login = useCallback(
 		async (email: string, password: string) => {

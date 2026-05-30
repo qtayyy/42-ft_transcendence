@@ -7,6 +7,7 @@ import { AuthProvider } from "@/context/authContext";
 import { SocketProvider } from "@/context/socket-context";
 import { GameProvider } from "@/context/game-context";
 import { LanguageProvider } from "@/context/languageContext";
+import { MusicProvider } from "@/context/music-context";
 import Footer from "@/components/footer";
 import Header from "@/components/header";
 import { Toaster } from "@/components/ui/sonner";
@@ -52,17 +53,19 @@ export default async function RootLayout({
               <AuthProvider>
                 <GameProvider>
                   <SocketProvider>
-                    <Toaster position="top-center" />
-                    <NavigationGuard />
-                    <Suspense fallback={null}>
-                      <Header />
-                    </Suspense>
-                    <GameInviteDialog />
-                    <ReconnectionManager />
-                    <main className="min-h-screen w-full">{children}</main>
-                    <Suspense fallback={null}>
-                      <Footer />
-                    </Suspense>
+                    <MusicProvider>
+                      <Toaster position="top-center" />
+                      <NavigationGuard />
+                      <Suspense fallback={null}>
+                        <Header />
+                      </Suspense>
+                      <GameInviteDialog />
+                      <ReconnectionManager />
+                      <main className="min-h-screen w-full">{children}</main>
+                      <Suspense fallback={null}>
+                        <Footer />
+                      </Suspense>
+                    </MusicProvider>
                   </SocketProvider>
                 </GameProvider>
               </AuthProvider>

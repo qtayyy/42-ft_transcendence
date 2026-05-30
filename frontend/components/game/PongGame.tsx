@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GameState, GameMode } from "@/types/game";
 import { usePongGame } from "@/hooks/usePongGame";
 import { BackgroundId, interpolateGameState, renderGame } from "@/utils/gameRenderer";
@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/languageContext";
+import { useMusic } from "@/context/music-context";
 
 interface RemoteOptimisticPaddlePreview {
 	paddleKey: "p1" | "p2";
@@ -81,6 +82,7 @@ export default function PongGame({
 		setBindings,
 	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver, isAIEnabled });
 	const { t } = useLanguage();
+	const { setGameplayMusicActive } = useMusic();
 	const guardPauseSentRef = useRef(false);
 	const previousSnapshotRef = useRef<GameState | null>(null);
 	const latestSnapshotRef = useRef<GameState | null>(null);
@@ -132,26 +134,32 @@ export default function PongGame({
 		? (isTournamentMatch ? `LT-${cleanId}` : `LS-${cleanId}`)
 		: cleanId;
 
-	const [localPlayerNames, setLocalPlayerNames] = useState<{
+	const localPlayerNames = useMemo<{
 		left: string;
 		right: string;
-	} | null>(null);
+	} | null>(() => {
+		if (
+			mode !== "local" ||
+			player1NameProp ||
+			player2NameProp ||
+			typeof window === "undefined"
+		) {
+			return null;
+		}
 
-	useEffect(() => {
-		if (mode !== "local" || player1NameProp || player2NameProp) return;
 		try {
 			const raw = localStorage.getItem("current-match");
-			if (!raw) return;
+			if (!raw) return null;
 			const data = JSON.parse(raw) as {
 				player1?: { name?: string };
 				player2?: { name?: string };
 			};
-			setLocalPlayerNames({
+			return {
 				left: data.player1?.name || "Player 1",
 				right: data.player2?.name || "Player 2",
-			});
+			};
 		} catch {
-			/* ignore */
+			return null;
 		}
 	}, [mode, player1NameProp, player2NameProp]);
 
@@ -194,6 +202,14 @@ export default function PongGame({
 	useEffect(() => {
 		syncIncomingSnapshot(gameState);
 	}, [gameState, syncIncomingSnapshot]);
+
+	useEffect(() => {
+		setGameplayMusicActive(gameState?.status === "playing");
+
+		return () => {
+			setGameplayMusicActive(false);
+		};
+	}, [gameState?.status, setGameplayMusicActive]);
 
 	useEffect(() => {
 		remoteOptimisticPaddlePreviewRef.current = remoteOptimisticPaddlePreview;
@@ -261,7 +277,7 @@ export default function PongGame({
 
 		frameId = requestAnimationFrame(drawFrame);
 		return () => cancelAnimationFrame(frameId);
-	}, [canvasDimensions, background]);
+	}, [canvasDimensions, background, canvasRef]);
 
 	const localGameOverResult =
 		gameState?.status === "finished"

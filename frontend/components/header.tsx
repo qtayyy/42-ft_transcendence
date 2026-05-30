@@ -8,17 +8,17 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useSocket } from "@/hooks/use-socket";
 import { useGame } from "@/hooks/use-game";
 import { useLanguage } from "@/context/languageContext";
+import { useMusic } from "@/context/music-context";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { Menu } from "lucide-react";
+import { Menu, Volume2, VolumeX } from "lucide-react";
 
 // Routes where the profile icon should be hidden (non-authenticated pages)
 const NON_AUTHENTICATED_ROUTES = [
@@ -32,14 +32,20 @@ const NON_AUTHENTICATED_ROUTES = [
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout, loadingAuth } = useAuth();
   const { sendSocketMessage, isReady } = useSocket();
   const { gameRoom, gameState, setShowNavGuard, setPendingPath } = useGame();
   const { t } = useLanguage(); // change language to header
-  const [hasMounted, setHasMounted] = useState(false);
+  const { enabled: isMusicEnabled, toggleMusic } = useMusic();
+  const [musicToggleHydrated, setMusicToggleHydrated] = useState(false);
+  const displayedMusicEnabled = musicToggleHydrated ? isMusicEnabled : true;
 
   useEffect(() => {
-    setHasMounted(true);
+    const hydrationTimer = window.setTimeout(() => {
+      setMusicToggleHydrated(true);
+    }, 0);
+
+    return () => window.clearTimeout(hydrationTimer);
   }, []);
 
   // Check if current route is a non-authenticated page
@@ -49,7 +55,7 @@ export default function Header() {
 
   // Check if we're on a protected route (where sidebar is shown)
   const isProtectedRoute = useMemo(() => {
-    return user && !isNonAuthenticatedPage;
+    return Boolean(user && !isNonAuthenticatedPage);
   }, [user, isNonAuthenticatedPage]);
 
   // Check if an active match is in progress (not over)
@@ -70,8 +76,7 @@ export default function Header() {
   }, [gameState, isRuntimeMatchRoute, isTournamentLobbyRoute]);
 
   // Only show profile icon if user exists AND we're not on a non-authenticated page
-  // Use hasMounted to prevent hydration mismatch
-  const shouldShowProfileIcon = hasMounted && user && !isNonAuthenticatedPage;
+  const shouldShowProfileIcon = Boolean(user && !isNonAuthenticatedPage && !loadingAuth);
 
   const handleLogout = useCallback(async () => {
     if (!user) return;
@@ -139,11 +144,25 @@ export default function Header() {
         </button>
       </div>
       <div className="flex space-x-5 items-center">
+        <button
+          type="button"
+          onClick={toggleMusic}
+          className="p-2 rounded-lg hover:bg-muted transition-colors"
+          aria-label={displayedMusicEnabled ? "Disable music" : "Enable music"}
+          title={displayedMusicEnabled ? "Disable music" : "Enable music"}
+        >
+          {displayedMusicEnabled ? (
+            <Volume2 className="w-6 h-6" />
+          ) : (
+            <VolumeX className="w-6 h-6" />
+          )}
+        </button>
+
         {/* Language Switcher  */}
         <LanguageSwitcher />
         
         {/* Hamburger Menu Button - only on protected routes */}
-        {hasMounted && isProtectedRoute && (
+        {!loadingAuth && isProtectedRoute && (
           <button
             onClick={() => {
               const event = new CustomEvent('toggle-sidebar');
