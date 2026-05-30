@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import { cookies } from "next/headers";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -16,9 +16,10 @@ import { NavigationGuard } from "@/components/game/navigation-guard";
 import { translations } from "@/lib/i18n/translations";
 import { defaultLocale, type Locale } from "@/lib/i18n/locales";
 
-const inter = Inter({ 
-  subsets: ["latin"],
+const inter = localFont({
+  src: "../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
   variable: "--font-sans",
+  display: "swap",
 });
 
 export const metadata = {

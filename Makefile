@@ -1,15 +1,21 @@
 all: build start
 
+COMPOSE = docker compose -f ./compose.yaml
+COMPOSE_DEV = docker compose -f ./compose.yaml -f ./compose.dev.yaml
+
 LAN_IP_CMD = node ./scripts/lan-ip.mjs
 
 build:
-	@docker compose -f ./compose.yaml build
+	@$(COMPOSE) build
 
 start:
-	@docker compose -f ./compose.yaml up -d
+	@$(COMPOSE) up -d
 
-dev: build
-	@docker compose -f ./compose.yaml watch
+dev-build:
+	@$(COMPOSE_DEV) build
+
+dev: dev-build
+	@$(COMPOSE_DEV) watch
 
 stop:
 	@docker compose -f ./compose.yaml stop
@@ -145,4 +151,4 @@ ngrok-restart-backend:
 gameplay-test:
 	@node ./scripts/chrome-devtools-gameplay-smoke.mjs
 
-.PHONY: all build start dev stop down logs clean prune re lan-ip lan-url lan-expose lan-help ngrok-install ngrok ngrok-sync ngrok-restart-backend gameplay-test
+.PHONY: all build start dev dev-build stop down logs clean prune re lan-ip lan-url lan-expose lan-help ngrok-install ngrok ngrok-sync ngrok-restart-backend gameplay-test
