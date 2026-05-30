@@ -518,6 +518,24 @@ export default function ChatPage() {
     };
   }, [selectedFriend, user]);
 
+  // Clear pending invite state when backend rejects room invite creation.
+  useEffect(() => {
+    const handleGameInviteError = (event: Event) => {
+      const customEvent = event as CustomEvent<{ message?: string }>;
+      const message = customEvent.detail?.message || (t.chat["Failed to create room for invite."] || "Failed to create room for invite.");
+
+      if (activeInvite?.inviteeId) {
+        clearInvitePendingForFriend(activeInvite.inviteeId);
+      }
+      pushNotificationMessage(message);
+    };
+
+    window.addEventListener("gameInviteError", handleGameInviteError as EventListener);
+    return () => {
+      window.removeEventListener("gameInviteError", handleGameInviteError as EventListener);
+    };
+  }, [activeInvite, t.chat]);
+
   // Auto-scroll to bottom when new messages arrive (only if user is near bottom)
   useEffect(() => {
     if (messagesContainerRef.current && messages.length > 0) {
@@ -992,22 +1010,6 @@ export default function ChatPage() {
     }
   };
 
-  const handleHostStartGameFromChat = (msg: Message) => {
-    const roomId = msg.meta?.roomId;
-    if (!roomId || !isReady) {
-      pushNotificationMessage(t.chat["Room is not ready to start yet."] || "Room is not ready to start yet.");
-      return;
-    }
-
-    sendSocketMessage({
-      event: "START_ROOM_GAME",
-      payload: { roomId },
-    });
-
-    // Keep host in sync with room state if match cannot start immediately.
-    router.push(`/game/remote/single/create?roomId=${roomId}&fromChatInvite=true`);
-  };
-
   const handleCancelInvite = (msg: Message) => {
     const roomId = msg.meta?.roomId;
     const inviteeId = activeInvite?.inviteeId;
@@ -1437,13 +1439,6 @@ export default function ChatPage() {
                                 )}
                                 {msg.type === "game-invite-sent" && isOwnMessage && msg.meta?.roomId && (
                                   <div className="mt-3 flex gap-2">
-                                    <Button
-                                      size="sm"
-                                      variant="secondary"
-                                      onClick={() => handleHostStartGameFromChat(msg)}
-                                    >
-                                      Start game now
-                                    </Button>
                                     {activeInvite?.roomId === msg.meta.roomId && (
                                       <Button
                                         size="sm"
