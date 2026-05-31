@@ -27,5 +27,13 @@ export const ProtectedRoute = ({
     );
   }
 
+  if (!isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-accent">
+        <p className="text-sm text-gray-300">Redirecting to login...</p>
+      </div>
+    );
+  }
+
   return <>{children}</>;
 };
