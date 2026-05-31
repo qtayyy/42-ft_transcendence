@@ -27,6 +27,7 @@ const IN_GAME_TRACK_SRC = "/assets/music/In_game.mp3";
 const MUSIC_ENABLED_STORAGE_KEY = "ft-transcendence-music-enabled";
 const HOMEPAGE_VOLUME = 0.35;
 const IN_GAME_VOLUME = 0.45;
+const TRACK_REPLAY_DELAY_MS = 150;
 
 const MusicContext = createContext<MusicContextValue | null>(null);
 
@@ -66,6 +67,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 	const currentTrackRef = useRef<MusicTrack | null>(null);
 	const enabledRef = useRef(enabled);
 	const trackWhenEnabledRef = useRef<MusicTrack | null>(null);
+	const replayTimerRef = useRef<number | null>(null);
 
 	const runtimeMatchRoute = isRuntimeMatchRoute(pathname);
 	const trackWhenEnabled: MusicTrack | null =
@@ -89,12 +91,12 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
 	useEffect(() => {
 		const homepageAudio = new Audio(HOMEPAGE_TRACK_SRC);
-		homepageAudio.loop = true;
+		homepageAudio.loop = false;
 		homepageAudio.preload = "auto";
 		homepageAudio.volume = HOMEPAGE_VOLUME;
 
 		const inGameAudio = new Audio(IN_GAME_TRACK_SRC);
-		inGameAudio.loop = true;
+		inGameAudio.loop = false;
 		inGameAudio.preload = "auto";
 		inGameAudio.volume = IN_GAME_VOLUME;
 
@@ -122,6 +124,10 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const pauseAllTracks = useCallback(() => {
+		if (replayTimerRef.current !== null) {
+			window.clearTimeout(replayTimerRef.current);
+			replayTimerRef.current = null;
+		}
 		homepageAudioRef.current?.pause();
 		inGameAudioRef.current?.pause();
 	}, []);
@@ -135,7 +141,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 				track === "homepage" ? inGameAudioRef.current : homepageAudioRef.current;
 			otherAudio?.pause();
 
-			if (currentTrackRef.current !== track) {
+			if (currentTrackRef.current !== track || audio.ended) {
 				audio.currentTime = 0;
 				currentTrackRef.current = track;
 			}
@@ -147,6 +153,37 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 		},
 		[getAudioForTrack]
 	);
+
+	useEffect(() => {
+		const replayTrack = (track: MusicTrack) => {
+			const audio = getAudioForTrack(track);
+			if (!audio) return;
+
+			if (!enabledRef.current || trackWhenEnabledRef.current !== track) {
+				return;
+			}
+
+			audio.currentTime = 0;
+			replayTimerRef.current = window.setTimeout(() => {
+				replayTimerRef.current = null;
+				startTrack(track);
+			}, TRACK_REPLAY_DELAY_MS);
+		};
+
+		const replayHomepageTrack = () => replayTrack("homepage");
+		const replayInGameTrack = () => replayTrack("inGame");
+
+		const homepageAudio = homepageAudioRef.current;
+		const inGameAudio = inGameAudioRef.current;
+
+		homepageAudio?.addEventListener("ended", replayHomepageTrack);
+		inGameAudio?.addEventListener("ended", replayInGameTrack);
+
+		return () => {
+			homepageAudio?.removeEventListener("ended", replayHomepageTrack);
+			inGameAudio?.removeEventListener("ended", replayInGameTrack);
+		};
+	}, [getAudioForTrack, startTrack]);
 
 	const setMusicEnabled = useCallback(
 		(nextEnabled: boolean) => {
