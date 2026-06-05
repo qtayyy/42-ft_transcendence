@@ -116,6 +116,11 @@ export const AuthProvider = ({ children }) => {
 					return;
 				}
 
+				if (!loadingAuth && !user) {
+					setLoadingAuth(false);
+					return;
+				}
+
 				// Only fetch if we don't have a user yet or it's a critical route change
 				// This prevents re-fetching on every internal game redirect (which was causing socket loops)
 				if (user && !loadingAuth) {

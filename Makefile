@@ -4,6 +4,7 @@ COMPOSE = docker compose -f ./compose.yaml
 COMPOSE_DEV = docker compose -f ./compose.yaml -f ./compose.dev.yaml
 
 LAN_IP_CMD = node ./scripts/lan-ip.mjs
+LOCAL_PUBLIC_APP_URL = https://localhost:8443
 
 build:
 	@$(COMPOSE) build
@@ -50,6 +51,13 @@ prune:
 
 re: stop down all
 
+local-url:
+	@node ./scripts/public-app-url.mjs set "$(LOCAL_PUBLIC_APP_URL)"
+	@$(COMPOSE) up -d --force-recreate backend
+	@echo "Google OAuth callback restored to $(LOCAL_PUBLIC_APP_URL)/api/auth/google/callback"
+
+lan: lan-url
+
 lan-ip:
 	@LAN_IP="$${LAN_IP:-$$( $(LAN_IP_CMD) )}"; \
 	if [ -z "$$LAN_IP" ]; then \
@@ -68,10 +76,12 @@ lan-url:
 		exit 1; \
 	fi; \
 	node ./scripts/public-app-url.mjs set "https://$$LAN_IP:8443"; \
+	$(COMPOSE) up -d --force-recreate backend; \
 	echo "Host machine LAN IP: $$LAN_IP"; \
 	echo "Open this on the host machine:   https://localhost:8443"; \
 	echo "Open this on another LAN device: https://$$LAN_IP:8443"; \
 	echo "Updated backend/.env PUBLIC_APP_URL to https://$$LAN_IP:8443"; \
+	echo "Recreated backend so Google OAuth uses the LAN callback."; \
 	echo "If the other device cannot connect, check the host firewall and accept the browser HTTPS warning once."
 
 lan-expose:
@@ -125,12 +135,20 @@ ngrok-install:
 ngrok:
 	@NGROK_BIN="$$(./scripts/ensure-ngrok.sh)"; \
 	TMP_LOG="$$(mktemp -t ft_transcendence_ngrok.XXXXXX)"; \
+	CLEANED_UP=0; \
 	cleanup() { \
+		if [ "$$CLEANED_UP" -eq 1 ]; then \
+			return; \
+		fi; \
+		CLEANED_UP=1; \
 		if [ -n "$$NGROK_PID" ] && kill -0 "$$NGROK_PID" 2>/dev/null; then \
 			kill "$$NGROK_PID" 2>/dev/null || true; \
 			wait "$$NGROK_PID" 2>/dev/null || true; \
 		fi; \
 		rm -f "$$TMP_LOG"; \
+		node ./scripts/public-app-url.mjs set "$(LOCAL_PUBLIC_APP_URL)"; \
+		$(COMPOSE) up -d --force-recreate backend; \
+		echo "Google OAuth callback restored to $(LOCAL_PUBLIC_APP_URL)/api/auth/google/callback"; \
 	}; \
 	trap cleanup EXIT INT TERM; \
 	"$$NGROK_BIN" http https://localhost:8443 --upstream-tls-verify=false >"$$TMP_LOG" 2>&1 & \
@@ -151,4 +169,4 @@ ngrok-restart-backend:
 gameplay-test:
 	@node ./scripts/chrome-devtools-gameplay-smoke.mjs
 
-.PHONY: all build start dev dev-build stop down logs clean prune re lan-ip lan-url lan-expose lan-help ngrok-install ngrok ngrok-sync ngrok-restart-backend gameplay-test
+.PHONY: all build start dev dev-build stop down logs clean prune re local-url lan lan-ip lan-url lan-expose lan-help ngrok-install ngrok ngrok-sync ngrok-restart-backend gameplay-test
