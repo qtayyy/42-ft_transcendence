@@ -1,4 +1,5 @@
 *This project has been created as part of the 42 curriculum by qtay, nchok, hheng, xquah*
+https://ft-trans.netlify.app/
 
 # ft_transcendence 
 
@@ -107,6 +108,9 @@ flowchart LR
 
 ## Database Schema
 
+<img width="742" height="487" alt="image" src="https://github.com/user-attachments/assets/f36197f2-331d-4de1-a04f-1a8cd9708518" />
+
+
 ### Models and Relationships
 
 ```
@@ -132,8 +136,9 @@ Match ─────────── Tournament (many:1, optional)
 | `Tournament` | id, date, winnerId, players[], matches[] |
 | `Achievement` | id, profileId, achievementKey, unlockedAt |
 | `Block` | id, blockerId, blockedId |
-
 ---
+Draw.io : https://app.diagrams.net/#G1Vq4sE5an8PpEO0R8PWf6YI8JE-vQRyqG#%7B%22pageId%22%3A%22724lYwYXinU8SNZ2OL03%22%7D
+DB command : sqlite3 data/dev.db
 
 ## Instructions
 
@@ -300,7 +305,7 @@ To enable Google Sign-In, you need to register the app in [Google Cloud Console]
 
 **Minor subtotal: 9 pts**
 
-**Total: 25 pts**
+**Total: 26 pts**
 
 ---
 
