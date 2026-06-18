@@ -303,9 +303,9 @@ To enable Google Sign-In, you need to register the app in [Google Cloud Console]
 | **Data Export — CSV & PDF** | Winnie | Players need machine-readable archives and shareable reports | Pixel-accurate PDF via `jsPDF`; CSV serialisation of complex objects; active filter state applied to export | Players own their data and can use it in spreadsheets or personal archives |
 | **Multilingual i18n (3+ languages)** | Winnie | The 42 community is international; accessibility matters | Full string coverage across all pages; live language switcher without reload; translation parity as features are added | Platform accessible in players' preferred language |
 
-**Minor subtotal: 9 pts**
+**Minor subtotal: 12 pts**
 
-**Total: 26 pts**
+**Total: 28 pts**
 
 ---
 
