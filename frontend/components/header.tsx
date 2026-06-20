@@ -122,10 +122,19 @@ export default function Header() {
     <div
       suppressHydrationWarning
       className={cn(
-        "z-50 flex w-full items-center justify-between p-3",
+        "isolate z-50 flex w-full items-center justify-between p-3",
         "fixed top-0 inset-x-0 bg-transparent"
       )}
     >
+      {/*
+        Blur only the page content underneath the fixed header. The gradient
+        mask keeps the header itself visually transparent and avoids a hard
+        edge where the protected, non-clickable area ends.
+      */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 bg-transparent backdrop-blur-md [mask-image:linear-gradient(to_bottom,black_75%,transparent)]"
+      />
       <div>
         <button
           type="button"
