@@ -105,10 +105,12 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       fetchPendingCount();
     };
     window.addEventListener("friendRequest", handleFriendRequest as EventListener);
+    window.addEventListener("friendAccepted", handleFriendRequest);
 
     return () => {
       isMounted = false;
       window.removeEventListener("friendRequest", handleFriendRequest as EventListener);
+      window.removeEventListener("friendAccepted", handleFriendRequest);
     };
   }, [user?.id]);
 

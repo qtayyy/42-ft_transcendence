@@ -40,6 +40,21 @@ export const GameProvider = ({ children }) => {
 		fetchOnlineFriends();
 	}, [fetchOnlineFriends]);
 
+	// Friendship changes can alter the online-friends subset without causing a
+	// login/status event, so refresh it for both the requester and the accepter.
+	useEffect(() => {
+		const handleFriendshipChanged = () => {
+			void fetchOnlineFriends();
+		};
+
+		window.addEventListener("friendAccepted", handleFriendshipChanged);
+		window.addEventListener("friendRemoved", handleFriendshipChanged);
+		return () => {
+			window.removeEventListener("friendAccepted", handleFriendshipChanged);
+			window.removeEventListener("friendRemoved", handleFriendshipChanged);
+		};
+	}, [fetchOnlineFriends]);
+
 	const gameStateRef = useRef<GameStateValue | null>(null);
 	const gameRoomRef = useRef<GameRoomValue | null>(null);
 	const remoteRenderGameStateRef = useRef<GameState | null>(null);

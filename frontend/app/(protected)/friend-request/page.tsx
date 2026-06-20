@@ -76,19 +76,33 @@ export default function FriendRequestsPage() {
     load();
   }, [user, loadingAuth]);
 
-  // Real-time: refresh pending requests when a new friend request arrives via websocket
+  // Keep this page's independent request/friend state in sync with websocket
+  // events. Other pages use useFriends(), but this page owns its lists locally.
   useEffect(() => {
     const handleFriendRequest = () => {
       fetchRequests();
     };
+    const handleFriendshipChanged = () => {
+      void Promise.all([fetchRequests(), fetchFriends()]);
+    };
+
     window.addEventListener("friendRequest", handleFriendRequest as EventListener);
-    return () => window.removeEventListener("friendRequest", handleFriendRequest as EventListener);
+    window.addEventListener("friendAccepted", handleFriendshipChanged);
+    window.addEventListener("friendRemoved", handleFriendshipChanged);
+    return () => {
+      window.removeEventListener("friendRequest", handleFriendRequest as EventListener);
+      window.removeEventListener("friendAccepted", handleFriendshipChanged);
+      window.removeEventListener("friendRemoved", handleFriendshipChanged);
+    };
   }, []);
 
   const accept = async (id: number) => {
     try {
       await axios.put(`/api/friends/request/${id}/accept`);
-      await Promise.all([fetchRequests(), fetchFriends()]);
+      // The accepter does not receive the server's FRIEND_ACCEPTED websocket
+      // notification, so publish the same browser event locally. This refreshes
+      // this page, useFriends consumers, the sidebar, and online-friend state.
+      window.dispatchEvent(new CustomEvent("friendAccepted"));
     } catch (error: unknown) {
       console.error("Failed to accept friend request:", error);
     }
