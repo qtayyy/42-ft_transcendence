@@ -548,6 +548,7 @@ export const SocketProvider = ({ children }) => {
 										const disconnectStateChanged =
 											prev.disconnectedPlayer !== payload.disconnectedPlayer ||
 											prev.pausedAt !== payload.pausedAt ||
+											prev.resumeAt !== payload.resumeAt ||
 											prev.disconnectCountdown?.disconnectedPlayer !== payload.disconnectCountdown?.disconnectedPlayer ||
 											prev.disconnectCountdown?.gracePeriodEndsAt !== payload.disconnectCountdown?.gracePeriodEndsAt;
 										const powerUpsChanged = !hasSamePowerUps(prev.powerUps, payload.powerUps);

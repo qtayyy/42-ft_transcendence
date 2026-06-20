@@ -28,6 +28,7 @@ interface PauseOverlayProps {
 	disconnectInfo?: {
 		disconnectedPlayer: "LEFT" | "RIGHT";
 		countdown: number;
+		phase?: "disconnected" | "resuming";
 	} | null;
 	isSpectator?: boolean;
 	onReturnToLobby?: () => void;
@@ -77,14 +78,18 @@ export function PauseOverlay({
 					<div className="px-8 py-6 flex flex-col items-center gap-4">
 						<div className="text-4xl">📡</div>
 						<div className="text-red-400 font-bold text-2xl tracking-widest uppercase">
-							Opponent Disconnected
+							{disconnectInfo.phase === "resuming" ? "Player Reconnected" : "Opponent Disconnected"}
 						</div>
 						<div className="text-white/80 text-sm text-center">
-							Waiting for {disconnectInfo.disconnectedPlayer === "LEFT" ? player1Name : player2Name} to reconnect...
+							{disconnectInfo.phase === "resuming"
+								? "Preparing to resume the match..."
+								: `Waiting for ${disconnectInfo.disconnectedPlayer === "LEFT" ? player1Name : player2Name} to reconnect...`}
 						</div>
 						<div className="p-4 bg-white/5 rounded-lg border border-red-500/30 min-w-[200px]">
 							<div className="text-center">
-								<p className="text-xs text-white/60 mb-1">Auto-forfeit in</p>
+								<p className="text-xs text-white/60 mb-1">
+									{disconnectInfo.phase === "resuming" ? "Resuming in" : "Auto-forfeit in"}
+								</p>
 								<p
 									className={cn(
 										"text-4xl font-mono font-bold tabular-nums",
@@ -109,7 +114,7 @@ export function PauseOverlay({
 						)}
 						{!isSpectator && (
 							<div className="text-xs text-white/50 text-center">
-								Game will resume automatically when they reconnect
+								Game resumes automatically when all players are connected
 							</div>
 						)}
 					</div>

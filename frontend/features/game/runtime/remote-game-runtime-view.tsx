@@ -218,7 +218,8 @@ export default function RemoteGameRuntimeView({
 							? {
 									disconnectedPlayer:
 										disconnectInfo.disconnectedPlayer as "LEFT" | "RIGHT",
-									countdown: disconnectInfo.countdown,
+										countdown: disconnectInfo.countdown,
+										phase: disconnectInfo.phase,
 							  }
 							: null
 					}

@@ -98,17 +98,6 @@ export function GameControlsTray({
 									<span className="text-[10px] text-muted-foreground font-mono">{t.Game["ENTER"]}</span>
 								</div>
 
-								<div className="h-6 w-px bg-border/50" />
-
-								<div className="flex items-center gap-3 text-right min-w-0">
-									<div className="flex flex-col items-end min-w-0">
-										<span className="text-xs font-bold text-foreground">{t.Game["Pause / Resume"]}</span>
-										<span className="text-[10px] text-muted-foreground font-mono">{t.Game["SPACE"]}</span>
-									</div>
-									<div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 ring-1 ring-purple-500/20">
-										<Gamepad2 className="h-4 w-4" />
-									</div>
-								</div>
 							</>
 						)}
 					</div>

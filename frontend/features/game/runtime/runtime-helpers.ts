@@ -10,6 +10,7 @@ export interface DisconnectInfo {
 	disconnectedPlayer: string;
 	gracePeriodEndsAt: number;
 	countdown: number;
+	phase?: "disconnected" | "resuming";
 }
 
 export interface PauseInfo {
@@ -79,6 +80,7 @@ const REMOTE_RUNTIME_DEFAULTS: RemoteRuntimeDefaults = {
 
 type RemoteGameStateWithDisconnect = GameStateValue & {
 	disconnectedPlayer?: string;
+	resumeAt?: number | null;
 };
 
 function hasHeldDirection(
@@ -141,6 +143,20 @@ export function getDisconnectInfoFromRemoteState(
 	const gameStateWithDisconnect = gameState as RemoteGameStateWithDisconnect;
 	const disconnectCountdown = gameState.disconnectCountdown;
 
+	if (gameState.paused && gameStateWithDisconnect.resumeAt) {
+		const countdown = Math.ceil(
+			(gameStateWithDisconnect.resumeAt - Date.now()) / 1000
+		);
+		if (countdown > 0) {
+			return {
+				disconnectedPlayer: "",
+				gracePeriodEndsAt: gameStateWithDisconnect.resumeAt,
+				countdown,
+				phase: "resuming",
+			};
+		}
+	}
+
 	if (disconnectCountdown?.gracePeriodEndsAt) {
 		const countdown = Math.ceil(
 			(disconnectCountdown.gracePeriodEndsAt - Date.now()) / 1000
@@ -187,7 +203,8 @@ export function hasSameDisconnectInfo(
 
 	return (
 		left.disconnectedPlayer === right.disconnectedPlayer &&
-		left.gracePeriodEndsAt === right.gracePeriodEndsAt
+		left.gracePeriodEndsAt === right.gracePeriodEndsAt &&
+		left.phase === right.phase
 	);
 }
 
