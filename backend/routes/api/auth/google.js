@@ -1,6 +1,12 @@
 import { PrismaClient } from '../../../generated/prisma/index.js';
 import crypto from 'crypto'; // Built-in Node module to generate random passwords
 import bcrypt from "bcrypt";
+import {
+	establishSession,
+	findActiveRemoteMatch,
+	getTakeoverConflict,
+	signSessionToken,
+} from "../../../services/session-service.js";
 
 const prisma = new PrismaClient();
 
@@ -88,7 +94,7 @@ export default async function (fastify, opts) {
 			// 6. Match login.js: require TOTP when 2FA is enabled
 			if (user.twoFA) {
 				const tempToken = fastify.jwt.temp.sign(
-					{ userId: profile.id },
+					{ userId: profile.id, purpose: "2fa", takeover: false },
 					{ expiresIn: "5m" }
 				);
 				reply.setCookie("token", tempToken, {
@@ -98,10 +104,22 @@ export default async function (fastify, opts) {
 				return reply.redirect(`${publicAppUrl}/2fa/verify`);
 			}
 
-			const appToken = fastify.jwt.sign(
-				{ userId: profile.id },
-				{ expiresIn: "1h" }
-			);
+			const activeMatch = findActiveRemoteMatch(fastify, user.id);
+			const takeoverConflict = getTakeoverConflict(fastify, user.id);
+			if (takeoverConflict) {
+				const tempToken = fastify.jwt.temp.sign(
+					{ userId: profile.id, purpose: "oauth-takeover" },
+					{ expiresIn: "5m" },
+				);
+				reply.setCookie("token", tempToken, {
+					...cookieOptions,
+					maxAge: 300,
+				});
+				return reply.redirect(`${publicAppUrl}/login?oauthTakeover=1`);
+			}
+
+			const sessionVersion = await establishSession(fastify, prisma, user.id);
+			const appToken = signSessionToken(fastify, profile.id, sessionVersion);
 
 			// 7. Set the cookie and redirect to the frontend dashboard
 			reply.setCookie("token", appToken, {
@@ -109,7 +127,11 @@ export default async function (fastify, opts) {
 				maxAge: 3600,
 			});
 
-			return reply.redirect(`${publicAppUrl}/dashboard`);
+			return reply.redirect(
+				activeMatch?.matchId
+					? `${publicAppUrl}/game/${activeMatch.matchId}`
+					: `${publicAppUrl}/dashboard`,
+			);
 		} catch (error) {
 			console.error("Google Auth Error: ", error);
 			return (reply.code(500).send({ error: "Authentication failed" }));

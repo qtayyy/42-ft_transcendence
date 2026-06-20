@@ -20,6 +20,7 @@ model User {
   twoFABackup    String?
   resetOTP       String?
   resetOTPExpiry DateTime?
+  sessionVersion Int       @default(0)
   profile        Profile?
 }
 
