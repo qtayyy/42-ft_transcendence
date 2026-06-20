@@ -46,6 +46,13 @@ export function useFriends() {
     fetchAll();
   }, [fetchAll]);
 
+  // Keep every mounted friend list synchronized when either side unfriends.
+  useEffect(() => {
+    const handleFriendRemoved = () => fetchAll();
+    window.addEventListener("friendRemoved", handleFriendRemoved);
+    return () => window.removeEventListener("friendRemoved", handleFriendRemoved);
+  }, [fetchAll]);
+
   // Expose refetch function for real-time updates
   const refetch = useCallback(() => {
     fetchAll();

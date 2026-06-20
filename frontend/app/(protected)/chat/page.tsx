@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSocketContext } from "@/context/socket-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useFriends, type Friend } from '@/hooks/use-friends';
@@ -12,7 +12,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Send, Users, UserPlus, Search, MessageSquare, Smile, ChevronLeft, Zap, Ban, UserCircle, Gamepad2, MoreVertical, Check, CheckCheck, Trash2 } from "lucide-react";
+import { Send, Users, UserPlus, Search, MessageSquare, Smile, ChevronLeft, ChevronDown, Zap, Ban, UserCircle, Gamepad2, MoreVertical, Check, CheckCheck, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -45,6 +45,7 @@ interface Message {
   timestamp: string;
   read?: boolean;
   readAt?: string | null;
+  clientMessageId?: string;
   type?: "text" | "game-invite" | "game-invite-sent" | "notification";
   meta?: {
     inviteType?: string;
@@ -77,8 +78,10 @@ export default function ChatPage() {
   const activeInviteTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showBlockDialog, setShowBlockDialog] = useState(false);
   const [showClearChatDialog, setShowClearChatDialog] = useState(false);
+  const [showLatestMessageButton, setShowLatestMessageButton] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesScrollAreaRef = useRef<HTMLDivElement>(null);
+  const shouldFollowLatestRef = useRef(true);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const markedAsReadRef = useRef<Set<number>>(new Set());
   const { t } = useLanguage();
@@ -132,8 +135,8 @@ export default function ChatPage() {
       try {
         const response = await fetch('/api/chat/block');
         if (response.ok) {
-          const data = await response.json();
-          setBlockedUsers(data.map((u: any) => u.id));
+          const data = (await response.json()) as Array<{ id: string }>;
+          setBlockedUsers(data.map((blockedUser) => blockedUser.id));
         }
       } catch (error) {
         console.error("Error fetching blocked users:", error);
@@ -171,6 +174,53 @@ export default function ChatPage() {
       window.removeEventListener("friendRequest", handleFriendRequest as EventListener);
     };
   }, [refetch]);
+
+  // Close a conversation as soon as either participant removes the friendship.
+  useEffect(() => {
+    const handleFriendRemoved = (event: Event) => {
+      const { friendId } = (event as CustomEvent<{ friendId: number }>).detail;
+      setUnreadByFriend((previous) => {
+        const next = { ...previous };
+        delete next[String(friendId)];
+        return next;
+      });
+
+      if (String(selectedFriend?.id) === String(friendId)) {
+        setSelectedFriend(null);
+        setMessages([]);
+        setInputValue("");
+        setFriendIsTyping(false);
+      }
+    };
+
+    window.addEventListener("friendRemoved", handleFriendRemoved);
+    return () => window.removeEventListener("friendRemoved", handleFriendRemoved);
+  }, [selectedFriend?.id]);
+
+  // Roll back a rejected optimistic bubble instead of leaving it looking sent.
+  useEffect(() => {
+    const handleChatMessageError = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ clientMessageId?: string; recipientId?: number }>
+      ).detail;
+      if (detail.clientMessageId) {
+        setMessages((previous) =>
+          previous.filter(
+            (message) => message.clientMessageId !== detail.clientMessageId,
+          ),
+        );
+      }
+      if (
+        detail.recipientId &&
+        String(selectedFriend?.id) === String(detail.recipientId)
+      ) {
+        refetch();
+      }
+    };
+
+    window.addEventListener("chatMessageError", handleChatMessageError);
+    return () => window.removeEventListener("chatMessageError", handleChatMessageError);
+  }, [refetch, selectedFriend?.id]);
 
   // Listen for friend status changes (online/offline)
   useEffect(() => {
@@ -536,31 +586,60 @@ export default function ChatPage() {
     };
   }, [activeInvite, t.chat]);
 
-  // Auto-scroll to bottom when new messages arrive (only if user is near bottom)
-  useEffect(() => {
-    if (messagesContainerRef.current && messages.length > 0) {
-      const container = messagesContainerRef.current;
-      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 200;
-      
-      if (isNearBottom) {
-        // Use setTimeout to ensure DOM has updated
-        setTimeout(() => {
-          container.scrollTop = container.scrollHeight;
-        }, 0);
-      }
-    }
-  }, [messages]);
+  /** Return the Radix viewport, which is the element that actually scrolls. */
+  const getMessagesViewport = useCallback(() => {
+    return messagesScrollAreaRef.current?.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-viewport"]',
+    ) ?? null;
+  }, []);
 
+  /** Jump to the newest message and resume following subsequent messages. */
+  const scrollToLatestMessage = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      const viewport = getMessagesViewport();
+      if (!viewport) return;
+
+      shouldFollowLatestRef.current = true;
+      setShowLatestMessageButton(false);
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+    },
+    [getMessagesViewport],
+  );
+
+  // Track manual scrolling without forcing the user away from older messages.
   useEffect(() => {
-    if (messagesContainerRef.current && selectedFriend && !loadingHistory) {
-      // Small delay to ensure messages are rendered
-      setTimeout(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-      }, 100);
-    }
-  }, [selectedFriend, loadingHistory]);
+    const viewport = getMessagesViewport();
+    if (!viewport || !selectedFriend) return;
+
+    const handleScroll = () => {
+      const distanceFromBottom =
+        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+      const isNearBottom = distanceFromBottom < 80;
+      shouldFollowLatestRef.current = isNearBottom;
+      setShowLatestMessageButton(!isNearBottom);
+    };
+
+    viewport.addEventListener("scroll", handleScroll, { passive: true });
+    return () => viewport.removeEventListener("scroll", handleScroll);
+  }, [getMessagesViewport, selectedFriend]);
+
+  // Follow new messages only while the user is already at the bottom.
+  useEffect(() => {
+    if (messages.length === 0 || loadingHistory || !shouldFollowLatestRef.current) return;
+
+    const frameId = requestAnimationFrame(() => scrollToLatestMessage("smooth"));
+    return () => cancelAnimationFrame(frameId);
+  }, [loadingHistory, messages, scrollToLatestMessage]);
+
+  // Opening or switching conversations always begins at the newest message.
+  useEffect(() => {
+    if (!selectedFriend || loadingHistory) return;
+
+    shouldFollowLatestRef.current = true;
+    setShowLatestMessageButton(false);
+    const frameId = requestAnimationFrame(() => scrollToLatestMessage("auto"));
+    return () => cancelAnimationFrame(frameId);
+  }, [loadingHistory, scrollToLatestMessage, selectedFriend]);
 
   // Load chat history when a friend is selected
   useEffect(() => {
@@ -687,6 +766,8 @@ export default function ChatPage() {
 
   // Handle friend selection
   const handleFriendClick = (friend: Friend) => {
+    shouldFollowLatestRef.current = true;
+    setShowLatestMessageButton(false);
     setSelectedFriend(friend);
     clearUnreadForFriend(friend.id);
 
@@ -720,14 +801,18 @@ export default function ChatPage() {
     }
 
     const messageContent = messageResult.value;
+    const clientMessageId = crypto.randomUUID();
     const tempMessage: Message = {
       username: user?.username || t.chat.You,
       senderId: user?.id ? parseInt(user.id) : undefined,
       message: messageContent,
       timestamp: new Date().toISOString(),
+      clientMessageId,
     };
 
     // Optimistically add message to UI
+    shouldFollowLatestRef.current = true;
+    setShowLatestMessageButton(false);
     setMessages((prev) => [...prev, tempMessage]);
 
     // Send via WebSocket with recipient ID
@@ -736,17 +821,11 @@ export default function ChatPage() {
       payload: {
         message: messageContent,
         recipientId: recipientResult.value,
+        clientMessageId,
       },
     });
 
     setInputValue("");
-    
-    // Always scroll to bottom when user sends a message
-    setTimeout(() => {
-      if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-      }
-    }, 0);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -1073,12 +1152,12 @@ export default function ChatPage() {
         {/* Chat Container with Dashboard-style Card Layout */}
         <div className="group relative h-full">
           <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-500"></div>
-          <Card className="relative h-full border-0 bg-card/95 backdrop-blur-sm overflow-hidden shadow-2xl">
+          <Card className="relative h-full gap-0 border-0 bg-card/95 py-0 backdrop-blur-sm overflow-hidden shadow-2xl">
             <div className="h-full flex">
               {/* Sidebar */}
               <div className={`w-full md:w-80 border-r border-border/50 flex-col shrink-0 overflow-hidden h-full bg-gradient-to-b from-card/50 to-transparent ${selectedFriend ? "hidden md:flex" : "flex"}`}>
                 {/* Sidebar Header */}
-                <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 to-transparent">
+                <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 to-transparent pt-4">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20">
                       <MessageSquare className="w-5 h-5 text-primary" />
@@ -1229,7 +1308,7 @@ export default function ChatPage() {
                 {selectedFriend ? (
                   <>
                     {/* Chat Header */}
-                    <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-transparent to-purple-500/5">
+                    <CardHeader className="border-b border-border/50 bg-gradient-to-r from-primary/5 via-transparent to-purple-500/5 pt-6">
                       <div className="flex items-center gap-4 flex-1">
                         <Button
                           variant="ghost"
@@ -1339,12 +1418,12 @@ export default function ChatPage() {
                     </CardHeader>
 
                     {/* Messages Display  */}
-                    <ScrollArea className="flex-1 min-h-0 bg-gradient-to-b from-muted/20 to-muted/30">
-                      <div
-                        ref={messagesContainerRef}
-                        className="p-6"
-                        style={{ scrollBehavior: 'smooth' }}
-                      >
+                    <div className="relative flex-1 min-h-0">
+                    <ScrollArea
+                      ref={messagesScrollAreaRef}
+                      className="h-full bg-gradient-to-b from-muted/20 to-muted/30"
+                    >
+                      <div className="p-6">
                       {loadingHistory ? (
                         <div className="flex items-center justify-center h-full min-h-[400px]">
                           <div className="text-center">
@@ -1478,6 +1557,20 @@ export default function ChatPage() {
               )}
                       </div>
                     </ScrollArea>
+                    {showLatestMessageButton && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => scrollToLatestMessage()}
+                        className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-full px-4 shadow-xl"
+                        aria-label="Jump to latest message"
+                        title="Jump to latest message"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                        Latest message
+                      </Button>
+                    )}
+                    </div>
 
                     {/* Input Area */}
                     <CardContent className="border-t border-border/50 bg-gradient-to-r from-primary/5 via-transparent to-purple-500/5 p-4">

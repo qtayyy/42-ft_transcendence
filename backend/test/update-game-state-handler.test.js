@@ -133,7 +133,7 @@ test("movement input is ignored while paused but pause state is still broadcast"
   assert.equal(broadcasts.length, 1);
 });
 
-test("paused games resume only after both players send PAUSE readiness", () => {
+test("remote PAUSE input is ignored by the authoritative server", () => {
   const pausedAt = Date.now() - 1000;
   const gameState = createMatch({
     gameStarted: true,
@@ -149,20 +149,13 @@ test("paused games resume only after both players send PAUSE readiness", () => {
       gamePaused: false,
     },
   });
-  const { handler, sentMessages } = createHarness(gameState);
+  const { broadcasts, handler, sentMessages } = createHarness(gameState);
 
   handler(gameState.matchId, 1, "PAUSE");
   assert.equal(gameState.paused, true);
-  assert.equal(gameState.resumeReady.LEFT, true);
+  assert.equal(gameState.resumeReady.LEFT, false);
   assert.equal(gameState.resumeReady.RIGHT, false);
-
-  handler(gameState.matchId, 2, "PAUSE");
-  assert.equal(gameState.paused, false);
-  assert.equal(gameState.resumeReady, null);
-  assert.equal(gameState.pausedAt, null);
-  assert.equal(
-    sentMessages.filter(({ message }) => message.event === "GAME_RESUMED")
-      .length,
-    2,
-  );
+  assert.equal(gameState.pausedAt, pausedAt);
+  assert.equal(sentMessages.length, 0);
+  assert.equal(broadcasts.length, 0);
 });

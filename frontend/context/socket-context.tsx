@@ -212,6 +212,13 @@ export const SocketProvider = ({ children }) => {
 					try {
 						const msg = JSON.parse(event.data);
 						if (msg.error) {
+							if (msg.event === "CHAT_MESSAGE") {
+								window.dispatchEvent(
+									new CustomEvent("chatMessageError", {
+										detail: { message: msg.error, ...msg.payload },
+									})
+								);
+							}
 							toast.error(msg.error);
 							if (msg.event === "GAME_INVITE_ERROR") {
 								// Ensure the host cannot get stuck on a lobby page:
@@ -256,6 +263,20 @@ export const SocketProvider = ({ children }) => {
 							window.dispatchEvent(
 								new CustomEvent("friendAccepted", { detail: payload })
 							);
+							break;
+
+						case "FRIEND_REMOVED":
+							stableDeps.current.setOnlineFriends((prev) =>
+								prev.filter((friend) => String(friend.id) !== String(payload.friendId))
+							);
+							window.dispatchEvent(
+								new CustomEvent("friendRemoved", { detail: payload })
+							);
+							if (Number(payload.removedById) !== Number(user?.id)) {
+								toast.info(
+									`${payload.removedByUsername || "A player"} removed you as a friend.`
+								);
+							}
 							break;
 
 						case "FRIEND_STATUS":
@@ -548,6 +569,7 @@ export const SocketProvider = ({ children }) => {
 										const disconnectStateChanged =
 											prev.disconnectedPlayer !== payload.disconnectedPlayer ||
 											prev.pausedAt !== payload.pausedAt ||
+											prev.resumeAt !== payload.resumeAt ||
 											prev.disconnectCountdown?.disconnectedPlayer !== payload.disconnectCountdown?.disconnectedPlayer ||
 											prev.disconnectCountdown?.gracePeriodEndsAt !== payload.disconnectCountdown?.gracePeriodEndsAt;
 										const powerUpsChanged = !hasSamePowerUps(prev.powerUps, payload.powerUps);
@@ -845,6 +867,11 @@ export const SocketProvider = ({ children }) => {
 // 				console.log("WebSocket closed", event.code, event.reason);
 				clearInterval(interval);
 				if (wsRef.current === websocket) wsRef.current = null;
+
+				if (event.code === 4001) {
+					window.dispatchEvent(new Event("sessionReplaced"));
+					return;
+				}
 
 				// Attempt reconnection with exponential backoff if not closed intentionally
 				if (isMounted && event.code !== 1000 && event.code !== 1005) {

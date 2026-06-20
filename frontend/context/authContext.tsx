@@ -28,11 +28,23 @@ const NON_AUTHENTICATED_ROUTES = [
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const destinationAfterLogin = (activeMatch?: { matchId?: string }) =>
+	activeMatch?.matchId ? `/game/${activeMatch.matchId}` : null;
+
 export const AuthProvider = ({ children }) => {
 	const [user, setUser] = useState<UserProfile | null>(null);
 	const [loadingAuth, setLoadingAuth] = useState(true);
 	const pathname = usePathname();
 	const router = useRouter();
+
+	useEffect(() => {
+		const handleSessionReplaced = () => {
+			setUser(null);
+			router.replace("/login?reason=session-replaced");
+		};
+		window.addEventListener("sessionReplaced", handleSessionReplaced);
+		return () => window.removeEventListener("sessionReplaced", handleSessionReplaced);
+	}, [router]);
 
 	const isNonAuthenticatedPage = useMemo(() => {
 		return NON_AUTHENTICATED_ROUTES.includes(pathname);
@@ -159,18 +171,19 @@ export const AuthProvider = ({ children }) => {
 	}, [isNonAuthenticatedPage, loadingAuth, user]);
 
 	const login = useCallback(
-		async (email: string, password: string) => {
+		async (email: string, password: string, takeover = false) => {
 			try {
 				const response = await axios.post("/api/auth/login", {
 					email,
 					password,
+					takeover,
 				});
 				if (response.status === 200) {
 					setUser(response.data.profile);
 					// Get redirect URL from current window location
 					const urlParams = new URLSearchParams(window.location.search);
 					const next = urlParams.get("next") ?? "/dashboard";
-					router.push(next);
+					router.push(destinationAfterLogin(response.data.activeMatch) ?? next);
 				} else if (response.status === 202) router.push("/2fa/verify");
 			} catch (error) {
 				throw error;
@@ -180,15 +193,15 @@ export const AuthProvider = ({ children }) => {
 	);
 
 	const verify2fa = useCallback(
-		async (code: string) => {
+		async (code: string, takeover = false) => {
 			try {
-				const response = await axios.post("/api/auth/2fa/verify", { code });
+				const response = await axios.post("/api/auth/2fa/verify", { code, takeover });
 				if (response.status === 200) {
 					setUser(response.data.profile);
 					// Get redirect URL from current window location
 					const urlParams = new URLSearchParams(window.location.search);
 					const next = urlParams.get("next") ?? "/dashboard";
-					router.push(next);
+					router.push(destinationAfterLogin(response.data.activeMatch) ?? next);
 				}
 			} catch (error) {
 				throw error;

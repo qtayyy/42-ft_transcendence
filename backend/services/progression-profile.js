@@ -48,17 +48,15 @@ export async function applyProfileProgression({
     const currentAchievements = profile.achievements.map(
         (achievement) => achievement.achievementKey,
     );
-    const isTournamentWin =
-        result === "win" &&
-        (matchMode === "LOCAL_TOURNAMENT" || matchMode === "REMOTE_TOURNAMENT");
-
     const newStats = {
         totalWins: newTotalWins,
         totalLosses: newTotalLosses,
         totalDraws: newTotalDraws,
         level: newLevel,
         totalXP: newTotalXP,
-        tournamentWins: isTournamentWin ? 1 : 0,
+        // Tournament victory is awarded separately after the entire remote
+        // tournament is complete, never after an individual match victory.
+        tournamentWins: 0,
     };
 
     const eligibleAchievements = checkNewAchievements(newStats);

@@ -97,6 +97,7 @@ export function createStartRoomGameHandler({
       matchId: matchId,
       roomId: normalizedRoomId,
       isRemote: true,
+      progressionEligible: Boolean(room.isMatchmade && room.isPublic),
       ball: { posX: CANVAS_WIDTH / 2, posY: CANVAS_HEIGHT / 2, dx: 4, dy: 3 },
       leftPlayer: {
         id: player1.id,

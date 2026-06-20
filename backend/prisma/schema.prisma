@@ -20,6 +20,7 @@ model User {
   twoFABackup    String?
   resetOTP       String?
   resetOTPExpiry DateTime?
+  sessionVersion Int       @default(0)
   profile        Profile?
 }
 
@@ -33,6 +34,7 @@ model Profile {
   dob      DateTime?
   region   String?
   bio      String?
+  showEmail Boolean   @default(false)
 
   // XP and progression
   totalXP    Int @default(0)
@@ -192,4 +194,10 @@ model Achievement {
   unlockedAt DateTime @default(now())
 
   @@unique([profileId, achievementKey])
+}
+
+model ProfileCreationQuota {
+  ipHash          String @id
+  windowStartedAt BigInt
+  count           Int    @default(0)
 }

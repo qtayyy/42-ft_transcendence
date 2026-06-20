@@ -4,10 +4,10 @@ import React from "react";
 import { useState } from "react";
 import { AlertCircleIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/context/languageContext";
 import { validateOtp } from "@/lib/auth-validation";
+import axios from "axios";
 
 export default function Verify2FAPage() {
   const [errorMessage, setErrorMessage] = useState("");
@@ -41,8 +41,26 @@ export default function Verify2FAPage() {
 
     try {
       await verify2fa(codeResult.value);
-    } catch (error: any) {
-      const backendError = error.response?.data?.error;
+    } catch (error: unknown) {
+      if (
+        axios.isAxiosError(error) &&
+        error.response?.data?.code === "ACTIVE_SESSION_IN_MATCH" &&
+        window.confirm(
+          "This account is currently in a match. Take over the session on this device? The old device will be disconnected.",
+        )
+      ) {
+        try {
+          await verify2fa(codeResult.value, true);
+        } catch (takeoverError: unknown) {
+          setErrorMessage(
+            axios.isAxiosError(takeoverError)
+              ? takeoverError.response?.data?.error || "Unable to take over the session."
+              : "Unable to take over the session.",
+          );
+        }
+        return;
+      }
+      const backendError = axios.isAxiosError(error) ? error.response?.data?.error : null;
       setErrorMessage(
         backendError || "Something went wrong. Please try again later."
       );

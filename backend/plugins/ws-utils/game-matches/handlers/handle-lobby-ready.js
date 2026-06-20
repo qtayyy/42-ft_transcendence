@@ -6,11 +6,13 @@ It updates tournament lobby ready states and starts matches when both are ready.
 ===============================================================================
 */
 
+import { awardRemoteTournamentChampion } from "../../../../services/tournament-progression.js";
+
 export function createHandleLobbyReadyHandler({ fastify, safeSend }) {
   /**
    * Handle player clicking "Ready" in the lobby
    */
-  return (tournamentId, matchId, userId) => {
+  return async (tournamentId, matchId, userId) => {
     if (!fastify.activeTournaments) return;
     const tournament = fastify.activeTournaments.get(tournamentId);
     if (!tournament) {
@@ -60,6 +62,14 @@ export function createHandleLobbyReadyHandler({ fastify, safeSend }) {
 //       );
 
       tournament.updateMatchResult(matchId, { p1: 0, p2: 0 }, "walkover", uid);
+
+      if (tournament.isComplete()) {
+        try {
+          await awardRemoteTournamentChampion(tournament);
+        } catch (error) {
+          console.error("Failed to award walkover tournament champion:", error);
+        }
+      }
 
       // Broadcast tournament update
       const tournamentData = tournament.getSummary();

@@ -1,5 +1,6 @@
 import { PrismaClient } from "../../generated/prisma/index.js";
 import fp from "fastify-plugin";
+import { awardRemoteTournamentChampion } from "../../services/tournament-progression.js";
 import crypto from "crypto";
 import TournamentManager, {
   activeTournaments,
@@ -525,6 +526,11 @@ export default fp((fastify) => {
         const wasWithdrawn = tournament.markPlayerWithdrawn(numericUserId);
 
         if (wasWithdrawn) {
+          if (tournament.isComplete()) {
+            awardRemoteTournamentChampion(tournament).catch((error) => {
+              console.error("Failed to award withdrawn tournament champion:", error);
+            });
+          }
           const tournamentData = tournament.getSummary();
 
           // Broadcast the updated tournament state to everyone
@@ -1337,6 +1343,7 @@ export default fp((fastify) => {
 
     const players = normalizeRemoteTournamentPlayers(room);
     const tournament = new TournamentManager(tournamentId, players);
+    tournament.progressionEligible = Boolean(room.isMatchmade && room.isPublic);
 
     if (tournament.format === "round-robin") {
       tournament.matches = tournament.generateRoundRobinPairings();

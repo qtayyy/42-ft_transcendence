@@ -6,6 +6,13 @@ import {
   validatePasswordForLogin,
 } from "../../../lib/auth-validation.js";
 import { authRateLimit } from "../../../utils/auth-rate-limit.js";
+import {
+  establishSession,
+  findActiveRemoteMatch,
+  getTakeoverConflict,
+  signSessionToken,
+  takeoverRequiredReply,
+} from "../../../services/session-service.js";
 
 const prisma = new PrismaClient();
 
@@ -15,7 +22,7 @@ export default async function (fastify, opts) {
     { config: { rateLimit: authRateLimit.login } },
     async (request, reply) => {
     try {
-      const { email: rawEmail, password: rawPassword } = request.body;
+      const { email: rawEmail, password: rawPassword, takeover = false } = request.body;
       const email = normalizeEmail(rawEmail);
       const password = validatePasswordForLogin(rawPassword);
       const pepper = process.env.SECURITY_PEPPER;
@@ -34,6 +41,12 @@ export default async function (fastify, opts) {
       if (!match)
         return reply.code(400).send({ error: "Incorrect email or password" });
 
+      const activeMatch = findActiveRemoteMatch(fastify, user.id);
+      const takeoverConflict = getTakeoverConflict(fastify, user.id);
+      if (takeoverConflict && takeover !== true) {
+        return takeoverRequiredReply(reply, takeoverConflict);
+      }
+
       // If user enabled 2FA, we send them a temporary JWT that will only be
       // checked by the /api/auth/2fa/verify route. This is needed to check
       // users that access the 'verify 2fa' route has at least passed the
@@ -45,7 +58,7 @@ export default async function (fastify, opts) {
       // Read more on: https://github.com/fastify/fastify-jwt
       if (user.twoFA) {
         const token = fastify.jwt.temp.sign(
-          { userId: profile.id },
+          { userId: profile.id, purpose: "2fa", takeover: takeover === true },
           { expiresIn: "5m" }
         );
         return reply
@@ -63,10 +76,8 @@ export default async function (fastify, opts) {
       } else {
         // Else, we straight away assign the full JWT that is used to protect
         // all other sensitive routes.
-        const token = fastify.jwt.sign(
-          { userId: profile.id },
-          { expiresIn: "1h" }
-        );
+        const sessionVersion = await establishSession(fastify, prisma, user.id);
+        const token = signSessionToken(fastify, profile.id, sessionVersion);
 
         return reply
           .setCookie("token", token, {
@@ -80,6 +91,7 @@ export default async function (fastify, opts) {
           .send({
             message: "Login successful",
             profile: profile,
+            activeMatch: activeMatch || undefined,
           });
       }
     } catch (error) {

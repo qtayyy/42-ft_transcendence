@@ -197,8 +197,6 @@ export default function GameRuntimePage() {
 	const hasNotifiedReconnection = useRef(false);
 	// Track if component is mounted to prevent false navigation events during re-renders
 	const isMountedRef = useRef(true);
-	// Prevent duplicate pause dispatches while the navigation guard stays open
-	const navGuardPauseSentRef = useRef(false);
 	const heldMovementKeysRef = useRef(new Set<string>());
 	const heldMovementRef = useRef<"UP" | "DOWN" | null>(null);
 	const remoteInputPulseRef = useRef<number | null>(null);
@@ -395,9 +393,17 @@ export default function GameRuntimePage() {
 		toast.warning("Opponent disconnected! Waiting for reconnection...");
 	}, []);
 
-	const handleReconnect = useCallback(() => {
-		setDisconnectInfo(null);
-		toast.success("Opponent reconnected!");
+	const handleReconnect = useCallback((event: CustomEvent) => {
+		const resumeAt = Number(event.detail?.resumeAt);
+		if (Number.isFinite(resumeAt)) {
+			setDisconnectInfo({
+				disconnectedPlayer: "",
+				gracePeriodEndsAt: resumeAt,
+				countdown: Math.max(1, Math.ceil((resumeAt - Date.now()) / 1000)),
+				phase: "resuming",
+			});
+		}
+		toast.success("Opponent reconnected! Resuming shortly...");
 	}, []);
 
 	// Pause/Resume events
@@ -413,6 +419,7 @@ export default function GameRuntimePage() {
 
 	const handleGameResumed = useCallback(() => {
 		setPauseInfo(null);
+		setDisconnectInfo(null);
 	}, []);
 
 	const handleOpponentReadyToResume = useCallback(() => {
@@ -463,7 +470,7 @@ export default function GameRuntimePage() {
 	// Sync pauseInfo from gameState to ensure UI is always accurate
 	// (especially for spectators or after a page refresh/reconnect).
 	useEffect(() => {
-		if (gameState?.paused) {
+		if (gameState?.paused && !gameState.resumeAt && !gameState.disconnectedPlayer) {
 			const nextPauseInfo = getPauseInfoFromRemoteState(gameState, user?.id);
 			if (!nextPauseInfo) return;
 
@@ -521,11 +528,11 @@ export default function GameRuntimePage() {
 		if (!isRemoteGame || !isReady || isSpectator) return;
 
 		const onKeyDown = (e: KeyboardEvent) => {
-			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown", "Enter", " "];
+			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown", "Enter"];
 			if (!KEYS.includes(e.key)) return;
 
-			// Prevent default scrolling for arrow keys and space
-			if (["ArrowUp", "ArrowDown", " "].includes(e.key)) {
+			// Prevent default scrolling for paddle controls.
+			if (["ArrowUp", "ArrowDown"].includes(e.key)) {
 				e.preventDefault();
 			}
 
@@ -534,7 +541,6 @@ export default function GameRuntimePage() {
 			// The backend determines which paddle to move based on userId
 			const movementDirection = getMovementDirectionForKey(e.key);
 			if (movementDirection) keyEvent = movementDirection;
-			else if (e.key === " ") keyEvent = "PAUSE"; // Space = pause/resume game
 
 			if (movementDirection && e.repeat) {
 				return;
@@ -547,7 +553,7 @@ export default function GameRuntimePage() {
 			if ((keyEvent === "UP" || keyEvent === "DOWN") && heldMovementRef.current === keyEvent) {
 				return;
 			}
-			if ((keyEvent === "START" || keyEvent === "PAUSE") && e.repeat) {
+			if (keyEvent === "START" && e.repeat) {
 				return;
 			}
 
@@ -757,50 +763,22 @@ export default function GameRuntimePage() {
 		setPendingPath,
 	]);
 
-	// Auto-pause remote matches whenever navigation guard opens from an active player session.
-	// This covers all guard entry points (header/menu links + in-page link interception).
+	// Local navigation confirmation pauses the shared local runtime. A remote
+	// match pauses only after the server detects an actual disconnect.
 	useEffect(() => {
-		if (!showNavGuard) {
-			navGuardPauseSentRef.current = false;
-			return;
-		}
-		if (navGuardPauseSentRef.current) return;
-		if (!pendingPath || isSpectator) return;
+		if (!showNavGuard || !pendingPath || isRemoteGame || isSpectator) return;
 
-		if (isRemoteGame) {
-			const currentMatchId = gameState?.matchId;
-			const isAlreadyPaused = !!gameState?.paused;
-			if (!currentMatchId || isAlreadyPaused) return;
-
-			navGuardPauseSentRef.current = true;
-			sendSocketMessage({
-				event: "GAME_EVENTS",
-				payload: {
-					matchId: currentMatchId,
-					userId: user?.id,
-					keyEvent: "PAUSE",
-				},
-			});
-			return;
-		}
-
-		// Local match: pause via local WS game loop.
 		window.dispatchEvent(
 			new CustomEvent("localGuardPauseRequested", {
 				detail: { matchId },
 			})
 		);
-		navGuardPauseSentRef.current = true;
 	}, [
 		showNavGuard,
 		pendingPath,
 		isRemoteGame,
 		isSpectator,
-		gameState?.matchId,
-		gameState?.paused,
 		matchId,
-		user?.id,
-		sendSocketMessage
 	]);
 
 	// Return to lobby handler for spectators

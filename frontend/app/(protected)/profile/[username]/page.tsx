@@ -26,7 +26,7 @@ interface UserProfile {
   id: number;
   username: string;
   fullname: string;
-  email: string;
+  email?: string;
   avatar: string | null;
   region: string | null;
   bio: string | null;
@@ -261,10 +261,12 @@ export default function UserProfilePage() {
                 </div>
                 
                 <div className="space-y-2 mt-4">
-                  <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground">
-                    <Mail className="h-4 w-4" />
-                    <span>{profile.email}</span>
-                  </div>
+                  {profile.email && (
+                    <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground">
+                      <Mail className="h-4 w-4" />
+                      <span>{profile.email}</span>
+                    </div>
+                  )}
                   
                   {profile.region && (
                     <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground">

@@ -1,6 +1,18 @@
 import { PrismaClient } from '../../../generated/prisma/index.js';
 import crypto from 'crypto'; // Built-in Node module to generate random passwords
 import bcrypt from "bcrypt";
+import {
+	establishSession,
+	findActiveRemoteMatch,
+	getTakeoverConflict,
+	signSessionToken,
+} from "../../../services/session-service.js";
+import { generateUniqueUsername } from "../../../lib/username-generator.js";
+import {
+	releaseProfileCreationSlot,
+	replyIfProfileCreationLimited,
+	reserveProfileCreationSlot,
+} from "../../../services/profile-creation-quota.js";
 
 const prisma = new PrismaClient();
 
@@ -12,6 +24,7 @@ const prisma = new PrismaClient();
 export default async function (fastify, opts) {
 	// Google calls this route after user sign in
 	fastify.get('/google/callback', async function (request, reply) {
+		let quotaReservation = null;
 		const publicAppUrl =
 			process.env.PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://localhost:8443';
 		
@@ -40,6 +53,7 @@ export default async function (fastify, opts) {
 
 			// 5. If user does NOT exist, we register them automatically
 			if (!profile) {
+				quotaReservation = await reserveProfileCreationSlot(prisma, request.ip);
 				// Generate a random password because they will use Google to login,
 				// but our DB schema requires a password string.
 				const pepper = process.env.SECURITY_PEPPER;
@@ -47,6 +61,7 @@ export default async function (fastify, opts) {
 				const randomPassword = crypto.randomBytes(32).toString("hex");
 				const passwordWithPepper = randomPassword + pepper;
 				const passwordHash = await bcrypt.hash(passwordWithPepper, saltRounds);
+				const username = await generateUniqueUsername(prisma);
 				
 				// We create the User and Profile in one transaction
 				const newUser = await prisma.user.create({
@@ -55,7 +70,7 @@ export default async function (fastify, opts) {
 						profile: {
 							create: {
 								email: userData.email,
-								username: userData.email.split('@')[0], // Use email prefix as username
+								username,
 								fullname: userData.name || "Google User",
 								avatar: userData.picture || "", // Use Google avatar if available
 								dob: userData.dob || null,
@@ -69,6 +84,7 @@ export default async function (fastify, opts) {
 				});
 				
 				profile = newUser.profile;
+				quotaReservation = null;
 			}
 
 			const user = await prisma.user.findUnique({
@@ -88,7 +104,7 @@ export default async function (fastify, opts) {
 			// 6. Match login.js: require TOTP when 2FA is enabled
 			if (user.twoFA) {
 				const tempToken = fastify.jwt.temp.sign(
-					{ userId: profile.id },
+					{ userId: profile.id, purpose: "2fa", takeover: false },
 					{ expiresIn: "5m" }
 				);
 				reply.setCookie("token", tempToken, {
@@ -98,10 +114,22 @@ export default async function (fastify, opts) {
 				return reply.redirect(`${publicAppUrl}/2fa/verify`);
 			}
 
-			const appToken = fastify.jwt.sign(
-				{ userId: profile.id },
-				{ expiresIn: "1h" }
-			);
+			const activeMatch = findActiveRemoteMatch(fastify, user.id);
+			const takeoverConflict = getTakeoverConflict(fastify, user.id);
+			if (takeoverConflict) {
+				const tempToken = fastify.jwt.temp.sign(
+					{ userId: profile.id, purpose: "oauth-takeover" },
+					{ expiresIn: "5m" },
+				);
+				reply.setCookie("token", tempToken, {
+					...cookieOptions,
+					maxAge: 300,
+				});
+				return reply.redirect(`${publicAppUrl}/login?oauthTakeover=1`);
+			}
+
+			const sessionVersion = await establishSession(fastify, prisma, user.id);
+			const appToken = signSessionToken(fastify, profile.id, sessionVersion);
 
 			// 7. Set the cookie and redirect to the frontend dashboard
 			reply.setCookie("token", appToken, {
@@ -109,8 +137,14 @@ export default async function (fastify, opts) {
 				maxAge: 3600,
 			});
 
-			return reply.redirect(`${publicAppUrl}/dashboard`);
+			return reply.redirect(
+				activeMatch?.matchId
+					? `${publicAppUrl}/game/${activeMatch.matchId}`
+					: `${publicAppUrl}/dashboard`,
+			);
 		} catch (error) {
+			await releaseProfileCreationSlot(prisma, quotaReservation);
+			if (replyIfProfileCreationLimited(error, reply)) return;
 			console.error("Google Auth Error: ", error);
 			return (reply.code(500).send({ error: "Authentication failed" }));
 		}

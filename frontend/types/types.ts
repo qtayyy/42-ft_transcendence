@@ -41,14 +41,15 @@ export interface UserProfile {
 	dob?: string;
 	region?: string;
 	bio?: string;
+	showEmail?: boolean;
 };
 
 export interface AuthContextValue {
 	user: UserProfile | null;
 	isAuthenticated: boolean;
 	loadingAuth: boolean;
-	login: (email: string, password: string) => Promise<void | undefined>;
-	verify2fa: (otp: string) => Promise<void>;
+	login: (email: string, password: string, takeover?: boolean) => Promise<void | undefined>;
+	verify2fa: (otp: string, takeover?: boolean) => Promise<void>;
 	logout: () => Promise<void>;
 	refreshUser: () => Promise<UserProfile>;
 };
@@ -171,6 +172,7 @@ export interface GameStateValue {
 	pausedByName?: string;
 	pausedAt?: number;
 	disconnectedPlayer?: string | null;
+	resumeAt?: number | null;
 	resumeReady?: { LEFT: boolean; RIGHT: boolean } | null;
 	disconnectCountdown?: {
 		disconnectedPlayer: string;

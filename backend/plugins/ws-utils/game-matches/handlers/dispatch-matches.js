@@ -30,12 +30,14 @@ export function createDispatchMatchesHandler({
       // Ensure player IDs are numeric — Prisma can return BigInt/String from DB
       const p1Id = Number(match.player1Id);
       const p2Id = Number(match.player2Id);
+      const tournament = fastify.activeTournaments?.get(match.tournamentId);
 
       const initialGameState = {
         tournamentId: match.tournamentId,
         matchId: match.id,
         isRemote: true,
         isTournamentMatch: true,
+        progressionEligible: tournament?.progressionEligible === true,
         ball: { posX: CANVAS_WIDTH / 2, posY: CANVAS_HEIGHT / 2, dx: 4, dy: 3 },
         leftPlayer: {
           id: p1Id, // Always numeric

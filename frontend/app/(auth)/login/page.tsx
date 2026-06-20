@@ -1,10 +1,8 @@
 "use client";
 import { AuthShell } from "@/components/auth-shell";
-import React from "react";
-import { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AlertCircleIcon, Eye, EyeOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -17,12 +15,50 @@ import {
   normalizeEmail,
   validatePasswordForLogin,
 } from "@/lib/auth-validation";
+import axios from "axios";
 
 export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const { t } = useLanguage();
+  const handledOAuthTakeover = useRef(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reason") === "session-replaced") {
+      // Defer the notification so this effect only synchronizes with the URL
+      // during its initial pass instead of causing a synchronous render loop.
+      window.setTimeout(
+        () => setErrorMessage("This account was signed in on another device."),
+        0,
+      );
+    }
+    if (params.get("oauthTakeover") !== "1" || handledOAuthTakeover.current) return;
+    handledOAuthTakeover.current = true;
+
+    const completeTakeover = async () => {
+      const confirmed = window.confirm(
+        "This account is currently in a match. Take over the session on this device? The old device will be disconnected.",
+      );
+      if (!confirmed) {
+        setErrorMessage("Login cancelled. The active match remains on the other device.");
+        return;
+      }
+      try {
+        const response = await axios.post("/api/auth/session/takeover");
+        const matchId = response.data.activeMatch?.matchId;
+        window.location.assign(matchId ? `/game/${matchId}` : "/dashboard");
+      } catch (error: unknown) {
+        setErrorMessage(
+          axios.isAxiosError(error)
+            ? error.response?.data?.error || "The takeover request expired. Please log in again."
+            : "The takeover request expired. Please log in again.",
+        );
+      }
+    };
+    void completeTakeover();
+  }, []);
 
   const fields = [
     { name: "email", label: t["Login & Sign up"].Email, type: "email" },
@@ -49,8 +85,26 @@ export default function LoginPage() {
 
     try {
       await login(emailResult.value, passwordResult.value);
-    } catch (error: any) {
-      const backendError = error.response?.data?.error;
+    } catch (error: unknown) {
+      if (
+        axios.isAxiosError(error) &&
+        error.response?.data?.code === "ACTIVE_SESSION_IN_MATCH" &&
+        window.confirm(
+          "This account is currently in a match. Take over the session on this device? The old device will be disconnected.",
+        )
+      ) {
+        try {
+          await login(emailResult.value, passwordResult.value, true);
+        } catch (takeoverError: unknown) {
+          setErrorMessage(
+            axios.isAxiosError(takeoverError)
+              ? takeoverError.response?.data?.error || "Unable to take over the session."
+              : "Unable to take over the session.",
+          );
+        }
+        return;
+      }
+      const backendError = axios.isAxiosError(error) ? error.response?.data?.error : null;
       setErrorMessage(
         backendError || "Something went wrong. Please try again later."
       );

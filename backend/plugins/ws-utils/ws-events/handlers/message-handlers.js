@@ -371,6 +371,22 @@ export function createWsEventHandlers({
     CHAT_MESSAGE: (payload) => {
       // Handle chat message with specific recipient
       (async () => {
+        const clientMessageId =
+          typeof payload?.clientMessageId === "string"
+            ? payload.clientMessageId.slice(0, 100)
+            : undefined;
+        const sendChatError = (message, recipientId) => {
+          safeSend(
+            connection,
+            {
+              event: "CHAT_MESSAGE",
+              error: message,
+              payload: { clientMessageId, recipientId },
+            },
+            userId,
+          );
+        };
+
         try {
           const recipientId = validateRecipientId(payload.recipientId);
           const messageContent = validateChatMessage(payload.message);
@@ -386,14 +402,7 @@ export function createWsEventHandlers({
           });
 
           if (blockExists) {
-            safeSend(
-              connection,
-              {
-                event: "CHAT_MESSAGE",
-                error: "Cannot send message to blocked user",
-              },
-              userId,
-            );
+            sendChatError("Cannot send message to blocked user", recipientId);
             return;
           }
 
@@ -409,14 +418,7 @@ export function createWsEventHandlers({
           });
 
           if (!friendship) {
-            safeSend(
-              connection,
-              {
-                event: "CHAT_MESSAGE",
-                error: "Not friends with this user",
-              },
-              userId,
-            );
+            sendChatError("Not friends with this user", recipientId);
             return;
           }
 
@@ -447,6 +449,7 @@ export function createWsEventHandlers({
             timestamp: savedMessage.createdAt.toISOString(),
             read: savedMessage.read,
             readAt: savedMessage.readAt?.toISOString() || null,
+            clientMessageId,
           };
 
           // Send message to recipient if online
@@ -485,25 +488,11 @@ export function createWsEventHandlers({
           );
         } catch (err) {
           if (err?.statusCode === 400) {
-            safeSend(
-              connection,
-              {
-                event: "CHAT_MESSAGE",
-                error: err.message,
-              },
-              userId,
-            );
+            sendChatError(err.message, payload?.recipientId);
             return;
           }
           console.error("Error handling chat message:", err);
-          safeSend(
-            connection,
-            {
-              event: "CHAT_MESSAGE",
-              error: "Failed to send message",
-            },
-            userId,
-          );
+          sendChatError("Failed to send message", payload?.recipientId);
         }
       })();
     },

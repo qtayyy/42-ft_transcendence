@@ -7,6 +7,12 @@ import {
   validatePasswordForSet,
 } from "../../../lib/auth-validation.js";
 import { authRateLimit } from "../../../utils/auth-rate-limit.js";
+import { generateUniqueUsername } from "../../../lib/username-generator.js";
+import {
+  releaseProfileCreationSlot,
+  replyIfProfileCreationLimited,
+  reserveProfileCreationSlot,
+} from "../../../services/profile-creation-quota.js";
 
 const prisma = new PrismaClient();
 
@@ -15,6 +21,7 @@ export default async function (fastify, opts) {
     "/signup",
     { config: { rateLimit: authRateLimit.signup } },
     async (request, reply) => {
+    let quotaReservation = null;
     try {
       const { email: rawEmail, password: rawPassword, fullName: rawFullName } =
         request.body;
@@ -30,19 +37,13 @@ export default async function (fastify, opts) {
       if (existing)
         return reply.code(400).send({ error: "Email already used" });
 
-      const usernameTaken = await prisma.profile.findFirst({
-        where: { username: fullName },
-      });
-      if (usernameTaken) {
-        return reply.code(400).send({
-          error: "This name is already taken. Please choose another.",
-        });
-      }
+      quotaReservation = await reserveProfileCreationSlot(prisma, request.ip);
 
       // Combine Password with Pepper
       const passwordWithPepper = password + pepper;
       // Hash with Salt Rounds
       const passwordHash = await bcrypt.hash(passwordWithPepper, saltRounds);
+      const username = await generateUniqueUsername(prisma);
       await prisma.user.create({
         data: {
           password: passwordHash,
@@ -51,7 +52,7 @@ export default async function (fastify, opts) {
             create: {
               email: email,
               avatar: "",
-              username: fullName,
+              username,
               fullname: fullName,
               dob: null,
               region: null,
@@ -59,6 +60,7 @@ export default async function (fastify, opts) {
           },
         },
       });
+      quotaReservation = null;
 
       return reply
         .code(200)
@@ -66,6 +68,8 @@ export default async function (fastify, opts) {
           message: "User registered",
         });
     } catch (error) {
+      await releaseProfileCreationSlot(prisma, quotaReservation);
+      if (replyIfProfileCreationLimited(error, reply)) return;
       if (replyIfValidationError(error, reply)) return;
       console.error("Error occurred during registration:", error);
       return reply.code(500).send({ error: "Internal server error" });

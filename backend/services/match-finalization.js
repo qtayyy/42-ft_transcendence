@@ -3,6 +3,19 @@ import { persistMatchRecord } from "./match-persistence.js";
 import { applyProfileProgression } from "./progression-profile.js";
 
 const prisma = new PrismaClient();
+const PROGRESSION_ELIGIBLE_MODES = new Set(["REMOTE", "REMOTE_TOURNAMENT"]);
+
+/** Normalize a persisted/caller mode before applying progression policy. */
+function normalizeMatchMode(mode) {
+    return typeof mode === "string"
+        ? mode.trim().toUpperCase().replace(/-/g, "_")
+        : "LOCAL";
+}
+
+/** Only server-authoritative remote matches may alter profile progression. */
+export function isProgressionEligibleMode(mode) {
+    return PROGRESSION_ELIGIBLE_MODES.has(normalizeMatchMode(mode));
+}
 
 function toPositiveIntOrNull(value) {
     const normalized = Number(value);
@@ -17,13 +30,30 @@ function toPositiveIntOrNull(value) {
  * 1) Persist match idempotently
  * 2) Apply profile progression exactly once per logical match
  */
-export async function finalizeMatchResult(payload) {
-    return prisma.$transaction(async (tx) => {
+export async function finalizeMatchResult(payload, options = {}) {
+    const prismaClient = options.prismaClient ?? prisma;
+
+    return prismaClient.$transaction(async (tx) => {
         const { match, reusedExisting } = await persistMatchRecord(payload, {
             prismaClient: tx,
         });
 
         if (reusedExisting) {
+            return {
+                match,
+                reusedExisting,
+                progressionApplied: false,
+                playerUpdates: [],
+            };
+        }
+
+        // Local, local-tournament, and AI matches remain available in match
+        // history, but cannot change XP, level, competitive records, or
+        // achievements. This must be enforced here because callers are mixed.
+        if (
+            options.progressionEligible !== true ||
+            !isProgressionEligibleMode(match.mode ?? payload.mode)
+        ) {
             return {
                 match,
                 reusedExisting,

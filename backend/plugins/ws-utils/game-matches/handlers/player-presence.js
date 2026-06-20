@@ -9,20 +9,33 @@ It coordinates pause/disconnect grace behavior and forced forfeits.
 ===============================================================================
 */
 
-import { DISCONNECT_GRACE_PERIOD } from "../constants.js";
+import {
+  DISCONNECT_GRACE_PERIOD,
+  RECONNECT_RESUME_DELAY,
+} from "../constants.js";
 
 export function createPlayerPresenceHandlers({
   fastify,
   safeSend,
   broadcastState,
   endGame,
+  reconnectResumeDelay = RECONNECT_RESUME_DELAY,
 }) {
   const markPlayerDisconnected = (gameState, disconnectedPlayer, matchId, userId) => {
-    // A disconnect starts its own grace window even if the match was already
-    // paused for manual resume. This keeps reconnect UI timers accurate.
+    // A fresh disconnect cancels any pending automatic resume.
+    if (gameState.reconnectResumeTimeout) {
+      clearTimeout(gameState.reconnectResumeTimeout);
+      gameState.reconnectResumeTimeout = null;
+    }
+    gameState.resumeAt = null;
+
+    // Preserve the beginning of the server-controlled pause while additional
+    // players disconnect, so the match clock is frozen for the full outage.
+    if (!gameState.paused || !gameState.pausedAt) {
+      gameState.pausedAt = Date.now();
+    }
     gameState.paused = true;
-    gameState.pausedAt = Date.now();
-    gameState.resumeReady = { LEFT: false, RIGHT: false };
+    gameState.resumeReady = null;
 
     if (!gameState.disconnectedPlayers) {
       gameState.disconnectedPlayers = new Set();
@@ -138,19 +151,6 @@ export function createPlayerPresenceHandlers({
     // Notify ALL participants (including this player's other tabs and spectators)
     broadcastState(gameState, fastify);
 
-    // If it's a tournament match, update tournament state immediately for forfeit
-    if (gameState.isTournamentMatch && gameState.tournamentId) {
-//       console.log(`[Navigate Away] Processing tournament forfeit for ${matchId}`);
-      if (fastify.handleTournamentMatchEnd) {
-        // The remaining player is the winner
-        const winnerId =
-          disconnectedPlayer === "LEFT"
-            ? gameState.rightPlayer.id
-            : gameState.leftPlayer.id;
-        fastify.handleTournamentMatchEnd(gameState.tournamentId, matchId, winnerId);
-      }
-    }
-
     // Set timeout for auto-forfeit
     resetDisconnectTimeout(
       gameState,
@@ -247,12 +247,51 @@ export function createPlayerPresenceHandlers({
     // Remove from disconnected players
     gameState.disconnectedPlayers.delete(reconnectedPlayer);
 
-    // If no more disconnected players, handle the transition to manual resume state
+    // Once everyone is connected, resume automatically after a short countdown.
     if (gameState.disconnectedPlayers.size === 0) {
       gameState.disconnectedPlayer = null;
-//       console.log(
-//         `[Reconnect] All players back in ${matchId}, remaining PAUSED until manual resume`,
-//       );
+      gameState.resumeAt = Date.now() + reconnectResumeDelay;
+      gameState.reconnectResumeTimeout = setTimeout(() => {
+        gameState.reconnectResumeTimeout = null;
+        if (
+          gameState.gameOver ||
+          !gameState.disconnectedPlayers ||
+          gameState.disconnectedPlayers.size > 0
+        ) {
+          return;
+        }
+
+        const pauseDuration = gameState.pausedAt
+          ? Date.now() - gameState.pausedAt
+          : 0;
+        if (pauseDuration > 0 && gameState.timer?.startTime) {
+          gameState.timer.startTime += pauseDuration;
+        }
+        if (pauseDuration > 0 && gameState.activeEffect?.expiresAt) {
+          gameState.activeEffect.expiresAt += pauseDuration;
+        }
+
+        gameState.paused = false;
+        gameState.pausedAt = null;
+        gameState.resumeAt = null;
+        gameState.resumeReady = null;
+
+        const resumePayload = {
+          event: "GAME_RESUMED",
+          payload: { matchId },
+        };
+        safeSend(
+          fastify.onlineUsers.get(Number(gameState.leftPlayer.id)),
+          resumePayload,
+          gameState.leftPlayer.id,
+        );
+        safeSend(
+          fastify.onlineUsers.get(Number(gameState.rightPlayer.id)),
+          resumePayload,
+          gameState.rightPlayer.id,
+        );
+        broadcastState(gameState, fastify);
+      }, reconnectResumeDelay);
     }
 
     // Always notify about the specific player who reconnected (for toasts/UI markers)
@@ -273,8 +312,9 @@ export function createPlayerPresenceHandlers({
             reconnectedPlayer,
             status:
               gameState.disconnectedPlayers.size === 0
-                ? "PAUSED_WAITING_FOR_SPACE"
+                ? "RESUMING_AUTOMATICALLY"
                 : "WAITING_FOR_OTHERS",
+            resumeAt: gameState.resumeAt,
           },
         },
         currentOpponentId,

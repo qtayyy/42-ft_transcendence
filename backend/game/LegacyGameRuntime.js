@@ -1,5 +1,6 @@
 import { activeTournaments } from "./TournamentManager.js";
 import { finalizeMatchResult } from "../services/match-finalization.js";
+import { awardRemoteTournamentChampion } from "../services/tournament-progression.js";
 
 // Game Constants
 const CANVAS_WIDTH = 800;
@@ -641,7 +642,9 @@ class LegacyGameRuntime {
           durationSeconds: (this.gameState.timer?.timeElapsed ?? 0) / 1000,
           mode:
             this.mode === "local"
-              ? "LOCAL"
+              ? this.isAIEnabled
+                ? "AI"
+                : "LOCAL"
               : this.tournamentId
                 ? "REMOTE_TOURNAMENT"
                 : "REMOTE",
@@ -703,6 +706,9 @@ class LegacyGameRuntime {
           },
           "forfeit",
         );
+        if (tournament.isComplete()) {
+          awardRemoteTournamentChampion(tournament).catch(console.error);
+        }
       }
     }
 
@@ -758,6 +764,9 @@ class LegacyGameRuntime {
           },
           result,
         );
+        if (tournament.isComplete()) {
+          awardRemoteTournamentChampion(tournament).catch(console.error);
+        }
       }
     }
 

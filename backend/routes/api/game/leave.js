@@ -5,6 +5,7 @@ import {
 } from "../../../lib/local-play-validation.js";
 import { gameManager } from "../../../game/GameManager.js";
 import { activeTournaments } from "../../../game/TournamentManager.js";
+import { awardRemoteTournamentChampion } from "../../../services/tournament-progression.js";
 
 export default async function (fastify, opts) {
 	fastify.post(
@@ -75,8 +76,11 @@ export default async function (fastify, opts) {
 								p2: isP1 ? 5 : 0
 							};
 
-							tournament.updateMatchResult(matchId, score, 'forfeit'); // 'forfeit' calls updateStandings
-							return reply.send({ success: true, message: "Tournament match forfeited." });
+								tournament.updateMatchResult(matchId, score, 'forfeit'); // 'forfeit' calls updateStandings
+								if (tournament.isComplete()) {
+									await awardRemoteTournamentChampion(tournament);
+								}
+								return reply.send({ success: true, message: "Tournament match forfeited." });
 						}
 					}
 				}

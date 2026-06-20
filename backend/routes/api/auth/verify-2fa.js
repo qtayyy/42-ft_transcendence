@@ -5,6 +5,13 @@ import {
   validateOtp,
 } from "../../../lib/auth-validation.js";
 import { authRateLimit } from "../../../utils/auth-rate-limit.js";
+import {
+  establishSession,
+  findActiveRemoteMatch,
+  getTakeoverConflict,
+  signSessionToken,
+  takeoverRequiredReply,
+} from "../../../services/session-service.js";
 
 const prisma = new PrismaClient();
 
@@ -24,6 +31,9 @@ export default async function (fastify, opts) {
       // Verify temporary JWT to ensure users have passed the initial login stage.
       // The decoded token is then used to get the user ID.
       const decoded = await fastify.jwt.temp.verify(token);
+      if (decoded.purpose !== "2fa") {
+        return reply.code(401).send({ error: "Invalid authentication token" });
+      }
       const userId = decoded.userId;
 
       const user = await prisma.user.findUnique({
@@ -37,10 +47,16 @@ export default async function (fastify, opts) {
       if (!isValid) {
         return reply.code(400).send({ error: "Invalid 2FA code" });
       }
-      const fullToken = fastify.jwt.sign(
-        { userId: user.id },
-        { expiresIn: "1h" },
-      );
+
+      const activeMatch = findActiveRemoteMatch(fastify, user.id);
+      const takeoverConflict = getTakeoverConflict(fastify, user.id);
+      const takeover = request.body?.takeover === true || decoded.takeover === true;
+      if (takeoverConflict && !takeover) {
+        return takeoverRequiredReply(reply, takeoverConflict);
+      }
+
+      const sessionVersion = await establishSession(fastify, prisma, user.id);
+      const fullToken = signSessionToken(fastify, user.id, sessionVersion);
 
       const profile = await prisma.profile.findUnique({
         where: { id: user.id },
@@ -59,6 +75,7 @@ export default async function (fastify, opts) {
         .send({
           message: "Login successful",
           profile: profile,
+          activeMatch: activeMatch || undefined,
         });
     } catch (error) {
       if (replyIfValidationError(error, reply)) return;
