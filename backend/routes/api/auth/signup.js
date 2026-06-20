@@ -7,6 +7,7 @@ import {
   validatePasswordForSet,
 } from "../../../lib/auth-validation.js";
 import { authRateLimit } from "../../../utils/auth-rate-limit.js";
+import { generateUniqueUsername } from "../../../lib/username-generator.js";
 
 const prisma = new PrismaClient();
 
@@ -30,19 +31,11 @@ export default async function (fastify, opts) {
       if (existing)
         return reply.code(400).send({ error: "Email already used" });
 
-      const usernameTaken = await prisma.profile.findFirst({
-        where: { username: fullName },
-      });
-      if (usernameTaken) {
-        return reply.code(400).send({
-          error: "This name is already taken. Please choose another.",
-        });
-      }
-
       // Combine Password with Pepper
       const passwordWithPepper = password + pepper;
       // Hash with Salt Rounds
       const passwordHash = await bcrypt.hash(passwordWithPepper, saltRounds);
+      const username = await generateUniqueUsername(prisma);
       await prisma.user.create({
         data: {
           password: passwordHash,
@@ -51,7 +44,7 @@ export default async function (fastify, opts) {
             create: {
               email: email,
               avatar: "",
-              username: fullName,
+              username,
               fullname: fullName,
               dob: null,
               region: null,

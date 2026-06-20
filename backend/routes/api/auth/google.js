@@ -7,6 +7,7 @@ import {
 	getTakeoverConflict,
 	signSessionToken,
 } from "../../../services/session-service.js";
+import { generateUniqueUsername } from "../../../lib/username-generator.js";
 
 const prisma = new PrismaClient();
 
@@ -53,6 +54,7 @@ export default async function (fastify, opts) {
 				const randomPassword = crypto.randomBytes(32).toString("hex");
 				const passwordWithPepper = randomPassword + pepper;
 				const passwordHash = await bcrypt.hash(passwordWithPepper, saltRounds);
+				const username = await generateUniqueUsername(prisma);
 				
 				// We create the User and Profile in one transaction
 				const newUser = await prisma.user.create({
@@ -61,7 +63,7 @@ export default async function (fastify, opts) {
 						profile: {
 							create: {
 								email: userData.email,
-								username: userData.email.split('@')[0], // Use email prefix as username
+								username,
 								fullname: userData.name || "Google User",
 								avatar: userData.picture || "", // Use Google avatar if available
 								dob: userData.dob || null,
