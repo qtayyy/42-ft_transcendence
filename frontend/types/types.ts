@@ -41,6 +41,7 @@ export interface UserProfile {
 	dob?: string;
 	region?: string;
 	bio?: string;
+	showEmail?: boolean;
 };
 
 export interface AuthContextValue {

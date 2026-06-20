@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircleIcon, Eye, EyeOff, Shield, Lock, Trash2, Settings as SettingsIcon, KeyRound, UserX, Users } from "lucide-react";
+import { AlertCircleIcon, Eye, EyeOff, Shield, Lock, Trash2, Settings as SettingsIcon, KeyRound, UserX, Users, Mail } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import React, { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,8 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [twoFA, setTwoFA] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+  const [savingPrivacy, setSavingPrivacy] = useState(false);
   const [qrImage, setQrImage] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -58,7 +60,7 @@ export default function SettingsPage() {
   const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
   const [loadingBlocked, setLoadingBlocked] = useState(false);
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { t } = useLanguage();
 
   // Countdown timer effect
@@ -89,6 +91,10 @@ export default function SettingsPage() {
     }
     get2FA();
   }, []);
+
+  useEffect(() => {
+    setShowEmail(Boolean(user?.showEmail));
+  }, [user?.showEmail]);
 
   // Fetch blocked users
   useEffect(() => {
@@ -142,6 +148,33 @@ export default function SettingsPage() {
     } catch (error: any) {
       const backendError = error.response.data.error;
       setError(backendError || "Something went wrong. Please try again later.");
+    }
+  };
+
+  /** Persist public email visibility with an optimistic switch and rollback. */
+  const handleEmailVisibility = async (checked: boolean) => {
+    const previous = showEmail;
+    setShowEmail(checked);
+    setSavingPrivacy(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await axios.put("/api/profile/privacy", { showEmail: checked });
+      await refreshUser();
+      setSuccess(
+        checked
+          ? "Your email is now visible on your public profile."
+          : "Your email is now private.",
+      );
+    } catch (error: unknown) {
+      setShowEmail(previous);
+      const backendError = axios.isAxiosError(error)
+        ? error.response?.data?.error
+        : undefined;
+      setError(backendError || "Failed to update email privacy.");
+    } finally {
+      setSavingPrivacy(false);
     }
   };
 
@@ -338,6 +371,39 @@ export default function SettingsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {/* Left Column - Security Settings */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Privacy Card */}
+            <div className="group relative">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>
+              <Card className="relative border-0 bg-card/95 backdrop-blur-sm overflow-hidden transition-all hover:scale-[1.01]">
+                <CardHeader>
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-xl bg-violet-500/10">
+                      <Mail className="h-8 w-8 text-violet-500" />
+                    </div>
+                    <div className="flex-1">
+                      <CardTitle className="text-2xl mb-2">Email privacy</CardTitle>
+                      <CardDescription className="text-base">
+                        Your email is private by default. Enable this only if you want every signed-in player to see it on your profile.
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-4 items-center p-4 bg-muted/30 rounded-lg border border-border/50">
+                    <Switch
+                      id="showEmail"
+                      checked={showEmail}
+                      disabled={savingPrivacy}
+                      onCheckedChange={handleEmailVisibility}
+                    />
+                    <Label htmlFor="showEmail" className="font-medium cursor-pointer">
+                      {showEmail ? "Email visible publicly" : "Email hidden"}
+                    </Label>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* 2FA Card */}
             <div className="group relative">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur opacity-20 group-hover:opacity-75 transition duration-500"></div>

@@ -215,8 +215,10 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold truncate">{user?.username || "User"}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            <p className="font-semibold truncate">{user?.fullname || user?.username || "User"}</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {user?.username ? `@${user.username}` : "Player profile"}
+            </p>
           </div>
         </div>
       </div>

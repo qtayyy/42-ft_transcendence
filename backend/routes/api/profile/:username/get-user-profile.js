@@ -1,4 +1,5 @@
 import { PrismaClient } from "../../../../generated/prisma/index.js";
+import { serializePublicProfile } from "../../../../lib/profile-privacy.js";
 
 const prisma = new PrismaClient();
 
@@ -23,6 +24,7 @@ export default async function (fastify, opts) {
             username: true,
             fullname: true,
             email: true,
+            showEmail: true,
             avatar: true,
             region: true,
             bio: true,
@@ -64,9 +66,10 @@ export default async function (fastify, opts) {
 
         // Remove match data and add calculated stats
         const { matchesAsPlayer1, matchesAsPlayer2, ...profileData } = profile;
+        const publicProfile = serializePublicProfile(profileData);
 
         return reply.code(200).send({
-          ...profileData,
+          ...publicProfile,
           wins,
           losses,
         });

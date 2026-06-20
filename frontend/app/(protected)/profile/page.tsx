@@ -371,7 +371,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="text-center">
                   <h2 className="text-2xl font-bold">{profile.username || "User"}</h2>
-                  <p className="text-muted-foreground">{profile.email}</p>
+                  <p className="text-muted-foreground">@{profile.username}</p>
                 </div>
               </div>
               {/* Form Fields */}
