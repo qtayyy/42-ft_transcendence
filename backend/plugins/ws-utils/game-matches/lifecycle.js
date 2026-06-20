@@ -130,6 +130,11 @@ export function createGameLifecycle({
   async function endGame(gameState) {
     const matchId = gameState.matchId;
 
+    if (gameState.reconnectResumeTimeout) {
+      clearTimeout(gameState.reconnectResumeTimeout);
+      gameState.reconnectResumeTimeout = null;
+    }
+
     // Stop the game loop with enhanced cleanup verification
     const loopHandle = gameLoops.get(matchId);
     if (loopHandle) {

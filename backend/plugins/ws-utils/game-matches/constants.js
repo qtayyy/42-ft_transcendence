@@ -34,3 +34,4 @@ export const POWERUP_SPAWN_INTERVAL = 10000; // Spawn power-up every 10 seconds
 export const POWERUP_EFFECT_DURATION = 5000; // Effects last 5 seconds
 export const POWERUP_SIZE = 20; // Power-up hitbox size
 export const DISCONNECT_GRACE_PERIOD = 30000; // 30 seconds
+export const RECONNECT_RESUME_DELAY = 3000; // 3-second countdown after all players reconnect
