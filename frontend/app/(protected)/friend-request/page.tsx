@@ -10,12 +10,10 @@ import { useLanguage } from "@/context/languageContext";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { Users, UserPlus, MessageCircle, Check, X, Search, UserMinus } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import SearchBar from "@/components/search-bar";
+import SearchBar, { FriendSearchSuggestion } from "@/components/search-bar";
 import {
 	validateFriendRequestUsername,
-	validateFriendSearchQuery,
 } from "@/lib/friends-validation";
 import {
   Dialog,
@@ -47,9 +45,9 @@ export default function FriendRequestsPage() {
     try {
       const res = await axios.get("/api/friends/pending");
       setRequests(res.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to fetch friend requests:", error);
-      if (error.response?.status !== 401) {
+      if (!axios.isAxiosError(error) || error.response?.status !== 401) {
         setRequests([]);
       }
     }
@@ -59,9 +57,9 @@ export default function FriendRequestsPage() {
     try {
       const res = await axios.get("/api/friends");
       setFriends(res.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to fetch friends:", error);
-      if (error.response?.status !== 401) {
+      if (!axios.isAxiosError(error) || error.response?.status !== 401) {
         setFriends([]);
       }
     }
@@ -91,7 +89,7 @@ export default function FriendRequestsPage() {
     try {
       await axios.put(`/api/friends/request/${id}/accept`);
       await Promise.all([fetchRequests(), fetchFriends()]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to accept friend request:", error);
     }
   };
@@ -100,7 +98,7 @@ export default function FriendRequestsPage() {
     try {
       await axios.put(`/api/friends/request/${id}/decline`);
       await fetchRequests();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to decline friend request:", error);
     }
   };
@@ -116,30 +114,15 @@ export default function FriendRequestsPage() {
       setFriends((prev) => prev.filter((f) => f.id !== removeFriendTarget.id));
       setRemoveDialogOpen(false);
       setRemoveFriendTarget(null);
-    } catch (error: any) {
-      const backendError = error.response?.data?.error;
+    } catch (error: unknown) {
+      const backendError = axios.isAxiosError(error) ? error.response?.data?.error : undefined;
       toast.error(backendError || "Failed to remove friend. Please try again.");
     }
   };
 
-  const handleSearchUser = async (query: string) => {
-    const searchResult = validateFriendSearchQuery(query);
-    if (!searchResult.ok) {
-      toast.error(searchResult.error);
-      return;
-    }
-
-    try {
-      setUserFound("");
-      const res = await axios.get(
-        `/api/friends/search?user=${encodeURIComponent(searchResult.value)}`,
-      );
-      setUserFound(res.data);
-      setDialogOpen(true);
-    } catch (error: any) {
-      const backendError = error.response?.data?.error;
-      toast.error(backendError || "Something went wrong. Please try again later.");
-    }
+  const handleSelectUser = (selectedUser: FriendSearchSuggestion) => {
+    setUserFound(selectedUser.username);
+    setDialogOpen(true);
   };
 
   const sendFriendRequest = async () => {
@@ -157,8 +140,8 @@ export default function FriendRequestsPage() {
       toast.success(res.data.message ?? "Friend request sent.");
       // Refresh pending requests to show the new request if accepted immediately
       await fetchRequests();
-    } catch (error: any) {
-      const backendError = error.response?.data?.error;
+    } catch (error: unknown) {
+      const backendError = axios.isAxiosError(error) ? error.response?.data?.error : undefined;
       toast.error(backendError || "Something went wrong. Please try again later.");
     }
   };
@@ -197,7 +180,7 @@ export default function FriendRequestsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pb-6">
-              <SearchBar searchUser={handleSearchUser} />
+              <SearchBar onSelectUser={handleSelectUser} />
             </CardContent>
           </Card>
         </div>
