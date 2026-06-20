@@ -195,3 +195,9 @@ model Achievement {
 
   @@unique([profileId, achievementKey])
 }
+
+model ProfileCreationQuota {
+  ipHash          String @id
+  windowStartedAt BigInt
+  count           Int    @default(0)
+}

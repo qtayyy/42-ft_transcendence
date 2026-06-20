@@ -7,10 +7,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Pass --options via CLI arguments in command to enable these options.
-// trustProxy: true - use X-Forwarded-For from Nginx for rate limiting and logs.
+// Trust exactly one Nginx hop so clients cannot spoof X-Forwarded-For.
 // https: TLS for all Fastify HTTP and WebSocket listeners.
 export const options = {
-  trustProxy: true,
+  trustProxy: 1,
   https: getTlsOptions(),
 };
 

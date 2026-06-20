@@ -8,6 +8,11 @@ import {
 	signSessionToken,
 } from "../../../services/session-service.js";
 import { generateUniqueUsername } from "../../../lib/username-generator.js";
+import {
+	releaseProfileCreationSlot,
+	replyIfProfileCreationLimited,
+	reserveProfileCreationSlot,
+} from "../../../services/profile-creation-quota.js";
 
 const prisma = new PrismaClient();
 
@@ -19,6 +24,7 @@ const prisma = new PrismaClient();
 export default async function (fastify, opts) {
 	// Google calls this route after user sign in
 	fastify.get('/google/callback', async function (request, reply) {
+		let quotaReservation = null;
 		const publicAppUrl =
 			process.env.PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://localhost:8443';
 		
@@ -47,6 +53,7 @@ export default async function (fastify, opts) {
 
 			// 5. If user does NOT exist, we register them automatically
 			if (!profile) {
+				quotaReservation = await reserveProfileCreationSlot(prisma, request.ip);
 				// Generate a random password because they will use Google to login,
 				// but our DB schema requires a password string.
 				const pepper = process.env.SECURITY_PEPPER;
@@ -77,6 +84,7 @@ export default async function (fastify, opts) {
 				});
 				
 				profile = newUser.profile;
+				quotaReservation = null;
 			}
 
 			const user = await prisma.user.findUnique({
@@ -135,6 +143,8 @@ export default async function (fastify, opts) {
 					: `${publicAppUrl}/dashboard`,
 			);
 		} catch (error) {
+			await releaseProfileCreationSlot(prisma, quotaReservation);
+			if (replyIfProfileCreationLimited(error, reply)) return;
 			console.error("Google Auth Error: ", error);
 			return (reply.code(500).send({ error: "Authentication failed" }));
 		}

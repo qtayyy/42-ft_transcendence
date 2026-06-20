@@ -8,6 +8,11 @@ import {
 } from "../../../lib/auth-validation.js";
 import { authRateLimit } from "../../../utils/auth-rate-limit.js";
 import { generateUniqueUsername } from "../../../lib/username-generator.js";
+import {
+  releaseProfileCreationSlot,
+  replyIfProfileCreationLimited,
+  reserveProfileCreationSlot,
+} from "../../../services/profile-creation-quota.js";
 
 const prisma = new PrismaClient();
 
@@ -16,6 +21,7 @@ export default async function (fastify, opts) {
     "/signup",
     { config: { rateLimit: authRateLimit.signup } },
     async (request, reply) => {
+    let quotaReservation = null;
     try {
       const { email: rawEmail, password: rawPassword, fullName: rawFullName } =
         request.body;
@@ -30,6 +36,8 @@ export default async function (fastify, opts) {
       const existing = await prisma.profile.findUnique({ where: { email } });
       if (existing)
         return reply.code(400).send({ error: "Email already used" });
+
+      quotaReservation = await reserveProfileCreationSlot(prisma, request.ip);
 
       // Combine Password with Pepper
       const passwordWithPepper = password + pepper;
@@ -52,6 +60,7 @@ export default async function (fastify, opts) {
           },
         },
       });
+      quotaReservation = null;
 
       return reply
         .code(200)
@@ -59,6 +68,8 @@ export default async function (fastify, opts) {
           message: "User registered",
         });
     } catch (error) {
+      await releaseProfileCreationSlot(prisma, quotaReservation);
+      if (replyIfProfileCreationLimited(error, reply)) return;
       if (replyIfValidationError(error, reply)) return;
       console.error("Error occurred during registration:", error);
       return reply.code(500).send({ error: "Internal server error" });
