@@ -847,6 +847,11 @@ export const SocketProvider = ({ children }) => {
 				clearInterval(interval);
 				if (wsRef.current === websocket) wsRef.current = null;
 
+				if (event.code === 4001) {
+					window.dispatchEvent(new Event("sessionReplaced"));
+					return;
+				}
+
 				// Attempt reconnection with exponential backoff if not closed intentionally
 				if (isMounted && event.code !== 1000 && event.code !== 1005) {
 					setTimeout(() => {

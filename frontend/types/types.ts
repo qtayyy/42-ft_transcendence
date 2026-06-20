@@ -47,8 +47,8 @@ export interface AuthContextValue {
 	user: UserProfile | null;
 	isAuthenticated: boolean;
 	loadingAuth: boolean;
-	login: (email: string, password: string) => Promise<void | undefined>;
-	verify2fa: (otp: string) => Promise<void>;
+	login: (email: string, password: string, takeover?: boolean) => Promise<void | undefined>;
+	verify2fa: (otp: string, takeover?: boolean) => Promise<void>;
 	logout: () => Promise<void>;
 	refreshUser: () => Promise<UserProfile>;
 };
