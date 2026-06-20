@@ -212,6 +212,13 @@ export const SocketProvider = ({ children }) => {
 					try {
 						const msg = JSON.parse(event.data);
 						if (msg.error) {
+							if (msg.event === "CHAT_MESSAGE") {
+								window.dispatchEvent(
+									new CustomEvent("chatMessageError", {
+										detail: { message: msg.error, ...msg.payload },
+									})
+								);
+							}
 							toast.error(msg.error);
 							if (msg.event === "GAME_INVITE_ERROR") {
 								// Ensure the host cannot get stuck on a lobby page:
@@ -256,6 +263,20 @@ export const SocketProvider = ({ children }) => {
 							window.dispatchEvent(
 								new CustomEvent("friendAccepted", { detail: payload })
 							);
+							break;
+
+						case "FRIEND_REMOVED":
+							stableDeps.current.setOnlineFriends((prev) =>
+								prev.filter((friend) => String(friend.id) !== String(payload.friendId))
+							);
+							window.dispatchEvent(
+								new CustomEvent("friendRemoved", { detail: payload })
+							);
+							if (Number(payload.removedById) !== Number(user?.id)) {
+								toast.info(
+									`${payload.removedByUsername || "A player"} removed you as a friend.`
+								);
+							}
 							break;
 
 						case "FRIEND_STATUS":

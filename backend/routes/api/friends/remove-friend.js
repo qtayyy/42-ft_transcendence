@@ -1,4 +1,5 @@
 import { PrismaClient } from "../../../generated/prisma/index.js";
+import { safeSend } from "../../../utils/ws-utils.js";
 
 const prisma = new PrismaClient();
 
@@ -23,6 +24,10 @@ export default async function (fastify, opts) {
               { requesterId: friendId, addresseeId: myId },
             ],
           },
+          include: {
+            requester: { select: { username: true } },
+            addressee: { select: { username: true } },
+          },
         });
 
         if (!friendship) {
@@ -32,6 +37,31 @@ export default async function (fastify, opts) {
         await prisma.friendship.delete({
           where: { id: friendship.id },
         });
+
+        const removerUsername =
+          friendship.requesterId === myId
+            ? friendship.requester.username
+            : friendship.addressee.username;
+
+        // Notify both clients so stale chat screens and friend lists close
+        // immediately instead of waiting for a refresh or a rejected message.
+        for (const recipient of [
+          { userId: myId, friendId },
+          { userId: friendId, friendId: myId },
+        ]) {
+          safeSend(
+            fastify.onlineUsers.get(Number(recipient.userId)),
+            {
+              event: "FRIEND_REMOVED",
+              payload: {
+                friendId: recipient.friendId,
+                removedById: myId,
+                removedByUsername: removerUsername,
+              },
+            },
+            recipient.userId,
+          );
+        }
 
         return reply.code(200).send({ message: "Friend removed successfully" });
       } catch (error) {
