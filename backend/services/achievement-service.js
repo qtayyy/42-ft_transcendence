@@ -73,6 +73,25 @@ function getByKey(key) {
   return ACHIEVEMENTS[key];
 }
 
+/** Award one explicitly verified achievement idempotently. */
+async function awardAchievement(profileId, achievementKey, prismaClient = prisma) {
+  if (!ACHIEVEMENTS[achievementKey]) {
+    throw new Error(`Unknown achievement key: ${achievementKey}`);
+  }
+
+  try {
+    await prismaClient.achievement.create({
+      data: { profileId: Number(profileId), achievementKey },
+    });
+    return true;
+  } catch (error) {
+    if (error?.code === "P2002" || error?.message?.includes("Unique constraint")) {
+      return false;
+    }
+    throw error;
+  }
+}
+
 /**
  * Check and award new achievements for a user
  * @param {number} profileId - User profile ID
@@ -153,4 +172,10 @@ async function checkAndAwardAchievements(profileId, prismaClient = null) {
   }
 }
 
-export { getAll, checkNew, getByKey, checkAndAwardAchievements };
+export {
+  getAll,
+  checkNew,
+  getByKey,
+  awardAchievement,
+  checkAndAwardAchievements,
+};

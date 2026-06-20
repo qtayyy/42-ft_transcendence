@@ -9,6 +9,7 @@ This module encapsulates remote match lifecycle behavior:
 */
 
 import { finalizeMatchResult } from "../../../services/match-finalization.js";
+import { awardRemoteTournamentChampion } from "../../../services/tournament-progression.js";
 import {
   BROADCAST_EVERY_N_TICKS,
   MATCH_DURATION,
@@ -180,16 +181,19 @@ export function createGameLifecycle({
 
     // Save match to database
     try {
-      const { reusedExisting, progressionApplied } = await finalizeMatchResult({
-        externalMatchId: matchId,
-        player1Id: left.id,
-        player2Id: right.id,
-        score1: left.score,
-        score2: right.score,
-        durationSeconds,
-        mode: gameState.tournamentId ? "REMOTE_TOURNAMENT" : "REMOTE",
-        tournamentId: gameState.tournamentId ?? null,
-      });
+      const { reusedExisting, progressionApplied } = await finalizeMatchResult(
+        {
+          externalMatchId: matchId,
+          player1Id: left.id,
+          player2Id: right.id,
+          score1: left.score,
+          score2: right.score,
+          durationSeconds,
+          mode: gameState.tournamentId ? "REMOTE_TOURNAMENT" : "REMOTE",
+          tournamentId: gameState.tournamentId ?? null,
+        },
+        { progressionEligible: gameState.progressionEligible === true },
+      );
 //       console.log(
 //         `Match ${matchId} ${reusedExisting ? "updated" : "saved"}; progression ${progressionApplied ? "applied" : "skipped"}`,
 //       );
@@ -241,6 +245,11 @@ export function createGameLifecycle({
 
           // Check if tournament is complete and clean up the associated room
           if (tournament.isComplete()) {
+            try {
+              await awardRemoteTournamentChampion(tournament);
+            } catch (error) {
+              console.error("Failed to award tournament champion:", error);
+            }
 //             console.log(
 //               `Tournament ${gameState.tournamentId} is complete. Cleaning up room and tournament.`,
 //             );

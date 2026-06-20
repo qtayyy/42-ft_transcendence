@@ -765,6 +765,12 @@ class TournamentManager {
       }));
   }
 
+  /** Return the highest-ranked active player after the tournament completes. */
+  getChampion() {
+    if (!this.isComplete()) return null;
+    return this.getLeaderboard().find((standing) => !standing.isWithdrawn) ?? null;
+  }
+
   /**
    * Check if tournament is complete
    */

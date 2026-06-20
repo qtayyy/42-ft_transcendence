@@ -8,11 +8,6 @@ import {
 
 const prisma = new PrismaClient();
 
-const TOURNAMENT_MATCH_MODES = new Set([
-  "LOCAL_TOURNAMENT",
-  "REMOTE_TOURNAMENT",
-]);
-
 /**
  * Normalize mixed caller mode values so progression logic can make the same
  * decisions regardless of whether the payload came from HTTP routes or the
@@ -60,8 +55,8 @@ function collectMissingAchievementKeys({
     totalDraws: updatedStats.totalDraws,
     level: updatedStats.level,
     totalXP: updatedStats.totalXP,
-    tournamentWins:
-      result === "win" && TOURNAMENT_MATCH_MODES.has(matchMode) ? 1 : 0,
+    // A tournament match win is not the same as winning the tournament.
+    tournamentWins: 0,
   });
 
   return eligibleAchievementKeys.filter(

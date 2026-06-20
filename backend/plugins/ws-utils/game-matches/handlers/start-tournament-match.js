@@ -37,6 +37,7 @@ export function createStartTournamentMatchHandler({
     // Ensure numeric IDs for socket lookup
     const p1Id = Number(player1Id);
     const p2Id = Number(player2Id);
+    const tournament = fastify.activeTournaments?.get(tournamentId);
 
 //     console.log(
 //       `[startTournamentMatch] Attempting to start match ${matchId} (${player1Name} vs ${player2Name})`,
@@ -91,6 +92,7 @@ export function createStartTournamentMatchHandler({
       tournamentId: tournamentId,
       isRemote: true,
       isTournamentMatch: true,
+      progressionEligible: tournament?.progressionEligible === true,
       ball: { posX: CANVAS_WIDTH / 2, posY: CANVAS_HEIGHT / 2, dx: 4, dy: 3 },
       leftPlayer: {
         id: p1Id,
