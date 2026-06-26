@@ -11,10 +11,12 @@ import { ArrowLeft, Zap, Loader2, Users, X } from "lucide-react";
 import { useLanguage } from "@/context/languageContext";
 import { validateRemoteMatchmakingMode } from "@/lib/remote-play-validation";
 
+const MATCHMAKING_RECOVERY_INTERVAL_MS = 2000;
+
 export default function MatchmakingPage() {
 	const router = useRouter();
 	const { user } = useAuth();
-	const { sendSocketMessage, isReady } = useSocket();
+	const { sendSocketMessage, isReady, reconnectSocket } = useSocket();
 	const { gameRoom, setGameRoom, setGameRoomLoaded } = useGame();
 	const { t } = useLanguage();
 	const [searching, setSearching] = useState(true);
@@ -25,7 +27,11 @@ export default function MatchmakingPage() {
 
 	const sendJoinMatchmaking = useCallback(() => {
 		if (isLeavingRef.current) return;
-		if (!user || !isReady) return;
+		if (!user) return;
+		if (!isReady) {
+			reconnectSocket();
+			return;
+		}
 		const mode = validateRemoteMatchmakingMode("single");
 		if (!mode.ok) return;
 		sendSocketMessage({
@@ -36,7 +42,7 @@ export default function MatchmakingPage() {
 				mode: mode.value,
 			},
 		});
-	}, [user, isReady, sendSocketMessage]);
+	}, [user, isReady, reconnectSocket, sendSocketMessage]);
 
 	// Search timer
 	useEffect(() => {
@@ -47,7 +53,17 @@ export default function MatchmakingPage() {
 		return () => clearInterval(timer);
 	}, [searching]);
 
+	// Keep the realtime socket warm while the matchmaking launcher is visible.
+	useEffect(() => {
+		if (!searching || !user || isReady || isLeavingRef.current) return;
 
+		reconnectSocket();
+		const interval = window.setInterval(() => {
+			reconnectSocket();
+		}, 1500);
+
+		return () => window.clearInterval(interval);
+	}, [searching, user, isReady, reconnectSocket]);
 
 	// Join matchmaking queue on mount
 	useEffect(() => {
@@ -67,6 +83,26 @@ export default function MatchmakingPage() {
 			hasSentJoinRef.current = false;
 		}
 	}, [isReady]);
+
+	// Recover room assignment if the original GAME_ROOM/MATCH_FOUND event was missed.
+	useEffect(() => {
+		if (isLeavingRef.current) return;
+		if (!searching || !user || !isReady) return;
+
+		sendSocketMessage({
+			event: "GET_GAME_ROOM",
+			payload: { userId: user.id },
+		});
+
+		const interval = window.setInterval(() => {
+			sendSocketMessage({
+				event: "GET_GAME_ROOM",
+				payload: { userId: user.id },
+			});
+		}, MATCHMAKING_RECOVERY_INTERVAL_MS);
+
+		return () => window.clearInterval(interval);
+	}, [searching, user, isReady, sendSocketMessage]);
 
 	// Handle backend matchmaking errors (e.g. room conflicts)
 	useEffect(() => {
@@ -128,7 +164,7 @@ export default function MatchmakingPage() {
 			if (!isMember) {
 				sendJoinMatchmaking();
 			}
-		}, 5000);
+		}, MATCHMAKING_RECOVERY_INTERVAL_MS);
 
 		return () => clearInterval(retry);
 	}, [searching, user, isReady, gameRoom, sendJoinMatchmaking]);

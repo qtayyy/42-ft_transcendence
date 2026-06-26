@@ -19,6 +19,8 @@ import {
 	validateRemoteTournamentId,
 } from "@/lib/remote-play-validation";
 
+const TOURNAMENT_MATCHMAKING_RECOVERY_INTERVAL_MS = 2000;
+
 interface TournamentRoom {
 	roomId: string;
 	tournamentId: string;
@@ -30,12 +32,13 @@ export default function TournamentMatchmakingPage() {
 	const router = useRouter();
 	const { t } = useLanguage();
 	const { user } = useAuth();
-	const { sendSocketMessage, isReady } = useSocket();
+	const { sendSocketMessage, isReady, reconnectSocket } = useSocket();
 	const { gameRoom, setGameRoom } = useGame();
 	const [searching, setSearching] = useState(true);
 	const [searchTime, setSearchTime] = useState(0);
 	const [tournamentRoom, setTournamentRoom] = useState<TournamentRoom | null>(null);
 	const hasSentJoinRef = useRef(false);
+	const isLeavingRef = useRef(false);
 	const recoveredTournamentRoom = useMemo(() => {
 		if (!user || !gameRoom?.isTournament) return null;
 		if (gameRoom.tournamentStarted) return null;
@@ -54,7 +57,12 @@ export default function TournamentMatchmakingPage() {
 	const activeTournamentRoom = tournamentRoom ?? recoveredTournamentRoom;
 
 	const sendJoinMatchmaking = useCallback(() => {
-		if (!user || !isReady) return;
+		if (isLeavingRef.current) return;
+		if (!user) return;
+		if (!isReady) {
+			reconnectSocket();
+			return;
+		}
 		const mode = validateRemoteMatchmakingMode("tournament");
 		if (!mode.ok) return;
 		sendSocketMessage({
@@ -65,7 +73,7 @@ export default function TournamentMatchmakingPage() {
 				mode: mode.value,
 			},
 		});
-	}, [user, isReady, sendSocketMessage]);
+	}, [user, isReady, reconnectSocket, sendSocketMessage]);
 
 	// Search timer (only while searching)
 	useEffect(() => {
@@ -76,8 +84,21 @@ export default function TournamentMatchmakingPage() {
 		return () => clearInterval(timer);
 	}, [searching, activeTournamentRoom]);
 
+	// Keep the realtime socket warm while the tournament matchmaking launcher is visible.
+	useEffect(() => {
+		if (!searching || activeTournamentRoom || !user || isReady || isLeavingRef.current) return;
+
+		reconnectSocket();
+		const interval = window.setInterval(() => {
+			reconnectSocket();
+		}, 1500);
+
+		return () => window.clearInterval(interval);
+	}, [searching, activeTournamentRoom, user, isReady, reconnectSocket]);
+
 	// Join matchmaking on mount
 	useEffect(() => {
+		if (isLeavingRef.current) return;
 		if (!searching || !user || !isReady) return;
 		const me = Number(user.id);
 		const isTournamentRoom = gameRoom?.isTournament === true;
@@ -93,6 +114,26 @@ export default function TournamentMatchmakingPage() {
 			hasSentJoinRef.current = false;
 		}
 	}, [isReady]);
+
+	// Recover tournament room assignment if the original TOURNAMENT_FOUND event was missed.
+	useEffect(() => {
+		if (isLeavingRef.current) return;
+		if (!searching || activeTournamentRoom || !user || !isReady) return;
+
+		sendSocketMessage({
+			event: "GET_GAME_ROOM",
+			payload: { userId: user.id },
+		});
+
+		const interval = window.setInterval(() => {
+			sendSocketMessage({
+				event: "GET_GAME_ROOM",
+				payload: { userId: user.id },
+			});
+		}, TOURNAMENT_MATCHMAKING_RECOVERY_INTERVAL_MS);
+
+		return () => window.clearInterval(interval);
+	}, [searching, activeTournamentRoom, user, isReady, sendSocketMessage]);
 
 	// Listen for TOURNAMENT_FOUND event
 	useEffect(() => {
@@ -163,6 +204,7 @@ export default function TournamentMatchmakingPage() {
 	}, [sendSocketMessage, user, isReady, activeTournamentRoom]);
 
 	useEffect(() => {
+		if (isLeavingRef.current) return;
 		if (!searching || !user || !isReady || activeTournamentRoom) return;
 
 		const retry = setInterval(() => {
@@ -172,12 +214,13 @@ export default function TournamentMatchmakingPage() {
 			if (!isMember) {
 				sendJoinMatchmaking();
 			}
-		}, 5000);
+		}, TOURNAMENT_MATCHMAKING_RECOVERY_INTERVAL_MS);
 
 		return () => clearInterval(retry);
 	}, [searching, user, isReady, activeTournamentRoom, gameRoom, sendJoinMatchmaking]);
 
 	const handleCancel = () => {
+		isLeavingRef.current = true;
 		setSearching(false);
 		setTournamentRoom(null);
 		setGameRoom(null);
