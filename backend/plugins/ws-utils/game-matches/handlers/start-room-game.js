@@ -21,11 +21,17 @@ import {
   normalizeRemoteRoomId,
   normalizeRemoteUserId,
 } from "../../../../lib/remote-play-validation.js";
+import {
+  initializeRemoteStartCountdown,
+  scheduleRemoteStartCountdown,
+} from "../start-countdown.js";
 
 export function createStartRoomGameHandler({
   fastify,
   safeSend,
   serializeGameState,
+  broadcastState,
+  startGameLoop,
 }) {
   /**
    * Start a game from a remote room
@@ -102,7 +108,7 @@ export function createStartRoomGameHandler({
       leftPlayer: {
         id: player1.id,
         username: player1.username,
-        gamePaused: true,
+        gamePaused: false,
         score: 0,
         paddleX: 0,
         paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
@@ -112,7 +118,7 @@ export function createStartRoomGameHandler({
       rightPlayer: {
         id: player2.id,
         username: player2.username,
-        gamePaused: true,
+        gamePaused: false,
         score: 0,
         paddleX: CANVAS_WIDTH - PADDLE_WIDTH,
         paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
@@ -143,6 +149,7 @@ export function createStartRoomGameHandler({
         matchDuration: MATCH_DURATION,
       },
     };
+    initializeRemoteStartCountdown(initialGameState);
 
     fastify.gameStates.set(matchId, initialGameState);
 
@@ -167,6 +174,13 @@ export function createStartRoomGameHandler({
       },
       player2.id,
     );
+
+    scheduleRemoteStartCountdown({
+      fastify,
+      gameState: initialGameState,
+      broadcastState,
+      startGameLoop,
+    });
 
 //     console.log(
 //       `Remote game started: ${matchId} with ${player1.username} vs ${player2.username}`,

@@ -166,6 +166,7 @@ export interface GameStateValue {
 	activeEffect?: RemoteActiveEffect | null;
 	constant?: RemoteGameConstants;
 	gameStarted?: boolean;
+	startCountdownEndsAt?: number | null;
 	gameOver?: boolean;
 	paused?: boolean;
 	pausedBy?: string;

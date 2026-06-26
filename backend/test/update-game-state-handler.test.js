@@ -73,20 +73,20 @@ function createHarness(gameState = createMatch()) {
   };
 }
 
-test("START marks each player ready and starts the loop only when both are ready", () => {
+test("START input is ignored because remote starts use the server countdown", () => {
   const { broadcasts, gameState, handler, getStartCalls } = createHarness();
 
   handler(gameState.matchId, 1, "START");
-  assert.equal(gameState.leftPlayer.gamePaused, false);
+  assert.equal(gameState.leftPlayer.gamePaused, true);
   assert.equal(gameState.rightPlayer.gamePaused, true);
   assert.equal(gameState.gameStarted, false);
   assert.equal(getStartCalls(), 0);
 
   handler(gameState.matchId, 2, "START");
-  assert.equal(gameState.rightPlayer.gamePaused, false);
-  assert.equal(gameState.gameStarted, true);
-  assert.equal(getStartCalls(), 1);
-  assert.ok(broadcasts.length >= 2);
+  assert.equal(gameState.rightPlayer.gamePaused, true);
+  assert.equal(gameState.gameStarted, false);
+  assert.equal(getStartCalls(), 0);
+  assert.equal(broadcasts.length, 0);
 });
 
 test("movement input applies exactly one paddle step while a match is running", () => {

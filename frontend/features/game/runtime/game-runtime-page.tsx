@@ -187,12 +187,6 @@ export default function GameRuntimePage() {
 	// Determine if this is a remote game (RS-* prefix or RT-* prefix for tournaments)
 	const isRemoteGame = matchId.startsWith("RS-") || matchId.startsWith("RT-");
 
-	// For remote games, check if both players are ready
-	const gameStart =
-		!!gameState &&
-		!gameState.leftPlayer?.gamePaused &&
-		!gameState.rightPlayer?.gamePaused;
-
 	// Track if we've already sent reconnection notification for this session
 	const hasNotifiedReconnection = useRef(false);
 	// Track if component is mounted to prevent false navigation events during re-renders
@@ -528,7 +522,7 @@ export default function GameRuntimePage() {
 		if (!isRemoteGame || !isReady || isSpectator) return;
 
 		const onKeyDown = (e: KeyboardEvent) => {
-			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown", "Enter"];
+			const KEYS = ["w", "W", "s", "S", "ArrowUp", "ArrowDown"];
 			if (!KEYS.includes(e.key)) return;
 
 			// Prevent default scrolling for paddle controls.
@@ -536,35 +530,24 @@ export default function GameRuntimePage() {
 				e.preventDefault();
 			}
 
-			let keyEvent = "START";
 			// Both WASD and Arrow keys send generic UP/DOWN for the current user
 			// The backend determines which paddle to move based on userId
 			const movementDirection = getMovementDirectionForKey(e.key);
-			if (movementDirection) keyEvent = movementDirection;
+			if (!movementDirection) return;
 
-			if (movementDirection && e.repeat) {
+			if (e.repeat) {
 				return;
 			}
 
-			if (movementDirection) {
-				heldMovementKeysRef.current.add(e.key);
-			}
+			heldMovementKeysRef.current.add(e.key);
 
-			if ((keyEvent === "UP" || keyEvent === "DOWN") && heldMovementRef.current === keyEvent) {
-				return;
-			}
-			if (keyEvent === "START" && e.repeat) {
+			if (heldMovementRef.current === movementDirection) {
 				return;
 			}
 
-			if (keyEvent === "UP" || keyEvent === "DOWN") {
-				heldMovementRef.current = keyEvent;
-				pulseRemoteMovement(keyEvent);
-				startRemoteInputPulse();
-				return;
-			}
-
-			sendRemoteMovementEvent(keyEvent);
+			heldMovementRef.current = movementDirection;
+			pulseRemoteMovement(movementDirection);
+			startRemoteInputPulse();
 		};
 
 		const onKeyUp = (e: KeyboardEvent) => {
@@ -947,7 +930,6 @@ export default function GameRuntimePage() {
 					sendSocketMessage={sendSocketMessage}
 					user={user}
 					router={router}
-					gameStart={gameStart}
 					disconnectInfo={disconnectInfo}
 					pauseInfo={pauseInfo}
 					getLatestRemoteRenderGameState={getLatestRemoteRenderGameState}

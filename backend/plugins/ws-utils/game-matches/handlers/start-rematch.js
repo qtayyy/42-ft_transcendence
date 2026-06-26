@@ -16,11 +16,17 @@ import {
   PADDLE_SPEED,
   PADDLE_WIDTH,
 } from "../constants.js";
+import {
+  initializeRemoteStartCountdown,
+  scheduleRemoteStartCountdown,
+} from "../start-countdown.js";
 
 export function createStartRematchHandler({
   fastify,
   safeSend,
   serializeGameState,
+  broadcastState,
+  startGameLoop,
 }) {
   /**
    * Start a rematch with the same players (no room needed)
@@ -67,7 +73,7 @@ export function createStartRematchHandler({
       leftPlayer: {
         id: player1Id,
         username: player1Username,
-        gamePaused: true,
+        gamePaused: false,
         score: 0,
         paddleX: 0,
         paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
@@ -77,7 +83,7 @@ export function createStartRematchHandler({
       rightPlayer: {
         id: player2Id,
         username: player2Username,
-        gamePaused: true,
+        gamePaused: false,
         score: 0,
         paddleX: CANVAS_WIDTH - PADDLE_WIDTH,
         paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
@@ -107,6 +113,7 @@ export function createStartRematchHandler({
         matchDuration: MATCH_DURATION,
       },
     };
+    initializeRemoteStartCountdown(initialGameState);
 
     fastify.gameStates.set(matchId, initialGameState);
 
@@ -129,6 +136,13 @@ export function createStartRematchHandler({
       },
       player2Id,
     );
+
+    scheduleRemoteStartCountdown({
+      fastify,
+      gameState: initialGameState,
+      broadcastState,
+      startGameLoop,
+    });
 
 //     console.log(
 //       `Rematch started: ${matchId} with ${player1Username} vs ${player2Username}`,

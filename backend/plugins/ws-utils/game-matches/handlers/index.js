@@ -37,6 +37,8 @@ export function createGameMatchHandlers({
       fastify,
       safeSend,
       serializeGameState,
+      broadcastState,
+      startGameLoop,
     }),
     updateGameState: createUpdateGameStateHandler({
       fastify,
@@ -56,11 +58,15 @@ export function createGameMatchHandlers({
       fastify,
       safeSend,
       serializeGameState,
+      broadcastState,
+      startGameLoop,
     }),
     startRematch: createStartRematchHandler({
       fastify,
       safeSend,
       serializeGameState,
+      broadcastState,
+      startGameLoop,
     }),
     handleLobbyReady: createHandleLobbyReadyHandler({
       fastify,
@@ -70,6 +76,8 @@ export function createGameMatchHandlers({
       fastify,
       safeSend,
       serializeGameState,
+      broadcastState,
+      startGameLoop,
     }),
     getGameState: createGetGameStateHandler({
       fastify,
