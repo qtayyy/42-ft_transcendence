@@ -33,6 +33,7 @@ export function serializeGameState(gameState) {
     leftDisconnectTimeout, // Timeout handle - not serialisable
     rightDisconnectTimeout, // Timeout handle - not serialisable
     reconnectResumeTimeout, // Timeout handle - not serialisable
+    startCountdownTimeout, // Timeout handle - not serialisable
     ...rest
   } = gameState;
 

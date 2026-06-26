@@ -90,14 +90,6 @@ export function GameControlsTray({
 										</span>
 									</div>
 								</div>
-
-								<div className="h-6 w-px bg-border/50" />
-
-								<div className="flex flex-col items-center px-2">
-									<span className="text-xs font-bold text-foreground">{t.Game["Ready"]}</span>
-									<span className="text-[10px] text-muted-foreground font-mono">{t.Game["ENTER"]}</span>
-								</div>
-
 							</>
 						)}
 					</div>

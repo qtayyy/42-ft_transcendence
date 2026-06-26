@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { GameState } from "@/types/game";
 import type { GameStateValue, UserProfile } from "@/types/types";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,6 @@ import { Eye, ArrowLeft, Loader2 } from "lucide-react";
 import PongGame from "@/components/game/PongGame";
 import { LiveStatusBadge, MatchGameHeader } from "@/components/game/MatchGameHeader";
 import { GameControlsTray } from "@/components/game/GameControlsTray";
-import { ReadyOverlay } from "@/components/game/ReadyOverlay";
 import { PauseOverlay } from "@/components/game/PauseOverlay";
 import { GameOverOverlay } from "@/components/game/GameOverOverlay";
 import type {
@@ -39,7 +39,6 @@ interface RemoteGameRuntimeViewProps {
 	sendSocketMessage: (payload: Record<string, unknown>) => void;
 	user: UserProfile | null;
 	router: RouterLike;
-	gameStart: boolean;
 	disconnectInfo: DisconnectInfo | null;
 	pauseInfo: PauseInfo | null;
 }
@@ -57,23 +56,24 @@ export default function RemoteGameRuntimeView({
 	sendSocketMessage,
 	user,
 	router,
-	gameStart,
 	disconnectInfo,
 	pauseInfo,
 }: RemoteGameRuntimeViewProps) {
 	const { t } = useLanguage();
+	const [countdownNow, setCountdownNow] = useState(() => Date.now());
 	const showWaitingOverlay =
 		!!gameState &&
 		!gameState.gameStarted &&
-		!gameStart &&
 		!gameState.paused &&
 		!gameOverResult;
-	const shouldShowSpectatorWaitingOverlay = showWaitingOverlay && isSpectator;
-	const shouldShowReadyOverlay = showWaitingOverlay && !isSpectator;
-	const mySide = gameState?.me;
-	const currentPlayer =
-		mySide === "LEFT" ? gameState?.leftPlayer : gameState?.rightPlayer;
-	const currentPlayerReady = currentPlayer ? !currentPlayer.gamePaused : false;
+	const countdownEndsAt =
+		typeof gameState?.startCountdownEndsAt === "number"
+			? gameState.startCountdownEndsAt
+			: null;
+	const hasStartCountdown = showWaitingOverlay && !!countdownEndsAt;
+	const startCountdownSeconds = hasStartCountdown
+		? Math.max(0, Math.ceil((countdownEndsAt - countdownNow) / 1000))
+		: 0;
 	const player1Ready =
 		(pauseInfo?.myReadyToResume && gameState?.me === "LEFT") ||
 		(pauseInfo?.opponentReadyToResume && gameState?.me === "RIGHT") ||
@@ -95,6 +95,16 @@ export default function RemoteGameRuntimeView({
 		return gameState.resumeReady?.[currentSide as "LEFT" | "RIGHT"] || false;
 	})();
 	const isPaused = !gameOverResult && !!(gameState?.paused || disconnectInfo || pauseInfo);
+
+	useEffect(() => {
+		if (!hasStartCountdown) return;
+
+		const interval = window.setInterval(() => {
+			setCountdownNow(Date.now());
+		}, 250);
+
+		return () => window.clearInterval(interval);
+	}, [hasStartCountdown, countdownEndsAt]);
 
 	const sendGameEvent = (keyEvent: string) => {
 		if (!gameState) return;
@@ -175,15 +185,25 @@ export default function RemoteGameRuntimeView({
 						}
 					/>
 
-					{shouldShowSpectatorWaitingOverlay && (
+					{showWaitingOverlay && (
 						<div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm p-8">
 							<div className="flex flex-col items-center justify-center space-y-4">
-								<Loader2 className="h-12 w-12 text-primary animate-spin" />
+								{hasStartCountdown ? (
+									<div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-primary/40 bg-black/50 shadow-[0_0_30px_rgba(59,130,246,0.35)]">
+										<span className="text-5xl font-black text-white tabular-nums">
+											{startCountdownSeconds}
+										</span>
+									</div>
+								) : (
+									<Loader2 className="h-12 w-12 text-primary animate-spin" />
+								)}
 								<h3 className="text-2xl font-bold text-white">
 									{t.Game["Match Starting Soon"]}
 								</h3>
 								<p className="text-white/80">
-									{t.Game["Waiting for players to get ready..."]}
+									{hasStartCountdown
+										? t.Game["Get ready. The match starts automatically."]
+										: t.Game["Waiting for players to get ready..."]}
 								</p>
 							</div>
 						</div>
@@ -192,20 +212,6 @@ export default function RemoteGameRuntimeView({
 			</div>
 
 			{!isSpectator && <GameControlsTray mode="remote" />}
-
-			{gameState && shouldShowReadyOverlay && (
-				<ReadyOverlay
-					isOpen
-					mode="remote"
-					player1Ready={!gameState.leftPlayer?.gamePaused}
-					player2Ready={!gameState.rightPlayer?.gamePaused}
-					player1Name={gameState.leftPlayer?.username || "Player 1"}
-					player2Name={gameState.rightPlayer?.username || "Player 2"}
-					currentPlayerReady={currentPlayerReady}
-					onReady={() => sendGameEvent("START")}
-					onStart={() => sendGameEvent("START")}
-				/>
-			)}
 
 			{gameState && (
 				<PauseOverlay

@@ -579,6 +579,8 @@ export const SocketProvider = ({ children }) => {
 											prev.rightPlayer?.paddleHeight !== payload.rightPlayer?.paddleHeight;
 										const ballSizingChanged =
 											prev.constant?.ballSize !== payload.constant?.ballSize;
+										const startCountdownChanged =
+											prev.startCountdownEndsAt !== payload.startCountdownEndsAt;
 
 										if (prev.matchId === payload.matchId &&
 											!ballMovedSignificantly &&
@@ -587,6 +589,7 @@ export const SocketProvider = ({ children }) => {
 											!activeEffectChanged &&
 											!paddleSizingChanged &&
 											!ballSizingChanged &&
+											!startCountdownChanged &&
 											prev.leftPlayer?.score === payload.leftPlayer?.score &&
 											prev.rightPlayer?.score === payload.rightPlayer?.score &&
 											prev.leftPlayer?.gamePaused === payload.leftPlayer?.gamePaused &&

@@ -17,7 +17,6 @@ server-side disconnect/reconnection lifecycle.
 export function createUpdateGameStateHandler({
   fastify,
   broadcastState,
-  startGameLoop,
 }) {
   return (matchId, userId, keyEvent) => {
     const gameState = fastify.gameStates.get(matchId);
@@ -48,12 +47,10 @@ export function createUpdateGameStateHandler({
     const currentPlayer =
       player === "LEFT" ? gameState.leftPlayer : gameState.rightPlayer;
 
-    // ENTER toggles ready state only before play begins.
+    // Match starts are driven by the server countdown. Legacy START packets are
+    // ignored so a modified client cannot skip or shorten the fair-start delay.
     if (keyEvent === "START") {
-      if (!gameState.gameStarted) {
-        currentPlayer.gamePaused = !currentPlayer.gamePaused;
-        broadcastState(gameState, fastify);
-      }
+      return;
     } else {
       const canMovePaddle = gameState.gameStarted && !gameState.paused;
       if (canMovePaddle && (keyEvent === "UP" || keyEvent === "DOWN")) {
@@ -64,14 +61,7 @@ export function createUpdateGameStateHandler({
       currentPlayer.movingExpiresAt = 0;
     }
 
-    const bothPlayersReady =
-      !gameState.leftPlayer.gamePaused && !gameState.rightPlayer.gamePaused;
-    if (bothPlayersReady && !gameState.paused) {
-      if (!gameState.gameStarted) gameState.gameStarted = true;
-      startGameLoop(gameState);
-    }
-
-    if (!bothPlayersReady || gameState.paused) {
+    if (gameState.paused) {
       broadcastState(gameState, fastify);
     }
   };

@@ -15,11 +15,17 @@ import {
   PADDLE_SPEED,
   PADDLE_WIDTH,
 } from "../constants.js";
+import {
+  initializeRemoteStartCountdown,
+  scheduleRemoteStartCountdown,
+} from "../start-countdown.js";
 
 export function createDispatchMatchesHandler({
   fastify,
   safeSend,
   serializeGameState,
+  broadcastState,
+  startGameLoop,
 }) {
   /**
    * For each match in matches, send the event "GAME_MATCH_START to each player"
@@ -42,7 +48,7 @@ export function createDispatchMatchesHandler({
         leftPlayer: {
           id: p1Id, // Always numeric
           username: match.player1.username,
-          gamePaused: true,
+          gamePaused: false,
           score: match.score1,
           paddleX: 0,
           paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
@@ -52,7 +58,7 @@ export function createDispatchMatchesHandler({
         rightPlayer: {
           id: p2Id, // Always numeric
           username: match.player2.username,
-          gamePaused: true,
+          gamePaused: false,
           score: match.score2,
           paddleX: CANVAS_WIDTH - PADDLE_WIDTH,
           paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
@@ -82,6 +88,7 @@ export function createDispatchMatchesHandler({
           matchDuration: MATCH_DURATION,
         },
       };
+      initializeRemoteStartCountdown(initialGameState);
       fastify.gameStates.set(match.id, initialGameState);
 
 //       console.log(
@@ -113,6 +120,13 @@ export function createDispatchMatchesHandler({
         },
         p2Id,
       );
+
+      scheduleRemoteStartCountdown({
+        fastify,
+        gameState: initialGameState,
+        broadcastState,
+        startGameLoop,
+      });
     });
   };
 }

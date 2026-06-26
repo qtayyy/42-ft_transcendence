@@ -16,11 +16,17 @@ import {
   PADDLE_WIDTH,
   WIN_SCORE,
 } from "../constants.js";
+import {
+  initializeRemoteStartCountdown,
+  scheduleRemoteStartCountdown,
+} from "../start-countdown.js";
 
 export function createStartTournamentMatchHandler({
   fastify,
   safeSend,
   serializeGameState,
+  broadcastState,
+  startGameLoop,
 }) {
   /**
    * Start a tournament match between two players
@@ -97,7 +103,7 @@ export function createStartTournamentMatchHandler({
       leftPlayer: {
         id: p1Id,
         username: player1Name,
-        gamePaused: true,
+        gamePaused: false,
         score: 0,
         paddleX: 0,
         paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
@@ -107,7 +113,7 @@ export function createStartTournamentMatchHandler({
       rightPlayer: {
         id: p2Id,
         username: player2Name,
-        gamePaused: true,
+        gamePaused: false,
         score: 0,
         paddleX: CANVAS_WIDTH - PADDLE_WIDTH,
         paddleY: (CANVAS_HEIGHT - PADDLE_HEIGHT) / 2,
@@ -138,6 +144,7 @@ export function createStartTournamentMatchHandler({
         matchDuration: MATCH_DURATION,
       },
     };
+    initializeRemoteStartCountdown(initialGameState);
 
     fastify.gameStates.set(matchId, initialGameState);
 
@@ -160,6 +167,13 @@ export function createStartTournamentMatchHandler({
       },
       p2Id,
     );
+
+    scheduleRemoteStartCountdown({
+      fastify,
+      gameState: initialGameState,
+      broadcastState,
+      startGameLoop,
+    });
 
 //     console.log(
 //       `Tournament match started: ${matchId} (${tournamentId}) - ${player1Name} vs ${player2Name}`,

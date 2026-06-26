@@ -30,6 +30,7 @@ export const SPECTATOR_BROADCAST_EVERY_N_TICKS = Math.max(
 export const BALL_SIZE = 12;
 export const WIN_SCORE = 5;
 export const MATCH_DURATION = 120000; // 2 minutes in milliseconds
+export const REMOTE_START_COUNTDOWN_MS = 5000; // 5-second fair start countdown
 export const POWERUP_SPAWN_INTERVAL = 10000; // Spawn power-up every 10 seconds
 export const POWERUP_EFFECT_DURATION = 5000; // Effects last 5 seconds
 export const POWERUP_SIZE = 20; // Power-up hitbox size

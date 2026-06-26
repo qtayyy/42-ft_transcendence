@@ -135,6 +135,10 @@ export function createGameLifecycle({
       clearTimeout(gameState.reconnectResumeTimeout);
       gameState.reconnectResumeTimeout = null;
     }
+    if (gameState.startCountdownTimeout) {
+      clearTimeout(gameState.startCountdownTimeout);
+      gameState.startCountdownTimeout = null;
+    }
 
     // Stop the game loop with enhanced cleanup verification
     const loopHandle = gameLoops.get(matchId);
