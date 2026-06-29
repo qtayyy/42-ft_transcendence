@@ -1,7 +1,17 @@
 "use client";
 
-import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/languageContext";
+import Link from "next/link";
+
+const NON_AUTHENTICATED_ROUTES = [
+  "/",
+  "/login",
+  "/signup",
+  "/reset-password",
+  "/reset-pwd",
+  "/2fa/verify",
+];
 
 export default function Footer() {
   const { t } = useLanguage();
@@ -11,28 +21,21 @@ export default function Footer() {
   return (
     <footer
       suppressHydrationWarning
-      className="w-full px-4 py-3 text-gray-400 text-xs border-t border-white/10 bg-background"
+      className={cn(
+        "z-40 w-full px-4 py-2 text-gray-100",
+        "fixed inset-x-0 bottom-0 bg-background/60 backdrop-blur"
+      )}
     >
-      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+        <Link href="/privacy-policy" className="hover:text-foreground transition-colors underline-offset-4 hover:underline">
+          Privacy Policy
+        </Link>
+        <span>·</span>
+        <Link href="/terms-of-service" className="hover:text-foreground transition-colors underline-offset-4 hover:underline">
+          Terms of Service
+        </Link>
+        <span>·</span>
         <span>{copyright}</span>
-        <span className="text-gray-600" aria-hidden>
-          |
-        </span>
-        <Link
-          href="/terms-of-service?from=dashboard"
-          className="hover:text-gray-100 transition-colors"
-        >
-          {t.Footer["Terms of Service"]}
-        </Link>
-        <span className="text-gray-600" aria-hidden>
-          |
-        </span>
-        <Link
-          href="/privacy-policy?from=dashboard"
-          className="hover:text-gray-100 transition-colors"
-        >
-          {t.Footer["Privacy Policy"]}
-        </Link>
       </div>
     </footer>
   );
