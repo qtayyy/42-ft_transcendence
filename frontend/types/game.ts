@@ -41,6 +41,8 @@ export interface GameState {
 	};
 	winner: number | null;
 	result?: "win" | "draw" | null;
+	startCountdownEndsAt?: number | null;
+	startCountdownDurationMs?: number | null;
 	powerUps: PowerUp[];
 	activeEffect: { type: PowerUpType; expiresAt: number } | null;
 }

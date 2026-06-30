@@ -71,8 +71,15 @@ export default function RemoteGameRuntimeView({
 			? gameState.startCountdownEndsAt
 			: null;
 	const hasStartCountdown = showWaitingOverlay && !!countdownEndsAt;
+	const startCountdownMaxSeconds =
+		typeof gameState?.startCountdownDurationMs === "number"
+			? Math.ceil(gameState.startCountdownDurationMs / 1000)
+			: Infinity;
 	const startCountdownSeconds = hasStartCountdown
-		? Math.max(0, Math.ceil((countdownEndsAt - countdownNow) / 1000))
+		? Math.min(
+				startCountdownMaxSeconds,
+				Math.max(0, Math.ceil((countdownEndsAt - countdownNow) / 1000))
+			)
 		: 0;
 	const player1Ready =
 		(pauseInfo?.myReadyToResume && gameState?.me === "LEFT") ||

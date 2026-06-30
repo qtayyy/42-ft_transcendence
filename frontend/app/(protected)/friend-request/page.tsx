@@ -37,6 +37,7 @@ export default function FriendRequestsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [removeFriendTarget, setRemoveFriendTarget] = useState<Friend | null>(null);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [acceptingRequestIds, setAcceptingRequestIds] = useState<Set<number>>(new Set());
   const { t } = useLanguage();
   const { user, loadingAuth } = useAuth();
   const router = useRouter();
@@ -97,14 +98,26 @@ export default function FriendRequestsPage() {
   }, []);
 
   const accept = async (id: number) => {
+    if (acceptingRequestIds.has(id)) return;
+    setAcceptingRequestIds((prev) => new Set(prev).add(id));
+
     try {
-      await axios.put(`/api/friends/request/${id}/accept`);
+      const res = await axios.put(`/api/friends/request/${id}/accept`);
+      toast.success(res.data?.message ?? "Friend request accepted.");
       // The accepter does not receive the server's FRIEND_ACCEPTED websocket
       // notification, so publish the same browser event locally. This refreshes
       // this page, useFriends consumers, the sidebar, and online-friend state.
       window.dispatchEvent(new CustomEvent("friendAccepted"));
     } catch (error: unknown) {
       console.error("Failed to accept friend request:", error);
+      const backendError = axios.isAxiosError(error) ? error.response?.data?.error : undefined;
+      toast.error(backendError || "Failed to accept friend request. Please try again.");
+    } finally {
+      setAcceptingRequestIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -245,6 +258,7 @@ export default function FriendRequestsPage() {
                             size="sm" 
                             variant="default"
                             onClick={() => accept(req.id)}
+                            disabled={acceptingRequestIds.has(req.id)}
                             className="gap-1"
                           >
                             <Check className="h-4 w-4" />

@@ -139,6 +139,7 @@ export function createGameLifecycle({
       clearTimeout(gameState.startCountdownTimeout);
       gameState.startCountdownTimeout = null;
     }
+    gameState.startCountdownDurationMs = null;
 
     // Stop the game loop with enhanced cleanup verification
     const loopHandle = gameLoops.get(matchId);

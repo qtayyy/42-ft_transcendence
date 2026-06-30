@@ -26,6 +26,7 @@ test("remote start countdown marks both players ready and starts once", async ()
   let broadcastCalls = 0;
 
   initializeRemoteStartCountdown(gameState, 0);
+  assert.equal(gameState.startCountdownDurationMs, 0);
   scheduleRemoteStartCountdown({
     fastify,
     gameState,
@@ -44,6 +45,7 @@ test("remote start countdown marks both players ready and starts once", async ()
   assert.equal(gameState.rightPlayer.gamePaused, false);
   assert.equal(gameState.gameStarted, true);
   assert.equal(gameState.startCountdownEndsAt, null);
+  assert.equal(gameState.startCountdownDurationMs, null);
   assert.equal(startCalls, 1);
   assert.equal(broadcastCalls, 1);
 });

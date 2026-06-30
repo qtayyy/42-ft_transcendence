@@ -14,6 +14,7 @@ const TICK_MS = 1000 / FPS;
 const BROADCAST_FPS = 60;
 const BROADCAST_EVERY_N_TICKS = Math.max(1, Math.round(FPS / BROADCAST_FPS));
 const WIN_SCORE = 5;
+const LOCAL_START_COUNTDOWN_MS = 5000;
 
 // Timer-Based Match System (2-minute matches)
 const MATCH_DURATION_MS = 120000; // 2 minutes in milliseconds
@@ -96,6 +97,7 @@ class LegacyGameRuntime {
     // Game loop control
     this.running = false;
     this.loopHandle = null;
+    this.startCountdownTimeout = null;
 
     // Timer-based match tracking
     this.startTime = null; // When the game started
@@ -152,9 +154,46 @@ class LegacyGameRuntime {
       },
       winner: null,
       result: null,
+      startCountdownEndsAt: null,
+      startCountdownDurationMs: null,
       powerUps: [], // Array of { id, x, y, type }
       activeEffect: null, // { type, expiresAt }
     };
+  }
+
+  /**
+   * Starts the local pre-match countdown and broadcasts the timestamp so the
+   * browser can render the same countdown UI used by remote matches.
+   */
+  requestStartCountdown(countdownMs = LOCAL_START_COUNTDOWN_MS) {
+    if (this.running || this.gameState.status !== "waiting") return;
+    if (this.startCountdownTimeout) {
+      this._broadcastState();
+      return;
+    }
+
+    this.gameState.startCountdownEndsAt = Date.now() + countdownMs;
+    this.gameState.startCountdownDurationMs = countdownMs;
+    this._broadcastState();
+
+    this.startCountdownTimeout = setTimeout(() => {
+      this.startCountdownTimeout = null;
+      if (this.running || this.gameState.status !== "waiting") return;
+      this.startGameLoop();
+    }, Math.max(0, countdownMs));
+  }
+
+  /**
+   * Cancels a pending local start countdown. This prevents a match from
+   * starting unattended if the host refreshes or leaves during the countdown.
+   */
+  cancelStartCountdown() {
+    if (!this.startCountdownTimeout) return;
+    clearTimeout(this.startCountdownTimeout);
+    this.startCountdownTimeout = null;
+    this.gameState.startCountdownEndsAt = null;
+    this.gameState.startCountdownDurationMs = null;
+    this._broadcastState();
   }
 
   // Called when a Websocket Connects
@@ -239,6 +278,10 @@ class LegacyGameRuntime {
   // Main game loop function
   startGameLoop() {
     if (this.running) return;
+    if (this.startCountdownTimeout) {
+      clearTimeout(this.startCountdownTimeout);
+      this.startCountdownTimeout = null;
+    }
     this.running = true;
 
     // If part of a tournament, mark match as in-progress
@@ -249,7 +292,9 @@ class LegacyGameRuntime {
       }
     }
 
-//     console.log(`Starting Game Loop for Match ${this.matchId}`);
+    //     console.log(`Starting Game Loop for Match ${this.matchId}`);
+    this.gameState.startCountdownEndsAt = null;
+    this.gameState.startCountdownDurationMs = null;
     this.gameState.status = "playing";
 
     // Initialize timer (only on first start, not on resume)
@@ -674,6 +719,8 @@ class LegacyGameRuntime {
   }
 
   forfeit(loserId) {
+    this.cancelStartCountdown();
+
     if (this.running) {
       this.running = false;
       if (this.loopHandle) {
@@ -731,6 +778,7 @@ class LegacyGameRuntime {
   _stopGame() {
     if (this.running === false) return;
     this.running = false;
+    this.cancelStartCountdown();
     if (this.loopHandle) {
       clearInterval(this.loopHandle);
       this.loopHandle = null;

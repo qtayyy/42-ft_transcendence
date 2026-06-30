@@ -80,8 +80,12 @@ export default async function (fastify, opts) {
 					if (message.type === "START") {
 // 						console.log(`[GAME WS] 🎯 START command received! Role: ${role}, Expected: 'host'`);
 						if (role == 'host') {
-// 							console.log("[GAME WS] ✅ Role matches! Starting game loop...");
-							game.startGameLoop();
+// 							console.log("[GAME WS] ✅ Role matches! Starting local countdown...");
+							if (game.mode === 'local') {
+								game.requestStartCountdown();
+							} else {
+								game.startGameLoop();
+							}
 						} else {
 							console.error(`[GAME WS] ❌ Role mismatch! Cannot start. Role: '${role}' (type: ${typeof role})`);
 						}
@@ -111,6 +115,9 @@ export default async function (fastify, opts) {
 						if (game.running && game.gameState.status === "playing") {
 // 							console.log(`[GAME WS] Pausing local game ${matchId} on host disconnect`);
 							game.pause();
+						}
+						if (game.gameState.status === "waiting") {
+							game.cancelStartCountdown();
 						}
 // 						console.log(`[GAME WS] Clearing local host slot for reconnection`);
 						game.players.p1.socket = null;
