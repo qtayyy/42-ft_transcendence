@@ -83,6 +83,7 @@ export default function PongGame({
 	} = usePongGame({ matchId, mode, wsUrl, externalGameState, onGameOver, isAIEnabled });
 	const { t } = useLanguage();
 	const { setGameplayMusicActive } = useMusic();
+	const [countdownNow, setCountdownNow] = useState(() => Date.now());
 	const guardPauseSentRef = useRef(false);
 	const previousSnapshotRef = useRef<GameState | null>(null);
 	const latestSnapshotRef = useRef<GameState | null>(null);
@@ -287,6 +288,31 @@ export default function PongGame({
 				rightPlayer: { username: player2Name, score: gameState.score.p2 },
 			}
 			: null;
+	const countdownEndsAt =
+		typeof gameState?.startCountdownEndsAt === "number"
+			? gameState.startCountdownEndsAt
+			: null;
+	const hasStartCountdown = gameState?.status === "waiting" && !!countdownEndsAt;
+	const startCountdownMaxSeconds =
+		typeof gameState?.startCountdownDurationMs === "number"
+			? Math.ceil(gameState.startCountdownDurationMs / 1000)
+			: Infinity;
+	const startCountdownSeconds = hasStartCountdown
+		? Math.min(
+				startCountdownMaxSeconds,
+				Math.max(0, Math.ceil((countdownEndsAt - countdownNow) / 1000))
+			)
+		: 0;
+
+	useEffect(() => {
+		if (!hasStartCountdown) return;
+
+		const interval = window.setInterval(() => {
+			setCountdownNow(Date.now());
+		}, 250);
+
+		return () => window.clearInterval(interval);
+	}, [hasStartCountdown, countdownEndsAt]);
 
 	const handleStart = () => {
 		if (onStart) {
@@ -483,8 +509,26 @@ export default function PongGame({
 			{/* Main Game Area (Flexible) */}
 			<div ref={containerRef} className="flex-1 w-full relative flex items-center justify-center p-4 overflow-hidden z-0">
 
-				{/* Waiting Overlay */}
-				{showBuiltInOverlays && gameState?.status === "waiting" && (
+				{/* Waiting / start countdown overlay */}
+				{showBuiltInOverlays && hasStartCountdown && (
+					<div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm p-8">
+						<div className="flex flex-col items-center justify-center space-y-4 text-center">
+							<div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-primary/40 bg-black/50 shadow-[0_0_30px_rgba(59,130,246,0.35)]">
+								<span className="text-5xl font-black text-white tabular-nums">
+									{startCountdownSeconds}
+								</span>
+							</div>
+							<h3 className="text-2xl font-bold text-white">
+								{t.Game["Match Starting Soon"]}
+							</h3>
+							<p className="text-white/80">
+								{t.Game["Get ready. The match starts automatically."]}
+							</p>
+						</div>
+					</div>
+				)}
+
+				{showBuiltInOverlays && gameState?.status === "waiting" && !hasStartCountdown && (
 					<div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
 						<Card className="border-yellow-500/50 bg-yellow-500/10 animate-pulse">
 							<div className="px-6 py-4 text-yellow-500 font-bold text-lg flex items-center gap-2">
@@ -531,7 +575,7 @@ export default function PongGame({
 			{/* Ready Overlay */}
 			{showBuiltInOverlays && (
 				<ReadyOverlay
-					isOpen={gameState?.status === "waiting"}
+					isOpen={gameState?.status === "waiting" && !hasStartCountdown}
 					mode={mode}
 					player1Ready={true} // TODO: Get from game state for remote matches
 					player2Ready={true} // TODO: Get from game state for remote matches

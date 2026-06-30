@@ -39,3 +39,29 @@ test("local tournament host can reconnect to a paused runtime and resume", () =>
   game.pause();
   assert.equal(game.running, false);
 });
+
+test("local runtime waits for start countdown before playing", async () => {
+  const game = new LegacyGameRuntime("local-countdown-demo", "local");
+  const socket = createSocket();
+
+  assert.equal(game.join(socket, 42), "host");
+
+  game.requestStartCountdown(0);
+  assert.equal(game.running, false);
+  assert.equal(game.gameState.status, "waiting");
+  assert.equal(typeof game.gameState.startCountdownEndsAt, "number");
+  assert.equal(game.gameState.startCountdownDurationMs, 0);
+  assert.equal(socket.sentMessages.at(-1).status, "waiting");
+  assert.equal(typeof socket.sentMessages.at(-1).startCountdownEndsAt, "number");
+  assert.equal(socket.sentMessages.at(-1).startCountdownDurationMs, 0);
+
+  await new Promise((resolve) => setTimeout(resolve, 5));
+
+  assert.equal(game.running, true);
+  assert.equal(game.gameState.status, "playing");
+  assert.equal(game.gameState.startCountdownEndsAt, null);
+  assert.equal(game.gameState.startCountdownDurationMs, null);
+
+  game.pause();
+  assert.equal(game.running, false);
+});
