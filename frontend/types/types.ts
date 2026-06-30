@@ -167,6 +167,7 @@ export interface GameStateValue {
 	constant?: RemoteGameConstants;
 	gameStarted?: boolean;
 	startCountdownEndsAt?: number | null;
+	startCountdownDurationMs?: number | null;
 	gameOver?: boolean;
 	paused?: boolean;
 	pausedBy?: string;

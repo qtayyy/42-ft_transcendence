@@ -11,6 +11,7 @@ export function initializeRemoteStartCountdown(
   const startsAt = Date.now() + countdownMs;
 
   gameState.startCountdownEndsAt = startsAt;
+  gameState.startCountdownDurationMs = countdownMs;
   gameState.leftPlayer.gamePaused = false;
   gameState.rightPlayer.gamePaused = false;
 
@@ -53,6 +54,7 @@ export function scheduleRemoteStartCountdown({
     }
 
     gameState.startCountdownEndsAt = null;
+    gameState.startCountdownDurationMs = null;
     gameState.leftPlayer.gamePaused = false;
     gameState.rightPlayer.gamePaused = false;
     gameState.gameStarted = true;
